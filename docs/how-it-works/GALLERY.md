@@ -208,6 +208,27 @@ and entity blocks / carousel entity items can render items through a
 template (`{{gallery_item.media.url}}`). Virtual filters: `type`, `tag`, `sort`, `collection` (id or `root`).
 `{{gallery(collection='<id>')}}` (or `'root'`) maps to `GalleryQuery.collectionId`.
 
+### Template variables (`{{gallery_item.<property>}}`)
+
+The same properties come back from `{{gallery('<id>')}}`, `{{ for gallery(…) as g }}` and a slot of type `gallery_item`.
+
+| Variable | Value |
+|---|---|
+| `title`, `caption` | Display text (the item's own, else the media's) |
+| `url` | The item's page (`<baseUrl>/<id>`) |
+| `mediaType` | `image` or `video` (same as `media.type`; empty when the media was deleted) |
+| `media.url`, `media.thumbnailUrl` | The file / its thumbnail (a video's poster) |
+| `media.type`, `media.mimeType` | `image` / `video`, the MIME type |
+| `media.width`, `media.height`, `media.durationMs` | Size in px, video length |
+| `media.title`, `media.caption`, `media.alt`, `media.credits` | The media library's own text |
+| `mediaId`, `collectionId` | Ids (`collectionId` empty at the gallery root) |
+| `tags` | Array of tags |
+| `commentCount`, `sortOrder` | Numbers |
+| `publishedAt`, `createdAt` | Dates (use `formatDate(...)`) |
+| `hiddenInGallery` | true when hidden from the gallery pages |
+
+Example: `{{ if gallery_item.mediaType == 'video' }}▶ {{ endif }}{{gallery_item.title}}`.
+
 ## `{{gallery(...)}}`
 
 One mapping for every runtime: `galleryCallFor` + `galleryDisplayFrom` in

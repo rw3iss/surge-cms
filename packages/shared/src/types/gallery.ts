@@ -201,6 +201,8 @@ export interface GalleryItem {
     mediaId: string | null;
     /** null = the media was deleted: hidden from the public. */
     media: GalleryMedia | null;
+    /** `media.type` lifted to the top (`image` | `video`; null when the media is gone) — `{{gallery_item.mediaType}}`. */
+    mediaType: GalleryMediaType | null;
     /** Display title / caption: the item's own, else the media's. */
     title: string;
     caption: string;

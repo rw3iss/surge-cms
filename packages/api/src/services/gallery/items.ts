@@ -91,6 +91,7 @@ export function mapRow(r: Row, baseUrl: string,): GalleryItem {
         access: ruleFromRow(r,),
         mediaId: r.media_id,
         media,
+        mediaType: media?.type ?? null,
         title: r.title?.trim() || r.m_title?.trim() || nameOf(r.m_name,),
         caption: r.caption?.trim() || r.m_caption?.trim() || '',
         titleOverride: r.title,

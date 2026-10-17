@@ -1231,7 +1231,8 @@ await cms.gallery.updateSettings({ baseUrl: '/photos', access: 'members', allowV
                 },
                 {
                     p: 'gallery_item is also a read-only entity type, so entity blocks and carousel entity items can render gallery '
-                        + 'items through a content-block template ({{gallery_item.media.url}}), queried by type, tag and sort.',
+                        + 'items through a content-block template ({{gallery_item.media.url}}), queried by type, tag and sort. '
+                        + 'Properties: title, caption, url, mediaType (image | video), media.{url, thumbnailUrl, type, mimeType, width, height, durationMs, title, caption, alt, credits}, mediaId, collectionId, tags, commentCount, sortOrder, publishedAt, createdAt, hiddenInGallery.',
                 },
             ],
         },

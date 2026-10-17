@@ -6,7 +6,7 @@ import {
 } from './galleryDraft';
 
 const item = (id: string, o: Partial<GalleryItem> = {},): GalleryItem => ({
-    id, collectionId: null, access: { enabled: false, roles: [], tierIds: [], }, mediaId: `m-${id}`, media: null, title: id, caption: '', titleOverride: null, captionOverride: null, tags: [], sortOrder: 0,
+    id, collectionId: null, access: { enabled: false, roles: [], tierIds: [], }, mediaId: `m-${id}`, media: null, mediaType: null, title: id, caption: '', titleOverride: null, captionOverride: null, tags: [], sortOrder: 0,
     visibility: 'inherit', minTierId: null, comments: 'inherit', anonymousComments: 'inherit', url: `/gallery/${id}`, hiddenInGallery: false,
     commentCount: 0, publishedAt: '', createdAt: '', updatedAt: '', ...o,
 });

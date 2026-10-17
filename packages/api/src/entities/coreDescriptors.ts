@@ -230,7 +230,7 @@ function discussionDescriptor(kind: 'comment' | 'forum_thread',): EntityTypeDef 
  * gallery provider (services/gallery/entity.ts). Lets the Gallery block and
  * entity blocks pick items / build a query with the shared selection modal.
  * Query knobs: virtual filters `type`, `tag`, `sort`. Records are GalleryItem
- * objects: `{{gallery_item.media.url}}`, `.title`, `.caption`, `.url`.
+ * objects: `{{gallery_item.media.url}}`, `.title`, `.caption`, `.url`, `.mediaType`, `.publishedAt`.
  */
 function galleryItemDescriptor(): EntityTypeDef {
     const kind = 'gallery_item';
@@ -242,10 +242,16 @@ function galleryItemDescriptor(): EntityTypeDef {
         routing: { detailEnabled: false, detailPrefix: '', indexEnabled: false, indexPrefix: '', },
         caching: { indexEnabled: false, indexTtlSeconds: 60, recordEnabled: false, recordTtlSeconds: 60, },
         adminListRoute: '/admin/gallery', adminEditRoute: '',
+        // Every property of a GalleryItem record a template can read. `media` is an
+        // object: .url, .thumbnailUrl, .type, .mimeType, .width, .height,
+        // .durationMs, .title, .caption, .alt, .credits.
         fields: [
             df(kind, 'title', 'text', 'Title', 0,), df(kind, 'caption', 'longtext', 'Caption', 1,), df(kind, 'url', 'text', 'Page URL', 2,),
-            df(kind, 'tags', 'json', 'Tags', 3,), df(kind, 'media', 'json', 'Media', 4,), df(kind, 'commentCount', 'integer', 'Comments', 5,),
-            df(kind, 'createdAt', 'datetime', 'Added', 6,),
+            df(kind, 'mediaType', 'text', 'Media type (image | video)', 3,), df(kind, 'media', 'json', 'Media', 4,),
+            df(kind, 'mediaId', 'text', 'Media id', 5,), df(kind, 'tags', 'json', 'Tags', 6,),
+            df(kind, 'collectionId', 'text', 'Collection id', 7,), df(kind, 'commentCount', 'integer', 'Comments', 8,),
+            df(kind, 'publishedAt', 'datetime', 'Published', 9,), df(kind, 'createdAt', 'datetime', 'Added', 10,),
+            df(kind, 'sortOrder', 'integer', 'Order', 11,), df(kind, 'hiddenInGallery', 'boolean', 'Hidden from gallery pages', 12,),
         ],
         createdAt: '', updatedAt: '',
     };

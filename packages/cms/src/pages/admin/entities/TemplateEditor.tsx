@@ -333,6 +333,12 @@ const TemplateEditor: Component = () => {
             });
     };
 
+    /** Keys of a plain-object value on the sample record (`media` → url, type, …). */
+    const objectKeys = (key: string,): string[] => {
+        const v = (sampleRecords.latest?.[0] as Record<string, unknown> | undefined)?.[key];
+        return v && typeof v === 'object' && !Array.isArray(v,) ? Object.keys(v as object,) : [];
+    };
+
     // One-line description of the current sample source (auto vs custom).
     const sampleNote = (): string => {
         const n = sampleRecordIds().length;
@@ -553,7 +559,17 @@ const TemplateEditor: Component = () => {
                                 <For each={entityDef()!.fields}>
                                     {(f,) => (
                                         <tr>
-                                            <td><code>{`{{${singularVar()}.${f.key}}}`}</code></td>
+                                            <td>
+                                                <code>{`{{${singularVar()}.${f.key}}}`}</code>
+                                                {/* An object field (e.g. a gallery item's `media`): list its
+                                                    keys from the sample record so `.media.url` etc. are discoverable. */}
+                                                <Show when={objectKeys(f.key,).length > 0}>
+                                                    <div class="form-help-muted" style={{ 'font-size': '11px', 'margin-top': '2px', }}>
+                                                        e.g. <code>{`{{${singularVar()}.${f.key}.${preferredSub(objectKeys(f.key,),)}}}`}</code>
+                                                        {' · fields: '}{objectKeys(f.key,).join(', ',)}
+                                                    </div>
+                                                </Show>
+                                            </td>
                                             <td>{f.type}{f.core ? ' (core)' : ''}</td>
                                         </tr>
                                     )}
