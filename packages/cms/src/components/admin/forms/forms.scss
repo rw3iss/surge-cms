@@ -212,6 +212,24 @@
   }
 }
 
+// Entity block → "Edit template": a plain small link under the Template
+// dropdown, not a button — it jumps to the template editor, it isn't the
+// panel's primary action. Pulled up from the parent's standard $spacing-md
+// gap to a tight $spacing-xs so it reads as an annotation on the select
+// above it, and `align-self: flex-start` keeps it from stretching full width
+// (the default for a `.block-edit-form` flex child).
+.entity-block-edit__template-link {
+  align-self: flex-start;
+  margin-top: calc(#{$spacing-xs} - #{$spacing-md});
+  font-size: $font-size-sm;
+  color: var(--site-primary, #{$primary-color});
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
 // Entity block → "Slots": one card per template slot (name + type, binding
 // summary, Configure / Clear).
 .entity-block-edit__slot {

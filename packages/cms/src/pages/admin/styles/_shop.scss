@@ -52,6 +52,14 @@
         grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
         gap: $spacing-md;
         margin-bottom: $spacing-lg;
+
+        // Sidebar placement (under the section nav): a single card sized to
+        // the narrow nav column, not the 14rem card-grid minimum it'd
+        // otherwise claim on its own row.
+        &--sidebar {
+            grid-template-columns: 1fr;
+            margin-bottom: 0;
+        }
     }
 
     &__card {
@@ -73,6 +81,16 @@
             grid-template-columns: 1fr;
             gap: $spacing-md;
         }
+    }
+
+    // Wraps the section nav + the recent-sales stat card into one left
+    // column (the grid's first `&__layout` column), stacked with the
+    // standard row gap.
+    &__sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-md;
+        min-width: 0;
     }
 
     &__nav {
@@ -216,6 +234,23 @@
         display: flex;
         gap: $spacing-xs;
         margin-top: $spacing-sm;
+    }
+
+    // `.form-help-muted` sets `display: block; margin-bottom: …`, meant for
+    // text under a form field. Applied directly to a <td> (order items' SKU
+    // column, orders list's Fulfillment column), the `display: block` turns
+    // it into a plain block box — the browser's table "fixup" then wraps it
+    // in an anonymous table-cell to keep the row layout valid, but the
+    // visible border/padding (painted on the <td> itself) sit on that
+    // shrunk-to-content block, not the full row height, so the column's
+    // border lands above the other (genuine table-cell) columns' shared row
+    // bottom. Restore the normal table-cell box and drop the margin so every
+    // column in a row shares the same height and the same border line; only
+    // the muted color/size apply.
+    .admin-table td.form-help-muted {
+        display: table-cell;
+        margin-bottom: 0;
+        vertical-align: middle;
     }
 }
 
@@ -601,12 +636,12 @@
         letter-spacing: 0.2px;
     }
 
-    // Manage panel: give the inline Status / Fulfillment selects a touch more
-    // width so their labels aren't cramped.
+    // Manage panel: Status / Fulfillment sit side by side via the standard
+    // .admin-form-row (gap: $spacing-md between the two fields); Notes stays
+    // its own full-width row below.
     &__manage {
-        .admin-form-field--inline select {
-            min-width: 150px;
-            padding-right: $spacing-lg;
+        .admin-form-row {
+            margin-bottom: $spacing-md;
         }
     }
 
@@ -629,6 +664,15 @@
             margin-top: $spacing-xs;
             margin-right: $spacing-xs;
         }
+    }
+
+    // Actions panel: Resend receipt / Refund side by side with real
+    // separation (was two bare buttons relying on inline whitespace).
+    &__actions {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+        flex-wrap: wrap;
     }
 }
 

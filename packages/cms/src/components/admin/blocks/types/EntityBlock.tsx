@@ -124,7 +124,7 @@ const EntityBlockEdit: Component<{
                 <Show when={cfg().templateId}>
                     <A
                         href={`/admin/entities/${encodeURIComponent(cfg().entityType,)}/templates/${cfg().templateId}`}
-                        class="ui-button ui-button--sm ui-button--secondary entity-block-edit__template-link"
+                        class="entity-block-edit__template-link"
                         target="_blank"
                     >
                         Edit template

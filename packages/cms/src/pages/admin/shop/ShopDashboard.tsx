@@ -174,30 +174,33 @@ const ShopDashboardInner: Component = () => {
 
             <Show when={!isShopifyActive()}>
             <div class="shop-admin__layout">
-                {/* Left: thin nav column — one link per section with its item count. */}
-                <nav class="shop-admin__nav" aria-label="Shop sections">
-                    <For each={navLinks()}>
-                        {(link,) => (
-                            <A href={link.href} end class="shop-admin__nav-link">
-                                <span class="shop-admin__nav-label">{link.label}</span>
-                                <Show when={link.count !== null}>
-                                    <span class="shop-admin__nav-count">{link.count}</span>
-                                </Show>
-                            </A>
-                        )}
-                    </For>
-                </nav>
+                {/* Left: thin nav column — one link per section with its item count,
+                    plus the recent-sales stat card right underneath it. */}
+                <div class="shop-admin__sidebar">
+                    <nav class="shop-admin__nav" aria-label="Shop sections">
+                        <For each={navLinks()}>
+                            {(link,) => (
+                                <A href={link.href} end class="shop-admin__nav-link">
+                                    <span class="shop-admin__nav-label">{link.label}</span>
+                                    <Show when={link.count !== null}>
+                                        <span class="shop-admin__nav-count">{link.count}</span>
+                                    </Show>
+                                </A>
+                            )}
+                        </For>
+                    </nav>
 
-                {/* Right: stats summary, recent orders, and other highlights. */}
-                <div class="shop-admin__main">
-                    <div class="shop-admin__cards">
+                    <div class="shop-admin__cards shop-admin__cards--sidebar">
                         <div class="shop-admin__card stat-card">
                             <span class="stat-card__label">Recent paid sales</span>
                             <span class="stat-card__value">{formatCents(totalSales(),)}</span>
                             <span class="form-help-muted">{paidCount()} of last {orders().length} orders</span>
                         </div>
                     </div>
+                </div>
 
+                {/* Right: recent orders and other highlights. */}
+                <div class="shop-admin__main">
                     {/* Always available, not only when something is pending.
                         Migration 103 backfills every pre-existing product as
                         "already announced" (so enabling auto-send can't blast

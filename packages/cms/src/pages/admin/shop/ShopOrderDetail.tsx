@@ -240,16 +240,18 @@ const ShopOrderDetailInner: Component = () => {
 
                                     <div class="shop-order__panel shop-order__manage">
                                         <h3>Manage</h3>
-                                        <FormField label="Status" inline>
-                                            <select value={status()} onChange={(e,) => setStatus(e.currentTarget.value as ShopOrderStatus,)}>
-                                                <For each={ORDER_STATUSES}>{(s,) => <option value={s}>{s}</option>}</For>
-                                            </select>
-                                        </FormField>
-                                        <FormField label="Fulfillment" inline>
-                                            <select value={fulfillment()} onChange={(e,) => setFulfillment(e.currentTarget.value as ShopFulfillmentStatus,)}>
-                                                <For each={FULFILLMENT_STATUSES}>{(s,) => <option value={s}>{s}</option>}</For>
-                                            </select>
-                                        </FormField>
+                                        <div class="admin-form-row">
+                                            <FormField label="Status">
+                                                <select value={status()} onChange={(e,) => setStatus(e.currentTarget.value as ShopOrderStatus,)}>
+                                                    <For each={ORDER_STATUSES}>{(s,) => <option value={s}>{s}</option>}</For>
+                                                </select>
+                                            </FormField>
+                                            <FormField label="Fulfillment">
+                                                <select value={fulfillment()} onChange={(e,) => setFulfillment(e.currentTarget.value as ShopFulfillmentStatus,)}>
+                                                    <For each={FULFILLMENT_STATUSES}>{(s,) => <option value={s}>{s}</option>}</For>
+                                                </select>
+                                            </FormField>
+                                        </div>
                                         <FormField label="Notes" class="form-field--block">
                                             <textarea rows={3} value={notes()} onInput={(e,) => setNotes(e.currentTarget.value,)} />
                                         </FormField>
@@ -305,10 +307,12 @@ const ShopOrderDetailInner: Component = () => {
 
                                     <div class="shop-order__panel">
                                         <h3>Actions</h3>
-                                        <button class="ui-button ui-button--secondary ui-button--sm" onClick={resendReceipt}>Resend receipt</button>
-                                        <button class="ui-button ui-button--danger ui-button--sm" onClick={refund} disabled={o().status === 'refunded'}>
-                                            Refund
-                                        </button>
+                                        <div class="shop-order__actions">
+                                            <button class="ui-button ui-button--secondary ui-button--sm" onClick={resendReceipt}>Resend receipt</button>
+                                            <button class="ui-button ui-button--danger ui-button--sm" onClick={refund} disabled={o().status === 'refunded'}>
+                                                Refund
+                                            </button>
+                                        </div>
                                     </div>
                                 </aside>
                             </div>
