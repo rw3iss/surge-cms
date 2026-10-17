@@ -24,6 +24,8 @@
  * a fulfilment provider.
  */
 
+import type { ShopProviderOrderReconcileResult, } from '@sitesurge/types';
+
 export type ProviderKey = 'printify' | 'apliiq' | 'printful';
 
 /** A resolved cart line, narrowed to what a supplier needs to fulfil it. */
@@ -95,7 +97,46 @@ export interface ProviderTracking {
     trackingUrl?: string;
 }
 
+/** Our per-supplier fulfilment vocabulary (`shop_order_fulfillments.status`).
+ *  `submitted` / `submitting` / `failed` come from the submit step; the rest
+ *  from tracking (webhook or reconcile). */
+export type FulfilmentRowStatus =
+    | 'pending'
+    | 'on_hold'
+    | 'in_production'
+    | 'partially_shipped'
+    | 'shipped'
+    | 'delivered'
+    | 'cancelled';
+
+/** One parcel. A supplier may split an order into several. */
+export interface ProviderShipment {
+    carrier: string | null;
+    number: string;
+    url: string | null;
+    shippedAt: string | null;
+    deliveredAt: string | null;
+}
+
+/** Full tracking state of one supplier order, as read from the supplier. */
+export interface ProviderFulfilmentState {
+    status: FulfilmentRowStatus;
+    /** The supplier's own status word, kept verbatim. */
+    externalStatus: string;
+    shipments: ProviderShipment[];
+    inProductionAt: string | null;
+    shippedAt: string | null;
+    deliveredAt: string | null;
+}
+
 export type ProviderConfig = Record<string, unknown>;
+
+export interface ReconcileOptions {
+    /** Only supplier orders (and ours) created within this many days. */
+    sinceDays: number;
+    /** Who asked: the dashboard button or the cron (logging only). */
+    trigger: 'manual' | 'cron';
+}
 
 export interface ShopProvider {
     key: ProviderKey;
@@ -133,6 +174,12 @@ export interface ShopProvider {
 
     /** Pull-tracking providers are polled by the shop cron instead. */
     pollStatus?(config: ProviderConfig, externalOrderId: string,): Promise<ProviderTracking>;
+
+    /**
+     * Pull-tracking providers: read the supplier's recent orders and bring ours
+     * in line — link unlinked ones, map status, save every shipment. Idempotent.
+     */
+    reconcileOrders?(config: ProviderConfig, opts: ReconcileOptions,): Promise<ShopProviderOrderReconcileResult>;
 
     /**
      * Pre-flight for an incoming product, before anything is written.

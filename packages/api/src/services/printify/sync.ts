@@ -30,8 +30,8 @@ import {
     findCategoryBySlug,
     setProductTags,
 } from '../../repositories/shop/shopCatalog.repo';
-import { getPrintifyConfig, type PrintifyConfig, } from './config';
-import { confirmPublishingSucceeded, getProduct, listAllProducts, type PrintifyProduct, } from './client';
+import { getPrintifyConfig, getPrintifyOrderConfig, type PrintifyConfig, } from './config';
+import { confirmPublishingSucceeded, getProduct, listAllProducts, printifyOrdersUrl, type PrintifyProduct, } from './client';
 
 const PROVIDER = 'printify';
 
@@ -326,6 +326,8 @@ export interface PrintifyStatus {
      *  send-to-production held — commonly a missing Printify payment method).
      *  The cron auto-retries these, but they warrant operator attention. */
     needsAttentionCount: number;
+    /** The store's orders page in the Printify dashboard. */
+    ordersUrl: string;
 }
 
 /** Status for the admin panel — derived from the ingested rows (no extra store). */
@@ -340,21 +342,32 @@ export async function getStatus(): Promise<PrintifyStatus> {
     );
     const row = r.rows[0] || {};
 
-    // Stranded paid orders: Printify items but never submitted, OR created in
-    // Printify but stuck before production. Mirrors retryPendingPrintifyFulfillment.
+    // Paid orders whose Printify handoff is stuck, read from the per-provider
+    // fulfilment rows (the legacy `shop_orders.printify_order_id` is not written
+    // by the provider path, so keying on it reported every provider-submitted
+    // order as awaiting forever):
+    //   - Printify lines but no Printify order id (never created / submit failed);
+    //   - Printify says on hold (payment not received, has issues);
+    //   - created a day ago and still not in production — or never reconciled.
     const att = await query(
         `SELECT COUNT(*)::int AS n FROM shop_orders o
-             WHERE o.status NOT IN ('cancelled', 'refunded')
+             WHERE o.status IN ('paid', 'processing')
                AND (
-                 (o.printify_order_id IS NULL AND o.status IN ('paid', 'processing')
-                    AND EXISTS (
-                      SELECT 1 FROM shop_order_items oi
-                        JOIN shop_products p ON p.id = oi.product_id
-                       WHERE oi.order_id = o.id AND p.external_provider = $1))
-                 OR (o.printify_order_id IS NOT NULL AND o.printify_status = 'created')
+                 (EXISTS (SELECT 1 FROM shop_order_items oi
+                           WHERE oi.order_id = o.id AND oi.fulfillment_group = $1)
+                  AND NOT EXISTS (SELECT 1 FROM shop_order_fulfillments f
+                                   WHERE f.order_id = o.id AND f.provider = $1
+                                     AND f.external_order_id IS NOT NULL))
+                 OR EXISTS (SELECT 1 FROM shop_order_fulfillments f
+                             WHERE f.order_id = o.id AND f.provider = $1
+                               AND f.external_order_id IS NOT NULL
+                               AND (f.status = 'on_hold'
+                                    OR (f.status IN ('pending', 'submitted')
+                                        AND COALESCE(f.submitted_at, f.created_at) < NOW() - INTERVAL '1 day')))
                )`,
         [PROVIDER,],
     );
+    const orderCfg = await getPrintifyOrderConfig();
 
     return {
         active: cfg !== null,
@@ -364,5 +377,6 @@ export async function getStatus(): Promise<PrintifyStatus> {
         shopId: cfg?.shopId ?? null,
         syncIntervalMinutes: cfg?.syncIntervalMinutes ?? null,
         needsAttentionCount: att.rows[0]?.n ?? 0,
+        ordersUrl: printifyOrdersUrl(orderCfg?.shopId ?? cfg?.shopId,),
     };
 }

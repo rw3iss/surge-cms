@@ -1091,8 +1091,8 @@ export const shopRoutes = [
         method: 'post',
         path: '/printify/sync',
         auth: 'admin',
-        summary: 'Pull the latest products from Printify into the shop (upsert + archive removed).',
-        handler: () => printify.syncProducts(),
+        summary: 'Pull the latest products from Printify into the shop (upsert + archive removed), then reconcile Printify orders (status + tracking).',
+        handler: () => printify.syncProductsAndOrders(),
     },),
 
     defineRoute({

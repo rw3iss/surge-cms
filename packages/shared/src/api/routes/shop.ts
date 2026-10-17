@@ -614,3 +614,58 @@ export interface ShopStripeStatusResponse {
 // Stripe key management moved to the generic, context-aware DTOs in
 // `settings.ts` (PaymentCredentialsResponse / PaymentCredentialsUpdateBody).
 // The Shop panel uses those with context='shop'.
+
+// ─── Supplier order reconcile (Printify) ─────────────────────────────
+
+/** One of our orders touched by a supplier order reconcile. */
+export interface ShopProviderOrderReconcileItem {
+    orderNumber: string;
+    externalOrderId: string;
+    /** Our fulfilment status for this supplier: pending | on_hold |
+     *  in_production | partially_shipped | shipped | delivered | cancelled. */
+    status: string;
+    /** The supplier's own status word (e.g. Printify `fulfilled`). */
+    externalStatus: string;
+    /** The order's status after the roll-up (paid / processing / shipped / delivered …). */
+    orderStatus: string;
+    /** How the supplier order was matched to ours. */
+    matchedBy: 'id' | 'external_id' | 'label';
+    /** True when this run newly linked the supplier order to ours. */
+    linked: boolean;
+    /** True when anything was written for this order. */
+    changed: boolean;
+    trackingNumbers: string[];
+}
+
+/** A buyer email the reconcile WOULD have sent (switch off), or did send. */
+export interface ShopProviderCustomerEmail {
+    orderNumber: string;
+    to: string;
+    /** The order status the email announces (shipped / delivered). */
+    orderStatus: string;
+    subject: string;
+    trackingNumber: string | null;
+}
+
+/** Result of reconciling one supplier's orders with ours. */
+export interface ShopProviderOrderReconcileResult {
+    provider: string;
+    /** Supplier orders examined. */
+    checked: number;
+    /** Supplier orders that are ours. */
+    matched: number;
+    /** Newly linked this run. */
+    linked: number;
+    /** Ours that changed this run. */
+    updated: number;
+    /** Supplier orders that are not ours (manual / sample / another store). */
+    foreign: number;
+    /** Count of CHANGED orders by their new fulfilment status. */
+    statusCounts: Record<string, number>;
+    orders: ShopProviderOrderReconcileItem[];
+    /** Buyer shipping emails held back because sending from the sync is off. */
+    customerEmailsNotSent: ShopProviderCustomerEmail[];
+    customerEmailsSent: number;
+    errors: string[];
+    durationMs: number;
+}

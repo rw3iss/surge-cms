@@ -16,7 +16,7 @@ const PAID_STATUSES = new Set(['paid', 'processing', 'shipped', 'delivered',],);
 
 const ShopDashboardInner: Component = () => {
     // Recent orders (rows for the table) + the true total for the nav count.
-    const [ordersData,] = createSafeResource(
+    const [ordersData, { refetch: refetchOrders, },] = createSafeResource(
         async () => {
             const res = await cms.shop.orders.list({ limit: 10, },);
             return { rows: res.data as ShopOrder[], total: res.meta?.total ?? res.data.length, };
@@ -109,7 +109,7 @@ const ShopDashboardInner: Component = () => {
             </div>
 
             <ShopifyManagedBanner />
-            <PrintifySyncBar />
+            <PrintifySyncBar onSynced={() => void refetchOrders()} />
 
             {/* Shopify-backed lightweight dashboard (read-only) when the plugin is on. */}
             <Show when={isShopifyActive()}>

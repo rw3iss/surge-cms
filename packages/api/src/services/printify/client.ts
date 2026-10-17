@@ -180,3 +180,17 @@ export async function sendToProduction(cfg: PrintifyConfig, printifyOrderId: str
 export async function getOrder(cfg: PrintifyConfig, printifyOrderId: string,): Promise<any> {
     return req(cfg, 'GET', `/shops/${cfg.shopId}/orders/${printifyOrderId}.json`,);
 }
+
+/** One page of the store's orders, newest first. Printify caps `limit` at 10. */
+export async function listOrdersPage(
+    cfg: PrintifyConfig,
+    page: number,
+    limit = 10,
+): Promise<{ data: any[]; current_page?: number; last_page?: number; total?: number; }> {
+    return req(cfg, 'GET', `/shops/${cfg.shopId}/orders.json?limit=${Math.min(limit, 10,)}&page=${page}`,);
+}
+
+/** The store's orders page in the Printify dashboard. */
+export function printifyOrdersUrl(shopId: string | null | undefined,): string {
+    return shopId ? `https://printify.com/app/store/${encodeURIComponent(shopId,)}/orders` : 'https://printify.com/app/stores';
+}

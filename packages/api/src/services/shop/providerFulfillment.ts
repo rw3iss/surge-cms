@@ -15,7 +15,7 @@ import { query, } from '../../db';
 import { logger, } from '../../utils/logger';
 import { getProvider, } from './providers/registry';
 import { getActiveProviderConfig, } from './providers/settings';
-import type { ProviderLine, } from './providers/types';
+import type { ProviderFulfilmentState, ProviderLine, ProviderShipment, } from './providers/types';
 
 export interface SubmitResult {
     submitted: string[];
@@ -147,28 +147,237 @@ async function recordFailure(orderId: string, providerKey: string, message: stri
     ).catch(() => {},);
 }
 
+/** Fulfilment-row statuses that mean "this supplier's parcel has left". */
+const SHIPPED_ROW = new Set(['shipped', 'fulfilled', 'delivered',],);
+
+/** Order statuses the roll-up may move, in their forward order. A roll-up only
+ *  ever moves an order FORWARD; pending / cancelled / refunded are never touched
+ *  (a cancelled supplier order on a paid order needs a human and a refund). */
+const ORDER_RANK: Record<string, number> = { paid: 0, processing: 1, shipped: 2, delivered: 3, };
+
+export interface RollUpRow {
+    status: string;
+    shipments?: Array<{ number: string; carrier: string | null; url: string | null; }> | null;
+    trackingNumbers?: string[] | null;
+    carrier?: string | null;
+    trackingUrl?: string | null;
+}
+
+export interface RollUp {
+    fulfillmentStatus: 'unfulfilled' | 'partial' | 'fulfilled';
+    /** The order status to move to, or null to leave it. */
+    orderStatus: string | null;
+    /** First parcel across the suppliers (rows in creation order). */
+    tracking: { number: string | null; carrier: string | null; url: string | null; };
+}
+
 /**
- * Roll the per-provider records up to the order's own `fulfillment_status`.
+ * Pure roll-up of an order's supplier rows.
  *
- * `partial` is the interesting state and only exists now that an order can have
- * more than one supplier — one parcel shipped and another still printing.
+ * `fulfillment_status`: every supplier shipped → fulfilled, some → partial.
+ * Order `status`: all delivered → delivered, all shipped → shipped, any work
+ * started → processing. An order that ALSO has lines we ship ourselves
+ * (`hasNativeLines`) stops at processing — the suppliers' parcels are not the
+ * whole order.
  */
-export async function refreshOrderFulfillmentStatus(orderId: string,): Promise<void> {
-    const r = await query<{ total: string; shipped: string; }>(
-        `SELECT COUNT(*)::text AS total,
-                COUNT(*) FILTER (WHERE status IN ('shipped', 'fulfilled', 'delivered'))::text AS shipped
-         FROM shop_order_fulfillments WHERE order_id = $1`,
+export function computeRollUp(rows: RollUpRow[], currentOrderStatus: string, hasNativeLines: boolean,): RollUp {
+    const total = rows.length;
+    const shipped = rows.filter((r,) => SHIPPED_ROW.has(r.status,)).length;
+    const partial = rows.filter((r,) => r.status === 'partially_shipped').length;
+    const delivered = rows.filter((r,) => r.status === 'delivered').length;
+    const started = rows.filter((r,) =>
+        SHIPPED_ROW.has(r.status,) || r.status === 'partially_shipped' || r.status === 'in_production'
+    ).length;
+
+    const fulfillmentStatus = total > 0 && shipped === total
+        ? 'fulfilled'
+        : shipped > 0 || partial > 0 ? 'partial' : 'unfulfilled';
+
+    let target: string | null = null;
+    if (total > 0 && delivered === total) target = 'delivered';
+    else if (total > 0 && shipped === total) target = 'shipped';
+    else if (started > 0) target = 'processing';
+    if (target && hasNativeLines && ORDER_RANK[target]! > ORDER_RANK.processing!) target = 'processing';
+
+    const cur = ORDER_RANK[currentOrderStatus];
+    const orderStatus = target && cur !== undefined && ORDER_RANK[target]! > cur ? target : null;
+
+    let tracking: RollUp['tracking'] = { number: null, carrier: null, url: null, };
+    for (const r of rows) {
+        const first = r.shipments?.[0];
+        if (first?.number) {
+            tracking = { number: first.number, carrier: first.carrier ?? null, url: first.url ?? null, };
+            break;
+        }
+        if (r.trackingNumbers?.[0]) {
+            tracking = { number: r.trackingNumbers[0], carrier: r.carrier ?? null, url: r.trackingUrl ?? null, };
+            break;
+        }
+    }
+    return { fulfillmentStatus, orderStatus, tracking, };
+}
+
+/**
+ * Roll the per-provider records up to the order: `fulfillment_status`, a
+ * forward-only `status`, and the order-level tracking columns (the FIRST parcel,
+ * filled only when empty — an admin-typed number is never overwritten), which
+ * existing views and emails read.
+ *
+ * `partial` only exists because an order can have more than one supplier — one
+ * parcel shipped and another still printing (or one supplier part-shipped).
+ */
+export async function refreshOrderFulfillmentStatus(
+    orderId: string,
+): Promise<{ before: string; after: string; } | null> {
+    const o = await query<{ status: string; has_native: boolean; }>(
+        `SELECT o.status,
+                EXISTS (SELECT 1 FROM shop_order_items oi
+                         WHERE oi.order_id = o.id AND oi.fulfillment_group = 'native') AS has_native
+         FROM shop_orders o WHERE o.id = $1`,
         [orderId,],
     );
-    const total = Number(r.rows[0]?.total ?? 0,);
-    const shipped = Number(r.rows[0]?.shipped ?? 0,);
-    if (total === 0) return;
+    const order = o.rows[0];
+    if (!order) return null;
 
-    const status = shipped === 0 ? 'unfulfilled' : shipped < total ? 'partial' : 'fulfilled';
-    await query(
-        `UPDATE shop_orders SET fulfillment_status = $2, updated_at = NOW() WHERE id = $1`,
-        [orderId, status,],
+    const r = await query<{
+        status: string; shipments: RollUpRow['shipments']; tracking_numbers: string[] | null;
+        carrier: string | null; tracking_url: string | null;
+    }>(
+        `SELECT status, shipments, tracking_numbers, carrier, tracking_url
+         FROM shop_order_fulfillments WHERE order_id = $1 ORDER BY created_at, provider`,
+        [orderId,],
     );
+    if (!r.rows.length) return { before: order.status, after: order.status, };
+
+    const roll = computeRollUp(
+        r.rows.map((x,) => ({
+            status: x.status, shipments: x.shipments, trackingNumbers: x.tracking_numbers,
+            carrier: x.carrier, trackingUrl: x.tracking_url,
+        })),
+        order.status,
+        order.has_native,
+    );
+    await query(
+        `UPDATE shop_orders
+         SET fulfillment_status = $2,
+             status = COALESCE($3, status),
+             tracking_number = COALESCE(tracking_number, $4),
+             tracking_url = COALESCE(tracking_url, $5),
+             carrier = COALESCE(carrier, $6)
+         WHERE id = $1
+           AND (fulfillment_status IS DISTINCT FROM $2 OR $3::text IS NOT NULL
+                OR (tracking_number IS NULL AND $4::text IS NOT NULL)
+                OR (tracking_url IS NULL AND $5::text IS NOT NULL)
+                OR (carrier IS NULL AND $6::text IS NOT NULL))`,
+        [orderId, roll.fulfillmentStatus, roll.orderStatus, roll.tracking.number, roll.tracking.url, roll.tracking.carrier,],
+    );
+    return { before: order.status, after: roll.orderStatus ?? order.status, };
+}
+
+/** Stored shape of a fulfilment row, compared field-by-field to decide whether
+ *  a reconcile changed anything. */
+function canonicalState(s: {
+    status: string; externalStatus: string | null; shipments: ProviderShipment[] | null;
+    inProductionAt: string | null; shippedAt: string | null; deliveredAt: string | null;
+},): string {
+    return JSON.stringify([
+        s.status, s.externalStatus ?? null, s.shipments ?? [],
+        s.inProductionAt ?? null, s.shippedAt ?? null, s.deliveredAt ?? null,
+    ],);
+}
+
+const iso = (v: unknown,): string | null => (v ? new Date(v as string,).toISOString() : null);
+
+export interface ApplyStateResult {
+    /** The supplier order id was newly recorded against our order. */
+    linked: boolean;
+    /** Anything about the row changed. */
+    changed: boolean;
+    /** The row is already linked to a DIFFERENT supplier order — nothing written. */
+    conflict?: string;
+    orderStatusBefore: string;
+    orderStatusAfter: string;
+}
+
+/**
+ * Write one supplier order's tracking state onto our fulfilment row (creating /
+ * linking it when needed) and roll the order up. Writes nothing when the state
+ * is unchanged, so running it every 15 minutes is a no-op until the supplier
+ * moves.
+ */
+export async function applyFulfilmentState(
+    orderId: string,
+    providerKey: string,
+    externalOrderId: string,
+    state: ProviderFulfilmentState,
+): Promise<ApplyStateResult> {
+    const cur = await query<{
+        external_order_id: string | null; status: string; external_status: string | null;
+        shipments: ProviderShipment[] | null; in_production_at: Date | null;
+        shipped_at: Date | null; delivered_at: Date | null;
+    }>(
+        `SELECT external_order_id, status, external_status, shipments, in_production_at, shipped_at, delivered_at
+         FROM shop_order_fulfillments WHERE order_id = $1 AND provider = $2`,
+        [orderId, providerKey,],
+    );
+    const row = cur.rows[0];
+    const statusRow = await query<{ status: string; }>(`SELECT status FROM shop_orders WHERE id = $1`, [orderId,],);
+    const orderStatus = statusRow.rows[0]?.status ?? '';
+
+    if (row?.external_order_id && row.external_order_id !== externalOrderId) {
+        return {
+            linked: false, changed: false, orderStatusBefore: orderStatus, orderStatusAfter: orderStatus,
+            conflict: row.external_order_id,
+        };
+    }
+    const linked = !row?.external_order_id;
+    const next = canonicalState(state,);
+    const prev = row
+        ? canonicalState({
+            status: row.status, externalStatus: row.external_status, shipments: row.shipments,
+            inProductionAt: iso(row.in_production_at,), shippedAt: iso(row.shipped_at,), deliveredAt: iso(row.delivered_at,),
+        },)
+        : '';
+    const changed = linked || next !== prev;
+
+    if (changed) {
+        const numbers = [...new Set(state.shipments.map((s,) => s.number,),),];
+        const first = state.shipments[0];
+        await query(
+            `INSERT INTO shop_order_fulfillments
+                 (order_id, provider, external_order_id, status, external_status, shipments,
+                  tracking_numbers, carrier, tracking_url, in_production_at, shipped_at, delivered_at,
+                  submitted_at, last_synced_at)
+             VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+             ON CONFLICT (order_id, provider) DO UPDATE SET
+                 external_order_id = EXCLUDED.external_order_id,
+                 status = EXCLUDED.status,
+                 external_status = EXCLUDED.external_status,
+                 shipments = EXCLUDED.shipments,
+                 tracking_numbers = EXCLUDED.tracking_numbers,
+                 carrier = EXCLUDED.carrier,
+                 tracking_url = EXCLUDED.tracking_url,
+                 in_production_at = EXCLUDED.in_production_at,
+                 shipped_at = EXCLUDED.shipped_at,
+                 delivered_at = EXCLUDED.delivered_at,
+                 submitted_at = COALESCE(shop_order_fulfillments.submitted_at, EXCLUDED.submitted_at),
+                 last_error = NULL,
+                 last_synced_at = NOW(),
+                 updated_at = NOW()`,
+            [
+                orderId, providerKey, externalOrderId, state.status, state.externalStatus,
+                JSON.stringify(state.shipments,), numbers.length ? numbers : null,
+                first?.carrier ?? null, first?.url ?? null,
+                state.inProductionAt, state.shippedAt, state.deliveredAt,
+            ],
+        );
+    }
+    const roll = await refreshOrderFulfillmentStatus(orderId,);
+    return {
+        linked, changed,
+        orderStatusBefore: roll?.before ?? orderStatus,
+        orderStatusAfter: roll?.after ?? orderStatus,
+    };
 }
 
 /** Re-attempt any supplier order that never got an id. Idempotent by design. */
@@ -219,19 +428,7 @@ export async function recordProviderTracking(
         return;
     }
 
-    // Mirror the first shipment onto the order so existing views and emails,
-    // which read the order-level columns, keep working unchanged.
-    if (shipped) {
-        await query(
-            `UPDATE shop_orders
-             SET tracking_number = COALESCE(tracking_number, $2),
-                 tracking_url = COALESCE(tracking_url, $3),
-                 carrier = COALESCE(carrier, $4),
-                 status = CASE WHEN status IN ('paid', 'processing') THEN 'shipped' ELSE status END,
-                 updated_at = NOW()
-             WHERE id = $1`,
-            [orderId, tracking.tracking?.[0] ?? null, tracking.trackingUrl ?? null, tracking.carrier ?? null,],
-        );
-    }
+    // The roll-up mirrors the first parcel onto the order-level columns (which
+    // existing views and emails read) and moves the order status forward.
     await refreshOrderFulfillmentStatus(orderId,);
 }

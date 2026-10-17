@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T17:28:09.774Z",
+  "generatedAt": "2026-10-17T21:48:05.882Z",
   "totalModules": 55,
   "totalRoutes": 571,
   "modules": [
@@ -3636,7 +3636,7 @@
           "path": "/printify/sync",
           "absolutePath": "/api/v1/shop/printify/sync",
           "auth": "admin",
-          "summary": "Pull the latest products from Printify into the shop (upsert + archive removed)."
+          "summary": "Pull the latest products from Printify into the shop (upsert + archive removed), then reconcile Printify orders (status + tracking)."
         },
         {
           "method": "POST",

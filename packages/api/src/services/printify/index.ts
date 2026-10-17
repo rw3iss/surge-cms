@@ -4,7 +4,7 @@
  * into the native shop, report status, and (commerce layer) submit paid orders
  * to Printify for fulfillment.
  */
-export { getPrintifyConfig, isPrintifyActive, type PrintifyConfig, } from './config';
+export { getPrintifyConfig, getPrintifyOrderConfig, isPrintifyActive, type PrintifyConfig, } from './config';
 export {
     getStatus,
     type PrintifyOneSyncResult,
@@ -13,12 +13,18 @@ export {
     syncOneProduct,
     syncProducts,
 } from './sync';
-export { testConnection, } from './client';
+export { printifyOrdersUrl, testConnection, } from './client';
 export {
     getPrintifyShippingOptions,
     PRINTIFY_SHIPPING_METHODS,
     type PrintifyShippingMethod,
     type PrintifyShippingQuote,
-    pollOrderStatuses,
-    submitOrderToPrintify,
+    retryHeldPrintifyProduction,
 } from './fulfillment';
+export {
+    mapPrintifyOrder,
+    matchPrintifyOrder,
+    reconcilePrintifyOrders,
+    SEND_CUSTOMER_SHIPPING_EMAILS_ON_SYNC,
+    syncProductsAndOrders,
+} from './orderSync';

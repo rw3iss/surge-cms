@@ -54,7 +54,7 @@ const CONFIG_SCHEMA: ProviderField[] = [
 ];
 
 /** Shape the stored config into what the existing engine expects. */
-function toEngineConfig(config: ProviderConfig,) {
+export function toEngineConfig(config: ProviderConfig,) {
     return {
         apiToken: String(config.apiToken ?? '',),
         shopId: String(config.shopId ?? '',),
@@ -187,5 +187,10 @@ export const printifyProvider: ShopProvider = {
             tracking: shipments.map((s,) => s.number,).filter(Boolean,) as string[],
             trackingUrl: shipments[0]?.url,
         };
+    },
+
+    async reconcileOrders(config, opts,) {
+        const { reconcilePrintifyOrders, } = await import('../../printify/orderSync.js');
+        return reconcilePrintifyOrders(toEngineConfig(config,) as never, opts,);
     },
 };

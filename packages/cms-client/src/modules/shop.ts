@@ -59,6 +59,7 @@ import type {
     ShopSettingsUpdateBody,
     ShopSettingsUpdateResponse,
     ShopStripeStatusResponse,
+    ShopProviderOrderReconcileResult,
     ShopTagListResponse,
 } from '@sitesurge/types';
 import type { QueryOptions, } from '../core/types';
@@ -363,7 +364,8 @@ export class ShopModule extends ModuleBase {
         status: (): Promise<PrintifyStatusResponse> =>
             this.get<PrintifyStatusResponse>('/shop/printify/status',),
 
-        /** POST /shop/printify/sync — pull the latest products into the shop. */
+        /** POST /shop/printify/sync — pull the latest products into the shop,
+         *  then reconcile Printify orders with ours (status + tracking). */
         sync: (): Promise<PrintifySyncResponse> =>
             this.mutate<PrintifySyncResponse>('POST', '/shop/printify/sync', { invalidates: ['shop',], },),
 
@@ -393,6 +395,8 @@ export interface PrintifyStatusResponse {
     /** Count of paid orders whose Printify handoff hasn't completed and need
      *  operator attention (auto-retried by the cron). Absent on older servers. */
     needsAttentionCount?: number;
+    /** Printify dashboard URL of the store's orders page. */
+    ordersUrl?: string | null;
 }
 
 /** POST /shop/printify/sync */
@@ -404,4 +408,6 @@ export interface PrintifySyncResponse {
     skipped: number;
     errors: string[];
     durationMs: number;
+    /** Order reconcile run after the product sync (absent on older servers). */
+    orders?: ShopProviderOrderReconcileResult;
 }

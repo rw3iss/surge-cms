@@ -1,13 +1,38 @@
 /**
- * Printify sync bar — shown on the admin Shop → Products page when the Printify
- * plugin is active OR any Printify products exist. Shows last-sync time +
- * product count and a "Sync from Printify" button that pulls the latest catalog.
+ * Printify sync bar — shown on the admin Shop dashboard + Products page when the
+ * Printify plugin is active OR any Printify products exist. Shows last-sync time
+ * + product count and a "Sync from Printify" button that pulls the latest
+ * catalogue AND reconciles orders (status + tracking) with Printify.
  */
 import { Component, createResource, createSignal, onMount, Show, } from 'solid-js';
 import { A, } from '@solidjs/router';
 import { cms, } from '../../../services/cmsClient';
 import { useToast, } from '../../../components/common/toast';
 import { isPluginEnabled, loadEnabledPlugins, } from '../../../stores/plugins';
+import type { ShopProviderOrderReconcileResult, } from '@sitesurge/types';
+
+const STATUS_WORDS: Record<string, string> = {
+    delivered: 'delivered',
+    shipped: 'shipped',
+    partially_shipped: 'partly shipped',
+    in_production: 'in production',
+    pending: 'awaiting production',
+    on_hold: 'on hold',
+    cancelled: 'cancelled',
+};
+
+/** "Updated 8 orders: 5 shipped, 3 delivered." (+ linked / held emails). */
+function describeOrderReconcile(o: ShopProviderOrderReconcileResult,): string {
+    if (!o.updated) return `Orders up to date (${o.matched} checked).`;
+    const parts = Object.entries(o.statusCounts,)
+        .sort((a, b,) => b[1] - a[1])
+        .map(([k, n,],) => `${n} ${STATUS_WORDS[k] ?? k}`);
+    let msg = `Updated ${o.updated} order${o.updated === 1 ? '' : 's'}: ${parts.join(', ',)}.`;
+    if (o.linked) msg += ` ${o.linked} newly linked.`;
+    const held = o.customerEmailsNotSent.length;
+    if (held) msg += ` ${held} customer shipping email${held === 1 ? '' : 's'} not sent.`;
+    return msg;
+}
 
 const PrintifySyncBar: Component<{ onSynced?: () => void; }> = (props,) => {
     const toast = useToast();
@@ -31,6 +56,11 @@ const PrintifySyncBar: Component<{ onSynced?: () => void; }> = (props,) => {
                 toast.error(`Printify sync: ${r.errors.length} error(s) — ${r.errors[0]}`,);
             } else {
                 toast.success(`Printify synced: ${r.upserted} product(s), ${r.archived} archived.`,);
+            }
+            if (r.orders) {
+                const o = r.orders;
+                if (o.errors.length) toast.error(`Printify orders: ${o.errors.length} problem(s) — ${o.errors[0]}`,);
+                toast.success(describeOrderReconcile(o,),);
             }
             await refetch();
             props.onSynced?.();
@@ -73,13 +103,13 @@ const PrintifySyncBar: Component<{ onSynced?: () => void; }> = (props,) => {
                             <div class="printify-bar__attention" role="status">
                                 <span class="printify-bar__attention-text">
                                     ⚠ <strong>{n()}</strong> paid order{n() === 1 ? '' : 's'} awaiting Printify
-                                    fulfillment. This usually means your Printify account needs a valid payment
-                                    method — orders are held until production can be charged. The system retries
-                                    automatically once it's resolved.
+                                    fulfillment — not sent to Printify, on hold there, or not in production after
+                                    a day. Often your Printify account needs a valid payment method. The system
+                                    retries automatically; Sync from Printify refreshes order status now.
                                 </span>
                                 <span class="printify-bar__attention-links">
                                     <a
-                                        href="https://printify.com/app/orders"
+                                        href={status()?.ordersUrl ?? 'https://printify.com/app/stores'}
                                         target="_blank"
                                         rel="noopener"
                                         class="table-link"

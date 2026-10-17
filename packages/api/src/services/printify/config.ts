@@ -50,3 +50,24 @@ export async function getPrintifyConfig(): Promise<PrintifyConfig | null> {
 export async function isPrintifyActive(): Promise<boolean> {
     return (await getPrintifyConfig()) !== null;
 }
+
+/**
+ * Config for ORDER work (submit / reconcile / production retry). Prefers the
+ * Shop Providers row — the one `submitOrderToProviders` uses to create the
+ * orders — and falls back to the legacy plugin config, so the reconcile reads
+ * the same Printify store the orders were sent to.
+ */
+export async function getPrintifyOrderConfig(): Promise<PrintifyConfig | null> {
+    try {
+        const { getActiveProviderConfig, } = await import('../shop/providers/settings.js');
+        const { toEngineConfig, } = await import('../shop/providers/printify.js');
+        const c = await getActiveProviderConfig('printify',);
+        if (c && String(c.apiToken ?? '',).trim() && String(c.shopId ?? '',).trim()) {
+            const e = toEngineConfig(c,);
+            return { ...e, apiBaseUrl: e.apiBaseUrl.replace(/\/+$/, '',), };
+        }
+    } catch {
+        // shop feature tables absent — fall through to the plugin config
+    }
+    return getPrintifyConfig();
+}
