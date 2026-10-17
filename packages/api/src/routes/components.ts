@@ -13,6 +13,7 @@
  */
 import { z, } from 'zod';
 import { blockStyleRecord, } from '../api/blockStyleInput';
+import { templateSlotsInput, } from '../api/templateSlotInput';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { NotFoundError, } from '../core/errors';
 import * as cbtSvc from '../services/contentBlockTemplates';
@@ -43,6 +44,7 @@ const createSchema = z.object({
     // 256 KB is far more than a component needs and still bounds the row.
     script: z.string().max(262144,).nullish(),
     scriptEnabled: z.boolean().optional(),
+    slots: templateSlotsInput.optional(),
 },);
 const updateSchema = createSchema.partial();
 

@@ -4,7 +4,7 @@
  * content-block-template sub-resource.
  */
 import type { EntityFieldDef, EntityFieldOption, EntityRecord, EntityTypeDef, } from '../../entities/types';
-import type { ContentBlockTemplate, ContentBlockTemplateBlock, } from '../../entities/templates';
+import type { ContentBlockTemplate, ContentBlockTemplateBlock, TemplateSlot, } from '../../entities/templates';
 
 // ── Entity types (schema) ──
 export type EntityTypeListResponse = EntityTypeDef[];
@@ -63,6 +63,8 @@ export interface ContentBlockTemplateCreateBody {
     maxRecords?: number | null;
     /** Preview-sample record ids (see ContentBlockTemplate.sampleRecordIds). */
     sampleRecordIds?: string[] | null;
+    /** Data inputs filled by the using block (validated server-side). */
+    slots?: TemplateSlot[];
 }
 export type ContentBlockTemplateUpdateBody = Partial<ContentBlockTemplateCreateBody> & {
     blocks?: Array<Partial<ContentBlockTemplateBlock>>;

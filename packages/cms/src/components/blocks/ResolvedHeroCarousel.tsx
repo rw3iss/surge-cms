@@ -24,6 +24,7 @@ import type {
     HeroItem,
     HeroPostMeta,
     HeroPostsConfig,
+    TemplateSlotContext,
 } from '@sitesurge/types';
 import { buildBlockTree, featuredImagePath, } from '@sitesurge/types';
 import { Component, createMemo, createResource, type JSX, } from 'solid-js';
@@ -40,6 +41,8 @@ export interface RenderEntitySlideArgs {
     entityType: string;
     record: EntityRecord;
     ctx?: TplEntities;
+    /** The template's slots + the entity item's bindings. */
+    slots?: TemplateSlotContext;
 }
 
 export interface ResolvedHeroCarouselProps {
@@ -77,6 +80,7 @@ interface EntitySlideDescriptor {
     roots: Block[];
     record: EntityRecord;
     order: number;
+    slots: TemplateSlotContext;
 }
 type ResolvedDescriptor = HeroItem | EntitySlideDescriptor;
 const isEntityDescriptor = (d: ResolvedDescriptor,): d is EntitySlideDescriptor =>
@@ -97,6 +101,7 @@ async function resolveEntityItem(item: HeroItem, ctx: TplEntities | undefined,):
         roots,
         record,
         order: i,
+        slots: { slots: tpl.slots ?? [], bindings: cfg.slots ?? {}, },
     }));
 }
 
@@ -212,6 +217,7 @@ const ResolvedHeroCarousel: Component<ResolvedHeroCarouselProps> = (props,) => {
                         entityType: d.entityType,
                         record: d.record,
                         ctx: props.ctx,
+                        slots: d.slots,
                     },),
                 };
             }

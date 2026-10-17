@@ -14,6 +14,8 @@ export const renderPostList: BlockEmailRenderer = (node, ctx,) => {
         : [];
 
     if (posts.length === 0) {
+        // A Posts block reading an empty / unfilled template slot renders nothing.
+        if (node.settings.source === 'slot') return '';
         return {
             content: `<a href="${escapeHtml(absUrl(ctx.siteUrl, '/posts',),)}" style="color:${ctx.linkColor}">View latest posts →</a>`,
             cellStyle: { 'text-align': 'center', },

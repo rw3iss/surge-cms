@@ -8,7 +8,7 @@
  * `block_styles`) are resolved on read via `populateBlockStyles` so the
  * renderer ingests fully-inlined style props.
  */
-import type { ContentBlockTemplate, ContentBlockTemplateBlock, } from '@sitesurge/types';
+import type { ContentBlockTemplate, ContentBlockTemplateBlock, TemplateSlot, } from '@sitesurge/types';
 import { getPool, query, } from '../db';
 import * as blockStyleResolution from '../services/blockStyleResolution';
 
@@ -24,6 +24,7 @@ interface TemplateRow {
     sample_record_ids: string[] | null;
     script: string | null;
     script_enabled: boolean;
+    slots: TemplateSlot[] | null;
     created_at: Date;
     updated_at: Date;
 }
@@ -36,6 +37,7 @@ function mapTemplate(row: TemplateRow,): ContentBlockTemplate {
         mode: row.mode,
         maxRecords: row.max_records,
         sampleRecordIds: row.sample_record_ids ?? [],
+        slots: Array.isArray(row.slots,) ? row.slots : [],
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),
     };
@@ -82,13 +84,15 @@ export interface CreateInput {
     mode?: 'single' | 'list';
     maxRecords?: number | null;
     sampleRecordIds?: string[] | null;
+    /** Already validated by the service (`normalizeTemplateSlots`). */
+    slots?: TemplateSlot[];
 }
 
 export async function create(input: CreateInput,): Promise<ContentBlockTemplate> {
     const r = await query<TemplateRow>(`
         INSERT INTO content_block_templates
-            (name, description, entity_type_key, mode, max_records, sample_record_ids, script, script_enabled)
-        VALUES ($1, $2, $3, COALESCE($4, 'single'), $5, $6::text[], $7, COALESCE($8, true))
+            (name, description, entity_type_key, mode, max_records, sample_record_ids, script, script_enabled, slots)
+        VALUES ($1, $2, $3, COALESCE($4, 'single'), $5, $6::text[], $7, COALESCE($8, true), $9::jsonb)
         RETURNING *
     `, [
         input.name,
@@ -99,6 +103,7 @@ export async function create(input: CreateInput,): Promise<ContentBlockTemplate>
         input.sampleRecordIds ?? null,
         input.script ?? null,
         input.scriptEnabled ?? null,
+        JSON.stringify(input.slots ?? [],),
     ],);
     return mapTemplate(r.rows[0],);
 }
@@ -119,6 +124,10 @@ export async function update(id: string, patch: Partial<CreateInput>,): Promise<
         // Explicit ::text[] cast so pg types the array param in this dynamic SET.
         values.push(patch.sampleRecordIds ?? null,);
         fields.push(`sample_record_ids = $${values.length}::text[]`,);
+    }
+    if (patch.slots !== undefined) {
+        values.push(JSON.stringify(patch.slots ?? [],),);
+        fields.push(`slots = $${values.length}::jsonb`,);
     }
     if (patch.script !== undefined) set('script', patch.script ?? null,);
     if (patch.scriptEnabled !== undefined) set('script_enabled', patch.scriptEnabled,);

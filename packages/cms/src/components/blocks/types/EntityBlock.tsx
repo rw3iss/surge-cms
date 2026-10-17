@@ -4,7 +4,7 @@
  * Split out of BlockRenderer.tsx, which held every block type in one
  * 1,332-line file. Behaviour is unchanged — this is a move, not a rewrite.
  */
-import type { Block, EntityRecord, } from '@sitesurge/types';
+import type { Block, EntityRecord, TemplateSlotContext, } from '@sitesurge/types';
 import { Component, For, Show, createResource, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import { buildBlockTree, } from '@sitesurge/types';
@@ -26,10 +26,12 @@ export const EntityBlock: Component<{ block: Block; ctx?: TplCtx; }> = (props,) 
         async (input) => {
             const { s, ctx, } = input;
             const tpl = await cms.contentBlockTemplates.getOne(s.entityType, s.templateId,).catch(() => null);
-            if (!tpl) return { roots: [] as Block[], items: [] as Array<Record<string, unknown>>, entityType: s.entityType, };
+            if (!tpl) return { roots: [] as Block[], items: [] as Array<Record<string, unknown>>, entityType: s.entityType, slots: undefined, };
             const recs = await resolveRecords(s.entityType, s.binding, tpl.maxRecords, ctx,);
             const roots = buildBlockTree(mapTemplateBlocks(tpl.blocks ?? [],),);
-            return { roots, items: recs as Array<Record<string, unknown>>, entityType: s.entityType, };
+            // The template's slots, filled by THIS block's `settings.entity.slots`.
+            const slots: TemplateSlotContext = { slots: tpl.slots ?? [], bindings: s.slots ?? {}, };
+            return { roots, items: recs as Array<Record<string, unknown>>, entityType: s.entityType, slots, };
         },
     );
 
@@ -44,6 +46,7 @@ export const EntityBlock: Component<{ block: Block; ctx?: TplCtx; }> = (props,) 
                         entityType: r().entityType,
                         record: rec as EntityRecord,
                         ctx: props.ctx,
+                        slots: r().slots,
                     },);
                 return (
                     <Show

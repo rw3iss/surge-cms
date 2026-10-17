@@ -1,0 +1,141 @@
+@use '../../../styles/variables' as *;
+
+// ─── EntityTypeSelect ────────────────────────────────────────────────
+// Searchable single-select over every entity type. Mirrors ui/MultiSelect.
+
+.entity-type-select {
+    position: relative;
+    width: 100%;
+
+    &__control {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+        min-height: 40px;
+        box-sizing: border-box;
+        padding: 6px $spacing-md;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-md;
+        background-color: #fff;
+        cursor: pointer;
+        transition: border-color $transition-fast, box-shadow $transition-fast;
+
+        &:focus,
+        &:focus-visible {
+            outline: none;
+            border-color: var(--site-primary, #{$primary-color});
+            box-shadow: 0 0 0 3px rgba($primary-color, 0.12);
+        }
+
+        &.is-open {
+            border-color: var(--site-primary, #{$primary-color});
+        }
+    }
+
+    &.is-disabled &__control {
+        background-color: $background-dark;
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+
+    &__placeholder {
+        flex: 1 1 auto;
+        color: $text-light;
+        font-size: $font-size-sm;
+    }
+
+    &__value {
+        overflow: hidden;
+        font-size: $font-size-sm;
+        color: var(--admin-text, #{$text-color});
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__key {
+        flex: 1 1 auto;
+        overflow: hidden;
+        font-size: $font-size-xs;
+        color: $text-light;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__caret {
+        flex: 0 0 auto;
+        margin-left: auto;
+        font-size: $font-size-xs;
+        color: $text-light;
+    }
+}
+
+// Popover — Portal-rendered; geometry is inline (computeMenuPlacement).
+.entity-type-select__popover {
+    z-index: $z-index-popover;
+    display: flex;
+    flex-direction: column;
+    background: $background;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    box-shadow: $shadow-lg;
+    overflow: hidden;
+}
+
+.entity-type-select__search {
+    // Search-as-you-type by design — see EntityTypeSelect.tsx.
+    @include admin-input;
+    flex: 0 0 auto;
+    width: calc(100% - #{$spacing-sm * 2});
+    margin: $spacing-sm;
+}
+
+.entity-type-select__list {
+    flex: 1 1 auto;
+    margin: 0;
+    padding: $spacing-xs 0;
+    list-style: none;
+    overflow-y: auto;
+}
+
+.entity-type-select__option {
+    display: flex;
+    align-items: baseline;
+    gap: $spacing-sm;
+    padding: $spacing-xs $spacing-md;
+    cursor: pointer;
+
+    &.is-active {
+        background: $background-dark;
+    }
+
+    &.is-selected .entity-type-select__option-label {
+        font-weight: 600;
+    }
+}
+
+.entity-type-select__option-label {
+    overflow: hidden;
+    font-size: $font-size-sm;
+    color: var(--admin-text, #{$text-color});
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.entity-type-select__option-key {
+    font-size: $font-size-xs;
+    color: $text-light;
+}
+
+.entity-type-select__option-origin {
+    flex: 0 0 auto;
+    margin-left: auto;
+    font-size: $font-size-xs;
+    color: var(--admin-text-muted, #{$text-light});
+}
+
+.entity-type-select__empty {
+    padding: $spacing-md;
+    font-size: $font-size-sm;
+    color: $text-light;
+    text-align: center;
+}

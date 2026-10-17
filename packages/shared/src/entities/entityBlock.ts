@@ -36,4 +36,24 @@ export interface EntityBlockSettings {
     /** How multiple resolved records lay out: a vertical `stack` (default) or a
      *  swipeable `carousel` (each record's rendered template is a slide). */
     layout?: 'stack' | 'carousel';
+    /** Fills the template's slots: slot id → binding. */
+    slots?: Record<string, SlotBinding>;
+}
+
+/** How a using block fills one template slot — an entity binding minus
+ *  `none`/`context`. A non-array slot resolves to at most one record. */
+export type SlotBinding =
+    | { mode: 'single'; ref: string; }
+    | { mode: 'list'; refs: string[]; }
+    | { mode: 'query'; query: EntityQuery; };
+
+/**
+ * Slot fields shared by the blocks that can read a slot. Posts (`post_list`)
+ * uses `source: 'slot'` + `slotId`; absent `source` = its own pinned/query
+ * settings. Gallery uses its own `GalleryBlockSettings.source` (`'slot'`).
+ */
+export interface PostListSlotSettings {
+    /** `'slot'` = the posts come from the enclosing template's slot `slotId`. */
+    source?: 'default' | 'slot';
+    slotId?: string;
 }

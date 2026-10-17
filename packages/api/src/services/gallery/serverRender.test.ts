@@ -68,3 +68,10 @@ describe('preResolveGalleryBlocks', () => {
         expect(calls[0]!.q,).toEqual({ type: 'video', limit: 3, },);
     },);
 },);
+
+describe('resolveGalleryBlockItems — slot source', () => {
+    it('a slot block never falls through to its own query', async () => {
+        expect(await r.resolveGalleryBlockItems({ source: 'slot', slotId: 'x', query: { limit: 3, }, }, 'email',),).toEqual([],);
+        expect(calls,).toEqual([],);
+    },);
+},);

@@ -1,0 +1,50 @@
+@use '../../../styles/variables' as *;
+
+// Slots section of the template editor (TemplateSlotsEditor.tsx).
+.template-slots {
+    &__header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: $spacing-md;
+    }
+
+    &__empty {
+        margin: 0;
+    }
+
+    &__row {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-sm;
+        padding: $spacing-md;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-md;
+
+        & + & {
+            margin-top: $spacing-md;
+        }
+    }
+
+    &__preview {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: $spacing-sm;
+        font-size: $font-size-sm;
+    }
+
+    &__preview-label {
+        color: var(--admin-text-muted, #{$text-light});
+    }
+
+    &__preview-value {
+        margin-right: $spacing-sm;
+        color: var(--admin-text, #{$text-color});
+    }
+
+    &__remove {
+        font-size: 18px;
+        line-height: 1;
+    }
+}

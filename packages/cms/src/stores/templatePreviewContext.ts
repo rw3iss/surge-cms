@@ -11,10 +11,26 @@
  * It's a single global signal (only one template is edited at a time). Every
  * OTHER editor (pages/posts/mail) leaves it `undefined`, so their previews are
  * unaffected. `TemplateEditor` clears it on unmount.
+ *
+ * SLOTS: `templatePreviewSlotContext()` is the slot data the template editor's
+ * preview renders with — the open template's slots (`stores/templateSlots`)
+ * bound to each slot's `previewBinding`, else auto (first record / first 6).
+ * Slot-reading blocks fall back to it when no using block provides bindings
+ * (`components/blocks/slotContext.tsx`); empty outside the template editor.
  */
-import { createSignal, } from 'solid-js';
+import { previewSlotBindings, type TemplateSlotContext, } from '@sitesurge/types';
+import { createMemo, createRoot, createSignal, } from 'solid-js';
 import type { TplEntities, } from '../services/entityBinding';
+import { templateSlots, } from './templateSlots';
 
 const [templatePreviewContext, setTemplatePreviewContext,] = createSignal<TplEntities | undefined>(undefined,);
 
-export { setTemplatePreviewContext, templatePreviewContext, };
+const templatePreviewSlotContext = createRoot(() =>
+    createMemo((): TemplateSlotContext | undefined => {
+        const slots = templateSlots();
+        if (!slots.length) return undefined;
+        return { slots, bindings: previewSlotBindings(slots,), };
+    },)
+);
+
+export { setTemplatePreviewContext, templatePreviewContext, templatePreviewSlotContext, };

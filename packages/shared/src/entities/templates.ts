@@ -6,6 +6,31 @@
  * machinery).
  */
 import type { BlockType, } from '../types/content';
+import type { SlotBinding, } from './entityBlock';
+
+/** A slot id: a letter, then letters/digits/underscores, 40 chars max. */
+export const TEMPLATE_SLOT_ID_PATTERN = /^[a-z][a-z0-9_]{0,39}$/i;
+/** Most slots one template may declare. */
+export const MAX_TEMPLATE_SLOTS = 20;
+
+/**
+ * A data input a template exposes, filled by the block that USES the template
+ * (`EntityBlockSettings.slots[id]`). A block inside the template (Gallery,
+ * Posts) reads its data from a slot instead of its own query.
+ */
+export interface TemplateSlot {
+    /** Identifier, `TEMPLATE_SLOT_ID_PATTERN`, unique within the template. */
+    id: string;
+    /** Optional display name (falls back to `id`). */
+    label?: string;
+    /** An entity type key (post, gallery_item, product, a custom type…). */
+    entityType: string;
+    /** true = a list of records; false = at most one. */
+    array: boolean;
+    /** Data used for this slot while EDITING the template (preview only).
+     *  Absent = auto: the first record (non-array) or first 6 (array). */
+    previewBinding?: SlotBinding;
+}
 
 /** A saved content-block template (metadata; the blocks live in
  *  `content_block_template_blocks`, see `ContentBlockTemplateBlock`). */
@@ -24,6 +49,8 @@ export interface ContentBlockTemplate {
      *  admin (so `{{entity.field}}` resolves against real data). Empty/absent =
      *  auto-pick (single → first record; list → first N up to `maxRecords`). */
     sampleRecordIds?: string[];
+    /** Data inputs the using block fills (see `TemplateSlot`). */
+    slots?: TemplateSlot[];
     /**
      * Optional client-side JS for this component, served as a same-origin ES
      * module at `/api/v1/components/:id/client.js` and mounted by the

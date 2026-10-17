@@ -9,17 +9,21 @@
  */
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import { useToast, } from '../../../components/common/toast';
-import type { ContentBlockTemplate, EntityRecord, EntityTypeDef, } from '@sitesurge/types';
+import type { ContentBlockTemplate, EntityRecord, EntityTypeDef, TemplateSlot, } from '@sitesurge/types';
 import { Component, createEffect, createMemo, createResource, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
+import { createStore, reconcile, unwrap, } from 'solid-js/store';
 import BlockEditor, { BlockData, } from '../../../components/admin/blocks/BlockEditor';
 import { mountComponentScript, } from '../../../services/componentScript';
 import JsEditor from '../../../components/admin/common/JsEditor';
 import Toggle from '../../../components/admin/common/Toggle';
 import EntitySearchSelectModal from '../../../components/admin/entities/EntitySearchSelectModal';
+import TemplateSlotsEditor from '../../../components/admin/entities/TemplateSlotsEditor';
 import { FormField, FormSection, } from '../../../components/admin/forms';
 import { backendToEditor, type BackendBlock, editorToBackend, } from '../../../components/admin/mail/blockConverters';
 import { cms, } from '../../../services/cmsClient';
 import { setTemplatePreviewContext, } from '../../../stores/templatePreviewContext';
+import { setTemplateSlots, } from '../../../stores/templateSlots';
+import { slotIdError, } from '../../../utils/templateSlots';
 import './EntitiesList.scss';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
 
@@ -108,6 +112,14 @@ const TemplateEditor: Component = () => {
      *  editor on next open would hide the rest of the page for someone who had
      *  forgotten they left it that way. */
     const [scriptExpanded, setScriptExpanded,] = createSignal(false,);
+    /** Data inputs the using block fills. A store, patched in place, so
+     *  editing a row never remounts it (see TemplateSlotsEditor). */
+    const [slots, setSlots,] = createStore<TemplateSlot[]>([],);
+
+    // Publish the slots so block panels inside this template (Gallery, Posts)
+    // can offer a "Slot" source. Spreading each row tracks every field.
+    createEffect(() => setTemplateSlots(slots.map((s,) => ({ ...s, })),),);
+    onCleanup(() => setTemplateSlots([],),);
 
     /**
      * Run the component's client module over its own editor previews.
@@ -180,6 +192,7 @@ const TemplateEditor: Component = () => {
             setScript(d.script ?? '',);
             setScriptEnabled(d.scriptEnabled !== false,);
             if (d.script) setScriptOpen(true,);
+            setSlots(reconcile(structuredClone(d.slots ?? [],),),);
             const loaded = backendToEditor((d.blocks ?? []) as unknown as BackendBlock[],);
             setBlocks(loaded,);
             // Whatever the server just gave us IS the saved state.
@@ -188,6 +201,19 @@ const TemplateEditor: Component = () => {
     },);
 
     const handleSave = async (): Promise<void> => {
+        // Every slot needs a valid, unique id and a data type before saving.
+        const slotProblem = slots
+            .map((s, i,) => {
+                const idErr = slotIdError(s.id, slots.filter((_, j,) => j !== i).map((o,) => o.id),);
+                if (idErr) return `Slot "${s.id}": ${idErr}`;
+                return s.entityType ? null : `Slot "${s.id}" needs a data type.`;
+            },)
+            .find(Boolean,);
+        if (slotProblem) {
+            setError(slotProblem,);
+            toast.error(slotProblem,);
+            return;
+        }
         setSaving(true,);
         setError(null,);
         try {
@@ -195,6 +221,7 @@ const TemplateEditor: Component = () => {
                 name: name(), description: description() || undefined,
                 mode: mode(), maxRecords: maxRecords() ? Number(maxRecords(),) : null,
                 sampleRecordIds: sampleRecordIds(),
+                slots: structuredClone(unwrap(slots,),),
                 // Only send script fields for a component — the backend gates
                 // them behind `components:script`, so an entity template save
                 // must not carry them or a non-admin editor would 403.
@@ -427,6 +454,8 @@ const TemplateEditor: Component = () => {
                     }}
                 />
             </Show>
+
+            <TemplateSlotsEditor slots={slots} setSlots={setSlots} />
 
             {/* The component's own client module runs over these previews, so
                 a component whose layout its script produces (a ticker, anything

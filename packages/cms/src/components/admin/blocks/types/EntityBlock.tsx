@@ -3,18 +3,20 @@
  * template for it → a data binding (current-page entity / a specific entity /
  * several entities / a query). Reuses the shared EntitySearchSelectModal.
  */
-import type { EntityBinding, EntityQuery, EntityRecord, } from '@sitesurge/types';
+import type { EntityBinding, EntityQuery, EntityRecord, SlotBinding, TemplateSlot, } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, Show, Suspense, } from 'solid-js';
 import { cms, } from '../../../../services/cmsClient';
 import EntityBindingSummary from '../../entities/EntityBindingSummary';
 import EntitySearchSelectModal from '../../entities/EntitySearchSelectModal';
+import { slotBindingSummary, slotDisplayName, slotTypeLabel, } from '../../../../utils/templateSlots';
 
 interface EntityCfg {
     templateId: string;
     entityType: string;
     binding: EntityBinding;
     layout?: 'stack' | 'carousel';
+    slots?: Record<string, SlotBinding>;
 }
 
 const EntityBlockEdit: Component<{
@@ -47,6 +49,18 @@ const EntityBlockEdit: Component<{
     );
 
     const [modalMode, setModalMode,] = createSignal<'single' | 'multiple' | 'query' | null>(null,);
+
+    // ─── Template slots ──────────────────────────────────────────────
+    // The chosen template's declared data inputs; this block fills each one.
+    const templateSlots = (): TemplateSlot[] =>
+        (templates() ?? []).find((t,) => t.id === cfg().templateId)?.slots ?? [];
+    const [slotPicker, setSlotPicker,] = createSignal<{ slot: TemplateSlot; mode: 'single' | 'multiple' | 'query'; } | null>(null,);
+    const setSlotBinding = (id: string, b: SlotBinding | undefined,) => {
+        const next = { ...(cfg().slots ?? {}), };
+        if (b) next[id] = b;
+        else delete next[id];
+        setCfg({ slots: next, },);
+    };
 
     // Re-apply the selected value AFTER the async option lists load. A native
     // <select value={x}> whose matching <option> doesn't exist yet (resource
@@ -180,6 +194,64 @@ const EntityBlockEdit: Component<{
                         <option value="carousel">Carousel (swipeable)</option>
                     </select>
                 </label>
+
+                <Show when={templateSlots().length > 0}>
+                    <div class="block-edit-form__field entity-block-edit__slots">
+                        <span>Slots</span>
+                        <For each={templateSlots()}>
+                            {(slot,) => {
+                                const binding = () => cfg().slots?.[slot.id];
+                                return (
+                                    <div class="entity-block-edit__slot">
+                                        <div class="entity-block-edit__slot-head">
+                                            <strong>{slotDisplayName(slot,)}</strong>
+                                            <code>{slotTypeLabel(slot,)}</code>
+                                        </div>
+                                        <small class="form-help-muted">{slotBindingSummary(binding(),)}</small>
+                                        <div class="entity-block-edit__slot-actions">
+                                            <Show
+                                                when={slot.array}
+                                                fallback={
+                                                    <button
+                                                        type="button"
+                                                        class="ui-button ui-button--sm ui-button--outline"
+                                                        onClick={() => setSlotPicker({ slot, mode: 'single', },)}
+                                                    >
+                                                        Configure…
+                                                    </button>
+                                                }
+                                            >
+                                                <button
+                                                    type="button"
+                                                    class="ui-button ui-button--sm ui-button--outline"
+                                                    onClick={() => setSlotPicker({ slot, mode: 'multiple', },)}
+                                                >
+                                                    Pick records…
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="ui-button ui-button--sm ui-button--outline"
+                                                    onClick={() => setSlotPicker({ slot, mode: 'query', },)}
+                                                >
+                                                    Live query…
+                                                </button>
+                                            </Show>
+                                            <Show when={binding()}>
+                                                <button
+                                                    type="button"
+                                                    class="ui-button ui-button--sm ui-button--ghost"
+                                                    onClick={() => setSlotBinding(slot.id, undefined,)}
+                                                >
+                                                    Clear
+                                                </button>
+                                            </Show>
+                                        </div>
+                                    </div>
+                                );
+                            }}
+                        </For>
+                    </div>
+                </Show>
             </Show>
 
             <Show when={modalMode()}>
@@ -204,6 +276,32 @@ const EntityBlockEdit: Component<{
                             setBinding({ mode: 'query', query: result as EntityQuery, },);
                         }
                         setModalMode(null,);
+                    }}
+                />
+            </Show>
+
+            <Show when={slotPicker()}>
+                <EntitySearchSelectModal
+                    entityType={slotPicker()!.slot.entityType}
+                    mode={slotPicker()!.mode}
+                    initialQuery={(() => {
+                        const b = cfg().slots?.[slotPicker()!.slot.id];
+                        return b?.mode === 'query' ? b.query : undefined;
+                    })()}
+                    onClose={() => setSlotPicker(null,)}
+                    onSelect={(result,) => {
+                        const p = slotPicker();
+                        if (!p) return;
+                        if (p.mode === 'single') {
+                            const r = result as EntityRecord;
+                            setSlotBinding(p.slot.id, { mode: 'single', ref: String(r.id,), },);
+                        } else if (p.mode === 'multiple') {
+                            const rs = result as EntityRecord[];
+                            setSlotBinding(p.slot.id, { mode: 'list', refs: rs.map((r,) => String(r.id,)), },);
+                        } else {
+                            setSlotBinding(p.slot.id, { mode: 'query', query: result as EntityQuery, },);
+                        }
+                        setSlotPicker(null,);
                     }}
                 />
             </Show>

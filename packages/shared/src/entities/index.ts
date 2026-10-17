@@ -12,3 +12,4 @@ export * from './templates';
 export * from './entityBlock';
 export * from './registry';
 export * from './reference';
+export * from './slots';

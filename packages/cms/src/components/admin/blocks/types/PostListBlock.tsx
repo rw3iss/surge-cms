@@ -13,6 +13,8 @@
  * block adds its own brevity + show-field options on top.
  */
 import { Component, For, JSX, Show, } from 'solid-js';
+import { templateSlots, } from '../../../../stores/templateSlots';
+import { slotChoices, slotOptionLabel, } from '../../../../utils/templateSlots';
 import { FormCheck, FormField, FormSection, } from '../../forms';
 import { PostFieldsSection, PostQuerySection, SpecificPostsField, } from '../PostQueryControls';
 import './PostListBlock.scss';
@@ -55,14 +57,48 @@ const PostListBlock: Component<PostListBlockProps> = (props,) => {
         return Array.isArray(v,) ? v : [];
     };
 
+    /** `PostListSlotSettings.source`: 'slot' = posts come from a template slot. */
+    const fromSlot = () => props.data.source === 'slot';
+    /** Offered only inside a template that declares slots (or when the block
+     *  already reads one, so it can be seen and switched away). */
+    const offerSlot = () => templateSlots().length > 0 || fromSlot();
+
     return (
         <div class="post-list-block-edit">
+            <Show when={offerSlot()}>
+                <FormField label="Source" tooltip="Use this block's own posts/query, or the posts the block using this template puts in a slot.">
+                    <select
+                        value={fromSlot() ? 'slot' : 'default'}
+                        onChange={(e,) => patch({ source: e.currentTarget.value === 'slot' ? 'slot' : undefined, },)}
+                    >
+                        <option value="default">This block's posts + query</option>
+                        <option value="slot">Slot (from the block using this template)</option>
+                    </select>
+                </FormField>
+                <Show when={fromSlot()}>
+                    <FormField label="Slot" hint="The block that uses this template chooses the posts for this slot.">
+                        <select value={props.data.slotId ?? ''} onChange={(e,) => patch({ slotId: e.currentTarget.value || undefined, },)}>
+                            <option value="">— select a slot —</option>
+                            <For each={slotChoices(templateSlots(), 'post',)}>
+                                {(c,) => (
+                                    <option value={c.slot.id} disabled={!c.compatible}>
+                                        {slotOptionLabel(c.slot,)}{c.compatible ? '' : ' (incompatible)'}
+                                    </option>
+                                )}
+                            </For>
+                        </select>
+                    </FormField>
+                </Show>
+            </Show>
+
             {/* ─── Specific posts (shared) ─── */}
-            <SpecificPostsField
-                value={pinnedIds()}
-                onChange={(ids,) => patch({ pinnedPostIds: ids, },)}
-                tooltip="Hand-pick posts to render in the output. They appear at the top of the list, in the order shown. Drag to reorder, click × to remove. Specific posts render independently of the query below."
-            />
+            <Show when={!fromSlot()}>
+                <SpecificPostsField
+                    value={pinnedIds()}
+                    onChange={(ids,) => patch({ pinnedPostIds: ids, },)}
+                    tooltip="Hand-pick posts to render in the output. They appear at the top of the list, in the order shown. Drag to reorder, click × to remove. Specific posts render independently of the query below."
+                />
+            </Show>
 
             {/* ─── Render options (apply to both pinned + query results) ─── */}
             <FormSection title="Post brevity" tooltip={BREVITY_HELP} inlineItems tight>
@@ -109,11 +145,13 @@ const PostListBlock: Component<PostListBlockProps> = (props,) => {
             />
 
             {/* ─── Posts query (shared) ─── */}
-            <PostQuerySection
-                value={props.data}
-                onChange={(p,) => patch(p,)}
-                emptyMessageTooltip="When on (default), the public output shows 'No posts match the current filters.' if the query returns zero results. Turn off to render nothing in that case — useful when the post-list block is supplementary and an empty placeholder would feel out of place."
-            />
+            <Show when={!fromSlot()}>
+                <PostQuerySection
+                    value={props.data}
+                    onChange={(p,) => patch(p,)}
+                    emptyMessageTooltip="When on (default), the public output shows 'No posts match the current filters.' if the query returns zero results. Turn off to render nothing in that case — useful when the post-list block is supplementary and an empty placeholder would feel out of place."
+                />
+            </Show>
         </div>
     );
 };

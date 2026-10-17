@@ -299,9 +299,12 @@ export interface GalleryBlockLayoutOptions {
 }
 
 export interface GalleryBlockSettings {
-    /** `items` = hand-picked ids; `query` = a live query. */
-    source: 'items' | 'query';
+    /** `items` = hand-picked ids; `query` = a live query; `slot` = the
+     *  enclosing template's slot `slotId` (records of type `gallery_item`). */
+    source: 'items' | 'query' | 'slot';
     itemIds?: string[];
+    /** `source: 'slot'` only: the template slot to read. */
+    slotId?: string;
     query?: GalleryQuery;
     desktop?: GalleryBlockLayoutOptions;
     mobile?: GalleryBlockLayoutOptions;

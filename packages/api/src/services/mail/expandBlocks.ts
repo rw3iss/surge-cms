@@ -16,7 +16,10 @@
  * Runs in the shared path used by BOTH preview and send, so the two cannot
  * disagree about what an email contains.
  */
-import { isSocialAutoFeed, resolveSocialCount, } from '@sitesurge/types';
+import {
+    isSocialAutoFeed, resolveSocialCount,
+    type SlotBinding, type TemplateSlotContext,
+} from '@sitesurge/types';
 import * as contentBlockTemplates from '../../repositories/contentBlockTemplates.repo';
 import * as socialFeed from '../socialFeed';
 import * as entitiesService from '../entities';
@@ -24,6 +27,7 @@ import { logger, } from '../../utils/logger';
 import { GALLERY_RESOLVED_KEY, resolveGalleryBlockItems, } from '../gallery/serverRender';
 import { resolveMailTemplate, } from './templateRuntime';
 import { attachVideoMediaSize, } from './videoMediaSize';
+import { MAX_BINDING_RECORDS, recordIds, resolveBindingRecords, resolveSlotRecords, SLOT_CONTEXT_KEY, } from '../templateSlots';
 
 /** The flat block shape the mail renderer's tree builder consumes. */
 export interface FlatMailBlock {
@@ -45,6 +49,8 @@ interface EntityCfg {
         refs?: string[];
         query?: Record<string, unknown>;
     };
+    /** Fills the template's slots (slot id → binding). */
+    slots?: Record<string, SlotBinding>;
 }
 
 /** Text fields that may carry `{{ }}` and must be resolved per record. */
@@ -59,7 +65,7 @@ const TEMPLATED_SETTING_KEYS = [
  * An unbounded binding in an email is a way to accidentally send a 50,000-row
  * message; the web page can scroll, an inbox cannot.
  */
-const MAX_RECORDS = 25;
+const MAX_RECORDS = MAX_BINDING_RECORDS;
 
 /** Guard against a component that includes itself, directly or via a chain. */
 const MAX_DEPTH = 5;
@@ -77,45 +83,14 @@ async function resolveRecords(cfg: EntityCfg,): Promise<Record<string, unknown>[
     const binding = cfg.binding ?? {};
     if (!type) return [];
 
-    try {
-        switch (binding.mode) {
-            // Nothing bound — render the template once, as-is.
-            case 'none':
-                return [{},];
-            case 'context':
-                // An email has no "current page entity". Render the template
-                // once with nothing bound rather than skipping the block: a
-                // template that doesn't use the entity (a social feed, a
-                // static tout) is the common case here, and rendering nothing
-                // is indistinguishable from a broken block.
-                return [{},];
-            case 'single': {
-                if (!binding.ref) return [];
-                const rec = await entitiesService.get(type, binding.ref,);
-                return rec ? [rec as Record<string, unknown>,] : [];
-            }
-            case 'list': {
-                const refs = (binding.refs ?? []).slice(0, MAX_RECORDS,);
-                const recs = await Promise.all(
-                    refs.map((r,) => entitiesService.get(type, r,).catch(() => null)),
-                );
-                return recs.filter((r,) => r !== null) as Record<string, unknown>[];
-            }
-            case 'query': {
-                const q = { ...(binding.query ?? {}), };
-                const limit = Math.min(MAX_RECORDS, Number(q.limit ?? MAX_RECORDS,) || MAX_RECORDS,);
-                const res = await entitiesService.list(type, { ...q, limit, } as never,);
-                return (res.items ?? []) as Record<string, unknown>[];
-            }
-            default:
-                return [];
-        }
-    } catch (e) {
-        logger.warn('Mail: entity binding failed', {
-            type, mode: binding.mode, error: (e as Error).message,
-        },);
-        return [];
-    }
+    // An email has no "current page entity": `none` and `context` both
+    // render the template once with nothing bound rather than skipping the
+    // block — a template that doesn't use the entity (a social feed, a static
+    // tout) is the common case, and rendering nothing looks like a bug.
+    if (binding.mode === 'none' || binding.mode === 'context') return [{},];
+    if (binding.mode !== 'single' && binding.mode !== 'list' && binding.mode !== 'query') return [];
+    // The SAME resolver every slot-reading block uses (services/templateSlots).
+    return resolveBindingRecords(type, binding as SlotBinding, MAX_RECORDS,) as Promise<Record<string, unknown>[]>;
 }
 
 /**
@@ -158,6 +133,9 @@ async function cloneBlocks(
     keyPrefix: string,
     context: Record<string, unknown> | null,
     positionOffset: number,
+    /** The enclosing template's slots + the using block's bindings; stamped on
+     *  every slot-reading block (Gallery / Posts with `source: 'slot'`). */
+    slotCtx?: TemplateSlotContext | null,
 ): Promise<FlatMailBlock[]> {
     const idMap = new Map<string, string>();
     for (const b of blocks) idMap.set(b.id, `${keyPrefix}-${b.id}`,);
@@ -169,11 +147,64 @@ async function cloneBlocks(
         parentBlockId: b.parentBlockId ? (idMap.get(b.parentBlockId,) ?? parentId) : parentId,
         blockType: b.blockType,
         position: b.parentBlockId ? b.position : positionOffset + b.position,
-        settings: context
-            ? await resolveBlockText((b.settings ?? {}) as Record<string, unknown>, context,)
-            : ((b.settings ?? {}) as Record<string, unknown>),
+        settings: withSlotContext(
+            context
+                ? await resolveBlockText((b.settings ?? {}) as Record<string, unknown>, context,)
+                : ((b.settings ?? {}) as Record<string, unknown>),
+            slotCtx,
+        ),
         style: (b.style ?? {}) as Record<string, unknown>,
     }),),);
+}
+
+/** Stamp the slot context on a block that reads a slot; others untouched. */
+function withSlotContext(settings: Record<string, unknown>, slotCtx: TemplateSlotContext | null | undefined,): Record<string, unknown> {
+    if (!slotCtx || settings.source !== 'slot') return settings;
+    return { ...settings, [SLOT_CONTEXT_KEY]: slotCtx, };
+}
+
+/** The slot context for one use of template `templateId`, or null when it has no slots. */
+async function slotContextFor(templateId: string, bindings: Record<string, SlotBinding> | undefined,): Promise<TemplateSlotContext | null> {
+    let tpl: Awaited<ReturnType<typeof contentBlockTemplates.findById>> = null;
+    try {
+        tpl = await contentBlockTemplates.findById(templateId,);
+    } catch {
+        return null; // slots are optional; never cost the block its render
+    }
+    if (!tpl?.slots?.length) return null;
+    return { slots: tpl.slots, bindings: bindings ?? {}, };
+}
+
+/**
+ * A `post_list` block reading a slot → `settings.resolvedPosts` (what the
+ * email post renderer draws). Missing / unfilled slot → an empty list, so the
+ * block renders nothing (not the "View latest posts" fallback).
+ */
+async function resolveSlotPosts(settings: Record<string, unknown>,): Promise<Record<string, unknown>> {
+    const ctx = settings[SLOT_CONTEXT_KEY] as TemplateSlotContext | undefined;
+    const records = await resolveSlotRecords(ctx, settings.slotId as string | undefined, 'post',);
+    const posts = records
+        .map((r,) => r as Record<string, unknown>)
+        // An inbox is public: never a draft.
+        .filter((p,) => p.status == null || p.status === 'published')
+        .map((p,) => ({
+            slug: String(p.slug ?? '',),
+            title: String(p.title ?? '',),
+            excerpt: typeof p.excerpt === 'string' ? p.excerpt : undefined,
+            featuredImage: typeof p.featuredImage === 'string' ? p.featuredImage : undefined,
+        }))
+        .filter((p,) => p.slug);
+    return { ...settings, resolvedPosts: posts, };
+}
+
+/** Gallery items for a block reading a slot (records of type `gallery_item`, in order). */
+async function resolveSlotGallery(settings: Record<string, unknown>,): Promise<Record<string, unknown>> {
+    const ctx = settings[SLOT_CONTEXT_KEY] as TemplateSlotContext | undefined;
+    const ids = recordIds(await resolveSlotRecords(ctx, settings.slotId as string | undefined, 'gallery_item',),);
+    const items = ids.length
+        ? await resolveGalleryBlockItems({ ...(settings as Record<string, unknown>), source: 'items', itemIds: ids, } as never, 'email',)
+        : [];
+    return { ...settings, [GALLERY_RESOLVED_KEY]: items, };
 }
 
 /**
@@ -262,7 +293,8 @@ async function expandPass(
         return blocks;
     }
     const pending = blocks.filter(
-        (b,) => (b.blockType === 'entity' || b.blockType === 'template' || b.blockType === 'social' || b.blockType === 'gallery')
+        (b,) => (b.blockType === 'entity' || b.blockType === 'template' || b.blockType === 'social' || b.blockType === 'gallery'
+            || (b.blockType === 'post_list' && b.settings?.source === 'slot'))
             && !done.has(b.id,),
     );
     if (pending.length === 0) return blocks;
@@ -286,6 +318,7 @@ async function expandPass(
                     continue;
                 }
 
+                const slotCtx = await slotContextFor(cfg.templateId, cfg.slots,);
                 // One copy of the template per record — the same rule the web
                 // renderer uses for a list binding.
                 let offset = 0;
@@ -293,7 +326,7 @@ async function expandPass(
                     const varName = cfg.entityType ?? 'entity';
                     const cloned = await cloneBlocks(
                         tplBlocks as never, block.id, `${block.id}-r${i}`,
-                        { [varName]: record, entity: record, }, offset,
+                        { [varName]: record, entity: record, }, offset, slotCtx,
                     );
                     out.push(...cloned,);
                     offset += tplBlocks.length;
@@ -309,15 +342,25 @@ async function expandPass(
             } else if (block.blockType === 'gallery') {
                 // Not an expansion either: the block's items (public media only —
                 // the in-site gate never applies to an inbox) ride on its settings.
-                const items = await resolveGalleryBlockItems(block.settings as never, 'email',);
                 const idx = out.findIndex((b,) => b.id === block.id);
-                if (idx >= 0) out[idx] = { ...out[idx], settings: { ...out[idx].settings, [GALLERY_RESOLVED_KEY]: items, }, };
+                if (idx < 0) continue;
+                if (out[idx].settings.source === 'slot') {
+                    out[idx] = { ...out[idx], settings: await resolveSlotGallery(out[idx].settings,), };
+                    continue;
+                }
+                const items = await resolveGalleryBlockItems(block.settings as never, 'email',);
+                out[idx] = { ...out[idx], settings: { ...out[idx].settings, [GALLERY_RESOLVED_KEY]: items, }, };
+            } else if (block.blockType === 'post_list') {
+                // Posts from the enclosing template's slot (only slot sources are pending).
+                const idx = out.findIndex((b,) => b.id === block.id);
+                if (idx >= 0) out[idx] = { ...out[idx], settings: await resolveSlotPosts(out[idx].settings,), };
             } else if (block.blockType === 'template') {
                 const templateId = block.settings.templateId as string | undefined;
                 if (!templateId) continue;
                 const tplBlocks = await contentBlockTemplates.findBlocksResolved(templateId,);
                 if (tplBlocks.length === 0) continue;
-                out.push(...await cloneBlocks(tplBlocks as never, block.id, `${block.id}-c`, null, 0,),);
+                const slotCtx = await slotContextFor(templateId, block.settings.slots as Record<string, SlotBinding> | undefined,);
+                out.push(...await cloneBlocks(tplBlocks as never, block.id, `${block.id}-c`, null, 0, slotCtx,),);
             }
         } catch (e) {
             // One unresolvable block must not cost the whole email.

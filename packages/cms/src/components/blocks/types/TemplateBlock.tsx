@@ -4,7 +4,7 @@
  * Split out of BlockRenderer.tsx, which held every block type in one
  * 1,332-line file. Behaviour is unchanged — this is a move, not a rewrite.
  */
-import type { Block, EntityRecord, } from '@sitesurge/types';
+import type { Block, EntityRecord, SlotBinding, TemplateSlotContext, } from '@sitesurge/types';
 import { Component, For, Show, createEffect, createResource, onCleanup, onMount, type JSX, } from 'solid-js';
 import { A, } from '@solidjs/router';
 import { cms, } from '../../../services/cmsClient';
@@ -14,6 +14,7 @@ import { buildBlockTree, } from '@sitesurge/types';
 import { entityVars, mapTemplateBlocks, resolveRecords, } from '../../../services/entityBinding';
 import { type TplCtx, } from './shared';
 import { BlockRenderer, } from '../BlockRenderer';
+import { SlotContext, slotContextOf, } from '../slotContext';
 
 /**
  * Resolve once `el` has rendered children, or give up after ~1s.
@@ -58,6 +59,11 @@ export const TemplateBlock: Component<{
     );
 
     const roots = () => buildBlockTree(mapTemplateBlocks((tpl()?.blocks ?? []) as never,),);
+    // The component's slots, filled by THIS block's `settings.slots`.
+    const slotCtx = slotContextOf(
+        () => tpl()?.slots,
+        () => props.block.settings?.slots as Record<string, SlotBinding> | undefined,
+    );
     const nextAncestry = () => [...(props.ancestry ?? []), templateId(),];
     /** Guards the effect below against re-running on unrelated signal changes. */
     let mounted = false;
@@ -139,6 +145,7 @@ export const TemplateBlock: Component<{
                     enhance it in place, rather than only being able to append
                     its own UI beside it. */}
                 <div class="template-block__root" ref={(el,) => { mountEl = el; }}>
+                <SlotContext.Provider value={slotCtx}>
                 <For each={roots()}>
                     {(child,) => (
                         <Show when={child.isVisible !== false}>
@@ -152,6 +159,7 @@ export const TemplateBlock: Component<{
                         </Show>
                     )}
                 </For>
+                </SlotContext.Provider>
                 </div>
             </Show>
         </Show>
@@ -159,7 +167,11 @@ export const TemplateBlock: Component<{
 };
 
 export function renderEntityTemplateSlide(
-    args: { roots: Block[]; entityType: string; record: EntityRecord; ctx?: TplCtx; },
+    args: {
+        roots: Block[]; entityType: string; record: EntityRecord; ctx?: TplCtx;
+        /** The template's slots + the using block's bindings. */
+        slots?: TemplateSlotContext;
+    },
 ): JSX.Element {
     const { singular, } = entityVars(args.entityType,);
     const mergedCtx = {
@@ -167,12 +179,14 @@ export function renderEntityTemplateSlide(
         [singular]: { kind: args.entityType, data: args.record, id: String(args.record.id ?? ''), },
     } as TplCtx;
     return (
-        <For each={args.roots}>
-            {(child) => (
-                <Show when={child.isVisible !== false}>
-                    <BlockRenderer block={child} templateContext={mergedCtx} noDefaultPadding />
-                </Show>
-            )}
-        </For>
+        <SlotContext.Provider value={args.slots ?? { slots: [], bindings: {}, }}>
+            <For each={args.roots}>
+                {(child) => (
+                    <Show when={child.isVisible !== false}>
+                        <BlockRenderer block={child} templateContext={mergedCtx} noDefaultPadding />
+                    </Show>
+                )}
+            </For>
+        </SlotContext.Provider>
     );
 }

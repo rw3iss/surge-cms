@@ -19,6 +19,10 @@
  * The two lists are deduped against each other so a query hit that's
  * also pinned never renders twice.
  *
+ * Inside a template, `source: 'slot'` + `slotId` replaces both: the posts
+ * are the enclosing template's slot records (resolved like an entity block
+ * binding), shown as pinned posts in slot order; no query, no empty message.
+ *
  * Brevity modes (apply uniformly to both sources):
  *
  *   brief — title + excerpt + meta (date/tags), nothing more.
@@ -35,11 +39,16 @@ import type { Block, } from '@sitesurge/types';
 import { Component, createEffect, createMemo, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
 import { fetchPostList, type PostWithBlocks, } from '../../../services/postsService';
 import { BlockRenderer, } from '../BlockRenderer';
+import { SlotPlaceholder, slotRecordIds, slotRecordsFor, useSlotContext, } from '../slotContext';
 import './PostListRenderer.scss';
 
 export type PostBrevity = 'brief' | 'short' | 'full';
 
 export interface PostListSettings {
+    /** `'slot'` = posts come from the enclosing template's slot `slotId`
+     *  (`PostListSlotSettings` in @sitesurge/types); absent = pinned + query. */
+    source?: 'default' | 'slot';
+    slotId?: string;
     /** Posts hand-picked via the picker. Always rendered first if set. */
     pinnedPostIds?: string[];
     /** Whether the dynamic query section is active. Defaults to true so
@@ -91,6 +100,14 @@ interface ResolvedSettings {
     showTags: boolean;
 }
 
+/**
+ * Settings for a slot-sourced list: the slot's post ids become the pinned
+ * list (order kept) and the query branch is off.
+ */
+export function slotPostSettings(s: PostListSettings, ids: string[],): PostListSettings {
+    return { ...s, pinnedPostIds: ids, queryEnabled: false, showEmptyMessage: false, };
+}
+
 function withDefaults(s: PostListSettings,): ResolvedSettings {
     return {
         pinnedPostIds: s.pinnedPostIds ?? [],
@@ -122,7 +139,26 @@ function formatDate(d: Date | string | undefined,): string {
 }
 
 const PostListRenderer: Component<PostListRendererProps> = (props,) => {
-    const resolved = createMemo(() => withDefaults(props.settings,),);
+    const slotCtx = useSlotContext();
+    const isSlot = () => props.settings.source === 'slot';
+    // `source: 'slot'` → the slot's post records (same resolver as the entity block).
+    const [slot,] = createResource(
+        () => {
+            if (!isSlot()) return null;
+            const ctx = slotCtx();
+            return { slotId: props.settings.slotId, ctx, key: JSON.stringify([ctx?.slots, ctx?.bindings,],), };
+        },
+        ({ slotId, ctx, },) => slotRecordsFor(ctx, slotId, 'post',),
+    );
+    const slotFailure = () => {
+        const r = slot();
+        return isSlot() && r && !r.ok ? r : null;
+    };
+    const resolved = createMemo(() => {
+        if (!isSlot()) return withDefaults(props.settings,);
+        const r = slot();
+        return withDefaults(slotPostSettings(props.settings, r?.ok ? slotRecordIds(r.records,) : [],),);
+    },);
 
     // ─── Pinned posts: independent fetch keyed by ids only ─────
     // No date / search filters apply — the operator chose these
@@ -193,6 +229,9 @@ const PostListRenderer: Component<PostListRendererProps> = (props,) => {
 
     return (
         <div class="post-list">
+            <Show when={slotFailure()}>
+                {(r,) => <SlotPlaceholder slotId={props.settings.slotId} reason={r().reason} />}
+            </Show>
             <Show when={isLoading() && totalToRender() === 0}>
                 <div class="post-list__loading">Loading posts…</div>
             </Show>

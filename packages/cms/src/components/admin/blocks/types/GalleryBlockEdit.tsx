@@ -15,6 +15,8 @@ import { A, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { cms, } from '../../../../services/cmsClient';
 import { isFeatureEnabled, } from '../../../../stores/siteSettings';
+import { templateSlots, } from '../../../../stores/templateSlots';
+import { slotChoices, slotOptionLabel, } from '../../../../utils/templateSlots';
 import { gallerySettingsOf, } from '../../../blocks/types/GalleryBlock';
 import { entityQueryToGalleryQuery, galleryQueryToEntityQuery, } from '../../../gallery/galleryLayout';
 import { tileSrc, } from '../../../gallery/GalleryTile';
@@ -35,8 +37,15 @@ const GalleryBlockEdit: Component<{
     data: Record<string, any>;
     onUpdate: (d: Record<string, any>,) => void;
 }> = (props,) => {
-    const s = () => gallerySettingsOf(props.data,);
+    /** Read `slot` from the RAW settings: a normaliser that only knows
+     *  items/query must not silently turn a slot block into a query. */
+    const source = (): GalleryBlockSettings['source'] =>
+        (props.data as { source?: string; }).source === 'slot' ? 'slot' : gallerySettingsOf(props.data,).source;
+    const s = (): GalleryBlockSettings => ({ ...gallerySettingsOf(props.data,), source: source(), });
     const set = (patch: Partial<GalleryBlockSettings>,) => props.onUpdate({ ...props.data, ...s(), ...patch, },);
+    /** "Slot" is offered only inside a template that declares slots (or when
+     *  the block already reads one, so it can be seen and switched away). */
+    const offerSlot = () => templateSlots().length > 0 || source() === 'slot';
     const [bp, setBp,] = createSignal<'desktop' | 'mobile'>('desktop',);
     const [modal, setModal,] = createSignal<'multiple' | 'query' | null>(null,);
 
@@ -100,9 +109,31 @@ const GalleryBlockEdit: Component<{
                 <select value={s().source} onChange={(e,) => set({ source: e.currentTarget.value as GalleryBlockSettings['source'], },)}>
                     <option value="query">Query (live)</option>
                     <option value="items">Selected items</option>
+                    <Show when={offerSlot()}>
+                        <option value="slot">Slot (from the block using this template)</option>
+                    </Show>
                 </select>
             </FormField>
 
+            <Show when={s().source === 'slot'}>
+                <FormField
+                    label="Slot"
+                    hint="The block that uses this template chooses the gallery items for this slot."
+                >
+                    <select value={s().slotId ?? ''} onChange={(e,) => set({ slotId: e.currentTarget.value || undefined, },)}>
+                        <option value="">— select a slot —</option>
+                        <For each={slotChoices(templateSlots(), 'gallery_item',)}>
+                            {(c,) => (
+                                <option value={c.slot.id} disabled={!c.compatible}>
+                                    {slotOptionLabel(c.slot,)}{c.compatible ? '' : ' (incompatible)'}
+                                </option>
+                            )}
+                        </For>
+                    </select>
+                </FormField>
+            </Show>
+
+            <Show when={s().source !== 'slot'}>
             <Show
                 when={s().source === 'items'}
                 fallback={
@@ -147,6 +178,7 @@ const GalleryBlockEdit: Component<{
                         <A href="/admin/gallery" class="form-help-muted">Manage the gallery</A>
                     </div>
                 </div>
+            </Show>
             </Show>
 
             <div class="gallery-block-edit__bp" role="tablist" aria-label="Breakpoint">

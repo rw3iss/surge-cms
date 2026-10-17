@@ -212,6 +212,35 @@
   }
 }
 
+// Entity block → "Slots": one card per template slot (name + type, binding
+// summary, Configure / Clear).
+.entity-block-edit__slot {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: $spacing-sm;
+  border: 1px solid $border-color;
+  border-radius: $border-radius-md;
+
+  & + & { margin-top: $spacing-xs; }
+}
+
+.entity-block-edit__slot-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: $spacing-sm;
+  font-size: $font-size-sm;
+
+  code { font-size: $font-size-xs; color: $text-light; }
+}
+
+.entity-block-edit__slot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-xs;
+}
+
 // Two-up row: pairs of stacked FormFields side by side (e.g. min/max width),
 // collapsing to a single column when the panel/window is narrow. Shared so
 // every block editor lays paired fields out identically.

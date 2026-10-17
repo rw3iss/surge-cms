@@ -11,13 +11,21 @@
 import { beforeEach, describe, expect, it, vi, } from 'vitest';
 
 const findBlocksResolved = vi.fn();
+const findTemplate = vi.fn();
+const resolveGalleryBlockItems = vi.fn();
 const entityGet = vi.fn();
 const entityList = vi.fn();
 const listPlatformPosts = vi.fn();
 
 vi.mock('../../repositories/contentBlockTemplates.repo', () => ({
     findBlocksResolved: (...a: unknown[]) => findBlocksResolved(...a,),
+    findById: (...a: unknown[]) => findTemplate(...a,),
 }),);
+vi.mock('../gallery/serverRender', () => ({
+    GALLERY_RESOLVED_KEY: '__galleryItems',
+    resolveGalleryBlockItems: (...a: unknown[]) => resolveGalleryBlockItems(...a,),
+}),);
+vi.mock('./videoMediaSize', () => ({ attachVideoMediaSize: (b: unknown,) => Promise.resolve(b,), }),);
 vi.mock('../socialFeed', () => ({
     listPlatformPosts: (...a: unknown[]) => listPlatformPosts(...a,),
 }),);
@@ -57,6 +65,10 @@ const tplBlock = (id = 't1', content = '<a>{{post.title}}</a>',) => ({
 
 beforeEach(() => {
     findBlocksResolved.mockReset();
+    findTemplate.mockReset();
+    findTemplate.mockResolvedValue(null,);
+    resolveGalleryBlockItems.mockReset();
+    resolveGalleryBlockItems.mockResolvedValue([],);
     entityGet.mockReset();
     entityList.mockReset();
     listPlatformPosts.mockReset();
@@ -332,5 +344,77 @@ describe('social auto-feed resolution', () => {
         expect(inner,).toBeDefined();
         const items = inner!.settings.items as Array<Record<string, unknown>>;
         expect(items?.[0]?.postId,).toBe('NESTED',);
+    },);
+},);
+
+describe('expandDynamicBlocks — template slots', () => {
+    const slotTemplate = (blocks: Array<Record<string, unknown>>,) => {
+        findBlocksResolved.mockResolvedValue(blocks,);
+        findTemplate.mockResolvedValue({
+            id: 'tpl-1',
+            slots: [
+                { id: 'photos', entityType: 'gallery_item', array: true, },
+                { id: 'stories', entityType: 'post', array: true, },
+                { id: 'lead', entityType: 'post', array: false, },
+            ],
+        },);
+    };
+    const usingBlock = (slots: Record<string, unknown>,) => entityBlock({
+        settings: { entity: { entityType: 'post', templateId: 'tpl-1', binding: { mode: 'none', }, slots, }, },
+    },);
+    const galleryChild = { id: 'g', parentBlockId: null, blockType: 'gallery', position: 0, settings: { source: 'slot', slotId: 'photos', }, style: {}, };
+    const postsChild = (slotId: string,) => ({ id: 'p', parentBlockId: null, blockType: 'post_list', position: 1, settings: { source: 'slot', slotId, }, style: {}, });
+
+    it('Gallery: the slot\'s gallery_item records become the block items, in order', async () => {
+        slotTemplate([galleryChild,],);
+        entityGet.mockImplementation((_t: string, id: string,) => Promise.resolve({ id, },),);
+        resolveGalleryBlockItems.mockImplementation((s: { itemIds: string[]; },) => Promise.resolve(s.itemIds.map((id,) => ({ id, }),),),);
+
+        const out = await expandDynamicBlocks([usingBlock({ photos: { mode: 'list', refs: ['b', 'a',], }, },),],);
+        const g = out.find((b,) => b.blockType === 'gallery')!;
+        expect(entityGet,).toHaveBeenCalledWith('gallery_item', 'b',);
+        expect(resolveGalleryBlockItems.mock.calls[0][0],).toMatchObject({ source: 'items', itemIds: ['b', 'a',], },);
+        expect(resolveGalleryBlockItems.mock.calls[0][1],).toBe('email',);
+        expect(g.settings.__galleryItems,).toEqual([{ id: 'b', }, { id: 'a', },],);
+    },);
+
+    it('Gallery: an unfilled slot → no items (never the block\'s own query)', async () => {
+        slotTemplate([galleryChild,],);
+        const out = await expandDynamicBlocks([usingBlock({},),],);
+        expect(out.find((b,) => b.blockType === 'gallery')!.settings.__galleryItems,).toEqual([],);
+        expect(resolveGalleryBlockItems,).not.toHaveBeenCalled();
+    },);
+
+    it('Posts: a query slot → resolvedPosts (published only)', async () => {
+        slotTemplate([postsChild('stories',),],);
+        entityList.mockResolvedValue({ items: [
+            { id: '1', slug: 'one', title: 'One', excerpt: 'E', featuredImage: 'https://x/a.jpg', status: 'published', },
+            { id: '2', slug: 'two', title: 'Two', status: 'draft', },
+        ], total: 2, },);
+        const out = await expandDynamicBlocks([usingBlock({ stories: { mode: 'query', query: { limit: 3, }, }, },),],);
+        expect(entityList.mock.calls[0][0],).toBe('post',);
+        expect(entityList.mock.calls[0][1],).toMatchObject({ limit: 3, },);
+        expect(out.find((b,) => b.blockType === 'post_list')!.settings.resolvedPosts,).toEqual([
+            { slug: 'one', title: 'One', excerpt: 'E', featuredImage: 'https://x/a.jpg', },
+        ],);
+    },);
+
+    it('Posts: a non-array slot takes one record (query limit 1)', async () => {
+        slotTemplate([postsChild('lead',),],);
+        entityList.mockResolvedValue({ items: [{ id: '1', slug: 'one', title: 'One', },], total: 1, },);
+        await expandDynamicBlocks([usingBlock({ lead: { mode: 'query', query: { limit: 10, }, }, },),],);
+        expect(entityList.mock.calls[0][1],).toMatchObject({ limit: 1, },);
+    },);
+
+    it('a component (template block) fills slots from its own settings.slots', async () => {
+        slotTemplate([postsChild('lead',),],);
+        entityGet.mockResolvedValue({ id: '9', slug: 'nine', title: 'Nine', },);
+        const out = await expandDynamicBlocks([{
+            id: 'c1', parentBlockId: null, blockType: 'template', position: 0,
+            settings: { templateId: 'tpl-1', slots: { lead: { mode: 'single', ref: 'nine', }, }, }, style: {},
+        },],);
+        expect(out.find((b,) => b.blockType === 'post_list')!.settings.resolvedPosts,).toEqual([
+            { slug: 'nine', title: 'Nine', excerpt: undefined, featuredImage: undefined, },
+        ],);
     },);
 },);

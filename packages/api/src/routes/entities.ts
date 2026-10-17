@@ -6,6 +6,7 @@
 import { isStaffRole, } from '@sitesurge/types';
 import { z, } from 'zod';
 import { blockStyleRecord, } from '../api/blockStyleInput';
+import { templateSlotsInput, } from '../api/templateSlotInput';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { NotFoundError, } from '../core/errors';
 import * as cbtSvc from '../services/contentBlockTemplates';
@@ -78,6 +79,7 @@ const templateCreateSchema = z.object({
     mode: z.enum(['single', 'list',],).optional(),
     maxRecords: z.number().int().nullable().optional(),
     sampleRecordIds: z.array(z.string(),).nullable().optional(),
+    slots: templateSlotsInput.optional(),
 },);
 const templateUpdateSchema = templateCreateSchema.partial();
 const templateBlockSchema = z.object({

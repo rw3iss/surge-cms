@@ -61,6 +61,10 @@ export async function resolveGalleryBlockItems(settings: Partial<GalleryBlockSet
         if (!ids.length) return [];
         return fetchItems({ ids, limit: ids.length, }, audience,);
     }
+    // A slot's items are resolved by the caller (the template's using block
+    // supplies them) and passed back in as `source: 'items'`; never fall
+    // through to the block's stale `query` here.
+    if (settings.source === 'slot') return [];
     return fetchItems({ ...(settings.query ?? {}), }, audience,);
 }
 

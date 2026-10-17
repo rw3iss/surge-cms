@@ -4,7 +4,10 @@
  * Modeled on the mail-template service pair.
  */
 import type { ContentBlockTemplate, ContentBlockTemplateBlock, } from '@sitesurge/types';
+import { normalizeTemplateSlots, } from '@sitesurge/types';
+import * as entityManager from '../entities/entityManager';
 import * as repo from '../repositories/contentBlockTemplates.repo';
+import { ValidationError, } from '../middleware/error';
 import { cache, CACHE_KEYS, } from './cache';
 
 /**
@@ -42,14 +45,28 @@ export async function findById(id: string,): Promise<ContentBlockTemplate | null
     return repo.findById(id,);
 }
 
+/**
+ * Validate a template's `slots` (unique ids, id format, registered entity
+ * type, ≤ MAX_TEMPLATE_SLOTS) and return the cleaned list. Throws a 400.
+ */
+export function validateSlots(input: unknown,): NonNullable<repo.CreateInput['slots']> {
+    const { slots, errors, } = normalizeTemplateSlots(input, key => !!entityManager.getType(key,),);
+    if (errors.length) throw new ValidationError(`Invalid template slots: ${errors.join('; ',)}`,);
+    return slots;
+}
+
+function withSlots<T extends Partial<repo.CreateInput>,>(input: T,): T {
+    return input.slots === undefined ? input : { ...input, slots: validateSlots(input.slots,), };
+}
+
 export async function create(input: repo.CreateInput,): Promise<ContentBlockTemplate> {
-    const template = await repo.create(input,);
+    const template = await repo.create(withSlots(input,),);
     await invalidate(template.entityTypeKey,);
     return template;
 }
 
 export async function update(id: string, patch: Partial<repo.CreateInput>,): Promise<ContentBlockTemplate | null> {
-    const template = await repo.update(id, patch,);
+    const template = await repo.update(id, withSlots(patch,),);
     if (template) await invalidate(template.entityTypeKey,);
     return template;
 }
