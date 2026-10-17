@@ -135,6 +135,7 @@ export function normalizeQuery(q: Omit<GalleryQuery, 'ids'> & { ids?: string[] |
         tag: q.tag?.trim() || undefined,
         search: q.search?.trim().slice(0, 100,) || undefined,
         sort,
+        dir: q.dir === 'desc' ? 'desc' : 'asc',
         limit: Math.min(MAX_LIMIT, Math.max(1, Math.round(Number(q.limit,) || 24,),),),
         page: Math.max(1, Math.round(Number(q.page,) || 1,),),
         listing: q.listing === true || (q.listing as unknown) === 'true' || undefined,
@@ -223,9 +224,9 @@ function orderBy(q: ReturnType<typeof normalizeQuery>, params: unknown[],): stri
     switch (q.sort) {
         case 'newest': return 'ORDER BY gi.created_at DESC';
         case 'oldest': return 'ORDER BY gi.created_at ASC';
-        case 'title': return `ORDER BY lower(COALESCE(NULLIF(gi.title, ''), m.title, m.original_name)) ASC`;
+        case 'title': return `ORDER BY lower(COALESCE(NULLIF(gi.title, ''), m.title, m.original_name)) ${q.dir === 'desc' ? 'DESC' : 'ASC'}`;
         case 'random': return 'ORDER BY random()';
-        default: return 'ORDER BY gi.sort_order ASC, gi.created_at DESC';
+        default: return q.dir === 'desc' ? 'ORDER BY gi.sort_order DESC, gi.created_at ASC' : 'ORDER BY gi.sort_order ASC, gi.created_at DESC';
     }
 }
 

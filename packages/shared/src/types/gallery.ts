@@ -247,6 +247,8 @@ export interface GalleryQuery {
     /** Title / caption / media name contains. */
     search?: string;
     sort?: GallerySort;
+    /** Reverse `title` (Z–A) or `order` (gallery order, last first). `newest`/`oldest` already carry a direction. */
+    dir?: 'asc' | 'desc';
     limit?: number;
     page?: number;
     /**

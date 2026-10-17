@@ -495,19 +495,51 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
         return rec ? recordLabel(rec,) : ref;
     };
 
+    /** Reset search, filters, sort, limit and paging (the selection is kept — it has its own Clear). */
+    const clearAll = () => {
+        clearTimeout(searchTimer,);
+        setSearch('',);
+        setClauses([blankClause(),],);
+        setSortBy('',);
+        setSortOrder('desc',);
+        setLimit(defaultLimit(),);
+        setPage(1,);
+    };
+
+    /**
+     * The selection in the window's SORT order (field + direction), so what the
+     * block shows matches what the list showed. With no sort chosen (the
+     * default) the pick order is kept. Records not loaded keep their place at the end.
+     */
+    const orderedSelection = (): string[] => {
+        const refs = selected();
+        if (!sortBy() && sortOrder() === 'desc') return refs;
+        const field = sortBy() || 'createdAt';
+        const dir = sortOrder() === 'asc' ? 1 : -1;
+        const val = (ref: string,) => (known()[ref] as Record<string, unknown> | undefined)?.[field];
+        return [...refs,].sort((a, b,) => {
+            const va = val(a,), vb = val(b,);
+            if (va == null && vb == null) return 0;
+            if (va == null) return 1;
+            if (vb == null) return -1;
+            if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
+            return String(va,).localeCompare(String(vb,), undefined, { numeric: true, sensitivity: 'base', },) * dir;
+        },);
+    };
+
     const saveLine = () => saveLineText(selected().length, buildQuery(), allowQuery(),);
 
     const save = () => {
         const p = dataProps();
         if (!p) return;
         const binding = bindingFromPick({
-            selectedRefs: selected(),
+            selectedRefs: orderedSelection(),
             query: buildQuery(),
             allowMultiple: allowMultiple(),
             allowQuery: allowQuery(),
         },);
         if (!binding) return;
-        const records = selected().map((ref,) => known()[ref]).filter((r,): r is EntityRecord => !!r);
+        const records = orderedSelection().map((ref,) => known()[ref]).filter((r,): r is EntityRecord => !!r);
         p.onSave(binding, records,);
     };
 
@@ -575,6 +607,9 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                             />
                         </label>
                     </Show>
+                    <button type="button" class="entity-search-modal__clear-all" onClick={clearAll} title="Remove the search, every filter and the sort">
+                        Clear
+                    </button>
                 </div>
 
                 {/* Filter criteria: one property / operator / value row each,
@@ -623,17 +658,17 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                                     <Show when={typeDef()?.virtualFilters?.find((v,) => v.key === c.field,)?.description}>
                                         {(d,) => <small class="entity-search-modal__clause-hint">{d()}</small>}
                                     </Show>
-                                    <Show when={clauses.length > 1}>
-                                        <button
-                                            type="button"
-                                            class="entity-search-modal__clause-remove"
-                                            aria-label="Remove this criterion"
-                                            title="Remove"
-                                            onClick={() => { removeClause(i(),); setPage(1,); }}
-                                        >
-                                            ×
-                                        </button>
-                                    </Show>
+                                    {/* Every row has ×: on the only row it clears the row
+                                        (removeClause never drops the last one). */}
+                                    <button
+                                        type="button"
+                                        class="entity-search-modal__clause-remove"
+                                        aria-label={clauses.length > 1 ? 'Remove this criterion' : 'Clear this criterion'}
+                                        title={clauses.length > 1 ? 'Remove' : 'Clear'}
+                                        onClick={() => { removeClause(i(),); setPage(1,); }}
+                                    >
+                                        ×
+                                    </button>
                                     <Show when={i() === clauses.length - 1}>
                                         <button
                                             type="button"

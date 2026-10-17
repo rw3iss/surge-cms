@@ -25,13 +25,23 @@ function filterValue(f: EntityQuery['filter'], key: string,): string | undefined
 
 /** EntityQuery → GalleryQuery. */
 export function toGalleryQuery(q: EntityQuery = {},): GalleryQuery {
-    const sortBy = q.sortBy === 'createdAt' ? (q.sortOrder === 'asc' ? 'oldest' : 'newest') : q.sortBy === 'title' ? 'title' : undefined;
+    // The shared select modal sends `sortBy` + `sortOrder` (or `sortOrder` alone,
+    // meaning "by date"). Every field it offers maps here WITH its direction —
+    // only createdAt used to, so the direction toggle looked dead for gallery items.
+    const desc = q.sortOrder === 'desc';
+    const by = q.sortBy || (q.sortOrder ? 'createdAt' : '');
+    const sortBy: GalleryQuery['sort'] | undefined = by === 'createdAt' || by === 'publishedAt' || by === 'updatedAt'
+        ? (desc ? 'newest' : 'oldest')
+        : by === 'title' ? 'title'
+        : by === 'sortOrder' ? 'order'
+        : undefined;
     return {
         type: (filterValue(q.filter, 'type',) as GalleryQuery['type']) ?? 'all',
         tag: filterValue(q.filter, 'tag',),
         collectionId: filterValue(q.filter, 'collection',),
         sort: (filterValue(q.filter, 'sort',) as GalleryQuery['sort']) ?? sortBy ?? 'order',
         search: q.search,
+        ...(sortBy === 'title' || sortBy === 'order' ? { dir: desc ? 'desc' as const : 'asc' as const, } : {}),
         page: q.page,
         limit: q.limit,
     };
