@@ -24,7 +24,12 @@ export const EntityBlock: Component<{ block: Block; ctx?: TplCtx; }> = (props,) 
         () => {
             const s = settings();
             if (!s || !s.templateId || !s.entityType) return null;
-            return { s, ctx: props.ctx, };
+            // Read the binding DEEPLY: the admin preview patches settings in
+            // place (a reconciled store), so the `entity` object keeps its
+            // identity when only the data source / records change — keying on
+            // it alone left the block on its old (empty) records until reload.
+            const key = JSON.stringify([s.templateId, s.entityType, s.binding ?? null,],);
+            return { s: { ...s, binding: s.binding ? JSON.parse(JSON.stringify(s.binding,),) : s.binding, }, ctx: props.ctx, key, };
         },
         async (input) => {
             const { s, ctx, } = input;
