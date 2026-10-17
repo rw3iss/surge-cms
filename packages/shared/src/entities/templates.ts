@@ -8,6 +8,10 @@
 import type { BlockType, } from '../types/content';
 import type { SlotBinding, } from './entityBlock';
 
+/** How a `list` template renders its records (see `ContentBlockTemplate.listRender`). */
+export type TemplateListRender = 'each' | 'once';
+export const TEMPLATE_LIST_RENDERS: readonly TemplateListRender[] = ['each', 'once',];
+
 /** A slot id: a letter, then letters/digits/underscores, 40 chars max. */
 export const TEMPLATE_SLOT_ID_PATTERN = /^[a-z][a-z0-9_]{0,39}$/i;
 /** Most slots one template may declare. */
@@ -45,6 +49,10 @@ export interface ContentBlockTemplate {
     mode: 'single' | 'list';
     /** List mode only: cap on how many records a using block may bind/query. */
     maxRecords?: number | null;
+    /** List mode only: `each` (default) = render the template once PER record;
+     *  `once` = render it ONE time with the plural variable bound to every
+     *  record (the singular variable = the first). See `templateRenderGroups`. */
+    listRender?: TemplateListRender;
     /** Record ids used as the PREVIEW sample while editing this template in the
      *  admin (so `{{entity.field}}` resolves against real data). Empty/absent =
      *  auto-pick (single → first record; list → first N up to `maxRecords`). */

@@ -15,22 +15,28 @@
  * SLOTS: `templatePreviewSlotContext()` is the slot data the template editor's
  * preview renders with — the open template's slots (`stores/templateSlots`)
  * bound to each slot's `previewBinding`, else auto (first record / first 6).
+ * It also carries the TEMPLATE DATA (`templatePreviewData`, the sample).
  * Slot-reading blocks fall back to it when no using block provides bindings
  * (`components/blocks/slotContext.tsx`); empty outside the template editor.
  */
-import { previewSlotBindings, type TemplateSlotContext, } from '@sitesurge/types';
+import { previewSlotBindings, type TemplateDataContext, type TemplateSlotContext, } from '@sitesurge/types';
 import { createMemo, createRoot, createSignal, } from 'solid-js';
 import type { TplEntities, } from '../services/entityBinding';
 import { templateSlots, } from './templateSlots';
 
 const [templatePreviewContext, setTemplatePreviewContext,] = createSignal<TplEntities | undefined>(undefined,);
+/** The template DATA the editor preview renders with: the preview sample —
+ *  every sample record for a list template that renders `once`, else the
+ *  first (the editor shows ONE render). Null outside the template editor. */
+const [templatePreviewData, setTemplatePreviewData,] = createSignal<TemplateDataContext | null>(null,);
 
 const templatePreviewSlotContext = createRoot(() =>
     createMemo((): TemplateSlotContext | undefined => {
         const slots = templateSlots();
-        if (!slots.length) return undefined;
-        return { slots, bindings: previewSlotBindings(slots,), };
+        const data = templatePreviewData();
+        if (!slots.length && !data) return undefined;
+        return { slots, bindings: previewSlotBindings(slots,), templateData: data, };
     },)
 );
 
-export { setTemplatePreviewContext, templatePreviewContext, templatePreviewSlotContext, };
+export { setTemplatePreviewContext, setTemplatePreviewData, templatePreviewContext, templatePreviewData, templatePreviewSlotContext, };

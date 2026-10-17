@@ -418,3 +418,64 @@ describe('expandDynamicBlocks — template slots', () => {
         ],);
     },);
 },);
+
+describe('template list render + template data', () => {
+    const galleryTplBlock = () => ({
+        id: 'g1', parentBlockId: null, blockType: 'gallery', position: 0,
+        settings: { source: 'template', desktop: { layout: 'grid', }, }, style: {},
+    });
+    const galleryEntity = (refs: string[],): FlatMailBlock => entityBlock({
+        settings: {
+            entity: { entityType: 'gallery_item', templateId: 'tpl-g', binding: { mode: 'list', refs, }, },
+        },
+    },);
+    const recordsById = () => entityGet.mockImplementation((_t: string, ref: string,) => Promise.resolve({ id: ref, title: ref, },),);
+
+    it('once: ONE copy of the template, its gallery gets every record in order', async () => {
+        findTemplate.mockResolvedValue({ id: 'tpl-g', mode: 'list', listRender: 'once', slots: [], },);
+        findBlocksResolved.mockResolvedValue([galleryTplBlock(),],);
+        recordsById();
+        resolveGalleryBlockItems.mockImplementation((s: { itemIds?: string[]; },) =>
+            Promise.resolve((s.itemIds ?? []).map((id,) => ({ id, })),),);
+        const out = await expandDynamicBlocks([galleryEntity(['b', 'a', 'c',],),],);
+        const galleries = out.filter((b,) => b.blockType === 'gallery');
+        expect(galleries,).toHaveLength(1,);
+        expect(galleries[0].settings.__galleryItems,).toEqual([{ id: 'b', }, { id: 'a', }, { id: 'c', },],);
+        const call = resolveGalleryBlockItems.mock.calls.find((c,) => (c[0] as { itemIds?: string[]; }).itemIds,);
+        expect((call![0] as { itemIds: string[]; source: string; }).itemIds,).toEqual(['b', 'a', 'c',],);
+    },);
+
+    it('each (default): one copy per record, each gallery gets its own record', async () => {
+        findTemplate.mockResolvedValue({ id: 'tpl-g', mode: 'list', slots: [], },);
+        findBlocksResolved.mockResolvedValue([galleryTplBlock(),],);
+        recordsById();
+        resolveGalleryBlockItems.mockImplementation((s: { itemIds?: string[]; },) =>
+            Promise.resolve((s.itemIds ?? []).map((id,) => ({ id, })),),);
+        const out = await expandDynamicBlocks([galleryEntity(['a', 'b',],),],);
+        const galleries = out.filter((b,) => b.blockType === 'gallery');
+        expect(galleries.map((g,) => g.settings.__galleryItems),).toEqual([[{ id: 'a', },], [{ id: 'b', },],],);
+    },);
+
+    it('each mode is unchanged for a post template (one copy per record)', async () => {
+        findTemplate.mockResolvedValue({ id: 'tpl-1', mode: 'list', listRender: 'each', slots: [], },);
+        findBlocksResolved.mockResolvedValue([tplBlock(),],);
+        entityGet.mockImplementation((_t: string, ref: string,) => Promise.resolve({ id: ref, title: ref.toUpperCase(), },),);
+        const out = await expandDynamicBlocks([entityBlock({
+            settings: { entity: { entityType: 'post', templateId: 'tpl-1', binding: { mode: 'list', refs: ['x', 'y',], }, }, },
+        },),],);
+        const html = out.filter((b,) => b.blockType === 'html').map((b,) => b.settings.content);
+        expect(html,).toEqual(['<a>X</a>', '<a>Y</a>',],);
+    },);
+
+    it('incompatible template data → the gallery renders nothing', async () => {
+        findTemplate.mockResolvedValue({ id: 'tpl-1', mode: 'list', listRender: 'once', slots: [], },);
+        findBlocksResolved.mockResolvedValue([galleryTplBlock(),],);
+        recordsById();
+        const out = await expandDynamicBlocks([entityBlock({
+            settings: { entity: { entityType: 'post', templateId: 'tpl-1', binding: { mode: 'list', refs: ['x',], }, }, },
+        },),],);
+        const gallery = out.find((b,) => b.blockType === 'gallery');
+        expect(gallery!.settings.__galleryItems,).toEqual([],);
+        expect(resolveGalleryBlockItems,).not.toHaveBeenCalled();
+    },);
+},);

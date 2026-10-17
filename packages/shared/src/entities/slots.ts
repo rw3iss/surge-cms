@@ -8,6 +8,7 @@
  *     → records.
  */
 import type { SlotBinding, } from './entityBlock';
+import type { TemplateDataContext, } from './templateData';
 import { MAX_TEMPLATE_SLOTS, TEMPLATE_SLOT_ID_PATTERN, type TemplateSlot, } from './templates';
 
 /** Slot data handed down while a template renders. */
@@ -16,6 +17,8 @@ export interface TemplateSlotContext {
     slots?: TemplateSlot[];
     /** The using block's bindings (`EntityBlockSettings.slots`). */
     bindings?: Record<string, SlotBinding>;
+    /** The record(s) the template is rendering right now (see `templateData.ts`). */
+    templateData?: TemplateDataContext | null;
 }
 
 /** Records shown for an auto (no preview binding) slot in the template editor. */

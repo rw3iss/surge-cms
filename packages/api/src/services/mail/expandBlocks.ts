@@ -17,9 +17,10 @@
  * disagree about what an email contains.
  */
 import {
-    isSocialAutoFeed, resolveSocialCount,
-    type SlotBinding, type TemplateSlotContext,
+    isSocialAutoFeed, resolveSocialCount, templateDataFor, templateDataIds, templateDataOf, templateRenderGroups, rendersOnce,
+    type ContentBlockTemplate, type SlotBinding, type TemplateSlotContext,
 } from '@sitesurge/types';
+import * as entityManager from '../../entities/entityManager';
 import * as contentBlockTemplates from '../../repositories/contentBlockTemplates.repo';
 import * as socialFeed from '../socialFeed';
 import * as entitiesService from '../entities';
@@ -133,8 +134,9 @@ async function cloneBlocks(
     keyPrefix: string,
     context: Record<string, unknown> | null,
     positionOffset: number,
-    /** The enclosing template's slots + the using block's bindings; stamped on
-     *  every slot-reading block (Gallery / Posts with `source: 'slot'`). */
+    /** The enclosing template's slots + the using block's bindings + the
+     *  record(s) this render binds; stamped on every block that reads them
+     *  (Gallery / Posts with `source: 'slot'`, Gallery `source: 'template'`). */
     slotCtx?: TemplateSlotContext | null,
 ): Promise<FlatMailBlock[]> {
     const idMap = new Map<string, string>();
@@ -157,22 +159,33 @@ async function cloneBlocks(
     }),),);
 }
 
-/** Stamp the slot context on a block that reads a slot; others untouched. */
+/** Stamp the slot/template-data context on a block that reads it; others untouched. */
 function withSlotContext(settings: Record<string, unknown>, slotCtx: TemplateSlotContext | null | undefined,): Record<string, unknown> {
-    if (!slotCtx || settings.source !== 'slot') return settings;
+    if (!slotCtx || (settings.source !== 'slot' && settings.source !== 'template')) return settings;
     return { ...settings, [SLOT_CONTEXT_KEY]: slotCtx, };
 }
 
-/** The slot context for one use of template `templateId`, or null when it has no slots. */
-async function slotContextFor(templateId: string, bindings: Record<string, SlotBinding> | undefined,): Promise<TemplateSlotContext | null> {
-    let tpl: Awaited<ReturnType<typeof contentBlockTemplates.findById>> = null;
+/** The entity type's definition (variable names), or undefined when unknown / not loaded. */
+function typeDef(key: string,): ReturnType<typeof entityManager.getType> {
     try {
-        tpl = await contentBlockTemplates.findById(templateId,);
+        return entityManager.getType(key,);
     } catch {
-        return null; // slots are optional; never cost the block its render
+        return undefined;
     }
-    if (!tpl?.slots?.length) return null;
-    return { slots: tpl.slots, bindings: bindings ?? {}, };
+}
+
+/** Template metadata (slots, mode, listRender). Optional: a failed read never costs the block its render. */
+async function templateMeta(templateId: string,): Promise<ContentBlockTemplate | null> {
+    try {
+        return await contentBlockTemplates.findById(templateId,);
+    } catch {
+        return null;
+    }
+}
+
+/** The slot context for one use of a template (its slots + the using block's bindings). */
+function slotContextOf(tpl: ContentBlockTemplate | null, bindings: Record<string, SlotBinding> | undefined,): TemplateSlotContext {
+    return { slots: tpl?.slots ?? [], bindings: bindings ?? {}, };
 }
 
 /**
@@ -195,6 +208,17 @@ async function resolveSlotPosts(settings: Record<string, unknown>,): Promise<Rec
         }))
         .filter((p,) => p.slug);
     return { ...settings, resolvedPosts: posts, };
+}
+
+/** Gallery items for a block reading its template's data (`source: 'template'`). */
+async function resolveTemplateGallery(settings: Record<string, unknown>,): Promise<Record<string, unknown>> {
+    const ctx = settings[SLOT_CONTEXT_KEY] as TemplateSlotContext | undefined;
+    const found = templateDataFor(ctx?.templateData, 'gallery_item',);
+    const ids = found.ok ? templateDataIds(found.records,) : [];
+    const items = ids.length
+        ? await resolveGalleryBlockItems({ ...(settings as Record<string, unknown>), source: 'items', itemIds: ids, } as never, 'email',)
+        : [];
+    return { ...settings, [GALLERY_RESOLVED_KEY]: items, };
 }
 
 /** Gallery items for a block reading a slot (records of type `gallery_item`, in order). */
@@ -318,15 +342,24 @@ async function expandPass(
                     continue;
                 }
 
-                const slotCtx = await slotContextFor(cfg.templateId, cfg.slots,);
-                // One copy of the template per record — the same rule the web
-                // renderer uses for a list binding.
+                const tpl = await templateMeta(cfg.templateId,);
+                const slots = slotContextOf(tpl, cfg.slots,);
+                // One copy of the template per record (`each`, the default) or
+                // ONE copy with every record (`once`) — the same rule the web
+                // renderer uses (`templateRenderGroups`).
+                const varName = cfg.entityType ?? 'entity';
+                const def = cfg.entityType ? typeDef(cfg.entityType,) : undefined;
+                const pluralVar = def?.pluralVar || `${varName}s`;
+                const once = rendersOnce(tpl,);
                 let offset = 0;
-                for (const [i, record,] of records.entries()) {
-                    const varName = cfg.entityType ?? 'entity';
+                for (const [i, group,] of templateRenderGroups(records, tpl,).entries()) {
+                    const first = group[0];
+                    const context: Record<string, unknown> = { [varName]: first, entity: first, };
+                    if (def?.singularVar && def.singularVar !== varName) context[def.singularVar] = first;
+                    if (once) context[pluralVar] = group;
                     const cloned = await cloneBlocks(
                         tplBlocks as never, block.id, `${block.id}-r${i}`,
-                        { [varName]: record, entity: record, }, offset, slotCtx,
+                        context, offset, { ...slots, templateData: templateDataOf(cfg.entityType, group,), },
                     );
                     out.push(...cloned,);
                     offset += tplBlocks.length;
@@ -348,6 +381,10 @@ async function expandPass(
                     out[idx] = { ...out[idx], settings: await resolveSlotGallery(out[idx].settings,), };
                     continue;
                 }
+                if (out[idx].settings.source === 'template') {
+                    out[idx] = { ...out[idx], settings: await resolveTemplateGallery(out[idx].settings,), };
+                    continue;
+                }
                 const items = await resolveGalleryBlockItems(block.settings as never, 'email',);
                 out[idx] = { ...out[idx], settings: { ...out[idx].settings, [GALLERY_RESOLVED_KEY]: items, }, };
             } else if (block.blockType === 'post_list') {
@@ -359,8 +396,9 @@ async function expandPass(
                 if (!templateId) continue;
                 const tplBlocks = await contentBlockTemplates.findBlocksResolved(templateId,);
                 if (tplBlocks.length === 0) continue;
-                const slotCtx = await slotContextFor(templateId, block.settings.slots as Record<string, SlotBinding> | undefined,);
-                out.push(...await cloneBlocks(tplBlocks as never, block.id, `${block.id}-c`, null, 0, slotCtx,),);
+                // A component binds no entity: its template data is empty.
+                const slotCtx = slotContextOf(await templateMeta(templateId,), block.settings.slots as Record<string, SlotBinding> | undefined,);
+                out.push(...await cloneBlocks(tplBlocks as never, block.id, `${block.id}-c`, null, 0, { ...slotCtx, templateData: null, },),);
             }
         } catch (e) {
             // One unresolvable block must not cost the whole email.

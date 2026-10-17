@@ -9,7 +9,8 @@
  */
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import { useToast, } from '../../../components/common/toast';
-import type { ContentBlockTemplate, EntityRecord, EntityTypeDef, TemplateSlot, } from '@sitesurge/types';
+import type { ContentBlockTemplate, EntityRecord, EntityTypeDef, TemplateListRender, TemplateSlot, } from '@sitesurge/types';
+import { rendersOnce, templateDataOf, templateListRenderOf, } from '@sitesurge/types';
 import { Component, createEffect, createMemo, createResource, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
 import { createStore, reconcile, unwrap, } from 'solid-js/store';
 import BlockEditor, { BlockData, } from '../../../components/admin/blocks/BlockEditor';
@@ -21,8 +22,8 @@ import TemplateSlotsEditor from '../../../components/admin/entities/TemplateSlot
 import { FormField, FormSection, } from '../../../components/admin/forms';
 import { backendToEditor, type BackendBlock, editorToBackend, } from '../../../components/admin/mail/blockConverters';
 import { cms, } from '../../../services/cmsClient';
-import { setTemplatePreviewContext, } from '../../../stores/templatePreviewContext';
-import { setTemplateSlots, } from '../../../stores/templateSlots';
+import { setTemplatePreviewContext, setTemplatePreviewData, } from '../../../stores/templatePreviewContext';
+import { setTemplateInfo, setTemplateSlots, } from '../../../stores/templateSlots';
 import { slotIdError, } from '../../../utils/templateSlots';
 import './EntitiesList.scss';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
@@ -86,6 +87,8 @@ const TemplateEditor: Component = () => {
     const [description, setDescription,] = createSignal('',);
     const [mode, setMode,] = createSignal<'single' | 'list'>('single',);
     const [maxRecords, setMaxRecords,] = createSignal<string>('',);
+    /** List mode: render once per record (`each`) or once with all (`once`). */
+    const [listRender, setListRender,] = createSignal<TemplateListRender>('each',);
     const [blocks, setBlocks,] = createSignal<BlockData[]>([],);
     /**
      * The blocks as last SAVED. BlockEditor diffs against this to decide which
@@ -119,6 +122,10 @@ const TemplateEditor: Component = () => {
     // can offer a "Slot" source. Spreading each row tracks every field.
     createEffect(() => setTemplateSlots(slots.map((s,) => ({ ...s, })),),);
     onCleanup(() => setTemplateSlots([],),);
+    // Publish the binding so block panels can offer "Template data" (only for
+    // a type they understand) and explain the each/once consequence.
+    createEffect(() => setTemplateInfo({ entityType: params.type ?? null, mode: mode(), listRender: listRender(), },),);
+    onCleanup(() => setTemplateInfo(null,),);
 
     /**
      * Run the component's client module over its own editor previews.
@@ -187,6 +194,7 @@ const TemplateEditor: Component = () => {
             setDescription(d.description ?? '',);
             setMode(d.mode,);
             setMaxRecords(d.maxRecords != null ? String(d.maxRecords,) : '',);
+            setListRender(templateListRenderOf(d.listRender,),);
             setSampleRecordIds(d.sampleRecordIds ?? [],);
             setScript(d.script ?? '',);
             setScriptEnabled(d.scriptEnabled !== false,);
@@ -219,6 +227,8 @@ const TemplateEditor: Component = () => {
             const meta = {
                 name: name(), description: description() || undefined,
                 mode: mode(), maxRecords: maxRecords() ? Number(maxRecords(),) : null,
+                // A global component has no records to render.
+                ...(isGlobal() ? {} : { listRender: listRender(), }),
                 sampleRecordIds: sampleRecordIds(),
                 slots: structuredClone(unwrap(slots,),),
                 // Only send script fields for a component — the backend gates
@@ -311,6 +321,18 @@ const TemplateEditor: Component = () => {
     },);
     onCleanup(() => setTemplatePreviewContext(undefined,),);
 
+    // Template DATA for the preview (blocks with `source: 'template'`): the
+    // sample, as the using block would hand it to ONE render — every record
+    // for a list template rendering `once`, else the first.
+    createEffect(() => {
+        const type = params.type;
+        const recs = sampleRecords.latest ?? [];
+        if (!type) { setTemplatePreviewData(null,); return; }
+        const group = rendersOnce({ mode: mode(), listRender: listRender(), },) ? recs : recs.slice(0, 1,);
+        setTemplatePreviewData(templateDataOf(type, group,),);
+    },);
+    onCleanup(() => setTemplatePreviewData(null,),);
+
     // Variables present on the loaded sample record but NOT declared as schema
     // fields — values a data provider enriches onto every record (e.g. the Shop
     // provider's product.media / product.tags / product.variants and the scalar
@@ -387,13 +409,24 @@ const TemplateEditor: Component = () => {
                         to an entity type. A component has no records to bind. */}
                     <Show when={!isGlobal()}>
                     <FormSection title="Binding">
-                        <FormField label="Mode" hint="Single binds one record; List renders once per record.">
+                        <FormField label="Mode" hint="Single binds one record; List binds several (see Render).">
                             <select value={mode()} onChange={(e,) => setMode(e.currentTarget.value as 'single' | 'list',)}>
                                 <option value="single">Single</option>
                                 <option value="list">List</option>
                             </select>
                         </FormField>
                         <Show when={mode() === 'list'}>
+                            <FormField
+                                label="Render"
+                                hint={listRender() === 'once'
+                                    ? `ONE render with every record: {{${pluralVar()}}} holds them all, {{${singularVar()}}} is the first, and blocks reading Template data (e.g. a Gallery) get them all.`
+                                    : `The template repeats once per record, with {{${singularVar()}}} bound to that record.`}
+                            >
+                                <select value={listRender()} onChange={(e,) => setListRender(templateListRenderOf(e.currentTarget.value,),)}>
+                                    <option value="each">Once per record (repeat the template)</option>
+                                    <option value="once">Once, with all records</option>
+                                </select>
+                            </FormField>
                             <FormField label="Max records" hint="Optional cap on how many records a using block may bind/query.">
                                 <input type="number" min="1" value={maxRecords()} onInput={(e,) => setMaxRecords(e.currentTarget.value,)} />
                             </FormField>

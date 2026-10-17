@@ -4,7 +4,7 @@
  * content-block-template sub-resource.
  */
 import type { EntityFieldDef, EntityFieldOption, EntityRecord, EntityTypeDef, } from '../../entities/types';
-import type { ContentBlockTemplate, ContentBlockTemplateBlock, TemplateSlot, } from '../../entities/templates';
+import type { ContentBlockTemplate, ContentBlockTemplateBlock, TemplateListRender, TemplateSlot, } from '../../entities/templates';
 
 // ── Entity types (schema) ──
 export type EntityTypeListResponse = EntityTypeDef[];
@@ -61,6 +61,8 @@ export interface ContentBlockTemplateCreateBody {
     description?: string;
     mode?: 'single' | 'list';
     maxRecords?: number | null;
+    /** List mode: render once per record (`each`, default) or once with all (`once`). */
+    listRender?: TemplateListRender;
     /** Preview-sample record ids (see ContentBlockTemplate.sampleRecordIds). */
     sampleRecordIds?: string[] | null;
     /** Data inputs filled by the using block (validated server-side). */

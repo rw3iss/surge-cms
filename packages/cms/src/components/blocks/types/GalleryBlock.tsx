@@ -2,15 +2,17 @@
  * Gallery block (`gallery` feature): hand-picked items (`source: 'items'`,
  * shown in the picked order), a live query (`source: 'query'`), or — inside a
  * template — the enclosing template's slot (`source: 'slot'`, records of type
- * `gallery_item` → their ids, in order), rendered
+ * `gallery_item` → their ids, in order), or the record(s) the enclosing
+ * `gallery_item` template is rendering (`source: 'template'`, the shared
+ * `templateDataFor` rule), rendered
  * through the shared GalleryView with the block's layout settings (desktop +
  * mobile ≤768px). Items are fetched for THIS viewer, so gated items drop out.
  */
 import type { Block, GalleryBlockSettings, GalleryItem, GalleryQuery, } from '@sitesurge/types';
-import { DEFAULT_GALLERY_BLOCK_SETTINGS, } from '@sitesurge/types';
+import { DEFAULT_GALLERY_BLOCK_SETTINGS, templateDataFor, templateDataIds, type TemplateDataLookup, } from '@sitesurge/types';
 import { Component, createResource, Show, } from 'solid-js';
 import GalleryView from '../../gallery/GalleryView';
-import { SlotPlaceholder, slotRecordIds, slotRecordsFor, useSlotContext, } from '../slotContext';
+import { SlotPlaceholder, slotRecordIds, slotRecordsFor, TemplateDataPlaceholder, useSlotContext, } from '../slotContext';
 import { cms, } from '../../../services/cmsClient';
 import { useUser, } from '../../../stores/auth';
 
@@ -21,17 +23,18 @@ export function gallerySettingsOf(raw: unknown,): GalleryBlockSettings {
     return {
         ...d,
         ...s,
-        source: s.source === 'items' || s.source === 'slot' ? s.source : 'query',
+        source: s.source === 'items' || s.source === 'slot' || s.source === 'template' ? s.source : 'query',
         desktop: { ...d.desktop, ...(s.desktop ?? {}), },
         mobile: { ...(s.mobile ?? d.mobile ?? {}), },
         query: { ...(s.query ?? d.query ?? {}), },
     };
 }
 
-/** The query a block runs. `slotIds` = the ids resolved from its slot (`source: 'slot'`). */
+/** The query a block runs. `slotIds` = the ids resolved from its slot
+ *  (`source: 'slot'`) or its template data (`source: 'template'`). */
 export function galleryBlockQuery(s: GalleryBlockSettings, slotIds?: string[] | null,): GalleryQuery | null {
-    if (s.source === 'items' || s.source === 'slot') {
-        const ids = ((s.source === 'slot' ? slotIds : s.itemIds) ?? []).filter(Boolean,);
+    if (s.source === 'items' || s.source === 'slot' || s.source === 'template') {
+        const ids = ((s.source === 'items' ? s.itemIds : slotIds) ?? []).filter(Boolean,);
         return ids.length ? { ids, limit: Math.min(200, ids.length,), } : null;
     }
     return { ...(s.query ?? {}), };
@@ -52,9 +55,16 @@ export const GalleryBlock: Component<{ block: Block; }> = (props,) => {
         },
         ({ slotId, ctx, },) => slotRecordsFor(ctx, slotId, 'gallery_item',),
     );
+    // `source: 'template'` → the gallery_item record(s) the template renders.
+    const templateData = (): TemplateDataLookup | null =>
+        settings().source === 'template' ? templateDataFor(slotCtx()?.templateData, 'gallery_item',) : null;
     const [items,] = createResource(
         () => {
             const s = settings();
+            if (s.source === 'template') {
+                const t = templateData();
+                return { q: galleryBlockQuery(s, t?.ok ? templateDataIds(t.records,) : [],), viewer: user.user?.id ?? 'anon', };
+            }
             if (s.source === 'slot') {
                 const r = slot();
                 if (!r) return false; // still resolving
@@ -75,6 +85,9 @@ export const GalleryBlock: Component<{ block: Block; }> = (props,) => {
         <div class="gallery-block">
             <Show when={(() => { const r = slot(); return r && !r.ok ? r : null; })()}>
                 {(r,) => <SlotPlaceholder slotId={settings().slotId} reason={r().reason} />}
+            </Show>
+            <Show when={(() => { const t = templateData(); return t && !t.ok ? t : null; })()}>
+                {(t,) => <TemplateDataPlaceholder label="Gallery" lookup={t()} />}
             </Show>
             <Show when={items()}>
                 {(list,) => <GalleryView items={list()} settings={settings()} videoBadge />}

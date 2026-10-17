@@ -8,13 +8,17 @@
  * with `slotRecordsFor` — the SAME `resolveRecords` the entity block uses for
  * its own binding.
  *
+ * The same context carries the TEMPLATE DATA (`templateData`: the record(s)
+ * the template is rendering) for blocks with `source: 'template'` — see
+ * `@sitesurge/types` `entities/templateData.ts`.
+ *
  * In the template EDITOR no using block exists, so with no provider the
  * context falls back to the editor's preview bindings
  * (`templatePreviewSlotContext`: each slot's `previewBinding`, else auto).
  */
 import {
-    slotFor, slotPlaceholderText,
-    type EntityRecord, type SlotBinding, type TemplateSlot, type TemplateSlotContext,
+    slotFor, slotPlaceholderText, templateDataPlaceholderText,
+    type EntityRecord, type SlotBinding, type TemplateDataContext, type TemplateDataLookup, type TemplateSlot, type TemplateSlotContext,
 } from '@sitesurge/types';
 import { createContext, Show, useContext, type Component, } from 'solid-js';
 import { resolveRecords, } from '../../services/entityBinding';
@@ -30,6 +34,22 @@ export function slotContextOf(
     return {
         get slots() { return slots() ?? []; },
         get bindings() { return bindings() ?? {}; },
+    };
+}
+
+/**
+ * `base` (reactive slot getters kept) plus the template DATA of one render —
+ * the record(s) the template is rendering (`templateDataOf`). Spreading `base`
+ * would freeze its getters, so they are re-exposed.
+ */
+export function withTemplateData(
+    base: TemplateSlotContext | null | undefined,
+    data: TemplateDataContext | null,
+): TemplateSlotContext {
+    return {
+        get slots() { return base?.slots ?? []; },
+        get bindings() { return base?.bindings ?? {}; },
+        templateData: data,
     };
 }
 
@@ -72,5 +92,12 @@ export function isAdminView(): boolean {
 export const SlotPlaceholder: Component<{ slotId?: string; reason: 'missing' | 'unfilled' | 'incompatible'; }> = (props,) => (
     <Show when={isAdminView()}>
         <div class="block-message block-message--slot">{slotPlaceholderText(props.slotId, props.reason,)}</div>
+    </Show>
+);
+
+/** "Gallery expects gallery_item template data…" — admin previews only. */
+export const TemplateDataPlaceholder: Component<{ label: string; lookup: Extract<TemplateDataLookup, { ok: false; }>; }> = (props,) => (
+    <Show when={isAdminView()}>
+        <div class="block-message block-message--slot">{templateDataPlaceholderText(props.label, props.lookup,)}</div>
     </Show>
 );

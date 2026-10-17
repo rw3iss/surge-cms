@@ -22,7 +22,7 @@ vi.mock('../content/PostVisibilityBadge', () => ({ default: () => null, }),);
 vi.mock('../content/PostTypeBadge', () => ({ default: () => null, }),);
 vi.mock('../../stores/auth', () => ({ useUser: () => ({ user: null, }), }),);
 
-const { slotRecordIds, slotRecordsFor, } = await import('./slotContext');
+const { slotRecordIds, slotRecordsFor, withTemplateData, } = await import('./slotContext');
 const { galleryBlockQuery, gallerySettingsOf, } = await import('./types/GalleryBlock');
 const { slotPostSettings, } = await import('./posts/PostListRenderer');
 
@@ -67,5 +67,23 @@ describe('block helpers', () => {
         expect(slotPostSettings({ source: 'slot', slotId: 'lead', count: 9, }, ['p2', 'p1',],),).toMatchObject({
             pinnedPostIds: ['p2', 'p1',], queryEnabled: false, showEmptyMessage: false,
         },);
+    },);
+    it('Gallery keeps source template and queries the template data ids in order', () => {
+        const s = gallerySettingsOf({ source: 'template', },);
+        expect(s.source,).toBe('template',);
+        expect(galleryBlockQuery(s, ['c', 'a',],),).toEqual({ ids: ['c', 'a',], limit: 2, },);
+        expect(galleryBlockQuery(s, [],),).toBeNull();
+    },);
+},);
+
+describe('withTemplateData', () => {
+    it('adds template data and keeps the slot getters live', () => {
+        let bindings: Record<string, unknown> = {};
+        const base = { get slots() { return ctx.slots; }, get bindings() { return bindings as never; }, };
+        const c = withTemplateData(base, { entityType: 'gallery_item', records: [{ id: 'g1', },], },);
+        expect(c.templateData?.records,).toEqual([{ id: 'g1', },],);
+        bindings = { photos: { mode: 'list', refs: ['x',], }, };
+        expect(c.bindings,).toEqual(bindings,);
+        expect(withTemplateData(null, null,),).toMatchObject({ slots: [], bindings: {}, templateData: null, },);
     },);
 },);

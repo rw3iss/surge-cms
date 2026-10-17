@@ -26,7 +26,7 @@ import type {
     HeroPostsConfig,
     TemplateSlotContext,
 } from '@sitesurge/types';
-import { buildBlockTree, featuredImagePath, } from '@sitesurge/types';
+import { buildBlockTree, featuredImagePath, rendersOnce, templateRenderGroups, } from '@sitesurge/types';
 import { Component, createMemo, createResource, type JSX, } from 'solid-js';
 import { mapTemplateBlocks, resolveRecords, type TplEntities, } from '../../services/entityBinding';
 import { fetchPostList, type PostWithBlocks, } from '../../services/postsService';
@@ -43,6 +43,8 @@ export interface RenderEntitySlideArgs {
     ctx?: TplEntities;
     /** The template's slots + the entity item's bindings. */
     slots?: TemplateSlotContext;
+    /** Every record, when the template renders ONCE with all of them. */
+    records?: EntityRecord[];
 }
 
 export interface ResolvedHeroCarouselProps {
@@ -81,6 +83,8 @@ interface EntitySlideDescriptor {
     record: EntityRecord;
     order: number;
     slots: TemplateSlotContext;
+    /** Set for a `once` list template: this one slide renders every record. */
+    records?: EntityRecord[];
 }
 type ResolvedDescriptor = HeroItem | EntitySlideDescriptor;
 const isEntityDescriptor = (d: ResolvedDescriptor,): d is EntitySlideDescriptor =>
@@ -94,14 +98,17 @@ async function resolveEntityItem(item: HeroItem, ctx: TplEntities | undefined,):
     if (!tpl) return [];
     const roots = buildBlockTree(mapTemplateBlocks(tpl.blocks ?? [],),);
     const records = await resolveRecords(cfg.entityType, cfg.binding, tpl.maxRecords, ctx,);
-    return records.map((record, i,) => ({
+    // One slide per record (`each`), or ONE slide with every record (`once`).
+    const once = rendersOnce(tpl,);
+    return templateRenderGroups(records, tpl,).map((group, i,) => ({
         __entity: true as const,
-        id: `${item.id}:${String(record.id ?? i)}`,
+        id: `${item.id}:${String(group[0]!.id ?? i)}`,
         entityType: cfg.entityType,
         roots,
-        record,
+        record: group[0]!,
         order: i,
         slots: { slots: tpl.slots ?? [], bindings: cfg.slots ?? {}, },
+        ...(once ? { records: group, } : {}),
     }));
 }
 
@@ -218,6 +225,7 @@ const ResolvedHeroCarousel: Component<ResolvedHeroCarouselProps> = (props,) => {
                         record: d.record,
                         ctx: props.ctx,
                         slots: d.slots,
+                        records: d.records,
                     },),
                 };
             }

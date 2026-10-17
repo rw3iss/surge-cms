@@ -1,10 +1,12 @@
 /**
- * Entity block — renders a content-block template per bound record.
+ * Entity block — renders a content-block template per bound record (or ONCE
+ * with every record when the list template's `listRender` is `once`).
  *
  * Split out of BlockRenderer.tsx, which held every block type in one
  * 1,332-line file. Behaviour is unchanged — this is a move, not a rewrite.
  */
-import type { Block, EntityRecord, TemplateSlot, TemplateSlotContext, } from '@sitesurge/types';
+import type { Block, ContentBlockTemplate, EntityRecord, TemplateSlot, TemplateSlotContext, } from '@sitesurge/types';
+import { rendersOnce, templateRenderGroups, } from '@sitesurge/types';
 import { Component, For, Show, createResource, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import { buildBlockTree, } from '@sitesurge/types';
@@ -27,13 +29,16 @@ export const EntityBlock: Component<{ block: Block; ctx?: TplCtx; }> = (props,) 
         async (input) => {
             const { s, ctx, } = input;
             const tpl = await cms.contentBlockTemplates.getOne(s.entityType, s.templateId,).catch(() => null);
-            if (!tpl) return { roots: [] as Block[], items: [] as Array<Record<string, unknown>>, entityType: s.entityType, tplSlots: [] as TemplateSlot[], };
+            if (!tpl) return { roots: [] as Block[], groups: [] as EntityRecord[][], once: false, entityType: s.entityType, tplSlots: [] as TemplateSlot[], };
             const recs = await resolveRecords(s.entityType, s.binding, tpl.maxRecords, ctx,);
             const roots = buildBlockTree(mapTemplateBlocks(tpl.blocks ?? [],),);
             // The template's slot DEFINITIONS come with the template; the
             // bindings are read LIVE below, so setting a slot's data in the
             // panel re-renders without refetching the template.
-            return { roots, items: recs as Array<Record<string, unknown>>, entityType: s.entityType, tplSlots: tpl.slots ?? [], };
+            // `each` (default): one render per record. `once` (list template):
+            // ONE render with every record (plural var + template data).
+            const meta = tpl as ContentBlockTemplate;
+            return { roots, groups: templateRenderGroups(recs, meta,), once: rendersOnce(meta,), entityType: s.entityType, tplSlots: tpl.slots ?? [], };
         },
     );
 
@@ -49,22 +54,23 @@ export const EntityBlock: Component<{ block: Block; ctx?: TplCtx; }> = (props,) 
     return (
         <Show when={resolved()} fallback={null}>
             {(r) => {
-                const renderRecord = (rec: Record<string, unknown>,) =>
+                const renderGroup = (group: EntityRecord[],) =>
                     renderEntityTemplateSlide({
                         roots: r().roots,
                         entityType: r().entityType,
-                        record: rec as EntityRecord,
+                        record: group[0]!,
                         ctx: props.ctx,
                         slots: slotCtx,
+                        records: r().once ? group : undefined,
                     },);
                 return (
                     <Show
-                        when={layout() === 'carousel' && r().items.length > 1}
-                        fallback={<For each={r().items}>{(rec) => renderRecord(rec,)}</For>}
+                        when={layout() === 'carousel' && r().groups.length > 1}
+                        fallback={<For each={r().groups}>{(g) => renderGroup(g,)}</For>}
                     >
                         <div class="entity-carousel">
-                            <For each={r().items}>
-                                {(rec) => <div class="entity-carousel__item">{renderRecord(rec,)}</div>}
+                            <For each={r().groups}>
+                                {(g) => <div class="entity-carousel__item">{renderGroup(g,)}</div>}
                             </For>
                         </div>
                     </Show>

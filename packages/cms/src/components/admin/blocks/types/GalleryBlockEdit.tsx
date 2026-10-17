@@ -3,7 +3,9 @@
  * DataBindingField on the read-only `gallery_item` entity type): ticked items
  * save as `source:'items'` + `itemIds`, none ticked saves the filters as a
  * live `source:'query'` (mapped to a GalleryQuery: type / tag / sort / search
- * + limit) — or **Slot** inside a template. Layout per
+ * + limit) — or, inside a template, **Template data** (the gallery_item
+ * record(s) the template renders; offered only when the template binds
+ * `gallery_item`) or **Slot**. Layout per
  * breakpoint (Desktop / Mobile ≤768px — an empty mobile value follows
  * desktop) + behaviour, modelled on the Carousel block's options.
  *
@@ -16,8 +18,8 @@ import { A, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { cms, } from '../../../../services/cmsClient';
 import { isFeatureEnabled, } from '../../../../stores/siteSettings';
-import { templateSlots, } from '../../../../stores/templateSlots';
-import { slotChoices, slotOptionLabel, } from '../../../../utils/templateSlots';
+import { templateInfo, templateSlots, } from '../../../../stores/templateSlots';
+import { slotChoices, slotOptionLabel, templateDataSourceState, } from '../../../../utils/templateSlots';
 import { gallerySettingsOf, } from '../../../blocks/types/GalleryBlock';
 import { entityQueryToGalleryQuery, galleryQueryToEntityQuery, } from '../../../gallery/galleryLayout';
 import { tileSrc, } from '../../../gallery/GalleryTile';
@@ -38,15 +40,22 @@ const GalleryBlockEdit: Component<{
     data: Record<string, any>;
     onUpdate: (d: Record<string, any>,) => void;
 }> = (props,) => {
-    /** Read `slot` from the RAW settings: a normaliser that only knows
-     *  items/query must not silently turn a slot block into a query. */
-    const source = (): GalleryBlockSettings['source'] =>
-        (props.data as { source?: string; }).source === 'slot' ? 'slot' : gallerySettingsOf(props.data,).source;
+    /** Read `slot`/`template` from the RAW settings: a normaliser that only
+     *  knows items/query must not silently turn such a block into a query. */
+    const source = (): GalleryBlockSettings['source'] => {
+        const raw = (props.data as { source?: string; }).source;
+        return raw === 'slot' || raw === 'template' ? raw : gallerySettingsOf(props.data,).source;
+    };
     const s = (): GalleryBlockSettings => ({ ...gallerySettingsOf(props.data,), source: source(), });
     const set = (patch: Partial<GalleryBlockSettings>,) => props.onUpdate({ ...props.data, ...s(), ...patch, },);
     /** "Slot" is offered only inside a template that declares slots (or when
      *  the block already reads one, so it can be seen and switched away). */
     const offerSlot = () => templateSlots().length > 0 || source() === 'slot';
+    /** "Template data": only when the open template binds gallery_item (or the
+     *  block already reads it — kept visible, disabled, with a warning). */
+    const tplData = () => templateDataSourceState(templateInfo(), 'gallery_item', 'gallery', source() === 'template',);
+    const offerSource = () => offerSlot() || tplData().offer;
+    const sourceValue = () => (source() === 'slot' || source() === 'template' ? source() : 'data');
     const [bp, setBp,] = createSignal<'desktop' | 'mobile'>('desktop',);
 
     const opts = (): GalleryBlockLayoutOptions => (bp() === 'desktop' ? s().desktop : s().mobile) ?? {};
@@ -120,16 +129,33 @@ const GalleryBlockEdit: Component<{
                 <div class="alert alert--warning">The Gallery feature is off — this block shows nothing until it is enabled in Settings → Features.</div>
             </Show>
 
-            <Show when={offerSlot()}>
-                <FormField label="Source" tooltip="This block's own data, or the gallery items the block using this template puts in a slot.">
+            <Show when={offerSource()}>
+                <FormField
+                    label="Source"
+                    tooltip="This block's own data, the gallery item(s) this template is rendering, or the gallery items the block using this template puts in a slot."
+                    hint={tplData().eachHint ?? undefined}
+                >
                     <select
-                        value={s().source === 'slot' ? 'slot' : 'data'}
-                        onChange={(e,) => set(e.currentTarget.value === 'slot' ? { source: 'slot', } : { source: 'query', },)}
+                        value={sourceValue()}
+                        onChange={(e,) => {
+                            const v = e.currentTarget.value;
+                            set(v === 'slot' ? { source: 'slot', } : v === 'template' ? { source: 'template', } : { source: 'query', },);
+                        }}
                     >
                         <option value="data">Data (selected items or a live query)</option>
-                        <option value="slot">Slot (from the block using this template)</option>
+                        <Show when={tplData().offer}>
+                            <option value="template" disabled={!tplData().compatible}>
+                                Template data (the gallery item{templateInfo()?.mode === 'list' ? 's' : ''} this template renders)
+                            </option>
+                        </Show>
+                        <Show when={offerSlot()}>
+                            <option value="slot">Slot (from the block using this template)</option>
+                        </Show>
                     </select>
                 </FormField>
+                <Show when={tplData().warning}>
+                    <div class="alert alert--warning">{tplData().warning}</div>
+                </Show>
             </Show>
 
             <Show when={s().source === 'slot'}>
@@ -150,7 +176,7 @@ const GalleryBlockEdit: Component<{
                 </FormField>
             </Show>
 
-            <Show when={s().source !== 'slot'}>
+            <Show when={s().source !== 'slot' && s().source !== 'template'}>
                 <DataBindingField
                     label="Data"
                     tooltip="Tick gallery items for a fixed selection (in the order picked), or tick none to save the filters as a live query that updates as the gallery changes."

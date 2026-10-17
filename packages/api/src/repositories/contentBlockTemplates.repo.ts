@@ -8,7 +8,7 @@
  * `block_styles`) are resolved on read via `populateBlockStyles` so the
  * renderer ingests fully-inlined style props.
  */
-import type { ContentBlockTemplate, ContentBlockTemplateBlock, TemplateSlot, } from '@sitesurge/types';
+import type { ContentBlockTemplate, ContentBlockTemplateBlock, TemplateListRender, TemplateSlot, } from '@sitesurge/types';
 import { getPool, query, } from '../db';
 import * as blockStyleResolution from '../services/blockStyleResolution';
 
@@ -21,6 +21,7 @@ interface TemplateRow {
     entity_type_key: string | null;
     mode: 'single' | 'list';
     max_records: number | null;
+    list_render: TemplateListRender | null;
     sample_record_ids: string[] | null;
     script: string | null;
     script_enabled: boolean;
@@ -36,6 +37,7 @@ function mapTemplate(row: TemplateRow,): ContentBlockTemplate {
         entityTypeKey: row.entity_type_key,
         mode: row.mode,
         maxRecords: row.max_records,
+        listRender: row.list_render === 'once' ? 'once' : 'each',
         sampleRecordIds: row.sample_record_ids ?? [],
         slots: Array.isArray(row.slots,) ? row.slots : [],
         createdAt: row.created_at.toISOString(),
@@ -83,6 +85,7 @@ export interface CreateInput {
     entityTypeKey?: string | null;
     mode?: 'single' | 'list';
     maxRecords?: number | null;
+    listRender?: TemplateListRender;
     sampleRecordIds?: string[] | null;
     /** Already validated by the service (`normalizeTemplateSlots`). */
     slots?: TemplateSlot[];
@@ -91,8 +94,8 @@ export interface CreateInput {
 export async function create(input: CreateInput,): Promise<ContentBlockTemplate> {
     const r = await query<TemplateRow>(`
         INSERT INTO content_block_templates
-            (name, description, entity_type_key, mode, max_records, sample_record_ids, script, script_enabled, slots)
-        VALUES ($1, $2, $3, COALESCE($4, 'single'), $5, $6::text[], $7, COALESCE($8, true), $9::jsonb)
+            (name, description, entity_type_key, mode, max_records, sample_record_ids, script, script_enabled, slots, list_render)
+        VALUES ($1, $2, $3, COALESCE($4, 'single'), $5, $6::text[], $7, COALESCE($8, true), $9::jsonb, COALESCE($10, 'each'))
         RETURNING *
     `, [
         input.name,
@@ -104,6 +107,7 @@ export async function create(input: CreateInput,): Promise<ContentBlockTemplate>
         input.script ?? null,
         input.scriptEnabled ?? null,
         JSON.stringify(input.slots ?? [],),
+        input.listRender ?? null,
     ],);
     return mapTemplate(r.rows[0],);
 }
@@ -120,6 +124,7 @@ export async function update(id: string, patch: Partial<CreateInput>,): Promise<
     if (patch.entityTypeKey !== undefined) set('entity_type_key', patch.entityTypeKey ?? null,);
     if (patch.mode !== undefined) set('mode', patch.mode,);
     if (patch.maxRecords !== undefined) set('max_records', patch.maxRecords ?? null,);
+    if (patch.listRender !== undefined) set('list_render', patch.listRender === 'once' ? 'once' : 'each',);
     if (patch.sampleRecordIds !== undefined) {
         // Explicit ::text[] cast so pg types the array param in this dynamic SET.
         values.push(patch.sampleRecordIds ?? null,);

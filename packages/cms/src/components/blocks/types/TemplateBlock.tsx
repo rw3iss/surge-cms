@@ -14,7 +14,8 @@ import { buildBlockTree, } from '@sitesurge/types';
 import { entityVars, mapTemplateBlocks, resolveRecords, } from '../../../services/entityBinding';
 import { type TplCtx, } from './shared';
 import { BlockRenderer, } from '../BlockRenderer';
-import { SlotContext, slotContextOf, } from '../slotContext';
+import { SlotContext, slotContextOf, withTemplateData, } from '../slotContext';
+import { templateDataOf, } from '@sitesurge/types';
 
 /**
  * Resolve once `el` has rendered children, or give up after ~1s.
@@ -60,10 +61,12 @@ export const TemplateBlock: Component<{
 
     const roots = () => buildBlockTree(mapTemplateBlocks((tpl()?.blocks ?? []) as never,),);
     // The component's slots, filled by THIS block's `settings.slots`.
-    const slotCtx = slotContextOf(
+    // A component binds no entity, so its template data is empty (a block
+    // inside with `source: 'template'` explains itself in the admin).
+    const slotCtx = withTemplateData(slotContextOf(
         () => tpl()?.slots,
         () => props.block.settings?.slots as Record<string, SlotBinding> | undefined,
-    );
+    ), null,);
     const nextAncestry = () => [...(props.ancestry ?? []), templateId(),];
     /** Guards the effect below against re-running on unrelated signal changes. */
     let mounted = false;
@@ -171,15 +174,23 @@ export function renderEntityTemplateSlide(
         roots: Block[]; entityType: string; record: EntityRecord; ctx?: TplCtx;
         /** The template's slots + the using block's bindings. */
         slots?: TemplateSlotContext;
+        /** Set when the template renders ONCE with every record (`listRender:
+         *  'once'`): bound under the plural variable and handed to the blocks
+         *  inside as template data. Absent = this render is `record` alone. */
+        records?: EntityRecord[];
     },
 ): JSX.Element {
-    const { singular, } = entityVars(args.entityType,);
+    const { singular, plural, } = entityVars(args.entityType,);
     const mergedCtx = {
         ...(args.ctx ?? {}),
         [singular]: { kind: args.entityType, data: args.record, id: String(args.record.id ?? ''), },
+        ...(args.records
+            ? { [plural]: { kind: args.entityType, data: args.records as unknown as Record<string, unknown>, id: '', }, }
+            : {}),
     } as TplCtx;
+    const data = templateDataOf(args.entityType, args.records ?? [args.record,],);
     return (
-        <SlotContext.Provider value={args.slots ?? { slots: [], bindings: {}, }}>
+        <SlotContext.Provider value={withTemplateData(args.slots, data,)}>
             <For each={args.roots}>
                 {(child) => (
                     <Show when={child.isVisible !== false}>

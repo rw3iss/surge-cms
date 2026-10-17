@@ -78,6 +78,7 @@ const templateCreateSchema = z.object({
     description: z.string().optional(),
     mode: z.enum(['single', 'list',],).optional(),
     maxRecords: z.number().int().nullable().optional(),
+    listRender: z.enum(['each', 'once',],).optional(),
     sampleRecordIds: z.array(z.string(),).nullable().optional(),
     slots: templateSlotsInput.optional(),
 },);

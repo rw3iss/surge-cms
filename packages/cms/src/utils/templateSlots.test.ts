@@ -1,5 +1,5 @@
 import { describe, expect, it, } from 'vitest';
-import { nextSlotId, slotChoices, slotIdError, slotOptionLabel, } from './templateSlots';
+import { nextSlotId, slotChoices, slotIdError, slotOptionLabel, templateDataSourceState, } from './templateSlots';
 
 describe('slotIdError', () => {
     it('accepts a valid unique id', () => {
@@ -35,5 +35,23 @@ describe('slot labels + choices', () => {
             { id: 'b', entityType: 'gallery_item', array: true, },
         ], 'post',);
         expect(r.map((c,) => c.compatible),).toEqual([true, false,],);
+    },);
+},);
+
+describe('templateDataSourceState', () => {
+    const gi = { entityType: 'gallery_item', mode: 'list' as const, listRender: 'once' as const, };
+    it('offers the option only when the template binds the expected type', () => {
+        expect(templateDataSourceState(gi, 'gallery_item', 'gallery', false,),).toMatchObject({ offer: true, compatible: true, warning: null, eachHint: null, },);
+        expect(templateDataSourceState({ ...gi, entityType: 'post', }, 'gallery_item', 'gallery', false,).offer,).toBe(false,);
+        expect(templateDataSourceState(null, 'gallery_item', 'gallery', false,).offer,).toBe(false,);
+    },);
+    it('keeps a mismatched selection visible with a warning', () => {
+        const r = templateDataSourceState({ ...gi, entityType: 'post', }, 'gallery_item', 'gallery', true,);
+        expect(r,).toMatchObject({ offer: true, compatible: false, },);
+        expect(r.warning,).toBe("Warning: 'gallery' expects 'gallery_item' template data.",);
+    },);
+    it('hints when a list template repeats per record', () => {
+        expect(templateDataSourceState({ ...gi, listRender: 'each', }, 'gallery_item', 'gallery', true,).eachHint,).toMatch(/ONE item each time/,);
+        expect(templateDataSourceState({ ...gi, mode: 'single', listRender: 'each', }, 'gallery_item', 'gallery', true,).eachHint,).toBeNull();
     },);
 },);

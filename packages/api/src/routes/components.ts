@@ -41,6 +41,7 @@ const createSchema = z.object({
     description: z.string().max(2000,).optional(),
     mode: z.enum(['single', 'list',],).optional(),
     maxRecords: z.number().int().min(1,).max(100,).nullish(),
+    listRender: z.enum(['each', 'once',],).optional(),
     // 256 KB is far more than a component needs and still bounds the row.
     script: z.string().max(262144,).nullish(),
     scriptEnabled: z.boolean().optional(),

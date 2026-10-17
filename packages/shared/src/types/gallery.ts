@@ -302,8 +302,10 @@ export interface GalleryBlockLayoutOptions {
 
 export interface GalleryBlockSettings {
     /** `items` = hand-picked ids; `query` = a live query; `slot` = the
-     *  enclosing template's slot `slotId` (records of type `gallery_item`). */
-    source: 'items' | 'query' | 'slot';
+     *  enclosing template's slot `slotId` (records of type `gallery_item`);
+     *  `template` = the record(s) the enclosing `gallery_item` template is
+     *  rendering (`templateDataFor`, entities/templateData.ts). */
+    source: 'items' | 'query' | 'slot' | 'template';
     itemIds?: string[];
     /** `source: 'slot'` only: the template slot to read. */
     slotId?: string;
