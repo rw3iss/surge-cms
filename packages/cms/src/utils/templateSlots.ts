@@ -1,8 +1,8 @@
 /**
- * Pure helpers for template slots (admin UI): id validation, labels, and a
- * one-line summary of how a using block fills a slot.
+ * Pure helpers for template slots (admin UI): id validation and labels. The
+ * one-line binding summary lives in `utils/dataBinding.ts`.
  */
-import { type EntityQuery, type SlotBinding, TEMPLATE_SLOT_ID_PATTERN, type TemplateSlot, } from '@sitesurge/types';
+import { TEMPLATE_SLOT_ID_PATTERN, type TemplateSlot, } from '@sitesurge/types';
 
 /**
  * Why `id` is not a usable slot id, or null when it is. `others` = the ids of
@@ -41,28 +41,6 @@ export function slotOptionLabel(slot: Pick<TemplateSlot, 'id' | 'entityType' | '
 /** Display name: the label, else the id. */
 export function slotDisplayName(slot: Pick<TemplateSlot, 'id' | 'label'>,): string {
     return slot.label?.trim() || slot.id;
-}
-
-/** "newest 6", "title A→Z, 3 filters" — a short reading of a saved query. */
-export function describeQuery(q: EntityQuery | undefined,): string {
-    const parts: string[] = [];
-    const sortBy = q?.sortBy;
-    const desc = (q?.sortOrder ?? 'desc') === 'desc';
-    if (!sortBy || sortBy === 'createdAt' || sortBy === 'created_at') parts.push(desc ? 'newest' : 'oldest',);
-    else parts.push(`${sortBy} ${desc ? '↓' : '↑'}`,);
-    if (q?.limit) parts[0] = `${parts[0]} ${q.limit}`;
-    const filters = Object.keys(q?.filter ?? {},).length;
-    if (filters) parts.push(`${filters} filter${filters === 1 ? '' : 's'}`,);
-    if (q?.search) parts.push(`search "${q.search}"`,);
-    return parts.join(', ',);
-}
-
-/** "Not set" / "1 selected" / "3 selected" / "Live query: newest 6". */
-export function slotBindingSummary(b: SlotBinding | undefined,): string {
-    if (!b) return 'Not set';
-    if (b.mode === 'single') return b.ref ? '1 selected' : 'Not set';
-    if (b.mode === 'list') return b.refs.length ? `${b.refs.length} selected` : 'Not set';
-    return `Live query: ${describeQuery(b.query,)}`;
 }
 
 /** The slots of the given type, each flagged compatible or not (for selects

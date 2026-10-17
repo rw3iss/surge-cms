@@ -1,15 +1,16 @@
 /**
- * Gallery block editor. Source: hand-picked items (the shared
- * EntitySearchSelectModal on the read-only `gallery_item` entity type,
- * multiple mode) or a live query (the same modal's "Configure query", mapped
- * to a GalleryQuery: type / tag / sort / search + limit). Layout per
+ * Gallery block editor. Source: **Data** — one "Set data…" (the shared
+ * DataBindingField on the read-only `gallery_item` entity type): ticked items
+ * save as `source:'items'` + `itemIds`, none ticked saves the filters as a
+ * live `source:'query'` (mapped to a GalleryQuery: type / tag / sort / search
+ * + limit) — or **Slot** inside a template. Layout per
  * breakpoint (Desktop / Mobile ≤768px — an empty mobile value follows
  * desktop) + behaviour, modelled on the Carousel block's options.
  *
  * Text/number inputs commit on `change` (blur / Enter), never per keystroke.
  */
 import type {
-    EntityQuery, EntityRecord, GalleryBlockLayout, GalleryBlockLayoutOptions, GalleryBlockSettings, GalleryItem,
+    EntityQuery, GalleryBlockLayout, GalleryBlockLayoutOptions, GalleryBlockSettings, GalleryItem, SlotBinding,
 } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
@@ -20,7 +21,7 @@ import { slotChoices, slotOptionLabel, } from '../../../../utils/templateSlots';
 import { gallerySettingsOf, } from '../../../blocks/types/GalleryBlock';
 import { entityQueryToGalleryQuery, galleryQueryToEntityQuery, } from '../../../gallery/galleryLayout';
 import { tileSrc, } from '../../../gallery/GalleryTile';
-import EntitySearchSelectModal from '../../entities/EntitySearchSelectModal';
+import DataBindingField from '../../entities/DataBindingField';
 import Toggle from '../../common/Toggle';
 import { FormField, } from '../../forms';
 import './GalleryBlockEdit.scss';
@@ -47,7 +48,6 @@ const GalleryBlockEdit: Component<{
      *  the block already reads one, so it can be seen and switched away). */
     const offerSlot = () => templateSlots().length > 0 || source() === 'slot';
     const [bp, setBp,] = createSignal<'desktop' | 'mobile'>('desktop',);
-    const [modal, setModal,] = createSignal<'multiple' | 'query' | null>(null,);
 
     const opts = (): GalleryBlockLayoutOptions => (bp() === 'desktop' ? s().desktop : s().mobile) ?? {};
     const setOpt = (patch: Partial<GalleryBlockLayoutOptions>,) => {
@@ -87,6 +87,21 @@ const GalleryBlockEdit: Component<{
     const removeItem = (id: string,) => set({ itemIds: (s().itemIds ?? []).filter((x,) => x !== id,), },);
     const byId = (id: string,) => picked()?.find((p,) => p.id === id,);
 
+    /** The gallery source as "Set data…" sees it. */
+    const dataBinding = (): SlotBinding | null => {
+        if (s().source === 'items') return (s().itemIds ?? []).length ? { mode: 'list', refs: s().itemIds ?? [], } : null;
+        if (s().source === 'query') return { mode: 'query', query: galleryQueryToEntityQuery(s().query,) as EntityQuery, };
+        return null;
+    };
+    const applyBinding = (b: SlotBinding | null,) => {
+        if (!b) set({ source: 'items', itemIds: [], },);
+        else if (b.mode === 'query') set({ source: 'query', query: entityQueryToGalleryQuery(b.query, b.query.limit ?? s().query?.limit,), },);
+        else {
+            set({ source: 'items', itemIds: b.mode === 'list' ? [...b.refs,] : [b.ref,], },);
+            void refetch();
+        }
+    };
+
     const querySummary = () => {
         const q = s().query ?? {};
         const parts = [
@@ -96,7 +111,7 @@ const GalleryBlockEdit: Component<{
             `sorted by ${q.sort ?? 'gallery order'}`,
             `up to ${q.limit ?? 12}`,
         ].filter(Boolean,);
-        return parts.join(' · ',);
+        return `Live: ${parts.join(' · ',)}`;
     };
 
     return (
@@ -105,15 +120,17 @@ const GalleryBlockEdit: Component<{
                 <div class="alert alert--warning">The Gallery feature is off — this block shows nothing until it is enabled in Settings → Features.</div>
             </Show>
 
-            <FormField label="Source" tooltip="Pick specific gallery items, or run a live query (newest images, a tag, …) that updates as the gallery changes.">
-                <select value={s().source} onChange={(e,) => set({ source: e.currentTarget.value as GalleryBlockSettings['source'], },)}>
-                    <option value="query">Query (live)</option>
-                    <option value="items">Selected items</option>
-                    <Show when={offerSlot()}>
+            <Show when={offerSlot()}>
+                <FormField label="Source" tooltip="This block's own data, or the gallery items the block using this template puts in a slot.">
+                    <select
+                        value={s().source === 'slot' ? 'slot' : 'data'}
+                        onChange={(e,) => set(e.currentTarget.value === 'slot' ? { source: 'slot', } : { source: 'query', },)}
+                    >
+                        <option value="data">Data (selected items or a live query)</option>
                         <option value="slot">Slot (from the block using this template)</option>
-                    </Show>
-                </select>
-            </FormField>
+                    </select>
+                </FormField>
+            </Show>
 
             <Show when={s().source === 'slot'}>
                 <FormField
@@ -134,13 +151,19 @@ const GalleryBlockEdit: Component<{
             </Show>
 
             <Show when={s().source !== 'slot'}>
-            <Show
-                when={s().source === 'items'}
-                fallback={
-                    <div class="gallery-block-edit__source">
-                        <p class="gallery-block-edit__summary">{querySummary()}</p>
-                        <div class="gallery-block-edit__row">
-                            <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={() => setModal('query',)}>Configure query…</button>
+                <DataBindingField
+                    label="Data"
+                    tooltip="Tick gallery items for a fixed selection (in the order picked), or tick none to save the filters as a live query that updates as the gallery changes."
+                    entityType="gallery_item"
+                    value={dataBinding()}
+                    maxRecords={200}
+                    summary={s().source === 'query' ? querySummary() : undefined}
+                    emptyText="No items selected"
+                    onChange={(b,) => applyBinding(b,)}
+                >
+                    <Show
+                        when={s().source === 'items'}
+                        fallback={
                             <FormField label="Limit" inline>
                                 <input
                                     type="number"
@@ -150,35 +173,29 @@ const GalleryBlockEdit: Component<{
                                     onChange={(e,) => set({ query: { ...(s().query ?? {}), limit: num(e.currentTarget.value,) ?? 12, }, },)}
                                 />
                             </FormField>
-                        </div>
-                    </div>
-                }
-            >
-                <div class="gallery-block-edit__source">
-                    <div class="gallery-block-edit__picked">
-                        <For each={s().itemIds ?? []} fallback={<p class="form-help-muted">No items selected.</p>}>
-                            {(id, i,) => (
-                                <div class="gallery-block-edit__chip" title={byId(id,)?.title || id}>
-                                    <Show when={byId(id,)} fallback={<span class="gallery-block-edit__missing">Unavailable</span>}>
-                                        {(it,) => <img src={tileSrc(it(),)} alt="" />}
-                                    </Show>
-                                    <div class="gallery-block-edit__chip-actions">
-                                        <button type="button" disabled={i() === 0} aria-label="Move left" onClick={() => move(id, -1,)}>‹</button>
-                                        <button type="button" aria-label="Remove" onClick={() => removeItem(id,)}>×</button>
-                                        <button type="button" disabled={i() === (s().itemIds ?? []).length - 1} aria-label="Move right" onClick={() => move(id, 1,)}>›</button>
-                                    </div>
-                                </div>
-                            )}
-                        </For>
-                    </div>
-                    <div class="gallery-block-edit__row">
-                        <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={() => setModal('multiple',)}>
-                            {(s().itemIds ?? []).length ? 'Change items…' : 'Select items…'}
-                        </button>
-                        <A href="/admin/gallery" class="form-help-muted">Manage the gallery</A>
-                    </div>
-                </div>
-            </Show>
+                        }
+                    >
+                        <Show when={(s().itemIds ?? []).length > 0}>
+                            <div class="gallery-block-edit__picked">
+                                <For each={s().itemIds ?? []}>
+                                    {(id, i,) => (
+                                        <div class="gallery-block-edit__chip" title={byId(id,)?.title || id}>
+                                            <Show when={byId(id,)} fallback={<span class="gallery-block-edit__missing">Unavailable</span>}>
+                                                {(it,) => <img src={tileSrc(it(),)} alt="" />}
+                                            </Show>
+                                            <div class="gallery-block-edit__chip-actions">
+                                                <button type="button" disabled={i() === 0} aria-label="Move left" onClick={() => move(id, -1,)}>‹</button>
+                                                <button type="button" aria-label="Remove" onClick={() => removeItem(id,)}>×</button>
+                                                <button type="button" disabled={i() === (s().itemIds ?? []).length - 1} aria-label="Move right" onClick={() => move(id, 1,)}>›</button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </For>
+                            </div>
+                        </Show>
+                    </Show>
+                    <A href="/admin/gallery" class="form-help-muted">Manage the gallery</A>
+                </DataBindingField>
             </Show>
 
             <div class="gallery-block-edit__bp" role="tablist" aria-label="Breakpoint">
@@ -292,24 +309,6 @@ const GalleryBlockEdit: Component<{
                 </Show>
             </div>
 
-            <Show when={modal()}>
-                <EntitySearchSelectModal
-                    entityType="gallery_item"
-                    mode={modal()!}
-                    initialQuery={modal() === 'query' ? (galleryQueryToEntityQuery(s().query,) as EntityQuery) : undefined}
-                    onClose={() => setModal(null,)}
-                    onSelect={(result,) => {
-                        if (modal() === 'multiple') {
-                            const ids = (result as EntityRecord[]).map((r,) => String(r.id,),);
-                            set({ source: 'items', itemIds: ids, },);
-                            void refetch();
-                        } else {
-                            set({ source: 'query', query: entityQueryToGalleryQuery(result as EntityQuery, s().query?.limit,), },);
-                        }
-                        setModal(null,);
-                    }}
-                />
-            </Show>
         </div>
     );
 };

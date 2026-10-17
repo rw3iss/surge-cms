@@ -1,0 +1,29 @@
+// "Set data…" control: a one-line summary of the binding + Set data… + Clear.
+// No `@use` here: this file is imported from the .tsx (a Vite sass entry) and
+// the configured prelude provides the variables.
+
+.data-binding-field {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+    min-width: 0;
+
+    &__row {
+        display: flex;
+        align-items: center;
+        gap: $spacing-xs;
+        flex-wrap: wrap;
+    }
+
+    &__summary {
+        flex: 1 1 10rem;
+        min-width: 0;
+        font-size: $font-size-xs;
+        color: var(--admin-text, #{$text-color});
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+
+        &.is-empty { color: var(--admin-text-muted, #{$text-light}); }
+    }
+}

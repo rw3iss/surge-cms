@@ -1,21 +1,27 @@
 /**
- * EntitySearchSelectModal — a reusable, self-contained modal for picking
- * entity records of a given type. Three modes:
+ * EntitySearchSelectModal — a reusable, self-contained modal for choosing
+ * entity records of a given type. Two modes:
  *
- *   'single'   → pick ONE record; `onSelect(record)` fires on click.
- *   'multiple' → pick many (≤ `max`); `onSelect(records[])` on confirm.
- *   'query'    → build an `EntityQuery` (filter/sort/limit); `onSelect(query)`.
+ *   'single' → pick ONE record; `onSelect(record)` fires on click (relation
+ *              fields).
+ *   'data'   → the ONE "Set data…" operation: search + filter clauses + sort +
+ *              limit (a query builder) AND a checkbox per row. Save →
+ *              `onSave(binding)`: ≥ 1 record selected = that selection
+ *              (`list`, or `single` when `allowMultiple` is false); none
+ *              selected = the current search/filters/sort/limit as a live
+ *              `query`. Selections persist across searches and pages, in pick
+ *              order. Used through `DataBindingField`.
  *
  * Renders a search box + a sortable results table over `cms.entities.list`.
  * Fetches the type definition to derive display columns + sortable fields.
- * Portal-mounted via the shared `ModalShell`. Kept dependency-light so the
- * entity block editor can reuse it verbatim.
+ * Portal-mounted via the shared `ModalShell`.
  */
 import type {
     EntityFilterValue,
     EntityQuery,
     EntityRecord,
     EntityTypeDef,
+    SlotBinding,
 } from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, onMount, Show, } from 'solid-js';
 import { createStore, produce, } from 'solid-js/store';
@@ -23,28 +29,45 @@ import { cms, } from '../../../services/cmsClient';
 import ModalShell from '../common/ModalShell';
 import SortTh from '../common/SortTh';
 import EntityValueInput from './EntityValueInput';
+import { loadRecordRefs, } from './loadRecordRefs';
+import Checkbox from '../../ui/Checkbox';
 import { humaniseKey, } from '../../../utils/humaniseKey';
+import { bindingFromPick, bindingRefs, recordLabel, saveLineText, toggleRef, } from '../../../utils/dataBinding';
 import '../../../pages/admin/entities/EntitiesList.scss';
 
-export type EntitySearchResult = EntityRecord | EntityRecord[] | EntityQuery;
-
-export interface EntitySearchSelectModalProps {
+interface BaseProps {
     entityType: string;
-    mode: 'single' | 'multiple' | 'query';
-    /** Multiple mode: cap on how many records may be selected. */
-    max?: number;
-    /**
-     * Query mode: the query already saved on the block, so reopening the modal
-     * RESUMES it instead of starting blank.
-     *
-     * Without this, "Configure query…" always opened empty and pressing "Use
-     * query" overwrote the saved one — so tweaking the limit silently discarded
-     * the sort and every filter clause.
-     */
-    initialQuery?: EntityQuery;
-    onSelect: (result: EntitySearchResult,) => void;
     onClose: () => void;
 }
+
+/** Pick one record (relation fields). */
+export interface EntitySingleSelectProps extends BaseProps {
+    mode: 'single';
+    onSelect: (record: EntityRecord,) => void;
+}
+
+/** "Set data…": a selection or a live query. */
+export interface EntityDataSelectProps extends BaseProps {
+    mode: 'data';
+    /** false → selecting a row REPLACES the selection (a single-record binding). Default true. */
+    allowMultiple?: boolean;
+    /** false → a selection is required (no live query). Default true. */
+    allowQuery?: boolean;
+    /** Cap on how many records may be selected (and the query limit's ceiling). */
+    maxRecords?: number;
+    /** false → hide the filter clauses (the caller cannot store them). Default true. */
+    queryFilters?: boolean;
+    /** false → hide the sort controls (the caller cannot store them). Default true. */
+    querySort?: boolean;
+    /**
+     * The binding already saved, so reopening RESUMES it: a selection is
+     * pre-checked, a query pre-fills search/filters/sort/limit.
+     */
+    initial?: SlotBinding | null;
+    onSave: (binding: SlotBinding, records: EntityRecord[],) => void;
+}
+
+export type EntitySearchSelectModalProps = EntitySingleSelectProps | EntityDataSelectProps;
 
 type FilterOp = 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'in';
 
@@ -122,17 +145,33 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
     const [loading, setLoading,] = createSignal(false,);
     const [error, setError,] = createSignal<string | null>(null,);
 
-    // Seeded from the saved query (query mode) — read once, at mount: the modal
-    // is unmounted between openings, so there is no stale-props case.
-    const seed = props.initialQuery ?? {};
+    const dataProps = (): EntityDataSelectProps | null => (props.mode === 'data' ? props : null);
+    const allowMultiple = () => dataProps()?.allowMultiple !== false;
+    const allowQuery = () => dataProps()?.allowQuery !== false;
+    const showFilters = () => dataProps()?.queryFilters !== false;
+    const showSort = () => dataProps()?.querySort !== false;
+    const maxRecords = () => dataProps()?.maxRecords;
+
+    // Seeded from the saved binding — read once, at mount: the modal is
+    // unmounted between openings, so there is no stale-props case.
+    const initial = props.mode === 'data' ? props.initial ?? null : null;
+    const seed: EntityQuery = initial?.mode === 'query' ? initial.query ?? {} : {};
+    const defaultLimit = () => Math.min(20, maxRecords() ?? 20,);
 
     const [search, setSearch,] = createSignal(seed.search ?? '',);
     const [sortBy, setSortBy,] = createSignal<string>(seed.sortBy ?? '',);
     const [sortOrder, setSortOrder,] = createSignal<'asc' | 'desc'>(seed.sortOrder ?? 'desc',);
     const [page, setPage,] = createSignal(1,);
-    const [limit, setLimit,] = createSignal(seed.limit ?? 20,);
+    const [limit, setLimit,] = createSignal(seed.limit ?? defaultLimit(),);
 
-    const [selected, setSelected,] = createSignal<EntityRecord[]>([],);
+    /**
+     * The selection, in PICK order, as refs (ids; an older single binding may
+     * hold a slug). Independent of the result page, so it survives searching,
+     * filtering and paging. `records` holds what is known about each ref for
+     * its chip label and for `onSave`.
+     */
+    const [selected, setSelected,] = createSignal<string[]>(bindingRefs(initial,),);
+    const [known, setKnown,] = createSignal<Record<string, EntityRecord>>({},);
 
     /**
      * The filter clauses, as a LIST.
@@ -334,10 +373,10 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
 
     const buildQuery = (): EntityQuery => ({
         ...(search() ? { search: search(), } : {}),
-        ...sortParams(),
-        ...(props.mode === 'query' ? { limit: limit(), } : {}),
+        ...(showSort() ? sortParams() : {}),
+        limit: allowMultiple() ? limit() : 1,
         ...(() => {
-            const filter = buildFilter();
+            const filter = showFilters() ? buildFilter() : undefined;
             return filter ? { filter, } : {};
         })(),
     });
@@ -365,7 +404,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                 ...(search() ? { search: search(), } : {}),
                 ...sortParams(),
             };
-            const filter = buildFilter();
+            const filter = showFilters() ? buildFilter() : undefined;
             if (filter) query.filter = filter;
             // Always live. This modal is how an operator answers "which records
             // does my query actually match?", so a cached answer is worse than
@@ -376,6 +415,11 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
             const res = await cms.entities.list(props.entityType, query, { cache: false, },);
             if (seq !== fetchSeq) return;
             setItems(res.data ?? [],);
+            setKnown((k,) => {
+                const next = { ...k, };
+                for (const r of res.data ?? []) next[String(r.id,)] = r;
+                return next;
+            },);
             setTotalPages(res.meta?.totalPages ?? 1,);
             setTotal(res.meta?.total ?? 0,);
         } catch (e) {
@@ -394,6 +438,18 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
         } catch {
             /* type def is best-effort — the table still works with id-only columns */
         }
+    },);
+
+    // Labels for a pre-filled selection (its records may be on no loaded page).
+    onMount(async () => {
+        const refs = selected();
+        if (!refs.length) return;
+        const found = await loadRecordRefs(props.entityType, refs,);
+        setKnown((k,) => {
+            const next = { ...k, };
+            for (const [ref, rec,] of found) next[ref] = rec;
+            return next;
+        },);
     },);
 
     // Refetch whenever page/sort/filter change; debounce search input.
@@ -417,24 +473,46 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
         }, 300,);
     };
 
-    const isSelected = (rec: EntityRecord,) => selected().some((r,) => r.id === rec.id);
-    const atMax = () => props.max != null && selected().length >= props.max;
+    /** The ref a row is selected under: its id, or the slug an older binding saved. */
+    const refOf = (rec: EntityRecord,): string | undefined => {
+        const r = rec as unknown as { id?: unknown; slug?: unknown; };
+        const sel = selected();
+        if (sel.includes(String(r.id,),)) return String(r.id,);
+        if (r.slug != null && sel.includes(String(r.slug,),)) return String(r.slug,);
+        return undefined;
+    };
+    const isSelected = (rec: EntityRecord,) => refOf(rec,) !== undefined;
+    const atMax = () => allowMultiple() && maxRecords() != null && selected().length >= maxRecords()!;
 
     const toggleSelect = (rec: EntityRecord,) => {
-        if (isSelected(rec,)) {
-            setSelected(selected().filter((r,) => r.id !== rec.id),);
-        } else if (!atMax()) {
-            setSelected([...selected(), rec,],);
-        }
+        const ref = refOf(rec,) ?? String(rec.id,);
+        setSelected(toggleRef(selected(), ref, allowMultiple(), maxRecords(),),);
+    };
+    const removeRef = (ref: string,) => setSelected(selected().filter((r,) => r !== ref),);
+
+    const chipLabel = (ref: string,) => {
+        const rec = known()[ref] ?? items().find((r,) => refOf(r,) === ref);
+        return rec ? recordLabel(rec,) : ref;
     };
 
-    const confirmMultiple = () => props.onSelect(selected(),);
-    const confirmQuery = () => props.onSelect(buildQuery(),);
+    const saveLine = () => saveLineText(selected().length, buildQuery(), allowQuery(),);
+
+    const save = () => {
+        const p = dataProps();
+        if (!p) return;
+        const binding = bindingFromPick({
+            selectedRefs: selected(),
+            query: buildQuery(),
+            allowMultiple: allowMultiple(),
+            allowQuery: allowQuery(),
+        },);
+        if (!binding) return;
+        const records = selected().map((ref,) => known()[ref]).filter((r,): r is EntityRecord => !!r);
+        p.onSave(binding, records,);
+    };
 
     const title = () => {
-        const label = typeDef()?.labelPlural || props.entityType;
-        if (props.mode === 'query') return `Query ${label}`;
-        if (props.mode === 'multiple') return `Select ${label}`;
+        if (props.mode === 'data') return `Set data — ${typeDef()?.labelPlural || props.entityType}`;
         return `Select ${typeDef()?.label || props.entityType}`;
     };
 
@@ -454,8 +532,9 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                         onInput={(e,) => onSearchInput(e.currentTarget.value,)}
                     />
                     {/* Sort applies in every mode — narrowing what you pick from
-                        is as useful as narrowing what you save. Only query mode
+                        is as useful as narrowing what you save. A live query
                         PERSISTS it (via buildQuery). */}
+                    <Show when={showSort()}>
                     <label class="entity-search-modal__sort">
                         Sort
                         <select
@@ -480,14 +559,19 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                     >
                         {sortOrder() === 'asc' ? '↑' : '↓'}
                     </button>
-                    <Show when={props.mode === 'query'}>
-                        <label class="entity-search-modal__limit">
+                    </Show>
+                    <Show when={props.mode === 'data' && allowQuery() && allowMultiple()}>
+                        <label class="entity-search-modal__limit" title="How many records the live query returns">
                             Limit
                             <input
                                 type="number"
                                 min="1"
                                 value={limit()}
-                                onInput={(e,) => setLimit(Math.max(1, Number(e.currentTarget.value,) || 1,),)}
+                                max={maxRecords()}
+                                onChange={(e,) => {
+                                    const n = Math.max(1, Number(e.currentTarget.value,) || 1,);
+                                    setLimit(maxRecords() ? Math.min(n, maxRecords()!,) : n,);
+                                }}
                             />
                         </label>
                     </Show>
@@ -497,7 +581,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                     combining with AND. Every filterable field is just another
                     property here — there is no separate row of per-field
                     dropdowns, which could only ever express equality. */}
-                <Show when={filterFields().length > 0}>
+                <Show when={showFilters() && filterFields().length > 0}>
                     <div class="entity-search-modal__clauses">
                         <For each={clauses}>
                             {(c, i,) => (
@@ -565,6 +649,23 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                     </div>
                 </Show>
 
+                <Show when={props.mode === 'data' && selected().length > 0}>
+                    <div class="entity-search-modal__selected" aria-label="Selected records">
+                        <span class="entity-search-modal__selected-label">Selected ({selected().length})</span>
+                        <For each={selected()}>
+                            {(ref,) => (
+                                <span class="entity-search-modal__chip" title={ref}>
+                                    {chipLabel(ref,)}
+                                    <button type="button" aria-label={`Remove ${chipLabel(ref,)}`} onClick={() => removeRef(ref,)}>×</button>
+                                </span>
+                            )}
+                        </For>
+                        <button type="button" class="ui-button ui-button--sm ui-button--ghost" onClick={() => setSelected([],)}>
+                            Clear selection
+                        </button>
+                    </div>
+                </Show>
+
                 <div class="entity-search-modal__body">
                     <Show when={error()}>
                         <div class="alert alert--error">{error()}</div>
@@ -580,8 +681,8 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                             <table class="admin-table">
                                 <thead>
                                     <tr>
-                                        <Show when={props.mode === 'multiple'}>
-                                            <th style={{ width: '40px', }} />
+                                        <Show when={props.mode === 'data'}>
+                                            <th class="entity-search-modal__check-col" aria-label="Selected" />
                                         </Show>
                                         <For each={columns()}>
                                             {(col,) => (
@@ -593,7 +694,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                                                 />
                                             )}
                                         </For>
-                                        <Show when={props.mode !== 'query'}>
+                                        <Show when={props.mode === 'single'}>
                                             <th style={{ width: '90px', }} />
                                         </Show>
                                     </tr>
@@ -602,10 +703,9 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                                     <For each={items()}>
                                         {(rec,) => (
                                             <tr class={isSelected(rec,) ? 'is-selected' : ''}>
-                                                <Show when={props.mode === 'multiple'}>
-                                                    <td onClick={(e,) => e.stopPropagation()}>
-                                                        <input
-                                                            type="checkbox"
+                                                <Show when={props.mode === 'data'}>
+                                                    <td class="entity-search-modal__check-col">
+                                                        <Checkbox
                                                             checked={isSelected(rec,)}
                                                             disabled={!isSelected(rec,) && atMax()}
                                                             onChange={() => toggleSelect(rec,)}
@@ -620,21 +720,9 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                                                         <button
                                                             type="button"
                                                             class="ui-button ui-button--sm ui-button--primary"
-                                                            onClick={() => props.onSelect(rec,)}
+                                                            onClick={() => (props as EntitySingleSelectProps).onSelect(rec,)}
                                                         >
                                                             Select
-                                                        </button>
-                                                    </td>
-                                                </Show>
-                                                <Show when={props.mode === 'multiple'}>
-                                                    <td>
-                                                        <button
-                                                            type="button"
-                                                            class="ui-button ui-button--sm ui-button--ghost"
-                                                            disabled={!isSelected(rec,) && atMax()}
-                                                            onClick={() => toggleSelect(rec,)}
-                                                        >
-                                                            {isSelected(rec,) ? 'Remove' : 'Add'}
                                                         </button>
                                                     </td>
                                                 </Show>
@@ -647,11 +735,20 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                     </Show>
                 </div>
 
+                <Show when={props.mode === 'data'}>
+                    <p
+                        class="entity-search-modal__save-line"
+                        classList={{ 'entity-search-modal__save-line--query': selected().length === 0 && allowQuery(), }}
+                        role="status"
+                    >
+                        {saveLine()}
+                    </p>
+                </Show>
+
                 <div class="entity-search-modal__footer">
                     <span class="entity-search-modal__selected-count">
-                        <Show when={props.mode === 'multiple'} fallback={`${total()} record(s)`}>
-                            {selected().length} selected{props.max ? ` / ${props.max}` : ''}
-                        </Show>
+                        {total()} match{total() === 1 ? '' : 'es'}
+                        <Show when={atMax()}>{` · ${maxRecords()} max selected`}</Show>
                     </span>
                     <div style={{ display: 'flex', gap: '8px', 'align-items': 'center', }}>
                         <div style={{ display: 'flex', gap: '4px', }}>
@@ -675,19 +772,17 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                                 ›
                             </button>
                         </div>
-                        <Show when={props.mode === 'multiple'}>
+                        <Show when={props.mode === 'data'}>
+                            <button type="button" class="ui-button ui-button--sm ui-button--ghost" onClick={props.onClose}>
+                                Cancel
+                            </button>
                             <button
                                 type="button"
                                 class="ui-button ui-button--primary ui-button--sm"
-                                disabled={selected().length === 0}
-                                onClick={confirmMultiple}
+                                disabled={selected().length === 0 && !allowQuery()}
+                                onClick={save}
                             >
-                                Use selection
-                            </button>
-                        </Show>
-                        <Show when={props.mode === 'query'}>
-                            <button type="button" class="ui-button ui-button--primary ui-button--sm" onClick={confirmQuery}>
-                                Use query
+                                Save
                             </button>
                         </Show>
                     </div>

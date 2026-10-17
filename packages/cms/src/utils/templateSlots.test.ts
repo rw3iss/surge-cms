@@ -1,5 +1,5 @@
 import { describe, expect, it, } from 'vitest';
-import { describeQuery, nextSlotId, slotBindingSummary, slotChoices, slotIdError, slotOptionLabel, } from './templateSlots';
+import { nextSlotId, slotChoices, slotIdError, slotOptionLabel, } from './templateSlots';
 
 describe('slotIdError', () => {
     it('accepts a valid unique id', () => {
@@ -22,20 +22,6 @@ describe('nextSlotId', () => {
         expect(nextSlotId([],),).toBe('slot1',);
         expect(nextSlotId([{ id: 'slot2', },],),).toBe('slot3',);
         expect(nextSlotId([{ id: 'a', }, { id: 'slot3', },],),).toBe('slot4',);
-    },);
-},);
-
-describe('slotBindingSummary', () => {
-    it('summarises each mode', () => {
-        expect(slotBindingSummary(undefined,),).toBe('Not set',);
-        expect(slotBindingSummary({ mode: 'single', ref: '', },),).toBe('Not set',);
-        expect(slotBindingSummary({ mode: 'single', ref: 'x', },),).toBe('1 selected',);
-        expect(slotBindingSummary({ mode: 'list', refs: ['a', 'b', 'c',], },),).toBe('3 selected',);
-        expect(slotBindingSummary({ mode: 'query', query: { limit: 6, }, },),).toBe('Live query: newest 6',);
-    },);
-    it('describes sort and filters', () => {
-        expect(describeQuery({ sortBy: 'title', sortOrder: 'asc', filter: { status: 'active', }, },),)
-            .toBe('title ↑, 1 filter',);
     },);
 },);
 

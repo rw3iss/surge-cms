@@ -114,6 +114,15 @@ import { MultiSelect } from '../../components/ui';
   at `$z-index-popover` so it wins over a modal — this is why it works
   unmodified inside modals and side panels.
 
+## Choosing entity data — MANDATORY, one "Set data…"
+
+Anywhere an editor chooses WHICH records something shows (an entity binding, a template slot, a gallery's items, a posts list, a preview sample), use **`components/admin/entities/DataBindingField`** — never separate "Select…", "Configure query…" or "Pick records…" buttons, and never a bespoke picker modal. It renders a one-line summary + **Set data…** + Clear and opens `EntitySearchSelectModal mode="data"`: ticked records = a selection, none ticked = a live query, with a line saying which will be saved.
+
+- Map your block's settings to a `SlotBinding` for `value` and back in `onChange` (see `blocks/postDataBinding.ts` and the Gallery block) — the stored shape does not have to change.
+- `allowMultiple={false}` for a one-record binding, `allowQuery={false}` when only a selection can be stored, `maxRecords` for a cap, `queryFilters`/`querySort={false}` when the consumer cannot store them (don't show controls that are silently dropped).
+- Extra per-block options (reorderable chips, a limit, a date window) go in the field's `children`.
+- `EntitySearchSelectModal mode="single"` is only for relation fields (pick one record into a form field).
+
 ## Sections and field rows — MANDATORY spacing
 
 Every admin settings / edit page uses the SAME structure, and gets its vertical

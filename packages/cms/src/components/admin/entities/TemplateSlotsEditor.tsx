@@ -9,8 +9,6 @@
  * Text fields keep a local draft and commit on blur / Enter.
  */
 import {
-    type EntityQuery,
-    type EntityRecord,
     MAX_TEMPLATE_SLOTS,
     SLOT_AUTO_PREVIEW_ARRAY,
     type SlotBinding,
@@ -18,10 +16,10 @@ import {
 } from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
 import { produce, type SetStoreFunction, } from 'solid-js/store';
-import { nextSlotId, slotBindingSummary, slotIdError, } from '../../../utils/templateSlots';
+import { nextSlotId, slotIdError, } from '../../../utils/templateSlots';
 import Toggle from '../common/Toggle';
 import { FormField, FormRowAction, } from '../forms';
-import EntitySearchSelectModal from './EntitySearchSelectModal';
+import DataBindingField from './DataBindingField';
 import EntityTypeSelect from './EntityTypeSelect';
 import './TemplateSlotsEditor.scss';
 
@@ -65,11 +63,7 @@ export interface TemplateSlotsEditorProps {
     setSlots: SetStoreFunction<TemplateSlot[]>;
 }
 
-type PickerMode = 'single' | 'multiple' | 'query';
-
 const TemplateSlotsEditor: Component<TemplateSlotsEditorProps> = (props,) => {
-    const [picker, setPicker,] = createSignal<{ index: number; mode: PickerMode; } | null>(null,);
-
     const addSlot = () => {
         props.setSlots(produce((s,) => {
             s.push({ id: nextSlotId(s,), entityType: '', array: true, },);
@@ -77,26 +71,11 @@ const TemplateSlotsEditor: Component<TemplateSlotsEditorProps> = (props,) => {
     };
     const removeSlot = (i: number,) => props.setSlots(produce((s,) => { s.splice(i, 1,); },),);
 
-    const pickerSlot = () => {
-        const p = picker();
-        return p ? props.slots[p.index] : undefined;
-    };
-
-    const applyPick = (result: EntityRecord | EntityRecord[] | EntityQuery,) => {
-        const p = picker();
-        if (!p) return;
-        let b: SlotBinding;
-        if (p.mode === 'single') {
-            const r = result as EntityRecord;
-            b = { mode: 'single', ref: String(r.id,), };
-        } else if (p.mode === 'multiple') {
-            b = { mode: 'list', refs: (result as EntityRecord[]).map((r,) => String(r.id,)), };
-        } else {
-            b = { mode: 'query', query: result as EntityQuery, };
-        }
-        props.setSlots(p.index, 'previewBinding', b,);
-        setPicker(null,);
-    };
+    const setPreview = (i: number, b: SlotBinding | null,) =>
+        props.setSlots(i, produce((s,) => {
+            if (b) s.previewBinding = b;
+            else delete s.previewBinding;
+        },),);
 
     return (
         <section class="admin-section template-slots">
@@ -183,48 +162,18 @@ const TemplateSlotsEditor: Component<TemplateSlotsEditorProps> = (props,) => {
                             </div>
                             <div class="template-slots__preview">
                                 <span class="template-slots__preview-label">Preview data:</span>
-                                <span class="template-slots__preview-value">
-                                    {slot.previewBinding
-                                        ? slotBindingSummary(slot.previewBinding,)
-                                        : `Auto (first ${slot.array ? `${SLOT_AUTO_PREVIEW_ARRAY} records` : 'record'})`}
-                                </span>
-                                <Show when={slot.entityType}>
-                                    <Show
-                                        when={slot.array}
-                                        fallback={
-                                            <button
-                                                type="button"
-                                                class="ui-button ui-button--sm ui-button--outline"
-                                                onClick={() => setPicker({ index: i(), mode: 'single', },)}
-                                            >
-                                                Preview data…
-                                            </button>
-                                        }
-                                    >
-                                        <button
-                                            type="button"
-                                            class="ui-button ui-button--sm ui-button--outline"
-                                            onClick={() => setPicker({ index: i(), mode: 'multiple', },)}
-                                        >
-                                            Pick records…
-                                        </button>
-                                        <button
-                                            type="button"
-                                            class="ui-button ui-button--sm ui-button--outline"
-                                            onClick={() => setPicker({ index: i(), mode: 'query', },)}
-                                        >
-                                            Live query…
-                                        </button>
-                                    </Show>
-                                    <Show when={slot.previewBinding}>
-                                        <button
-                                            type="button"
-                                            class="ui-button ui-button--sm ui-button--ghost"
-                                            onClick={() => props.setSlots(i(), produce((s,) => { delete s.previewBinding; },),)}
-                                        >
-                                            Use auto
-                                        </button>
-                                    </Show>
+                                <Show
+                                    when={slot.entityType}
+                                    fallback={<span class="form-help-muted">Choose a data type first.</span>}
+                                >
+                                    <DataBindingField
+                                        entityType={slot.entityType}
+                                        value={slot.previewBinding}
+                                        allowMultiple={slot.array}
+                                        emptyText={`Auto (first ${slot.array ? `${SLOT_AUTO_PREVIEW_ARRAY} records` : 'record'})`}
+                                        clearLabel="Use auto"
+                                        onChange={(b,) => setPreview(i(), b,)}
+                                    />
                                 </Show>
                             </div>
                         </div>
@@ -232,17 +181,6 @@ const TemplateSlotsEditor: Component<TemplateSlotsEditorProps> = (props,) => {
                 }}
             </For>
 
-            <Show when={picker() && pickerSlot()?.entityType}>
-                <EntitySearchSelectModal
-                    entityType={pickerSlot()!.entityType}
-                    mode={picker()!.mode}
-                    initialQuery={pickerSlot()?.previewBinding?.mode === 'query'
-                        ? (pickerSlot()!.previewBinding as { query: EntityQuery; }).query
-                        : undefined}
-                    onClose={() => setPicker(null,)}
-                    onSelect={applyPick}
-                />
-            </Show>
         </section>
     );
 };

@@ -1,29 +1,28 @@
 /**
- * Shared post-query controls, used by BOTH the `post_list` block editor
- * (PostListBlock) and the carousel's Posts item (PostQueryEditor):
+ * Shared post-data controls, used by BOTH the `post_list` block editor
+ * (PostListBlock) and the carousel's legacy Posts item (PostQueryEditor):
  *
- *   <SpecificPostsField> — the hand-picked "specific posts" section: a
- *       reorderable pinned list + a Select-posts picker modal.
- *   <PostQuerySection>   — the "Enable posts query" toggle + the dynamic
- *       query fields (count / date window / search / empty-message).
+ *   <PostDataField>     — the ONE "Set data…" for posts (the shared
+ *       DataBindingField on the `post` entity type). Ticked posts are saved as
+ *       `pinnedPostIds` (query off); none ticked saves a live query
+ *       (`queryEnabled` + `count` = limit + `query` = search). Under it: the
+ *       reorderable pinned list, or the live query's extra options (date
+ *       window, empty message).
+ *   <PostFieldsSection> — which post fields render.
  *
- * Both expose a uniform `{ value, onChange }` interface so each consumer
- * adapts its own storage (a typed config object vs a generic block.data
- * record). Styles live in PostListBlock.scss (imported here).
+ * Settings shape is unchanged (`pinnedPostIds`, `queryEnabled`, `count`,
+ * `afterDaysAgo`, `beforeDaysAgo`, `query`, `showEmptyMessage`), so
+ * PostListRenderer, ResolvedHeroCarousel and email keep working. Pure mapping:
+ * `postDataBinding` / `postSettingsFromBinding`.
  */
 import type { Post, } from '@sitesurge/types';
-import { Component, createSignal, For, JSX, onMount, Show, } from 'solid-js';
+import { Component, createEffect, createSignal, For, JSX, on, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
+import { describeQuery, } from '../../../utils/dataBinding';
+import DataBindingField from '../entities/DataBindingField';
+import { DEFAULT_POST_COUNT, hasPinnedAndQuery, type PostDataSettings, postDataBinding, postSettingsFromBinding, } from './postDataBinding';
 import { FormCheck, FormField, FormSection, } from '../forms';
 import './types/PostListBlock.scss';
-
-const SORT_OPTIONS: { value: string; label: string; }[] = [
-    { value: 'date_desc', label: 'Newest', },
-    { value: 'date_asc', label: 'Oldest', },
-    { value: 'updated_desc', label: 'Recently updated', },
-    { value: 'title_asc', label: 'Title A→Z', },
-    { value: 'title_desc', label: 'Title Z→A', },
-];
 
 /** Two columns of three dots — the standard "drag to reorder" affordance. */
 const DragHandleIcon = () => (
@@ -37,116 +36,60 @@ const DragHandleIcon = () => (
     </svg>
 );
 
-const DEFAULT_PINNED_TOOLTIP =
-    'Hand-pick posts to render first, in the order shown. Drag to reorder, click × to remove. Specific posts render before any query results below.';
+// ─── Posts data (Set data… + pinned list / live-query options) ─────
 
-// ─── Specific posts (pinned list + picker modal) ───────────────────
-
-export interface SpecificPostsFieldProps {
-    /** Ordered list of pinned post IDs. */
-    value: string[];
-    onChange: (ids: string[],) => void;
-    /** Section tooltip; a sensible default is used when omitted. */
-    tooltip?: JSX.Element | string;
+export interface PostDataValue extends PostDataSettings {
+    afterDaysAgo?: number;
+    beforeDaysAgo?: number;
+    showEmptyMessage?: boolean;
 }
 
-export const SpecificPostsField: Component<SpecificPostsFieldProps> = (props,) => {
-    const pinnedIds = (): string[] => (Array.isArray(props.value,) ? props.value : []);
+export interface PostDataFieldProps {
+    value: PostDataValue;
+    onChange: (patch: Partial<PostDataValue>,) => void;
+    /** Field tooltip. */
+    tooltip?: JSX.Element | string;
+    /** Tooltip on the "Show message when there are no posts" toggle — the
+     *  empty-state semantics differ slightly between consumers. */
+    emptyMessageTooltip?: JSX.Element | string;
+}
 
-    // ─── Resolved-post lookup (titles for the pinned list) ───
+const DEFAULT_DATA_TOOLTIP =
+    'Tick posts for a fixed list (rendered in the order shown — drag to reorder), or tick none to save a live query (search + number of posts) that updates as posts are published.';
+const DEFAULT_EMPTY_TOOLTIP =
+    'When on (default), an empty-state placeholder renders if the query returns zero results. Turn off to render nothing in that case.';
+
+export const PostDataField: Component<PostDataFieldProps> = (props,) => {
+    const pinnedIds = (): string[] => (Array.isArray(props.value.pinnedPostIds,) ? props.value.pinnedPostIds : []);
+    const queryOn = () => props.value.queryEnabled !== false;
+
+    // ─── Titles for the pinned list ───
     const [pinnedDetails, setPinnedDetails,] = createSignal<Record<string, Post>>({},);
-
-    /**
-     * Fetch each pinned post via the admin endpoint so drafts / scheduled
-     * posts also resolve (the public ids filter only returns published).
-     * Failures fall back to the truncated ID.
-     */
+    /** Admin endpoint per id so drafts / scheduled posts resolve too. */
     const loadPinnedDetails = async (ids: string[],) => {
-        if (ids.length === 0) { setPinnedDetails({},); return; }
-        const results = await Promise.all(ids.map(async (id,) => {
+        const missing = ids.filter((id,) => !pinnedDetails()[id]);
+        if (!missing.length) return;
+        const results = await Promise.all(missing.map(async (id,) => {
             try {
                 return await cms.posts.getById(id,) as unknown as Post;
-            } catch { /* ignore — show fallback ID */ }
+            } catch { /* show the fallback id */ }
             return null;
         }),);
         const map: Record<string, Post> = { ...pinnedDetails(), };
-        for (let i = 0; i < ids.length; i++) {
+        missing.forEach((id, i,) => {
             const p = results[i];
-            if (p) map[ids[i]] = p;
-        }
-        setPinnedDetails(map,);
-    };
-
-    onMount(() => { void loadPinnedDetails(pinnedIds(),); },);
-
-    // ─── Picker modal state ───
-    const [pickerOpen, setPickerOpen,] = createSignal(false,);
-    const [pickerSearch, setPickerSearch,] = createSignal('',);
-    const [pickerSort, setPickerSort,] = createSignal('date_desc',);
-    const [pickerPosts, setPickerPosts,] = createSignal<Post[]>([],);
-    const [pickerLoading, setPickerLoading,] = createSignal(false,);
-    const [pickerSelected, setPickerSelected,] = createSignal<Set<string>>(new Set(),);
-
-    const openPicker = () => {
-        setPickerSelected(new Set(pinnedIds(),),);
-        setPickerOpen(true,);
-        void loadPickerPosts();
-    };
-
-    const loadPickerPosts = async () => {
-        setPickerLoading(true,);
-        try {
-            // Admin endpoint — includes drafts so users can pin them.
-            const params: Record<string, unknown> = { page: 1, limit: 100, sort: pickerSort(), };
-            if (pickerSearch().trim()) params.search = pickerSearch().trim();
-            const res = await cms.posts.list(params as any,);
-            setPickerPosts((res.data || []) as unknown as Post[],);
-        } catch {
-            setPickerPosts([],);
-        } finally {
-            setPickerLoading(false,);
-        }
-    };
-
-    const togglePickerSelect = (id: string,) => {
-        setPickerSelected(prev => {
-            const next = new Set(prev,);
-            if (next.has(id,)) next.delete(id,);
-            else next.add(id,);
-            return next;
+            if (p) map[id] = p;
         },);
-    };
-
-    const acceptPicker = () => {
-        const existing = pinnedIds();
-        const sel = pickerSelected();
-        const kept = existing.filter(id => sel.has(id,));
-        const added = [...sel,].filter(id => !existing.includes(id,));
-        props.onChange([...kept, ...added,],);
-
-        // Pre-populate titles from the picker's loaded posts — no second
-        // round-trip for the common case.
-        const picked = pickerPosts();
-        const map: Record<string, Post> = { ...pinnedDetails(), };
-        for (const p of picked) {
-            if (sel.has((p as any).id,)) map[(p as any).id] = p;
-        }
-        setPinnedDetails(map,);
-        const missing = added.filter(id => !map[id]);
-        if (missing.length > 0) void loadPinnedDetails(missing,);
-
-        setPickerOpen(false,);
-    };
-
-    const cancelPicker = () => setPickerOpen(false,);
-
-    // ─── Pinned-list mutation ───
-    const removePinned = (id: string,) => {
-        props.onChange(pinnedIds().filter(x => x !== id),);
-        const map = { ...pinnedDetails(), };
-        delete map[id];
         setPinnedDetails(map,);
     };
+    createEffect(on(pinnedIds, (ids,) => { void loadPinnedDetails(ids,); },),);
+
+    /** An older block may hold BOTH (pinned first, then the query); say so. */
+    const summary = () => (hasPinnedAndQuery(props.value,)
+        ? `${pinnedIds().length} selected, then live: ${describeQuery({ limit: props.value.count ?? DEFAULT_POST_COUNT, search: props.value.query, },)}`
+        : undefined);
+
+    const removePinned = (id: string,) => props.onChange({ pinnedPostIds: pinnedIds().filter((x,) => x !== id), },);
 
     const [dragIndex, setDragIndex,] = createSignal<number | null>(null,);
     const onDragStart = (e: DragEvent, idx: number,) => {
@@ -165,17 +108,24 @@ export const SpecificPostsField: Component<SpecificPostsFieldProps> = (props,) =
         if (from === null || from === dropIdx) return;
         const ids = [...pinnedIds(),];
         const [moved,] = ids.splice(from, 1,);
-        ids.splice(dropIdx, 0, moved,);
-        props.onChange(ids,);
+        ids.splice(dropIdx, 0, moved!,);
+        props.onChange({ pinnedPostIds: ids, },);
     };
 
     return (
-        <>
-            <FormSection title="Specific posts" tooltip={props.tooltip ?? DEFAULT_PINNED_TOOLTIP}>
+        <DataBindingField
+            label="Posts"
+            tooltip={props.tooltip ?? DEFAULT_DATA_TOOLTIP}
+            entityType="post"
+            value={postDataBinding(props.value,)}
+            queryFilters={false}
+            querySort={false}
+            summary={summary()}
+            emptyText="No posts"
+            onChange={(b,) => props.onChange(postSettingsFromBinding(b,),)}
+        >
+            <Show when={pinnedIds().length > 0}>
                 <div class="post-list-block-edit__pinned">
-                    <Show when={pinnedIds().length === 0}>
-                        <div class="post-list-block-edit__pinned-empty">No specific posts selected.</div>
-                    </Show>
                     <For each={pinnedIds()}>
                         {(id, idx,) => {
                             const p = () => pinnedDetails()[id];
@@ -205,77 +155,63 @@ export const SpecificPostsField: Component<SpecificPostsFieldProps> = (props,) =
                             );
                         }}
                     </For>
-                    <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={openPicker}>
-                        + Select posts
-                    </button>
-                </div>
-            </FormSection>
-
-            {/* ─── Picker modal ─── */}
-            <Show when={pickerOpen()}>
-                <div class="post-picker-overlay" onClick={(e,) => { if (e.target === e.currentTarget) cancelPicker(); }}>
-                    <div class="post-picker">
-                        <div class="post-picker__header">
-                            <h3 class="post-picker__title">Select posts</h3>
-                            <button class="post-picker__close" onClick={cancelPicker} type="button">×</button>
-                        </div>
-                        <div class="post-picker__filters">
-                            <input
-                                type="text"
-                                class="post-picker__search"
-                                value={pickerSearch()}
-                                placeholder="Filter by title or body…"
-                                onInput={(e,) => setPickerSearch(e.currentTarget.value,)}
-                                onKeyDown={(e,) => { if (e.key === 'Enter') void loadPickerPosts(); }}
-                            />
-                            <select
-                                class="post-picker__sort"
-                                value={pickerSort()}
-                                onChange={(e,) => { setPickerSort(e.currentTarget.value,); void loadPickerPosts(); }}
-                            >
-                                <For each={SORT_OPTIONS}>
-                                    {(o,) => <option value={o.value}>{o.label}</option>}
-                                </For>
-                            </select>
-                            <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={() => void loadPickerPosts()}>
-                                Apply
-                            </button>
-                        </div>
-                        <div class="post-picker__list">
-                            <Show when={pickerLoading()}>
-                                <div class="post-picker__loading">Loading…</div>
-                            </Show>
-                            <Show when={!pickerLoading() && pickerPosts().length === 0}>
-                                <div class="post-picker__empty">No posts match.</div>
-                            </Show>
-                            <For each={pickerPosts()}>
-                                {(p,) => {
-                                    const id = (p as any).id as string;
-                                    const selected = () => pickerSelected().has(id,);
-                                    return (
-                                        <div
-                                            class={`post-picker__item ${selected() ? 'post-picker__item--selected' : ''}`}
-                                            onClick={() => togglePickerSelect(id,)}
-                                        >
-                                            <div class="post-picker__item-title">{p.title}</div>
-                                            <div class="post-picker__item-meta">
-                                                <span class="post-picker__item-status">{p.status}</span>
-                                                <span>{p.slug}</span>
-                                            </div>
-                                        </div>
-                                    );
-                                }}
-                            </For>
-                        </div>
-                        <div class="post-picker__actions">
-                            <span class="post-picker__count">{pickerSelected().size} selected</span>
-                            <button class="ui-button ui-button--secondary" onClick={cancelPicker} type="button">Cancel</button>
-                            <button class="ui-button ui-button--primary" onClick={acceptPicker} type="button">Accept</button>
-                        </div>
-                    </div>
                 </div>
             </Show>
-        </>
+
+            <Show when={queryOn()}>
+                <div class="post-list-block-edit__query-panel">
+                    <FormField label="Number of posts" inline>
+                        <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={props.value.count ?? DEFAULT_POST_COUNT}
+                            onChange={(e,) => props.onChange({ count: Number(e.currentTarget.value,) || undefined, },)}
+                        />
+                    </FormField>
+
+                    <div class="post-list-block-edit__row-pair">
+                        <FormField
+                            label="Posts after (days ago)"
+                            tooltip="Show posts older than this many days. Leave blank for no lower bound. Useful for archive feeds."
+                        >
+                            <input
+                                type="number"
+                                min="0"
+                                value={props.value.afterDaysAgo ?? ''}
+                                placeholder="leave blank for no limit"
+                                onChange={(e,) => {
+                                    const v = e.currentTarget.value;
+                                    props.onChange({ afterDaysAgo: v === '' ? undefined : Number(v,), },);
+                                }}
+                            />
+                        </FormField>
+                        <FormField
+                            label="Posts before (days ago)"
+                            tooltip="Show posts newer than this many days ago. Leave blank for no upper bound. Useful for recent-posts feeds."
+                        >
+                            <input
+                                type="number"
+                                min="0"
+                                value={props.value.beforeDaysAgo ?? ''}
+                                placeholder="leave blank for no limit"
+                                onChange={(e,) => {
+                                    const v = e.currentTarget.value;
+                                    props.onChange({ beforeDaysAgo: v === '' ? undefined : Number(v,), },);
+                                }}
+                            />
+                        </FormField>
+                    </div>
+
+                    <FormCheck
+                        label="Show message when there are no posts"
+                        checked={props.value.showEmptyMessage !== false}
+                        onChange={(next,) => props.onChange({ showEmptyMessage: next, },)}
+                        tooltip={props.emptyMessageTooltip ?? DEFAULT_EMPTY_TOOLTIP}
+                    />
+                </div>
+            </Show>
+        </DataBindingField>
     );
 };
 
@@ -336,110 +272,5 @@ export const PostFieldsSection: Component<PostFieldsSectionProps> = (props,) => 
                 onChange={(next,) => props.onChange({ showTags: next, },)}
             />
         </FormSection>
-    );
-};
-
-// ─── Query section (Enable toggle + dynamic query fields) ──────────
-
-export interface PostQueryValue {
-    queryEnabled?: boolean;
-    count?: number;
-    afterDaysAgo?: number;
-    beforeDaysAgo?: number;
-    query?: string;
-    showEmptyMessage?: boolean;
-}
-
-export interface PostQuerySectionProps {
-    value: PostQueryValue;
-    onChange: (patch: Partial<PostQueryValue>,) => void;
-    /** Tooltip on the "Show message when there are no posts" toggle —
-     *  the empty-state semantics differ slightly between consumers. */
-    emptyMessageTooltip?: JSX.Element | string;
-}
-
-const DEFAULT_EMPTY_TOOLTIP =
-    'When on (default), an empty-state placeholder renders if the query returns zero results. Turn off to render nothing in that case.';
-
-export const PostQuerySection: Component<PostQuerySectionProps> = (props,) => {
-    // Default true preserves prior behavior for blocks saved before this
-    // toggle existed — they always ran the query implicitly.
-    const queryEnabled = () => props.value.queryEnabled !== false;
-
-    return (
-        <>
-            <FormCheck
-                label="Enable posts query"
-                checked={queryEnabled()}
-                onChange={(next,) => props.onChange({ queryEnabled: next, },)}
-                tooltip="When on, runs a dynamic query against your posts (count, date window, full-text search) and renders the results after any specific posts above."
-            />
-
-            <Show when={queryEnabled()}>
-                <div class="post-list-block-edit__query-panel">
-                    <FormField label="Number of posts" inline>
-                        <input
-                            type="number"
-                            min="1"
-                            max="100"
-                            value={props.value.count ?? 5}
-                            onChange={(e,) => props.onChange({ count: Number(e.currentTarget.value,) || undefined, },)}
-                        />
-                    </FormField>
-
-                    <div class="post-list-block-edit__row-pair">
-                        <FormField
-                            label="Posts after (days ago)"
-                            tooltip="Show posts older than this many days. Leave blank for no lower bound. Useful for archive feeds."
-                        >
-                            <input
-                                type="number"
-                                min="0"
-                                value={props.value.afterDaysAgo ?? ''}
-                                placeholder="leave blank for no limit"
-                                onChange={(e,) => {
-                                    const v = e.currentTarget.value;
-                                    props.onChange({ afterDaysAgo: v === '' ? undefined : Number(v,), },);
-                                }}
-                            />
-                        </FormField>
-                        <FormField
-                            label="Posts before (days ago)"
-                            tooltip="Show posts newer than this many days ago. Leave blank for no upper bound. Useful for recent-posts feeds."
-                        >
-                            <input
-                                type="number"
-                                min="0"
-                                value={props.value.beforeDaysAgo ?? ''}
-                                placeholder="leave blank for no limit"
-                                onChange={(e,) => {
-                                    const v = e.currentTarget.value;
-                                    props.onChange({ beforeDaysAgo: v === '' ? undefined : Number(v,), },);
-                                }}
-                            />
-                        </FormField>
-                    </div>
-
-                    <FormField
-                        label="Search filter"
-                        tooltip="Free-text query — the backend full-text searches post titles + bodies for matching posts. Combined with the date filters above."
-                    >
-                        <input
-                            type="text"
-                            value={props.value.query ?? ''}
-                            placeholder="e.g. interview, election, …"
-                            onChange={(e,) => props.onChange({ query: e.currentTarget.value || undefined, },)}
-                        />
-                    </FormField>
-
-                    <FormCheck
-                        label="Show message when there are no posts"
-                        checked={props.value.showEmptyMessage !== false}
-                        onChange={(next,) => props.onChange({ showEmptyMessage: next, },)}
-                        tooltip={props.emptyMessageTooltip ?? DEFAULT_EMPTY_TOOLTIP}
-                    />
-                </div>
-            </Show>
-        </>
     );
 };

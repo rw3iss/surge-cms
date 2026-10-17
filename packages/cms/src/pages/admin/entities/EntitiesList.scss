@@ -624,3 +624,66 @@
     color: var(--admin-text-muted, #{$text-light});
     font-size: $font-size-xs;
 }
+
+// "Set data…" mode: the checkbox column, the selected-records chips, and the
+// line saying whether a selection or a live query will be saved.
+.entity-search-modal__check-col {
+    width: 40px;
+    text-align: center;
+}
+
+.entity-search-modal__selected {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-xs;
+}
+
+.entity-search-modal__selected-label {
+    font-size: $font-size-xs;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--admin-text-muted, #{$text-light});
+}
+
+.entity-search-modal__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 16rem;
+    padding: 2px 4px 2px 8px;
+    border: 1px solid var(--admin-border, #{$border-color});
+    border-radius: 999px;
+    background: var(--admin-bg-subtle, #{$background-dark});
+    font-size: $font-size-xs;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    button {
+        flex: 0 0 auto;
+        width: 18px;
+        height: 18px;
+        padding: 0;
+        border: none;
+        border-radius: 50%;
+        background: none;
+        color: var(--admin-text-muted, #{$text-light});
+        line-height: 1;
+        cursor: pointer;
+
+        &:hover { color: var(--admin-danger, #{$error-color}); }
+    }
+}
+
+.entity-search-modal__save-line {
+    margin: 0;
+    padding: $spacing-xs $spacing-sm;
+    border-left: 3px solid var(--site-primary, #{$primary-color});
+    background: var(--admin-bg-subtle, #{$background-dark});
+    font-size: $font-size-sm;
+    color: var(--admin-text, #{$text-color});
+
+    &--query { border-left-color: var(--admin-text-muted, #{$text-light}); }
+}

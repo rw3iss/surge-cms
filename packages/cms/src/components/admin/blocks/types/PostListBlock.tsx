@@ -7,16 +7,16 @@
  * PostListRenderer feeds those settings into PostsService and renders
  * whatever comes back.
  *
- * The "specific posts" picker and the dynamic-query fields are the
- * shared <SpecificPostsField> / <PostQuerySection> controls (see
- * `../PostQueryControls`), also used by the carousel's Posts item. This
- * block adds its own brevity + show-field options on top.
+ * The data is ONE "Set data…" — the shared <PostDataField> (see
+ * `../PostQueryControls`), also used by the carousel's Posts item: ticked
+ * posts → `pinnedPostIds`, none ticked → the live query. This block adds its
+ * own brevity + show-field options on top.
  */
 import { Component, For, JSX, Show, } from 'solid-js';
 import { templateSlots, } from '../../../../stores/templateSlots';
 import { slotChoices, slotOptionLabel, } from '../../../../utils/templateSlots';
 import { FormCheck, FormField, FormSection, } from '../../forms';
-import { PostFieldsSection, PostQuerySection, SpecificPostsField, } from '../PostQueryControls';
+import { PostDataField, PostFieldsSection, } from '../PostQueryControls';
 import './PostListBlock.scss';
 
 interface PostListBlockProps {
@@ -50,11 +50,6 @@ const PostListBlock: Component<PostListBlockProps> = (props,) => {
 
     const patch = (changes: Record<string, any>,) => {
         props.onUpdate({ ...props.data, ...changes, },);
-    };
-
-    const pinnedIds = (): string[] => {
-        const v = props.data.pinnedPostIds;
-        return Array.isArray(v,) ? v : [];
     };
 
     /** `PostListSlotSettings.source`: 'slot' = posts come from a template slot. */
@@ -91,12 +86,12 @@ const PostListBlock: Component<PostListBlockProps> = (props,) => {
                 </Show>
             </Show>
 
-            {/* ─── Specific posts (shared) ─── */}
+            {/* ─── Data: specific posts OR a live query (shared) ─── */}
             <Show when={!fromSlot()}>
-                <SpecificPostsField
-                    value={pinnedIds()}
-                    onChange={(ids,) => patch({ pinnedPostIds: ids, },)}
-                    tooltip="Hand-pick posts to render in the output. They appear at the top of the list, in the order shown. Drag to reorder, click × to remove. Specific posts render independently of the query below."
+                <PostDataField
+                    value={props.data}
+                    onChange={(p,) => patch(p,)}
+                    emptyMessageTooltip="When on (default), the public output shows 'No posts match the current filters.' if the query returns zero results. Turn off to render nothing in that case — useful when the post-list block is supplementary and an empty placeholder would feel out of place."
                 />
             </Show>
 
@@ -144,14 +139,6 @@ const PostListBlock: Component<PostListBlockProps> = (props,) => {
                 defaults={{ showExcerpt: true, showAuthor: false, showDateCreated: true, showDateUpdated: false, showTags: true, }}
             />
 
-            {/* ─── Posts query (shared) ─── */}
-            <Show when={!fromSlot()}>
-                <PostQuerySection
-                    value={props.data}
-                    onChange={(p,) => patch(p,)}
-                    emptyMessageTooltip="When on (default), the public output shows 'No posts match the current filters.' if the query returns zero results. Turn off to render nothing in that case — useful when the post-list block is supplementary and an empty placeholder would feel out of place."
-                />
-            </Show>
         </div>
     );
 };

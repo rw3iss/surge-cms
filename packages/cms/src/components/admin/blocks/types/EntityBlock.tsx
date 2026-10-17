@@ -1,15 +1,15 @@
 /**
  * Admin edit panel for the `entity` block: pick an entity type → a content-block
  * template for it → a data binding (current-page entity / a specific entity /
- * several entities / a query). Reuses the shared EntitySearchSelectModal.
+ * specific records or a live query, via the shared "Set data…" control).
  */
-import type { EntityBinding, EntityQuery, EntityRecord, SlotBinding, TemplateSlot, } from '@sitesurge/types';
+import type { EntityBinding, EntityQuery, SlotBinding, TemplateSlot, } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
-import { Component, createEffect, createResource, createSignal, For, Show, Suspense, } from 'solid-js';
+import { Component, createEffect, createResource, For, Show, Suspense, } from 'solid-js';
 import { cms, } from '../../../../services/cmsClient';
 import EntityBindingSummary from '../../entities/EntityBindingSummary';
-import EntitySearchSelectModal from '../../entities/EntitySearchSelectModal';
-import { slotBindingSummary, slotDisplayName, slotTypeLabel, } from '../../../../utils/templateSlots';
+import DataBindingField from '../../entities/DataBindingField';
+import { slotDisplayName, slotTypeLabel, } from '../../../../utils/templateSlots';
 
 interface EntityCfg {
     templateId: string;
@@ -48,13 +48,18 @@ const EntityBlockEdit: Component<{
         },
     );
 
-    const [modalMode, setModalMode,] = createSignal<'single' | 'multiple' | 'query' | null>(null,);
+    /** The template being rendered (its mode + record cap shape the picker). */
+    const template = () => (templates() ?? []).find((t,) => t.id === cfg().templateId);
+    /** The binding as "Set data…" sees it: specific records or a live query. */
+    const dataBinding = (): SlotBinding | null => {
+        const b = cfg().binding;
+        return b.mode === 'single' || b.mode === 'list' || b.mode === 'query' ? b : null;
+    };
+    const isData = () => dataBinding() !== null;
 
     // ─── Template slots ──────────────────────────────────────────────
     // The chosen template's declared data inputs; this block fills each one.
-    const templateSlots = (): TemplateSlot[] =>
-        (templates() ?? []).find((t,) => t.id === cfg().templateId)?.slots ?? [];
-    const [slotPicker, setSlotPicker,] = createSignal<{ slot: TemplateSlot; mode: 'single' | 'multiple' | 'query'; } | null>(null,);
+    const templateSlots = (): TemplateSlot[] => template()?.slots ?? [];
     const setSlotBinding = (id: string, b: SlotBinding | undefined,) => {
         const next = { ...(cfg().slots ?? {}), };
         if (b) next[id] = b;
@@ -131,58 +136,46 @@ const EntityBlockEdit: Component<{
                 <label class="block-edit-form__field">
                     <span>Data source</span>
                     <select
-                        value={cfg().binding.mode}
+                        value={isData() ? 'data' : cfg().binding.mode}
                         onChange={(e,) => {
-                            const mode = e.currentTarget.value as EntityBinding['mode'];
-                            if (mode === 'none') setBinding({ mode, },);
-                            else if (mode === 'single') setBinding({ mode, ref: '', },);
-                            else if (mode === 'list') setBinding({ mode, refs: [], },);
-                            else if (mode === 'query') setBinding({ mode, query: {}, },);
-                            else setBinding({ mode: 'context', },);
+                            const mode = e.currentTarget.value;
+                            if (mode === 'none') setBinding({ mode: 'none', },);
+                            else if (mode === 'data') {
+                                if (!isData()) setBinding({ mode: 'list', refs: [], },);
+                            } else setBinding({ mode: 'context', },);
                         }}
                     >
                         <option value="none">None — just render the template</option>
                         <option value="context">Current page entity</option>
-                        <option value="single">A specific entity</option>
-                        <option value="list">Several specific entities</option>
-                        <option value="query">A query</option>
+                        <option value="data">Specific records or a live query</option>
                     </select>
                 </label>
 
-                {/* The binding action. Outlined + full width (see
-                    `.block-edit-form > .ui-button`) because opening the picker
-                    IS the step here — as a bare small button it read as a link
-                    and got skipped. */}
-                <Show when={cfg().binding.mode === 'single'}>
-                    <button type="button" class="ui-button ui-button--sm ui-button--outline" onClick={() => setModalMode('single',)}>
-                        {(cfg().binding as { ref?: string; }).ref ? `Entity: ${(cfg().binding as { ref: string; }).ref}` : 'Select entity…'}
-                    </button>
+                {/* Set data… covers both: tick records for a fixed selection, or
+                    tick none to save the filters/sort/limit as a live query. */}
+                <Show when={isData()}>
+                    <DataBindingField
+                        entityType={cfg().entityType}
+                        value={dataBinding()}
+                        maxRecords={template()?.mode === 'list' ? template()?.maxRecords ?? undefined : undefined}
+                        clearLabel={false}
+                        onChange={(b,) => setBinding(b ?? { mode: 'list', refs: [], },)}
+                    >
+                        {/* What the binding actually resolves to — which records,
+                            and what a saved query matches right now. */}
+                        <EntityBindingSummary
+                            entityType={cfg().entityType ?? ''}
+                            refs={
+                                cfg().binding.mode === 'single'
+                                    ? ((cfg().binding as { ref?: string; }).ref ? [(cfg().binding as { ref: string; }).ref,] : undefined)
+                                    : cfg().binding.mode === 'list'
+                                    ? (cfg().binding as { refs?: string[]; }).refs
+                                    : undefined
+                            }
+                            query={cfg().binding.mode === 'query' ? (cfg().binding as { query?: EntityQuery; }).query : undefined}
+                        />
+                    </DataBindingField>
                 </Show>
-                <Show when={cfg().binding.mode === 'list'}>
-                    <button type="button" class="ui-button ui-button--sm ui-button--outline" onClick={() => setModalMode('multiple',)}>
-                        Select entities ({((cfg().binding as { refs?: string[]; }).refs ?? []).length})
-                    </button>
-                </Show>
-                <Show when={cfg().binding.mode === 'query'}>
-                    <button type="button" class="ui-button ui-button--sm ui-button--outline" onClick={() => setModalMode('query',)}>
-                        Configure query…
-                    </button>
-                </Show>
-
-                {/* What the binding actually resolves to. A count alone doesn't
-                    say WHICH records, and a saved query is otherwise opaque —
-                    both are set once and then trusted, so show the answer. */}
-                <EntityBindingSummary
-                    entityType={cfg().entityType ?? ''}
-                    refs={
-                        cfg().binding.mode === 'single'
-                            ? ((cfg().binding as { ref?: string; }).ref ? [(cfg().binding as { ref: string; }).ref,] : undefined)
-                            : cfg().binding.mode === 'list'
-                            ? (cfg().binding as { refs?: string[]; }).refs
-                            : undefined
-                    }
-                    query={cfg().binding.mode === 'query' ? (cfg().binding as { query?: EntityQuery; }).query : undefined}
-                />
 
                 <label class="block-edit-form__field">
                     <span>Layout (multiple records)</span>
@@ -207,45 +200,12 @@ const EntityBlockEdit: Component<{
                                             <strong>{slotDisplayName(slot,)}</strong>
                                             <code>{slotTypeLabel(slot,)}</code>
                                         </div>
-                                        <small class="form-help-muted">{slotBindingSummary(binding(),)}</small>
-                                        <div class="entity-block-edit__slot-actions">
-                                            <Show
-                                                when={slot.array}
-                                                fallback={
-                                                    <button
-                                                        type="button"
-                                                        class="ui-button ui-button--sm ui-button--outline"
-                                                        onClick={() => setSlotPicker({ slot, mode: 'single', },)}
-                                                    >
-                                                        Configure…
-                                                    </button>
-                                                }
-                                            >
-                                                <button
-                                                    type="button"
-                                                    class="ui-button ui-button--sm ui-button--outline"
-                                                    onClick={() => setSlotPicker({ slot, mode: 'multiple', },)}
-                                                >
-                                                    Pick records…
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    class="ui-button ui-button--sm ui-button--outline"
-                                                    onClick={() => setSlotPicker({ slot, mode: 'query', },)}
-                                                >
-                                                    Live query…
-                                                </button>
-                                            </Show>
-                                            <Show when={binding()}>
-                                                <button
-                                                    type="button"
-                                                    class="ui-button ui-button--sm ui-button--ghost"
-                                                    onClick={() => setSlotBinding(slot.id, undefined,)}
-                                                >
-                                                    Clear
-                                                </button>
-                                            </Show>
-                                        </div>
+                                        <DataBindingField
+                                            entityType={slot.entityType}
+                                            value={binding()}
+                                            allowMultiple={slot.array}
+                                            onChange={(b,) => setSlotBinding(slot.id, b ?? undefined,)}
+                                        />
                                     </div>
                                 );
                             }}
@@ -254,57 +214,6 @@ const EntityBlockEdit: Component<{
                 </Show>
             </Show>
 
-            <Show when={modalMode()}>
-                <EntitySearchSelectModal
-                    entityType={cfg().entityType}
-                    mode={modalMode()!}
-                    // Reopening a configured query resumes it, rather than
-                    // starting blank and overwriting the saved sort/filters.
-                    initialQuery={cfg().binding.mode === 'query'
-                        ? (cfg().binding as { query?: EntityQuery; }).query
-                        : undefined}
-                    onClose={() => setModalMode(null,)}
-                    onSelect={(result,) => {
-                        const m = modalMode();
-                        if (m === 'single') {
-                            const r = result as EntityRecord;
-                            setBinding({ mode: 'single', ref: String(r.slug ?? r.id), },);
-                        } else if (m === 'multiple') {
-                            const rs = result as EntityRecord[];
-                            setBinding({ mode: 'list', refs: rs.map((r,) => String(r.id)), },);
-                        } else if (m === 'query') {
-                            setBinding({ mode: 'query', query: result as EntityQuery, },);
-                        }
-                        setModalMode(null,);
-                    }}
-                />
-            </Show>
-
-            <Show when={slotPicker()}>
-                <EntitySearchSelectModal
-                    entityType={slotPicker()!.slot.entityType}
-                    mode={slotPicker()!.mode}
-                    initialQuery={(() => {
-                        const b = cfg().slots?.[slotPicker()!.slot.id];
-                        return b?.mode === 'query' ? b.query : undefined;
-                    })()}
-                    onClose={() => setSlotPicker(null,)}
-                    onSelect={(result,) => {
-                        const p = slotPicker();
-                        if (!p) return;
-                        if (p.mode === 'single') {
-                            const r = result as EntityRecord;
-                            setSlotBinding(p.slot.id, { mode: 'single', ref: String(r.id,), },);
-                        } else if (p.mode === 'multiple') {
-                            const rs = result as EntityRecord[];
-                            setSlotBinding(p.slot.id, { mode: 'list', refs: rs.map((r,) => String(r.id,)), },);
-                        } else {
-                            setSlotBinding(p.slot.id, { mode: 'query', query: result as EntityQuery, },);
-                        }
-                        setSlotPicker(null,);
-                    }}
-                />
-            </Show>
         </div>
         </Suspense>
     );

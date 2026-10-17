@@ -16,7 +16,7 @@ import BlockEditor, { BlockData, } from '../../../components/admin/blocks/BlockE
 import { mountComponentScript, } from '../../../services/componentScript';
 import JsEditor from '../../../components/admin/common/JsEditor';
 import Toggle from '../../../components/admin/common/Toggle';
-import EntitySearchSelectModal from '../../../components/admin/entities/EntitySearchSelectModal';
+import DataBindingField from '../../../components/admin/entities/DataBindingField';
 import TemplateSlotsEditor from '../../../components/admin/entities/TemplateSlotsEditor';
 import { FormField, FormSection, } from '../../../components/admin/forms';
 import { backendToEditor, type BackendBlock, editorToBackend, } from '../../../components/admin/mail/blockConverters';
@@ -99,7 +99,6 @@ const TemplateEditor: Component = () => {
     const [entityDef, setEntityDef,] = createSignal<EntityTypeDef | null>(null,);
     // Preview sample: explicit record ids override the auto-pick. Empty = auto.
     const [sampleRecordIds, setSampleRecordIds,] = createSignal<string[]>([],);
-    const [sampleModalOpen, setSampleModalOpen,] = createSignal(false,);
     // Variable reference is collapsed by default — it's a lookup aid, not
     // primary content, so it shouldn't push the editor down on every visit.
     const [varsOpen, setVarsOpen,] = createSignal(false,);
@@ -417,18 +416,21 @@ const TemplateEditor: Component = () => {
                                     </Show>
                                 </div>
                                 <div class="template-sample__actions">
-                                    <button type="button" class="ui-button ui-button--sm" onClick={() => setSampleModalOpen(true,)}>
-                                        {sampleRecordIds().length > 0 ? 'Change' : 'Set'} sample{mode() === 'list' ? 's' : ''}…
-                                    </button>
-                                    <Show when={sampleRecordIds().length > 0}>
-                                        <button
-                                            type="button"
-                                            class="ui-button ui-button--sm ui-button--ghost"
-                                            onClick={() => setSampleRecordIds([],)}
-                                        >
-                                            Use auto
-                                        </button>
-                                    </Show>
+                                    {/* A selection only — the auto pick IS the "query". */}
+                                    <DataBindingField
+                                        entityType={params.type ?? ''}
+                                        value={sampleRecordIds().length ? { mode: 'list', refs: sampleRecordIds(), } : null}
+                                        allowMultiple={mode() === 'list'}
+                                        allowQuery={false}
+                                        maxRecords={mode() === 'list' ? sampleLimit() : undefined}
+                                        emptyText="Auto"
+                                        clearLabel="Use auto"
+                                        onChange={(b,) => {
+                                            if (!b) setSampleRecordIds([],);
+                                            else if (b.mode === 'single') setSampleRecordIds([b.ref,],);
+                                            else if (b.mode === 'list') setSampleRecordIds([...b.refs,],);
+                                        }}
+                                    />
                                 </div>
                                 <span class="form-help-muted template-sample__note">{sampleNote()}</span>
                             </div>
@@ -437,23 +439,6 @@ const TemplateEditor: Component = () => {
                     </Show>
                 </div>
             </section>
-
-            <Show when={sampleModalOpen()}>
-                <EntitySearchSelectModal
-                    entityType={params.type!}
-                    mode={mode() === 'list' ? 'multiple' : 'single'}
-                    max={mode() === 'list' ? sampleLimit() : undefined}
-                    onClose={() => setSampleModalOpen(false,)}
-                    onSelect={(result,) => {
-                        if (mode() === 'list') {
-                            setSampleRecordIds((result as EntityRecord[]).map((r,) => String(r.id,)),);
-                        } else {
-                            setSampleRecordIds([String((result as EntityRecord).id,),],);
-                        }
-                        setSampleModalOpen(false,);
-                    }}
-                />
-            </Show>
 
             <TemplateSlotsEditor slots={slots} setSlots={setSlots} />
 
