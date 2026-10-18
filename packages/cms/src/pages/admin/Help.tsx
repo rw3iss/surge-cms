@@ -164,7 +164,7 @@ const AdminHelp: Component = () => {
         <div class="admin-help__columns">
             <section class="admin-section admin-help__group">
                 <header class="admin-section__header">
-                    <h2>Sections</h2>
+                    <h2>Topics</h2>
                     <p class="form-help-muted">Guides to the site's features.</p>
                 </header>
                 <TopicList topics={sections()} />
