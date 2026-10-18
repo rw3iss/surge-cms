@@ -423,7 +423,7 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                             onInput={(e,) => setHoneypot(e.currentTarget.value,)}
                         />
                         {/* Signed in: name + email are the account's, shown as one user card. */}
-                        <CurrentUserCard label="Signing up as" size="sm" showLogout class="event-signup__user" />
+                        <CurrentUserCard label="Registering as" size="sm" showLogout class="event-signup__user" />
                         <For each={fields()}>
                             {(f,) => (
                                 <Show
