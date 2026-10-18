@@ -43,8 +43,10 @@ export async function setMediaProbe(mediaId: string, p: { width: number; height:
     );
 }
 
-export async function setMediaStatus(mediaId: string, status: MediaStatus,): Promise<void> {
-    await query(`UPDATE media SET status = $2, updated_at = NOW() WHERE id = $1 AND status <> $2`, [mediaId, status,],);
+/** Returns true when the status actually changed (callers clear caches on a change). */
+export async function setMediaStatus(mediaId: string, status: MediaStatus,): Promise<boolean> {
+    const r = await query(`UPDATE media SET status = $2, updated_at = NOW() WHERE id = $1 AND status <> $2`, [mediaId, status,],);
+    return (r.rowCount ?? 0) > 0;
 }
 
 export async function setMediaThumbnail(mediaId: string, url: string,): Promise<void> {

@@ -209,12 +209,6 @@
     margin-top: 1rem;
 }
 
-// Handle field: input + hint in one column beside the label.
-.user-detail__handle-col {
-    display: flex;
-    flex-direction: column;
-}
-
 // "@" prefix + the input.
 .user-detail__handle {
     display: inline-flex;
@@ -227,12 +221,14 @@
     font-weight: 600;
 }
 
-.user-detail__handle-hint {
-    display: block;
-    margin-top: 3px;
-    font-size: $font-size-xs;
-    color: var(--admin-text-muted, #{$text-light});
-}
+// Field widths in the Profile panel and the Account Actions inline forms.
+.user-detail__field--name { width: 240px; }
+.user-detail__field--handle { width: 208px; }
+.user-detail__field--role { width: 160px; }
+.user-detail__field--password { width: 220px; }
+.user-detail__field--reason { width: 180px; }
+
+.user-detail__avatar-input { display: none; }
 
 // Additional roles: one switch per role, then the hint.
 .user-detail__extra-roles {
@@ -265,4 +261,17 @@
 .user-roles__desc {
   flex-basis: 100%;
   font-size: $font-size-xs;
+}
+
+// Membership panel: tier picker + optional end date + Apply on one line.
+.user-subscription__assign {
+    margin-top: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.user-subscription__ends {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
 }

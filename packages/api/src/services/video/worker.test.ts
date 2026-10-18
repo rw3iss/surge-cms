@@ -6,12 +6,13 @@ const m = vi.hoisted(() => ({
     store: { deletePrefix: vi.fn(), },
     removeJobDir: vi.fn(),
     invalidateVideoCache: vi.fn(),
+    invalidateGalleryCache: vi.fn(),
 }),);
 
 vi.mock('../../repositories/video.repo', () => m.repo,);
 vi.mock('../../repositories/videoWorker.repo', () => m.wrepo,);
 vi.mock('../storage', () => ({ resolveStorageProvider: () => Promise.resolve(m.store,), isObjectStore: () => true, }),);
-vi.mock('../cache', () => ({ invalidateVideoCache: m.invalidateVideoCache, }),);
+vi.mock('../cache', () => ({ invalidateVideoCache: m.invalidateVideoCache, invalidateGalleryCache: m.invalidateGalleryCache, }),);
 vi.mock('../settings', () => ({ isFeatureEnabledServer: () => Promise.resolve(true,), }),);
 vi.mock('./tooling', () => ({ encoderEnabled: () => true, }),);
 vi.mock('./repackage', () => ({ runRepackageJob: vi.fn(), }),);

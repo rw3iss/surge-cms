@@ -28,18 +28,18 @@ interface PostListBlockProps {
 type Brevity = 'brief' | 'short' | 'full';
 
 const BREVITY_HELP: JSX.Element = (
-    <>
-        <p style={{ margin: '0 0 4px 0', }}>
+    <div class="post-list-brevity-help">
+        <p>
             <strong>Brief</strong>: Renders only the title, excerpt, and selected meta fields.
         </p>
-        <p style={{ margin: '0 0 4px 0', }}>
+        <p>
             <strong>Short</strong>: Like brief, plus a clipped slice of the post content.
             Readers can optionally expand to see the full post inline.
         </p>
-        <p style={{ margin: 0, }}>
+        <p>
             <strong>Full</strong>: Renders every block of every post in full.
         </p>
-    </>
+    </div>
 );
 
 const PostListBlock: Component<PostListBlockProps> = (props,) => {

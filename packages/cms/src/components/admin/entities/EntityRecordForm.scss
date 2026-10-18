@@ -1,0 +1,27 @@
+// EntityRecordForm — component-scoped styles (moved out of pages/admin/entities/EntitiesList.scss
+// so the component no longer depends on a PAGE stylesheet; ADMIN_STYLES.md →
+// "Where to put a new admin style"). Tokens are auto-injected via `additionalData`.
+
+// ─── Generic record form ─────────────────────────────────────────────
+.entity-record-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: $spacing-lg;
+    background: $background;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-lg;
+    padding: $spacing-lg;
+
+    &__field--wide { grid-column: 1 / -1; }
+
+    &__ref-row {
+        display: flex;
+        gap: $spacing-sm;
+        align-items: center;
+    }
+
+    &__ref-row input { flex: 1 1 auto; }
+
+    textarea { min-height: 90px; resize: vertical; width: 100%; }
+    input, select { width: 100%; }
+}

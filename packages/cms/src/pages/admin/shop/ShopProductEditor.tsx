@@ -1,4 +1,5 @@
 import { viewMediaProps, } from '@/stores/mediaViewer';
+import Checkbox from '../../../components/ui/Checkbox';
 import { useNavigate, useParams, } from '@solidjs/router';
 import { Component, createMemo, createResource, createSignal, For, onMount, Show, } from 'solid-js';
 import { createStore, produce, } from 'solid-js/store';
@@ -909,14 +910,13 @@ const ShopProductEditorInner: Component = () => {
                                 <div class="shop-product-editor__checks">
                                     <For each={allCategories() || []}>
                                         {(c,) => (
-                                            <label class="shop-product-editor__check">
-                                                <input
-                                                    type="checkbox"
+                                            <div class="shop-product-editor__check">
+                                                <Checkbox
                                                     checked={categoryIds().includes(c.id,)}
                                                     onChange={() => toggleId(categoryIds, setCategoryIds, c.id,)}
+                                                    label={c.name}
                                                 />
-                                                {c.name}
-                                            </label>
+                                            </div>
                                         )}
                                     </For>
                                     <Show when={!(allCategories() || []).length}>
@@ -928,14 +928,13 @@ const ShopProductEditorInner: Component = () => {
                                 <div class="shop-product-editor__checks">
                                     <For each={allCollections() || []}>
                                         {(c,) => (
-                                            <label class="shop-product-editor__check">
-                                                <input
-                                                    type="checkbox"
+                                            <div class="shop-product-editor__check">
+                                                <Checkbox
                                                     checked={collectionIds().includes(c.id,)}
                                                     onChange={() => toggleId(collectionIds, setCollectionIds, c.id,)}
+                                                    label={c.title}
                                                 />
-                                                {c.title}
-                                            </label>
+                                            </div>
                                         )}
                                     </For>
                                     <Show when={!(allCollections() || []).length}>
@@ -1107,10 +1106,10 @@ const ShopProductEditorInner: Component = () => {
                                                     />
                                                 </td>
                                                 <td>
-                                                    <input
-                                                        type="checkbox"
+                                                    <Toggle
                                                         checked={v.requiresShipping}
-                                                        onChange={(e,) => setVariants(i(), 'requiresShipping', e.currentTarget.checked,)}
+                                                        onChange={(on,) => setVariants(i(), 'requiresShipping', on,)}
+                                                        size="sm"
                                                     />
                                                 </td>
                                                 <Show when={showVariantShipping()}>

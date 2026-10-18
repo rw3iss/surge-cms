@@ -11,8 +11,56 @@ import type { EventsCreateBody, EventsSubscribeBody, EventsUnsubscribeBody, } fr
 import { isAdminRole, isStaffRole, } from '@sitesurge/types';
 import { z, } from 'zod';
 import { defineRoute, } from '../api/defineRoute';
+import { ValidationError, } from '../core/errors';
 import { reply, } from '../api/types';
+import type { RouteDef, } from '../api/types';
 import * as events from '../services/events';
+import { sendCsv, sendPrint, } from '../services/export/formats';
+import { getPublicSettings as getSitePublicSettings, } from '../services/settings';
+import { can, requirePermission, } from '../services/permissions';
+
+// ─── Permissions ───────────────────────────────────────────────────
+//
+// The route tier decides who reaches a route; these narrow it within the
+// tier (Settings → Permissions). API keys are scoped by the key itself and
+// skip the check. Defaults cover the tier, so today's access is unchanged.
+
+async function gate(user: { id: string; role: string; } | undefined, key: string,): Promise<void> {
+    if (user) await requirePermission({ id: user.id, role: user.role, }, key,);
+}
+
+/** Staff see drafts + every registrant only while they hold `events:read`. */
+async function staffView(user: { id: string; role: string; } | undefined,): Promise<boolean> {
+    if (!user || !isStaffRole(user.role,)) return false;
+    return can({ id: user.id, role: user.role, }, 'events:read',);
+}
+
+export const EVENT_ROUTE_PERMISSIONS: Record<string, string> = {
+    'PUT /settings': 'events:write',
+    'PUT /:id/tiers': 'events:write',
+    'PUT /:id/occurrences/:date': 'events:write',
+    'GET /:id/registrations': 'events.registrations:read',
+    'GET /:id/registrations/export': 'events.registrations:read',
+    'PUT /tickets/:code/check-in': 'events:write',
+    'POST /': 'events:write',
+    'PUT /:id': 'events:write',
+    'DELETE /:id': 'events:write',
+};
+
+function withPermissions(routes: RouteDef[], table: Record<string, string>,): RouteDef[] {
+    return routes.map((r,) => {
+        const key = table[`${r.method.toUpperCase()} ${r.path}`];
+        if (!key) return r;
+        const inner = r.handler;
+        return {
+            ...r,
+            handler: async (ctx,) => {
+                await gate(ctx.user as { id: string; role: string; } | undefined, key,);
+                return inner(ctx,);
+            },
+        };
+    },);
+}
 
 const isoDate = z.string().refine((s,) => !Number.isNaN(Date.parse(s,),), 'Expected an ISO date',);
 
@@ -59,7 +107,12 @@ const subscribeBody = z.object({
     eventId: z.string().uuid().optional(),
     notifyEmail: z.boolean().optional(),
     notifyPush: z.boolean().optional(),
+    /** Honeypot: hidden from people, filled in by bots. */
+    website: z.string().max(500,).optional(),
 },) satisfies z.ZodType<EventsSubscribeBody>;
+
+/** A filled honeypot: answer as if it worked, do nothing. */
+const isBot = (body: { website?: string; },): boolean => Boolean(body.website?.trim(),);
 
 const pushBody = z.object({
     endpoint: z.string().url(),
@@ -67,7 +120,7 @@ const pushBody = z.object({
     email: z.string().email().optional(),
 },);
 
-export const eventsRoutes = [
+const allEventsRoutes = [
     // ─── Settings (declared BEFORE /:idOrSlug so it isn't swallowed) ───
     defineRoute({
         method: 'get',
@@ -113,9 +166,28 @@ export const eventsRoutes = [
         auth: 'optional',
         summary: 'Subscribe to one event, or to all events when eventId is omitted.',
         input: { body: subscribeBody, },
-        handler: async ({ body, user, },) => ({
-            subscriber: await events.subscribe({ ...body, userId: user?.id, },),
-        }),
+        handler: async ({ body, user, req, },) => {
+            const email = user?.email ?? body.email;
+            if (isBot(body,)) return { subscriber: null, pendingConfirmation: !user, };
+            await events.checkPublicWriteRate('subscribe', { ip: req.ip, email, signedIn: Boolean(user,), },);
+            const { website: _w, ...rest } = body;
+            const subscriber = await events.subscribe({ ...rest, email, userId: user?.id, },);
+            return { subscriber, pendingConfirmation: subscriber.pendingConfirmation, };
+        },
+    },),
+
+    defineRoute({
+        method: 'get',
+        path: '/subscribe/confirm/:token',
+        auth: 'public',
+        raw: true,
+        summary: 'Confirm an event-notification subscription (the double opt-in link); redirects to the calendar.',
+        input: { params: z.object({ token: z.string().min(10,).max(200,), },), },
+        handler: async ({ params, res, },) => {
+            const ok = await events.confirmSubscription(params.token,);
+            const { eventsUrl, } = await events.getPublicSettings();
+            res.redirect(302, `${eventsUrl || '/events'}?subscribed=${ok ? '1' : 'invalid'}`,);
+        },
     },),
 
     defineRoute({
@@ -138,7 +210,8 @@ export const eventsRoutes = [
                 endpoint: body.endpoint,
                 p256dh: body.keys.p256dh,
                 auth: body.keys.auth,
-                email: body.email ?? user?.email,
+                // A signed-in visitor's own address wins, as on every other route.
+                email: user?.email ?? body.email,
                 userId: user?.id,
                 userAgent: req.headers['user-agent'],
             },),
@@ -159,7 +232,7 @@ export const eventsRoutes = [
             },),
         },
         handler: async ({ query, user, },) => {
-            const admin = isStaffRole(user?.role,);
+            const admin = await staffView(user,);
             return events.listOccurrences({ ...query, admin, viewer: user ?? null, },);
         },
     },),
@@ -195,6 +268,8 @@ export const eventsRoutes = [
                     position: z.number().int().min(0,).default(0,),
                     // Only subscribers of this tier (or higher) may buy this ticket type.
                     requiredTierId: z.string().uuid().nullable().optional(),
+                    // Most of this ticket type one buyer may hold per date (null = no cap).
+                    maxPerOrder: z.number().int().min(1,).max(1000,).nullable().optional(),
                 },),),
             },),
         },
@@ -234,9 +309,15 @@ export const eventsRoutes = [
                 phone: z.string().max(255,).optional(),
                 occurrenceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/,).optional(),
                 fields: z.record(z.string(), z.unknown(),).optional(),
+                /** Honeypot. */
+                website: z.string().max(500,).optional(),
             },),
         },
-        handler: async ({ params, body, user, },) => ({
+        handler: async ({ params, body: rawBody, user, req, },) => {
+            const { website, ...body } = rawBody;
+            if (website?.trim()) throw new ValidationError('Could not register.',);
+            await events.checkPublicWriteRate('register', { ip: req.ip, email: user?.email || body.email, signedIn: Boolean(user,), },);
+            return {
             registration: await events.register({
                 eventId: params.id,
                 ...body,
@@ -247,7 +328,8 @@ export const eventsRoutes = [
                 userId: user?.id,
                 viewer: user ?? null,
             },),
-        }),
+            };
+        },
     },),
 
     defineRoute({
@@ -278,6 +360,41 @@ export const eventsRoutes = [
                 },
             },);
         },
+    },),
+
+    defineRoute({
+        method: 'get',
+        path: '/:id/registrations/export',
+        auth: 'staff',
+        raw: true,
+        summary: 'Export one occurrence\'s registrants with ticket codes (CSV, or ?format=print for a door list).',
+        input: {
+            params: z.object({ id: z.string().uuid(), },),
+            query: z.object({
+                occurrenceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/,),
+                format: z.enum(['csv', 'print',],).default('csv',),
+                columns: z.enum(['all', 'basic',],).optional(),
+            },),
+        },
+        handler: async ({ params, query, res, user, },) => {
+            await gate(user as never, 'data:export',);
+            const ds = await events.registrantsDataset(params.id, query.occurrenceDate,);
+            if (query.format === 'csv') return sendCsv(res, ds,);
+            const site = await getSitePublicSettings().catch(() => ({ siteName: '', }),);
+            sendPrint(res, ds, { siteName: site.siteName ?? '', allColumns: query.columns === 'all', },);
+        },
+    },),
+
+    defineRoute({
+        method: 'put',
+        path: '/tickets/:code/check-in',
+        auth: 'staff',
+        summary: 'Check a ticket in at the door, or undo it (`{ checkedIn: false }`).',
+        input: {
+            params: z.object({ code: z.string().min(4,).max(32,), },),
+            body: z.object({ checkedIn: z.boolean(), },),
+        },
+        handler: ({ params, body, },) => events.setTicketCheckIn(params.code, body.checkedIn,),
     },),
 
     // ─── Ticket view ───
@@ -318,8 +435,9 @@ export const eventsRoutes = [
                 },),).min(1,),
             },),
         },
-        handler: ({ body, user, },) =>
-            events.purchaseTickets({
+        handler: async ({ body, user, req, },) => {
+            await events.checkPublicWriteRate('tickets', { ip: req.ip, email: user?.email || body.email, signedIn: Boolean(user,), },);
+            return events.purchaseTickets({
                 lines: body.lines as never,
                 email: user?.email || body.email,
                 name: body.name,
@@ -327,7 +445,8 @@ export const eventsRoutes = [
                 fields: body.fields,
                 userId: user?.id,
                 viewer: user ?? null,
-            },),
+            },);
+        },
     },),
 
     // ─── Reads ───
@@ -338,7 +457,7 @@ export const eventsRoutes = [
         summary: 'List events in a date range. Anonymous callers see published only.',
         input: { query: listQuery, },
         handler: async ({ query, user, },) => {
-            const admin = isStaffRole(user?.role,);
+            const admin = await staffView(user,);
             const { data, meta, } = await events.list({ ...query, admin, viewer: user ?? null, },);
             return reply(data, { meta, },);
         },
@@ -350,7 +469,7 @@ export const eventsRoutes = [
         auth: 'optional',
         summary: 'A single event by id or slug.',
         input: { params: z.object({ idOrSlug: z.string().min(1,), },), },
-        handler: ({ params, user, },) => events.getByIdOrSlug(params.idOrSlug, { admin: isStaffRole(user?.role,), viewer: user ?? null, },),
+        handler: async ({ params, user, },) => events.getByIdOrSlug(params.idOrSlug, { admin: await staffView(user,), viewer: user ?? null, },),
     },),
 
     // ─── Writes (staff) ───
@@ -384,3 +503,5 @@ export const eventsRoutes = [
         },
     },),
 ];
+
+export const eventsRoutes = withPermissions(allEventsRoutes, EVENT_ROUTE_PERMISSIONS,);

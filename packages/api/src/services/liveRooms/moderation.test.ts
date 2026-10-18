@@ -4,7 +4,7 @@ vi.mock('../../config', () => ({ config: { jwt: { secret: 'test-secret', }, }, }
 vi.mock('../../db', () => ({ query: vi.fn(), }),);
 vi.mock('../cache', () => ({ getRedis: () => { throw new Error('no redis',); }, }),);
 
-import { keysFor, modState, moderationRefusal, viewerKey, ipHashOf, } from './moderation';
+import { isValidViewerKey, keysFor, modState, moderationRefusal, viewerKey, ipHashOf, } from './moderation';
 
 describe('viewerKey', () => {
     it('keys signed-in users by id and guests by their browser id', () => {
@@ -56,10 +56,61 @@ describe('modState', () => {
 
 describe('ipHashOf', () => {
     const req = (headers: Record<string, string>, ip = '10.0.0.1',) => ({ headers, socket: { remoteAddress: ip, }, }) as never;
-    it('prefers the Cloudflare client IP and never returns the raw address', () => {
-        const h = ipHashOf(req({ 'cf-connecting-ip': '1.2.3.4', 'x-forwarded-for': '5.6.7.8', },),);
-        expect(h,).toBe(ipHashOf(req({ 'cf-connecting-ip': '1.2.3.4', },),),);
+    it('reads the nginx-written X-Real-IP and never returns the raw address', () => {
+        const h = ipHashOf(req({ 'x-real-ip': '1.2.3.4', },),);
+        expect(h,).toBe(ipHashOf(req({}, '1.2.3.4',),),);
         expect(h,).not.toContain('1.2.3.4',);
-        expect(ipHashOf(req({ 'x-forwarded-for': '5.6.7.8, 9.9.9.9', },),),).toBe(ipHashOf(req({}, '5.6.7.8',),),);
+    },);
+    it('ignores client-settable CF-Connecting-IP / X-Forwarded-For (S3)', () => {
+        const socketOnly = ipHashOf(req({}, '10.0.0.1',),);
+        expect(ipHashOf(req({ 'cf-connecting-ip': '1.2.3.4', },),),).toBe(socketOnly,);
+        expect(ipHashOf(req({ 'x-forwarded-for': '5.6.7.8', },),),).toBe(socketOnly,);
+        expect(ipHashOf(req({ 'x-real-ip': '9.9.9.9', 'cf-connecting-ip': '1.2.3.4', },),),).toBe(ipHashOf(req({}, '9.9.9.9',),),);
+    },);
+},);
+
+describe('moderationRefusal — kick and ban (S1)', () => {
+    it('a kick on any sender key blocks chat and reactions', () => {
+        expect(moderationRefusal([{}, { kicked: true, },], 'chat',)?.code,).toBe('kicked',);
+        expect(moderationRefusal([{ kicked: true, },], 'react',)?.code,).toBe('kicked',);
+    },);
+    it('a ban blocks everything', () => {
+        expect(moderationRefusal([{},], 'chat', Date.now(), true,)?.code,).toBe('banned',);
+        expect(moderationRefusal([{},], 'react', Date.now(), true,)?.code,).toBe('banned',);
+    },);
+},);
+
+describe('isValidViewerKey (S5)', () => {
+    it('accepts a uuid user key and a guest key', () => {
+        expect(isValidViewerKey('u:33333333-3333-4333-8333-333333333333',),).toBe(true,);
+        expect(isValidViewerKey('a:abcdefgh12',),).toBe(true,);
+        expect(isValidViewerKey('a:c-11111111-1111',),).toBe(true,);
+    },);
+    it('refuses a non-uuid user key (would 500 in the uuid column)', () => {
+        expect(isValidViewerKey('u:abc',),).toBe(false,);
+        expect(isValidViewerKey('x:abc',),).toBe(false,);
+        expect(isValidViewerKey('a:bad id',),).toBe(false,);
+    },);
+},);
+
+describe('banExpiry (F3)', () => {
+    it('is permanent without minutes, else now + minutes', async () => {
+        const { banExpiry, } = await import('./moderation');
+        expect(banExpiry(undefined,),).toBeNull();
+        expect(banExpiry(0,),).toBeNull();
+        expect(banExpiry(60, 1_000,)!.getTime(),).toBe(1_000 + 3_600_000,);
+    },);
+},);
+
+describe('transcriptText (F2)', () => {
+    it('formats lines and marks deleted ones', async () => {
+        const { transcriptText, } = await import('./chatLog');
+        const txt = transcriptText('My show', [
+            { id: '1', userId: null, name: 'Ann', handle: 'ann', role: null, text: 'hi\nthere', at: '2026-10-18T10:00:00.000Z', },
+            { id: '2', userId: null, name: 'Bob', role: null, text: 'spam', at: '2026-10-18T10:00:05.000Z', deletedAt: '2026-10-18T10:01:00.000Z', replyTo: { id: '1', name: 'Ann', text: 'hi', }, },
+        ],);
+        expect(txt,).toContain('Chat transcript — My show',);
+        expect(txt,).toContain('[2026-10-18 10:00:00] Ann @ann: hi there',);
+        expect(txt,).toContain('Bob (replying to Ann): spam [deleted by a moderator]',);
     },);
 },);

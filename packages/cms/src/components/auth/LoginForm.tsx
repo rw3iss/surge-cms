@@ -10,6 +10,7 @@
 import type { User, } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
 import { Component, createSignal, Show, } from 'solid-js';
+import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
 import { isFeatureEnabled, isPatreonEnabled, } from '../../stores/siteSettings';
 import Toggle from '../admin/common/Toggle';
@@ -33,6 +34,9 @@ const LoginForm: Component<LoginFormProps> = (props,) => {
     const [rememberMe, setRememberMe,] = createSignal(false,);
     const [error, setError,] = createSignal('',);
     const [isLoading, setIsLoading,] = createSignal(false,);
+    /** Login refused because the email is not verified yet → offer a new link. */
+    const [needsVerification, setNeedsVerification,] = createSignal(false,);
+    const [resendState, setResendState,] = createSignal<'idle' | 'sending' | 'sent'>('idle',);
     const [showAdminForm, setShowAdminForm,] = createSignal(false,);
     const auth = useAuth();
     const id = (s: string,) => `${props.idPrefix ?? 'login'}-${s}`;
@@ -51,6 +55,8 @@ const LoginForm: Component<LoginFormProps> = (props,) => {
     const handleEmailLogin = async (e: Event,) => {
         e.preventDefault();
         setError('',);
+        setNeedsVerification(false,);
+        setResendState('idle',);
         setIsLoading(true,);
         try {
             await auth.login(email(), password(), rememberMe(),);
@@ -70,9 +76,22 @@ const LoginForm: Component<LoginFormProps> = (props,) => {
             props.onSuccess?.(auth.user ?? null,);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Login failed',);
+            setNeedsVerification((err as { code?: string; } | null)?.code === 'EMAIL_NOT_VERIFIED',);
         } finally {
             setIsLoading(false,);
         }
+    };
+
+    const resendLink = async () => {
+        setResendState('sending',);
+        try {
+            await cms.auth.resendVerificationByEmail(email(),);
+        } catch {
+            // The endpoint answers the same either way; a network error just lets them retry.
+            setResendState('idle',);
+            return;
+        }
+        setResendState('sent',);
     };
 
     const handlePatreonLogin = () => {
@@ -155,6 +174,20 @@ const LoginForm: Component<LoginFormProps> = (props,) => {
                 <Show when={error()}>
                     <div class="login__error">
                         {error()}
+                        <Show when={needsVerification()}>
+                            <div class="login__error-action">
+                                <Show
+                                    when={resendState() === 'sent'}
+                                    fallback={
+                                        <button type="button" class="login__link-btn" disabled={resendState() === 'sending'} onClick={resendLink}>
+                                            {resendState() === 'sending' ? 'Sending…' : 'Resend the link'}
+                                        </button>
+                                    }
+                                >
+                                    A new link is on its way — check your inbox.
+                                </Show>
+                            </div>
+                        </Show>
                     </div>
                 </Show>
 

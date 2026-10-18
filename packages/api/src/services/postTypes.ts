@@ -51,8 +51,19 @@ function checkLive(s: Record<string, unknown>,): void {
 }
 
 /**
+ * `type_settings` keys the SERVER writes (recordings, replay selection, the
+ * provider input) — never taken from a post save. The editor sends its whole
+ * (possibly stale) typeSettings on every save/autosave, so without this a save
+ * made after a recording completed would roll the replay back.
+ */
+export const SERVER_MANAGED_TYPE_SETTINGS: Readonly<Record<string, readonly string[]>> = {
+    live: ['recordingVersions', 'recordingMediaId', 'recordingRemovedAt', 'providerInputId',],
+};
+
+/**
  * The `type_settings` to store: the type's defaults, then `existing` (only
- * when the type is unchanged), then the incoming `patch`.
+ * when the type is unchanged), then the incoming `patch` — minus the
+ * server-managed keys, for which `existing` always wins.
  */
 export function resolveTypeSettings(
     type: string,
@@ -63,10 +74,12 @@ export function resolveTypeSettings(
         throw new ValidationError('typeSettings must be an object', { field: 'typeSettings', },);
     }
     const def = getPostType(type,);
+    const incoming = { ...((patch as Record<string, unknown> | null) ?? {}), };
+    for (const k of SERVER_MANAGED_TYPE_SETTINGS[type] ?? []) delete incoming[k];
     const merged = {
         ...(def.settingsDefaults ?? {}),
         ...(existing ?? {}),
-        ...((patch as Record<string, unknown> | null) ?? {}),
+        ...incoming,
     };
     if (type === 'live') checkLive(merged,);
     return merged;

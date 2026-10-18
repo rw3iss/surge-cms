@@ -10,8 +10,8 @@ import NotFoundPage from './NotFound';
 import type { CalendarEvent, EventTicketTier, } from '@sitesurge/types';
 import { describeRecurrence, parseRecurrenceRule, renderMarkdown, stripMarkdown, } from '@sitesurge/types';
 import { Title, } from '@solidjs/meta';
-import { A, useParams, } from '@solidjs/router';
-import { Component, createResource, Show, } from 'solid-js';
+import { A, useParams, useSearchParams, } from '@solidjs/router';
+import { Component, createMemo, createResource, Show, } from 'solid-js';
 import UpgradeTout from '../components/content/UpgradeTout';
 import { useAuth, } from '../stores/auth';
 import { accessErrorOf, tierRequirement, upgradeHref, type AccessRequired, } from '../utils/accessRequired';
@@ -24,6 +24,7 @@ import './EventDetail.scss';
 
 const EventDetailPage: Component = () => {
     const params = useParams<{ slug: string; }>();
+    const [search, setSearch,] = useSearchParams<{ date?: string; }>();
     const auth = useAuth();
 
     /**
@@ -44,27 +45,90 @@ const EventDetailPage: Component = () => {
     const event = () => loaded()?.event ?? null;
     const gate = () => loaded()?.gate ?? null;
 
+    /**
+     * The upcoming dates of a recurring series (cancelled ones already dropped
+     * by the server), so a visitor signs up for the date they picked — not the
+     * series' first date, which for a weekly event is usually long past.
+     */
+    const [upcoming,] = createResource(
+        () => (event()?.recurrenceRule ? event()!.id : null),
+        async (id,) => {
+            const from = new Date(Date.now() - 86_400_000,);
+            const to = new Date(Date.now() + 180 * 86_400_000,);
+            try {
+                const occ = await cms.events.calendar({ from: from.toISOString(), to: to.toISOString(), },);
+                return occ.filter((o,) => o.event.id === id && new Date(o.endsAt ?? o.startsAt,).getTime() >= Date.now(),);
+            } catch {
+                return [];
+            }
+        },
+    );
+
+    /** `YYYY-MM-DD` (UTC — the occurrence key) of a start instant. */
+    const keyOf = (iso: string | Date,) => (iso instanceof Date ? iso.toISOString() : String(iso,)).slice(0, 10,);
+
+    /** The occurrence being viewed: `?date=` when it is a real upcoming date,
+     *  else the next upcoming one, else the event's own date. */
+    const occurrenceDate = createMemo(() => {
+        const ev = event();
+        if (!ev) return '';
+        const list = upcoming() ?? [];
+        if (search.date && (list.some((o,) => o.occurrenceDate === search.date,) || !ev.recurrenceRule)) {
+            return search.date;
+        }
+        return list[0]?.occurrenceDate ?? keyOf(ev.startsAt,);
+    },);
+
     const [tiers, { refetch: refetchTiers, },] = createResource(
-        () => (event() ? `${event()!.id}|${auth.user?.id ?? ''}` : null),
+        () => (event() && occurrenceDate() ? `${event()!.id}|${occurrenceDate()}|${auth.user?.id ?? ''}` : null),
         async () => {
-            const id = event()!.id;
             const e = event();
             if (!e || !e.ticketingEnabled) return [] as EventTicketTier[];
             try {
-                return await cms.events.tiers(id, e.startsAt.slice(0, 10,),);
+                return await cms.events.tiers(e.id, occurrenceDate(),);
             } catch {
                 return [] as EventTicketTier[];
             }
         },
     );
 
+    /** The chosen occurrence's start: the series' UTC time of day on that date. */
+    const occurrenceStart = () => {
+        const ev = event();
+        if (!ev) return null;
+        const start = new Date(ev.startsAt,);
+        const date = occurrenceDate();
+        if (!date || date === keyOf(ev.startsAt,)) return start;
+        const d = new Date(`${date}T${start.toISOString().slice(11,)}`,);
+        return Number.isNaN(d.getTime(),) ? start : d;
+    };
+
+    /** Shown in the EVENT's time zone (a 7 pm ET event reads 7 pm everywhere). */
+    const formatOccurrence = (d: Date, allDay: boolean, tz?: string | null,) => {
+        const zone = (() => {
+            if (!tz) return undefined;
+            try { new Intl.DateTimeFormat('en-US', { timeZone: tz, },); return tz; } catch { return undefined; }
+        })();
+        return allDay
+            ? d.toLocaleDateString('en-US', { dateStyle: 'full', timeZone: 'UTC', },)
+            : d.toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short', ...(zone ? { timeZone: zone, timeZoneName: 'short', } : {}), },);
+    };
+
     const when = () => {
         const ev = event();
-        if (!ev) return '';
-        const d = new Date(ev.startsAt,);
-        return ev.allDay ?
-            d.toLocaleDateString('en-US', { dateStyle: 'full', },) :
-            d.toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short', },);
+        const d = occurrenceStart();
+        if (!ev || !d) return '';
+        return formatOccurrence(d, ev.allDay, ev.timezone,);
+    };
+
+    /** Date choices for the sign-up card (recurring series only). */
+    const dateChoices = () => {
+        const ev = event();
+        if (!ev?.recurrenceRule) return [];
+        return (upcoming() ?? []).map((o,) => ({
+            date: o.occurrenceDate,
+            label: formatOccurrence(new Date(o.startsAt,), ev.allDay, ev.timezone,),
+        }));
     };
 
     return (
@@ -162,6 +226,10 @@ const EventDetailPage: Component = () => {
                                 <EventSignup
                                     event={ev()}
                                     tiers={tiers() ?? []}
+                                    occurrenceDate={occurrenceDate()}
+                                    occurrenceLabel={when()}
+                                    dateChoices={dateChoices()}
+                                    onDateChange={(date,) => setSearch({ date, },)}
                                     onClaimed={() => void refetchTiers()}
                                     onAccessChanged={() => { void refetchEvent(); void refetchTiers(); }}
                                 />

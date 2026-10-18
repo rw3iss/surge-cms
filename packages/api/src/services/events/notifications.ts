@@ -17,14 +17,14 @@ import { config, } from '../../config';
 import * as repo from '../../repositories/events.repo';
 import { logger, } from '../../utils/logger';
 import { sendEmail, } from '../email';
-import { escapeHtml, eventUrl, formatWhen, } from './format';
+import { describeWhen, escapeHtml, eventLink, } from './format';
 import { getSettings, eventSender, } from './settings';
 
 export type NotifyKind = 'published' | 'reminder';
 
-function buildEmail(event: CalendarEvent, kind: NotifyKind,): { subject: string; html: string; } {
-    const when = formatWhen(event,);
-    const url = eventUrl(event,);
+async function buildEmail(event: CalendarEvent, kind: NotifyKind,): Promise<{ subject: string; html: string; }> {
+    const when = await describeWhen(event,);
+    const url = await eventLink(event,);
     const lead = kind === 'reminder' ? 'Coming up soon' : 'New event';
     const subject = kind === 'reminder'
         ? `Reminder: ${event.title} — ${when}`
@@ -34,7 +34,7 @@ function buildEmail(event: CalendarEvent, kind: NotifyKind,): { subject: string;
         <p style="margin:0 0 4px"><strong>When:</strong> ${escapeHtml(when,)}</p>
         ${event.location ? `<p style="margin:0 0 4px"><strong>Where:</strong> ${escapeHtml(event.location,)}</p>` : ''}
         ${event.description ? `<p style="margin:12px 0">${escapeHtml(event.description,)}</p>` : ''}
-        <p style="margin:16px 0"><a href="${url}">View the event</a></p>
+        <p style="margin:16px 0"><a href="${escapeHtml(url,)}">View the event</a></p>
     `.trim();
     return { subject, html, };
 }
@@ -53,7 +53,7 @@ export async function notifyForEvent(event: CalendarEvent, kind: NotifyKind,): P
         const recipients = await repo.findRecipientsForEvent(event.id,);
         if (recipients.length === 0) return;
 
-        const { subject, html, } = buildEmail(event, kind,);
+        const { subject, html, } = await buildEmail(event, kind,);
 
         // ── Email ──
         for (const r of recipients.filter((x,) => x.notifyEmail)) {
@@ -128,8 +128,8 @@ async function sendPush(
     const endpoints = await repo.findPushEndpointsForEmails(emails,);
     const payload = JSON.stringify({
         title,
-        body: formatWhen(event,),
-        url: eventUrl(event,),
+        body: await describeWhen(event,),
+        url: await eventLink(event,),
         tag: `event-${event.id}-${kind}`,
     },);
 

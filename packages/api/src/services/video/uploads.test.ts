@@ -258,3 +258,23 @@ describe('sweepExpiredUploadSessions', () => {
         expect(repoMock.setStatus,).toHaveBeenCalledTimes(2,);
     },);
 },);
+
+describe('upload policy on sessions (S3)', () => {
+    it('refuses a non-video file over UPLOAD_MAX_SIZE_MB (default 500 MB)', async () => {
+        await expect(uploads.createOrResume(USER, { filename: 'big.zip', mimeType: 'application/zip', size: 40 * 1024 * MIB, fingerprint: 'z', }, ctx as never,),)
+            .rejects.toThrow(/MB upload limit/,);
+        expect(storeMock.createMultipart,).not.toHaveBeenCalled();
+    });
+    it('a video is still sized by maxUploadGb', async () => {
+        await expect(uploads.createOrResume(USER, { ...body, size: 21 * 1024 * MIB, }, ctx as never,),).rejects.toThrow(/20 GB/,);
+    });
+    it('complete / partUrls re-check the permission for the session file type', async () => {
+        repoMock.findById.mockResolvedValue(row(),);
+        const authorize = vi.fn(async () => { throw new Error('forbidden',); },);
+        await expect(uploads.complete(USER, row().id, ctx as never, {}, authorize,),).rejects.toThrow('forbidden',);
+        expect(authorize,).toHaveBeenCalledWith('video/mp4',);
+        expect(storeMock.completeMultipart,).not.toHaveBeenCalled();
+        await expect(uploads.partUrls(USER, row().id, [1,], authorize,),).rejects.toThrow('forbidden',);
+        expect(storeMock.presignPart,).not.toHaveBeenCalled();
+    });
+});

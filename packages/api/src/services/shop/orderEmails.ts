@@ -23,6 +23,7 @@ import { buildNotification, getNotificationSettings, notify, notifyUser, personL
 import { logger, } from '../../utils/logger';
 import {
     formatCurrency,
+    orderTotalsLines,
     resolveOrderShipments,
     shipmentText,
     type ShopAddress,
@@ -48,6 +49,17 @@ export interface OrderEmailContext {
     currency: string;
     /** Shop → Order tracking settings, for orders read without `shipments`. */
     tracking?: ShopTrackingSettings | null;
+    /** Link / button colour — the site primary when it is a literal hex. */
+    accentColor?: string;
+}
+
+/** The built-in accent, used when the site primary is unset or a swatch ref. */
+export const DEFAULT_ACCENT = '#e63946';
+
+/** A colour safe to drop into an inline style: a literal hex, else the default. */
+export function accentOf(ctx?: Pick<OrderEmailContext, 'accentColor'> | null,): string {
+    const c = ctx?.accentColor;
+    return c && /^#[0-9a-f]{3,8}$/i.test(c,) ? c : DEFAULT_ACCENT;
 }
 
 /** The order's parcels: the server-resolved list when attached, else built
@@ -61,12 +73,12 @@ const shortDate = (iso: string | null,): string =>
 
 /** One line per parcel: "OnTrac · 1LSC…" linked to its tracking page, plus
  *  shipped / delivered dates when known. Empty when there is no tracking. */
-export function renderShipmentsHtml(shipments: ShopOrderShipment[],): string {
+export function renderShipmentsHtml(shipments: ShopOrderShipment[], accent: string = DEFAULT_ACCENT,): string {
     if (!shipments.length) return '';
     const rows = shipments.map((s,) => {
         const text = escapeHtml(shipmentText(s,),);
         const link = s.url
-            ? `<a href="${escapeHtml(s.url,)}" target="_blank" rel="noopener" style="color:#e63946;">${text}</a>`
+            ? `<a href="${escapeHtml(s.url,)}" target="_blank" rel="noopener" style="color:${accent};">${text}</a>`
             : `<strong>${text}</strong>`;
         const dates = [
             s.shippedAt ? `shipped ${escapeHtml(shortDate(s.shippedAt,),)}` : '',
@@ -107,9 +119,11 @@ export function renderItemsTable(order: OrderDetail, opts: { grouped?: boolean; 
     const currency = order.currency || 'usd';
 
     const renderRow = (item: OrderDetail['items'][number],) => {
-        const name = `${item.title}${item.variantTitle ? ` — ${item.variantTitle}` : ''}`;
+        // Titles can arrive from a supplier webhook and names/addresses are
+        // buyer-typed: every interpolated value is escaped.
+        const name = escapeHtml(`${item.title}${item.variantTitle ? ` — ${item.variantTitle}` : ''}`,);
         const sku = item.sku
-            ? `<br/><span style="${MUTED}font-size:12px;">SKU: ${item.sku}</span>`
+            ? `<br/><span style="${MUTED}font-size:12px;">SKU: ${escapeHtml(item.sku,)}</span>`
             : '';
         return `<tr>
             <td style="${CELL}">${name} × ${item.quantity}${sku}</td>
@@ -134,7 +148,7 @@ export function renderItemsTable(order: OrderDetail, opts: { grouped?: boolean; 
             rows = [...groups.entries(),].map(([key, items,],) => {
                 const label = key === 'native'
                     ? 'Shipped by us'
-                    : key === 'event_tickets' ? 'Event tickets' : `Shipped by ${key}`;
+                    : key === 'event_tickets' ? 'Event tickets' : `Shipped by ${escapeHtml(key,)}`;
                 return `<tr><td colspan="2" style="${CELL}${MUTED}font-size:12px;text-transform:uppercase;letter-spacing:.04em;">${label}</td></tr>`
                     + items.map(renderRow,).join('',);
             },).join('',);
@@ -161,16 +175,9 @@ export function renderTotals(order: OrderDetail,): string {
         </tr>`;
     };
 
-    const shippingLabel = order.shippingMethod ? `Shipping (${order.shippingMethod})` : 'Shipping';
-    const parts = [
-        row('Subtotal', formatMoney(order.subtotalCents, c,),),
-        row(shippingLabel, formatMoney(order.shippingCents, c,),),
-        row('Tax', formatMoney(order.taxCents, c,),),
-    ];
-    if (order.discountCents > 0) {
-        parts.push(row('Discount', `-${formatMoney(order.discountCents, c,)}`,),);
-    }
-    parts.push(row('Total', formatMoney(order.totalCents, c,), true,),);
+    // The shared rows (`orderTotalsLines`) — the same lines the order pages and
+    // the PDF receipt print. Labels can carry the supplier's method name: escaped.
+    const parts = orderTotalsLines(order,).map((l,) => row(escapeHtml(l.label,), escapeHtml(l.value,), l.grand === true,));
 
     return `<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;max-width:280px;margin-left:auto;">
         <tbody>${parts.join('',)}</tbody>
@@ -185,9 +192,9 @@ export function renderAddress(addr: ShopAddress | null | undefined, label: strin
     const lines = formatAddressLines(addr,);
     if (lines.length === 0) return '';
 
-    const body = lines.map((l,) => `${l}`,).join('<br/>',);
+    const body = lines.map((l,) => escapeHtml(l,),).join('<br/>',);
     return `<div style="margin:0 16px 16px 0;">
-        <div style="font-weight:bold;margin-bottom:4px;">${label}</div>
+        <div style="font-weight:bold;margin-bottom:4px;">${escapeHtml(label,)}</div>
         <div style="${MUTED}line-height:1.5;">${body}</div>
     </div>`;
 }
@@ -196,7 +203,7 @@ export function renderAddress(addr: ShopAddress | null | undefined, label: strin
  *  Chrome (brand header + footer) is shop-specific; the DOCTYPE/centering
  *  table skeleton is shared via `wrapEmailShell`. */
 export function wrapEmail(opts: { title: string; bodyHtml: string; businessName: string; },): string {
-    const brand = opts.businessName || 'Our Shop';
+    const brand = escapeHtml(opts.businessName || 'Our Shop',);
     const card = `<tr>
                         <td style="padding:20px 24px;border-bottom:1px solid #e5e7eb;">
                             <span style="font-size:18px;font-weight:bold;">${brand}</span>
@@ -204,7 +211,7 @@ export function wrapEmail(opts: { title: string; bodyHtml: string; businessName:
                     </tr>
                     <tr>
                         <td style="padding:24px;">
-                            <h1 style="margin:0 0 16px;font-size:20px;">${opts.title}</h1>
+                            <h1 style="margin:0 0 16px;font-size:20px;">${escapeHtml(opts.title,)}</h1>
                             ${opts.bodyHtml}
                         </td>
                     </tr>
@@ -249,22 +256,37 @@ export function receiptLink(order: OrderDetail, frontendUrl: string,): string {
 }
 
 /** A prominent "download your receipt" call to action. */
-export function renderReceiptButton(order: OrderDetail, frontendUrl: string,): string {
+export function renderReceiptButton(order: OrderDetail, frontendUrl: string, accent: string = DEFAULT_ACCENT,): string {
     // Inline styles only, and a table-free anchor: email clients drop
     // stylesheets, and a padded inline-block is the most widely supported
     // button that still degrades to a plain link where it isn't.
     const style = [
         'display:inline-block',
         'padding:10px 18px',
-        'background:#e63946',
+        `background:${accent}`,
         'color:#ffffff',
         'text-decoration:none',
         'border-radius:6px',
         'font-weight:600',
     ].join(';',);
     return `<p style="margin:20px 0;">`
-        + `<a href="${receiptLink(order, frontendUrl,)}" style="${style};">`
+        + `<a href="${escapeHtml(receiptLink(order, frontendUrl,),)}" style="${style};">`
         + `Download receipt (PDF)</a></p>`;
+}
+
+/** The storefront confirmation page, carrying the order's access key so the
+ *  buyer sees their details and digital downloads there. */
+export function orderPageLink(order: OrderDetail, frontendUrl: string,): string {
+    const base = (frontendUrl || config.frontendUrl || '').replace(/\/+$/, '',);
+    const key = (order as { accessKey?: string | null; }).accessKey;
+    return `${base}/shop/orders/${encodeURIComponent(order.orderNumber,)}${key ? `?k=${encodeURIComponent(key,)}` : ''}`;
+}
+
+/** "View your order" — or "Get your downloads" when the order has a digital item. */
+export function renderOrderPageLink(order: OrderDetail, frontendUrl: string, accent: string = DEFAULT_ACCENT,): string {
+    const digital = (order.items ?? []).some((i,) => i.isDigital,);
+    const label = digital ? 'Get your downloads' : 'View your order';
+    return `<p style="margin:12px 0;"><a href="${escapeHtml(orderPageLink(order, frontendUrl,),)}" style="color:${accent};font-weight:600;">${label}</a></p>`;
 }
 
 // ─── Templates ─────────────────────────────────────────────────────
@@ -280,9 +302,10 @@ export function buildBuyerConfirmation(order: OrderDetail, ctx: OrderEmailContex
         <p>Thank you for your order! Here's a summary of what you purchased.</p>
         ${renderItemsTable(order, { grouped: ctx.groupItems === true, },)}
         ${renderTotals(order,)}
-        ${renderShipmentsHtml(orderShipments(order, ctx,),)}
+        ${renderShipmentsHtml(orderShipments(order, ctx,), accentOf(ctx,),)}
         ${renderAddresses(order,)}
-        ${renderReceiptButton(order, ctx.frontendUrl,)}
+        ${renderOrderPageLink(order, ctx.frontendUrl, accentOf(ctx,),)}
+        ${renderReceiptButton(order, ctx.frontendUrl, accentOf(ctx,),)}
     `;
     return {
         subject: `Thank you for your order ${order.orderNumber}`,
@@ -297,14 +320,14 @@ export function buildBuyerConfirmation(order: OrderDetail, ctx: OrderEmailContex
 /** Seller/admin new-order notification (paid order). */
 export function buildSellerNotification(order: OrderDetail, ctx: OrderEmailContext,): BuiltEmail {
     const adminLink = `${ctx.frontendUrl}/admin/shop/orders/${order.id}`;
-    const customer = `${order.customerName ? `${order.customerName} — ` : ''}${order.customerEmail}`;
+    const customer = escapeHtml(`${order.customerName ? `${order.customerName} — ` : ''}${order.customerEmail}`,);
     const body = `
         <p>A new order has been placed and paid.</p>
         <p style="${MUTED}">Customer: ${customer}</p>
         ${renderItemsTable(order, { grouped: ctx.groupItemsForAdmin !== false, },)}
         ${renderTotals(order,)}
         ${renderAddresses(order,)}
-        <p style="margin-top:16px;"><a href="${adminLink}" style="color:#e63946;">View this order in the admin</a></p>
+        <p style="margin-top:16px;"><a href="${escapeHtml(adminLink,)}" style="color:${accentOf(ctx,)};">View this order in the admin</a></p>
     `;
     return {
         subject: `New order ${order.orderNumber}`,
@@ -339,10 +362,10 @@ export function buildStatusUpdate(
 
     const tracking = order.status === 'cancelled' || order.status === 'refunded'
         ? ''
-        : renderShipmentsHtml(orderShipments(order, ctx,),);
+        : renderShipmentsHtml(orderShipments(order, ctx,), accentOf(ctx,),);
 
     const body = `
-        <p>Your order <strong>${order.orderNumber}</strong> is now <strong>${phrase}</strong>.</p>
+        <p>Your order <strong>${escapeHtml(order.orderNumber,)}</strong> is now <strong>${escapeHtml(phrase,)}</strong>.</p>
         ${tracking}
         ${renderItemsTable(order,)}
         ${renderTotals(order,)}
@@ -368,6 +391,10 @@ async function buildContext(order: OrderDetail,): Promise<OrderEmailContext> {
     let groupItems = false;
     let groupItemsForAdmin = true;
     let tracking: ShopTrackingSettings | null = null;
+    let accentColor: string | undefined;
+    try {
+        accentColor = (await getPublicSettings()).appearance?.primaryColor;
+    } catch { /* default accent */ }
     try {
         const shop = await getShopSettings();
         businessName = shop.businessName || '';
@@ -380,7 +407,7 @@ async function buildContext(order: OrderDetail,): Promise<OrderEmailContext> {
     }
     return {
         businessName, frontendUrl: config.frontendUrl ?? '', currency,
-        groupItems, groupItemsForAdmin, tracking,
+        groupItems, groupItemsForAdmin, tracking, accentColor,
     };
 }
 
@@ -415,9 +442,11 @@ function purposeContext(order: OrderDetail, itemsHtml: string, ctx?: OrderEmailC
             trackingUrl: first?.url ?? '',
             carrier: first?.carrierLabel ?? order.carrier ?? '',
             /** Every parcel as linked lines (empty when no tracking yet). */
-            trackingHtml: renderShipmentsHtml(shipments,),
+            trackingHtml: renderShipmentsHtml(shipments, accentOf(ctx,),),
             shipments,
             itemsHtml,
+            /** The buyer's order page (with its access key). */
+            url: orderPageLink(order, ctx?.frontendUrl ?? '',),
         },
         customer: { name: order.customerName ?? '', email: order.customerEmail, },
     };

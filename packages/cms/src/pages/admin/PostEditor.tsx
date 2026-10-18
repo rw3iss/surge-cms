@@ -4,7 +4,7 @@ import {
     isValidBannerPositionCustom, resolveBannerHeight, resolveBannerPosition,
 } from '@sitesurge/types';
 import { useSearchParams, } from '@solidjs/router';
-import { Component, createEffect, createSignal, For, Match, Show, Switch, untrack, } from 'solid-js';
+import { Component, createEffect, createSignal, For, Match, Show, Suspense, Switch, untrack, } from 'solid-js';
 import { Dynamic, } from 'solid-js/web';
 import { DEFAULT_POST_TYPE, getPostType, type PostTypeDefinition, } from '@sitesurge/types';
 import { getEditorFor, } from '../../components/admin/posts/types/registry';
@@ -926,6 +926,8 @@ const AdminPostEditor: Component = () => {
             }}
             properties={properties}
             content={
+                // Non-blocks editors are lazy chunks (registry.ts).
+                <Suspense fallback={<p class="form-help-muted">Loading editor…</p>}>
                 <Dynamic
                     component={getEditorFor(typeDef(),)}
                     postId={editor.isNew() ? null : editor.params.id}
@@ -943,6 +945,7 @@ const AdminPostEditor: Component = () => {
                     liveStartedAt={liveStartedAt()}
                     liveEndedAt={liveEndedAt()}
                 />
+                </Suspense>
             }
             previewBody={previewBody}
             extraModals={extraModals}

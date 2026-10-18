@@ -209,6 +209,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
             '143_shop_variant_inventory_manual.sql',
             '157_shop_fulfillment_tracking.sql',
             '158_shop_order_tracking_manual.sql',
+            '171_shop_order_email_lower_access_key.sql',
         ],
         // Creation order — uninstall drops in reverse. CASCADE FKs make the
         // exact order safe regardless (child/m2m tables drop with their parent).
@@ -300,7 +301,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
             'Upload large videos straight to object storage, encode them to adaptive HLS (with a teaser and downloads), and play them on the site — public, or private for subscribers.',
         defaultEnabled: false,
         requires: [],
-        migrations: ['124_video.sql', '125_video_file_urls.sql', '130_video_quick_replay.sql',],
+        migrations: ['124_video.sql', '125_video_file_urls.sql', '130_video_quick_replay.sql', '159_video_share_epoch.sql',],
         // Reverse-dropped on uninstall, so parents last. R2 objects are NOT
         // deleted by an uninstall — delete video media first.
         tables: ['media_upload_sessions', 'video_keys', 'media_videos', 'video_jobs', 'video_renditions',],
@@ -320,6 +321,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
             '092_event_system.sql',
             '111_event_ticket_order.sql',
             '141_event_access.sql',
+            '172_event_subscriber_confirm_ticket_caps.sql',
         ],
         // Reverse-dropped on uninstall, so children first.
         // Reverse-dropped on uninstall, so parents last.

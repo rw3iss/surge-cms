@@ -12,7 +12,44 @@ import type { GalleryItem, } from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, on, onCleanup, onMount, Show, } from 'solid-js';
 import { Portal, } from 'solid-js/web';
 import MediaVideo from '../blocks/media/MediaVideo';
+import { arrowsBelongToTarget, trapTab, } from './focusTrap';
 import { tileSrc, } from './GalleryTile';
+
+/**
+ * The open picture: the (cached) thumbnail shows at once, blurred, and the
+ * full image replaces it when loaded — the original can be 5–20 MB from a
+ * phone, and a blank stage on every arrow press read as broken.
+ */
+const LightboxImage: Component<{ item: GalleryItem; }> = (p,) => {
+    const [loaded, setLoaded,] = createSignal(false,);
+    const thumb = () => tileSrc(p.item,);
+    return (
+        <div class="gallery-lightbox__picture" classList={{ 'is-loading': !loaded(), }} aria-busy={!loaded()}>
+            <Show when={!loaded() && thumb()}>
+                <img class="gallery-lightbox__placeholder" src={thumb()} alt="" aria-hidden="true" />
+            </Show>
+            <img
+                class="gallery-lightbox__full"
+                src={p.item.media?.url}
+                alt={p.item.media?.alt || p.item.title || ''}
+                onLoad={() => setLoaded(true,)}
+                onError={() => setLoaded(true,)}
+            />
+        </div>
+    );
+};
+
+/** Warm the browser cache with the neighbours' full images (not videos). */
+function preload(items: GalleryItem[], idx: number,): void {
+    for (const d of [1, -1,]) {
+        const it = items[(idx + d + items.length) % items.length];
+        if (it?.media?.url && it.media.type !== 'video') {
+            const img = new Image();
+            img.decoding = 'async';
+            img.src = it.media.url;
+        }
+    }
+}
 
 export interface GalleryLightboxProps {
     items: GalleryItem[];
@@ -44,13 +81,20 @@ const GalleryLightbox: Component<GalleryLightboxProps> = (props,) => {
     /** Page the strip by most of its visible width. */
     const pageStrip = (dir: 1 | -1,) => track?.scrollBy({ left: dir * track.clientWidth * 0.8, behavior: 'smooth', },);
 
+    let dialog: HTMLDivElement | undefined;
     const onKey = (e: KeyboardEvent,) => {
-        if (e.key === 'Escape') { e.preventDefault(); props.onClose(); }
-        else if (e.key === 'ArrowRight' && count() > 1) { e.preventDefault(); go(1,); }
+        if (e.key === 'Escape') { e.preventDefault(); props.onClose(); return; }
+        if (dialog && trapTab(dialog, e,)) return;
+        // ←/→ seek / adjust while the player or a slider has focus.
+        if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && arrowsBelongToTarget(e.target,)) return;
+        if (e.key === 'ArrowRight' && count() > 1) { e.preventDefault(); go(1,); }
         else if (e.key === 'ArrowLeft' && count() > 1) { e.preventDefault(); go(-1,); }
     };
+    createEffect(on(i, (n,) => { if (count() > 1) preload(props.items, n,); },),);
     onMount(() => {
         const prev = document.body.style.overflow;
+        // Return focus to the tile the visitor opened the lightbox from.
+        const opener = document.activeElement as HTMLElement | null;
         document.body.style.overflow = 'hidden';
         document.addEventListener('keydown', onKey,);
         closeBtn?.focus();
@@ -58,12 +102,14 @@ const GalleryLightbox: Component<GalleryLightboxProps> = (props,) => {
         onCleanup(() => {
             document.body.style.overflow = prev;
             document.removeEventListener('keydown', onKey,);
+            if (opener && opener.isConnected && typeof opener.focus === 'function') opener.focus();
         },);
     },);
 
     return (
         <Portal>
             <div
+                ref={dialog}
                 class="gallery-lightbox"
                 classList={{ 'gallery-lightbox--strip': strip(), }}
                 role="dialog"
@@ -87,7 +133,10 @@ const GalleryLightbox: Component<GalleryLightboxProps> = (props,) => {
                             <div class="gallery-lightbox__stage">
                                 <Show
                                     when={it().media?.type === 'video'}
-                                    fallback={<img src={it().media?.url} alt={it().media?.alt || it().title || ''} />}
+                                    fallback={
+                                        // Keyed by item so each picture starts in its loading state.
+                                        <Show when={it()} keyed>{(cur,) => <LightboxImage item={cur} />}</Show>
+                                    }
                                 >
                                     {/* Keyed by id so moving to another video remounts the player. */}
                                     <Show when={it().media!.id} keyed>

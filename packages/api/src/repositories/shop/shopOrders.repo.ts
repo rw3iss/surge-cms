@@ -8,6 +8,7 @@
  * at the service layer (admin all / user own). Follows the shopProducts.repo
  * style: base.repo helpers + mapRow + uuidOrNull.
  */
+import { attentionWhereSql, } from '../../services/shop/attention';
 import type { ShopAddress, ShopOrder, ShopOrderItem, } from '@sitesurge/types';
 import type { PoolClient, } from 'pg';
 import { query, } from '../../db';
@@ -33,6 +34,8 @@ export interface OrderCreateInput {
     stripePaymentIntentId?: string | null;
     shippingAddress?: ShopAddress | null;
     billingAddress?: ShopAddress | null;
+    /** Confirmation secret for the anonymous order page (migration 171). */
+    accessKey?: string | null;
 }
 
 /** Insert an order (pending by default) inside the caller's txn client.
@@ -41,8 +44,8 @@ export async function createOrder(client: PoolClient, input: OrderCreateInput,):
     const result = await client.query(
         `INSERT INTO shop_orders (order_number, user_id, customer_email, customer_name, status,
                                   subtotal_cents, tax_cents, shipping_cents, shipping_method, discount_cents, total_cents,
-                                  currency, stripe_payment_intent_id, shipping_address, billing_address)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                                  currency, stripe_payment_intent_id, shipping_address, billing_address, access_key)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
              RETURNING *`,
         [
             input.orderNumber,
@@ -60,6 +63,7 @@ export async function createOrder(client: PoolClient, input: OrderCreateInput,):
             input.stripePaymentIntentId ?? null,
             input.shippingAddress ? JSON.stringify(input.shippingAddress,) : null,
             input.billingAddress ? JSON.stringify(input.billingAddress,) : null,
+            input.accessKey ?? null,
         ],
     );
     return mapRow<ShopOrder>(result.rows[0],);
@@ -160,6 +164,14 @@ export interface OrderListFilters {
     userId?: string;
     email?: string;
     status?: string;
+    /** Order number, buyer email or name (case-insensitive substring). */
+    search?: string;
+    /** Only orders that need attention (services/shop/attention.ts). */
+    attention?: boolean;
+    /** Placed on/after (inclusive) — ISO date or timestamp. */
+    from?: string;
+    /** Placed before (exclusive). */
+    to?: string;
 }
 
 /** Paginated order list, newest first. Admin passes no user filter (all);
@@ -172,26 +184,45 @@ export async function findOrders(
     const params: unknown[] = [];
 
     // Own-orders scoping: match either the user_id or the customer_email.
+    // Email compares case-insensitively — a guest checkout as Jane@x.com must
+    // show up for the account jane@x.com (functional index, migration 171).
     if (filters.userId || filters.email) {
         const clauses: string[] = [];
         if (filters.userId) {
             params.push(filters.userId,);
-            clauses.push(`user_id = $${params.length}`,);
+            clauses.push(`o.user_id = $${params.length}`,);
         }
         if (filters.email) {
             params.push(filters.email,);
-            clauses.push(`customer_email = $${params.length}`,);
+            clauses.push(`lower(o.customer_email) = lower($${params.length})`,);
         }
         whereClause += ` AND (${clauses.join(' OR ',)})`;
     }
     if (filters.status) {
         params.push(filters.status,);
-        whereClause += ` AND status = $${params.length}`;
+        whereClause += ` AND o.status = $${params.length}`;
+    }
+    if (filters.search?.trim()) {
+        params.push(`%${filters.search.trim().replace(/[\\%_]/g, (c,) => `\\${c}`,)}%`,);
+        const n = params.length;
+        whereClause += ` AND (o.order_number ILIKE $${n} OR o.customer_email ILIKE $${n} OR o.customer_name ILIKE $${n})`;
+    }
+    if (filters.from) {
+        params.push(filters.from,);
+        whereClause += ` AND o.created_at >= $${params.length}::timestamptz`;
+    }
+    if (filters.to) {
+        params.push(filters.to,);
+        whereClause += ` AND o.created_at < $${params.length}::timestamptz`;
+    }
+    if (filters.attention) {
+        params.push(null,); // any supplier
+        whereClause += ` AND ${attentionWhereSql(params.length,)}`;
     }
 
     return paginatedQuery<ShopOrder>(
-        `SELECT * FROM shop_orders ${whereClause} ORDER BY created_at DESC`,
-        `SELECT COUNT(*) FROM shop_orders ${whereClause}`,
+        `SELECT o.* FROM shop_orders o ${whereClause} ORDER BY o.created_at DESC`,
+        `SELECT COUNT(*) FROM shop_orders o ${whereClause}`,
         params,
         pagination,
     );

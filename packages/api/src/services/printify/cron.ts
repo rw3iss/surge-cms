@@ -12,6 +12,7 @@ import { getPrintifyConfig, getPrintifyOrderConfig, } from './config';
 import { retryHeldPrintifyProduction, } from './fulfillment';
 import { reconcilePrintifyOrders, } from './orderSync';
 import { getStatus, syncProducts, } from './sync';
+import { withPrintifySyncLock, } from './syncLock';
 
 /** The cron reconciles orders from this far back. */
 const CRON_RECONCILE_DAYS = 60;
@@ -42,6 +43,14 @@ async function tick(): Promise<void> {
         }
     }
 
+    // 1c) Any OTHER pull-tracking supplier (provider contract `reconcileOrders`).
+    try {
+        const { runProviderReconciles, } = await import('../shop/fulfilmentSync.js');
+        await runProviderReconciles({ sinceDays: CRON_RECONCILE_DAYS, trigger: 'cron', exclude: ['printify',], },);
+    } catch (err) {
+        logger.warn(`provider order reconcile failed: ${(err as Error).message}`,);
+    }
+
     const cfg = await getPrintifyConfig();
     if (!cfg) return;
 
@@ -60,11 +69,17 @@ async function tick(): Promise<void> {
     }
 }
 
+/** A tick while a manual sync (or another process's tick) runs is skipped. */
+async function lockedTick(): Promise<void> {
+    const r = await withPrintifySyncLock(tick,);
+    if (!r.ran) logger.info('printify:sync — skipped, another sync is running',);
+}
+
 export function initPrintifyCron(): void {
     cronRegistry.register({
         name: JOB_NAME,
         schedule: SCHEDULE,
         description: 'Reconcile Printify orders (status + tracking) and refresh Printify products on the configured interval',
-        handler: tick,
+        handler: lockedTick,
     },);
 }

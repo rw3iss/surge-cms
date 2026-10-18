@@ -7,10 +7,15 @@
  *   - Date → localized date; array of scalars → comma-joined
  *   - everything else → String(value)
  *
- *  Interpolated values are emitted as-is (NOT HTML-escaped): block content is
- *  already trusted, admin-authored HTML (the HTML block injects raw content and
- *  the server sanitizes on save), and entity fields (title/content) come
- *  sanitized from the API — so escaping would wrongly show tags for rich fields.
+ *  Interpolated values are HTML-ESCAPED unless they come from a trusted rich
+ *  field. Entity records now include member-written text (forum thread titles,
+ *  comment excerpts, display names) that nobody sanitised, and the output goes
+ *  straight into innerHTML (web) or the email body. A value is emitted raw only
+ *  when the expression ends in a TRUSTED_HTML_FIELDS property (`post.content`,
+ *  `product.description`, `{{content}}`, `{{productsHtml}}`…) — those hold
+ *  sanitised rich HTML that escaping would wrongly show as tags — or is a
+ *  string literal the author typed. Existing entities (`&amp;`) are not
+ *  double-encoded, so an already-escaped title renders unchanged.
  */
 import type { Expr, Node, OutputNode, TemplateRuntime } from './types';
 import { isEntityRef, isMediaValue, MEDIA_FIELDS, mediaValue } from './types';
@@ -46,6 +51,48 @@ function getProp(value: unknown, prop: string | number): unknown {
         if (ref && typeof ref === 'object' && typeof ref.path === 'string') return mediaValue(ref, ref.path);
     }
     return raw;
+}
+
+/**
+ * Property names whose values are trusted, sanitised rich HTML (or HTML the
+ * server built), emitted without escaping. Anything ending in `Html` counts too.
+ * Keep this list to fields that are sanitised on save or generated server-side
+ * — never a member-written plain-text field.
+ */
+export const TRUSTED_HTML_FIELDS: ReadonlySet<string> = new Set([
+    'content', 'description', 'fullDescription', 'shortDescription', 'html', 'message',
+],);
+
+export function isTrustedHtmlField(name: string | number | undefined): boolean {
+    if (typeof name !== 'string') return false;
+    return TRUSTED_HTML_FIELDS.has(name) || name.endsWith('Html');
+}
+
+/** Value functions whose result is (a transform of) their first argument. */
+const PASS_THROUGH_FUNCTIONS: ReadonlySet<string> = new Set(['truncate', 'default', 'upper', 'lower', 'trim',],);
+
+/** Does this expression's value come from a trusted rich-HTML source? */
+export function isTrustedExpr(expr: Expr): boolean {
+    switch (expr.kind) {
+        case 'lit': return true;
+        case 'path': return isTrustedHtmlField(expr.parts[expr.parts.length - 1]);
+        case 'call':
+            if (expr.props.length > 0) return isTrustedHtmlField(expr.props[expr.props.length - 1]);
+            // A value function passes its input through (`truncate(post.content, 200)`):
+            // trusted exactly when its first argument is.
+            return PASS_THROUGH_FUNCTIONS.has(expr.name) && expr.args.length > 0 && isTrustedExpr(expr.args[0]);
+        default: return false;
+    }
+}
+
+/** HTML-escape text, leaving existing character references (`&amp;`, `&#39;`) intact. */
+export function escapeTemplateText(s: string): string {
+    return s
+        .replace(/&(?!(?:#\d+|#x[0-9a-f]+|[a-z][a-z0-9]*);)/gi, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 async function evalExpr(expr: Expr, scope: Scope, rt: TemplateRuntime): Promise<unknown> {
@@ -181,7 +228,8 @@ async function evalNodes(nodes: Node[], scope: Scope, rt: TemplateRuntime, em: E
                 em.entity(value.kind, value.id, value.data, value.options);
             } else {
                 if (value === undefined) rt.warn?.(`template: {{${node.raw}}} is undefined (ignored)`);
-                em.text(stringify(value));
+                const text = stringify(value);
+                em.text(rt.raw || isTrustedExpr(node.expr) ? text : escapeTemplateText(text));
             }
             continue;
         }

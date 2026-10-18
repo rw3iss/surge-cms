@@ -17,7 +17,7 @@ import path from 'path';
 import sharp from 'sharp';
 import { config, } from '../config';
 import { query, } from '../db';
-import { ValidationError, } from '../core/errors';
+import { ForbiddenError, ValidationError, } from '../core/errors';
 import * as repo from '../repositories/users.repo';
 import { logAudit, } from './audit';
 import { cache, } from './cache';
@@ -99,6 +99,69 @@ export async function getWithMembership(
     id: string,
 ): Promise<{ user: User; membership: PatreonMembership | null; }> {
     return repo.findUserWithMembership(id,);
+}
+
+// ─── Who may manage whom ──────────────────────────────────────────
+
+/** The admin acting on users (an admin-scope API key acts as `admin`). */
+export interface UserManager { id: string; role: string; }
+export type UserManageAction = 'create' | 'update' | 'password' | 'ban' | 'unban' | 'delete';
+
+/**
+ * The ONE rule set for an admin acting on a user — single-user routes and
+ * bulk alike. Only a sysadmin may grant sysadmin or act on a sysadmin (set
+ * their password, ban, delete, change them), and nobody changes their own
+ * role, bans or deletes themselves. Before, only bulk applied this, so an
+ * admin could promote themselves to sysadmin with `PUT /users/:id`.
+ */
+export function assertCanManage(
+    caller: UserManager,
+    target: { id: string; role: string; } | null,
+    action: UserManageAction,
+    patch: { role?: string | null; } = {},
+): void {
+    const isSys = caller.role === 'sysadmin';
+    if (patch.role === 'sysadmin' && !isSys) throw new ForbiddenError('Only a sysadmin can grant sysadmin.',);
+    if (!target) return;
+    if (target.role === 'sysadmin' && !isSys) throw new ForbiddenError('Only a sysadmin can manage a sysadmin.',);
+    if (target.id === caller.id) {
+        if (action === 'ban' || action === 'delete') throw new ValidationError(`You cannot ${action} your own account.`,);
+        if (action === 'update' && patch.role && patch.role !== target.role) throw new ValidationError('You cannot change your own role.',);
+    }
+}
+
+/** `assertCanManage` for a user loaded by id (missing → 404). */
+export async function guardManage(caller: UserManager, targetId: string | null, action: UserManageAction, patch: { role?: string | null; } = {},): Promise<void> {
+    if (!targetId) return assertCanManage(caller, null, action, patch,);
+    const r = await query<{ id: string; role: string; }>(`SELECT id, role FROM users WHERE id = $1`, [targetId,],).catch(() => ({ rows: [], }),);
+    if (!r.rows[0]) throw new NotFoundError('User',);
+    assertCanManage(caller, r.rows[0], action, patch,);
+}
+
+// ─── Email verification (admin) ───────────────────────────────────
+
+/** Send a new verification link (nothing when the email is already verified). */
+export async function resendVerificationFor(id: string, ctx: AuditContext,): Promise<{ sent: boolean; }> {
+    const { resendVerification, } = await import('./mail/verification.js');
+    const sent = await resendVerification(id,);
+    if (sent) await logAudit({ userId: ctx.userId, action: 'verification_resend', entityType: 'user', entityId: id, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
+    return { sent, };
+}
+
+/** Mark the email verified by hand (support: the member never got the link). */
+export async function markEmailVerified(id: string, ctx: AuditContext,): Promise<User> {
+    const r = await query(
+        `UPDATE users SET email_verified = true, verified_at = COALESCE(verified_at, NOW()), verification_token = NULL, updated_at = NOW()
+          WHERE id = $1 RETURNING id, email`,
+        [id,],
+    );
+    if (!r.rows[0]) throw new NotFoundError('User',);
+    await logAudit({ userId: ctx.userId, action: 'verify_email', entityType: 'user', entityId: id, newValues: { emailVerified: true, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
+    await cache.invalidateUserCache(id,).catch(() => {},);
+    // The address is proven now: attach applications sent from it before sign-up.
+    const { claimByVerifiedEmail, } = await import('./membershipApplications.js');
+    await claimByVerifiedEmail(id, String(r.rows[0].email,),);
+    return repo.findUserById(id,);
 }
 
 // ─── Writes ───────────────────────────────────────────────────────
@@ -395,7 +458,7 @@ export async function bulk(
 ): Promise<UserBulkResult> {
     if (action === 'role') {
         if (!value) throw new ValidationError('Choose a role.',);
-        if (value === 'sysadmin' && caller.role !== 'sysadmin') throw new ValidationError('Only a sysadmin can grant sysadmin.',);
+        assertCanManage(caller, null, 'update', { role: value, },);
     }
     const rows = await query<{ id: string; role: string; }>(`SELECT id, role FROM users WHERE id = ANY($1::uuid[])`, [ids,],);
     const found = new Map(rows.rows.map((r,) => [r.id, r.role,]),);

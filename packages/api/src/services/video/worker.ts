@@ -14,6 +14,7 @@ import os from 'os';
 import crypto from 'crypto';
 import * as repo from '../../repositories/video.repo';
 import * as wrepo from '../../repositories/videoWorker.repo';
+import { setMediaStatus, } from './mediaStatus';
 import { logger, } from '../../utils/logger';
 import * as cache from '../cache';
 import { isFeatureEnabledServer, } from '../settings';
@@ -162,7 +163,7 @@ export async function onError(job: repo.ClaimedJob, ctl: JobControl, err: unknow
         await wrepo.resetInFlightRenditions(job.mediaId,);
         await repo.finishJob(job.id, 'cancelled',);
         await removeJobDir(job.id,);
-        if (!(await wrepo.hasReadyFull(job.mediaId,))) await wrepo.setMediaStatus(job.mediaId, 'failed',);
+        if (!(await wrepo.hasReadyFull(job.mediaId,))) await setMediaStatus(job.mediaId, 'failed',);
         await cache.invalidateVideoCache(job.mediaId,);
         logger.info('Video job cancelled', { jobId: job.id, },);
         return;
@@ -186,7 +187,7 @@ export async function onError(job: repo.ClaimedJob, ctl: JobControl, err: unknow
 
 async function failedCleanup(mediaId: string, jobId: string,): Promise<void> {
     await removeJobDir(jobId,);
-    if (!(await wrepo.hasReadyFull(mediaId,))) await wrepo.setMediaStatus(mediaId, 'failed',);
+    if (!(await wrepo.hasReadyFull(mediaId,))) await setMediaStatus(mediaId, 'failed',);
     await cache.invalidateVideoCache(mediaId,);
 }
 

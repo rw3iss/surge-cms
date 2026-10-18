@@ -1,7 +1,9 @@
-import { Component, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
+import { Component, createSignal, For, onMount, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import ModalShell from '../common/ModalShell';
 import MediaTypeFilter, { MEDIA_KINDS, type MediaKind, } from './MediaTypeFilter';
+import MediaSearchInput from './MediaSearchInput';
+import { formatSize, } from './mediaUtils';
 import MediaUploadModal from './MediaUploadModal';
 import MediaViewerModal from './MediaViewerModal';
 import './MediaSelectModal.scss';
@@ -76,7 +78,6 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
         fetchMedia();
     };
 
-    let searchTimer: ReturnType<typeof setTimeout>;
 
     const fetchMedia = async () => {
         setLoading(true,);
@@ -109,13 +110,11 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
         fetchMedia();
     };
 
-    const handleSearchInput = (value: string,) => {
+    /** Debounced by MediaSearchInput; runs once the user pauses / presses Enter / clears. */
+    const handleSearch = (value: string,) => {
         setSearchText(value,);
-        clearTimeout(searchTimer,);
-        searchTimer = setTimeout(() => {
-            setPage(1,);
-            fetchMedia();
-        }, 300,);
+        setPage(1,);
+        fetchMedia();
     };
 
     const handleSortChange = (value: string,) => {
@@ -138,12 +137,6 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
         }
     };
 
-    const formatSize = (bytes: number,): string => {
-        if (bytes < 1024) return `${bytes} B`;
-        if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024,)} KB`;
-        return `${(bytes / 1024 / 1024).toFixed(1,)} MB`;
-    };
-
     const formatDate = (dateStr: string,): string => {
         return new Date(dateStr,).toLocaleDateString();
     };
@@ -160,9 +153,6 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
         fetchMedia();
     },);
 
-    onCleanup(() => {
-        clearTimeout(searchTimer,);
-    },);
 
     return (
         <ModalShell
@@ -182,13 +172,7 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
                     <Show when={allowedKinds().length > 1}>
                         <MediaTypeFilter value={kinds()} onChange={handleKindsChange} kinds={allowedKinds()} />
                     </Show>
-                    <input
-                        type="text"
-                        class="media-select-modal__search"
-                        placeholder="Search media..."
-                        value={searchText()}
-                        onInput={(e,) => handleSearchInput(e.currentTarget.value,)}
-                    />
+                    <MediaSearchInput class="media-select-modal__search" value={searchText()} onSearch={handleSearch} />
                     <select
                         class="media-select-modal__sort"
                         value={sort()}

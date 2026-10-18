@@ -1,12 +1,9 @@
 import { viewMediaProps, } from '@/stores/mediaViewer';
 import type {
-    HeroActionConfig,
-    HeroButtonSize,
     HeroCarouselOptions,
     HeroCarouselSettings,
     HeroItem,
     HeroPostsConfig,
-    HeroTextConfig,
 } from '@sitesurge/types';
 import type { AppearanceSettings, } from '@sitesurge/types';
 import { Component, createEffect, createMemo, createResource, createSignal, For, Match, onMount, Show, Switch, } from 'solid-js';
@@ -15,99 +12,15 @@ import { cms, } from '../../../services/cmsClient';
 import ResolvedHeroCarousel from '../../blocks/ResolvedHeroCarousel';
 import { renderEntityTemplateSlide, } from '../../blocks/BlockRenderer';
 import { useToast, } from '../../common/toast';
-import ColorPicker from '../appearance/ColorPicker';
 import MediaSelectModal from '../media/MediaSelectModal';
 import MediaUploadModal from '../media/MediaUploadModal';
 import PostQueryEditor from './PostQueryEditor';
 import EntityBlockEdit from './types/EntityBlock';
-import Tooltip from '../common/Tooltip';
 import Toggle from '../common/Toggle';
+import CarouselOptions from './carousel/CarouselOptions';
+import { DEFAULT_OPTIONS, entitySummary, genId, OBJECT_FIT_OPTIONS, postsSummary, } from './carousel/heroItemUtils';
+import { ActionSection, TextOverlaySection, } from './carousel/TextOverlayEditor';
 import './HeroContentEditor.scss';
-
-const genId = () => 'hero-' + Date.now() + '-' + Math.random().toString(36,).slice(2, 7,);
-
-/** One-line summary of a Posts item's query, for its card preview. */
-function postsSummary(item: HeroItem,): string {
-    const cfg = item.posts ?? {};
-    const parts: string[] = [];
-    const pinned = cfg.pinnedPostIds?.length ?? 0;
-    if (pinned > 0) parts.push(`${pinned} specific`,);
-    if (cfg.queryEnabled !== false) parts.push(`query · ${cfg.count ?? 5}`,);
-    return parts.length ? parts.join(' + ',) : 'No posts configured';
-}
-
-/** One-line summary of an Entity item's binding, for its card preview. */
-function entitySummary(item: HeroItem,): string {
-    const cfg = item.entity;
-    if (!cfg?.entityType) return 'Not configured';
-    const type = cfg.entityType;
-    const b = cfg.binding;
-    if (!cfg.templateId) return `${type} · pick a template`;
-    switch (b?.mode) {
-        case 'single':
-            return b.ref ? `${type}: ${b.ref}` : `${type} · pick one`;
-        case 'list':
-            return `${type} · ${(b.refs ?? []).length} selected`;
-        case 'query':
-            return `${type} · query`;
-        case 'context':
-            return `${type} · current page`;
-        default:
-            return type;
-    }
-}
-
-const isValidHeight = (v: string,) => /^\d+(px|vw|vh|%)$/.test(v,);
-
-const OBJECT_FIT_OPTIONS: HeroItem['objectFit'][] = ['cover', 'contain', 'fill', 'none', 'scale-down',];
-const HEADING_SIZES: HeroTextConfig['size'][] = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6',];
-
-const DEFAULT_OPTIONS: HeroCarouselOptions = {
-    autoScroll: false,
-    autoScrollInterval: 3000,
-    repeat: true,
-    customHeight: false,
-    height: '50vh',
-};
-
-/** Local-state text input — syncs to parent on blur or Enter, not every keystroke */
-function TextInput(props: { value: string; placeholder?: string; rows?: number; onUpdate: (val: string,) => void; },) {
-    const [local, setLocal,] = createSignal(props.value,);
-    let lastExternal = props.value;
-
-    // Sync from parent only when the external value truly changes (e.g. initial load, reset)
-    createEffect(() => {
-        const v = props.value;
-        if (v !== lastExternal) {
-            lastExternal = v;
-            setLocal(v,);
-        }
-    },);
-
-    const commit = () => {
-        if (local() !== lastExternal) {
-            lastExternal = local();
-            props.onUpdate(local(),);
-        }
-    };
-
-    return (
-        <textarea
-            rows={props.rows || 2}
-            class="input input--sm"
-            placeholder={props.placeholder}
-            value={local()}
-            onInput={(e,) => setLocal(e.currentTarget.value,)}
-            onBlur={commit}
-            onKeyDown={(e,) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    commit();
-                }
-            }}
-        />
-    );
-}
 
 export interface HeroContentEditorProps {
     /** When provided, the editor operates in "block mode" — reads/writes
@@ -381,187 +294,6 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
 
     // ─── Render helpers ───
 
-    const renderTextSection = (
-        item: HeroItem,
-        field: 'header' | 'subheader',
-        label: string,
-    ) => {
-        const config = item[field] as HeroTextConfig | undefined;
-        return (
-            <div class="hero-item-card__section">
-                <Show
-                    when={config}
-                    fallback={
-                        <button
-                            class="ui-button ui-button--sm ui-button--ghost"
-                            onClick={() => {
-                                updateItem(item.id, it => ({
-                                    ...it,
-                                    [field]: {
-                                        text: '',
-                                        size: field === 'header' ? 'h1' : 'h3',
-                                        color: '#ffffff',
-                                    } as HeroTextConfig,
-                                }),);
-                            }}
-                        >
-                            + Add {label}
-                        </button>
-                    }
-                >
-                    <div class="hero-item-card__section-header">
-                        <span class="hero-item-card__section-label">{label}</span>
-                        <button
-                            class="btn btn--xs btn--danger-ghost"
-                            onClick={() => {
-                                updateItem(item.id, it => {
-                                    const updated = { ...it, };
-                                    delete (updated as any)[field];
-                                    return updated;
-                                },);
-                            }}
-                        >
-                            Remove
-                        </button>
-                    </div>
-                    <TextInput
-                        value={config?.text || ''}
-                        placeholder={`${label} text...`}
-                        rows={2}
-                        onUpdate={(val,) => {
-                            updateItem(item.id, it => ({
-                                ...it,
-                                [field]: { ...it[field]!, text: val, },
-                            }),);
-                        }}
-                    />
-                    <div class="hero-item-card__row">
-                        <select
-                            class="input input--sm input--select"
-                            value={config?.size || 'h1'}
-                            onChange={(e,) => {
-                                updateItem(item.id, it => ({
-                                    ...it,
-                                    [field]: { ...it[field]!, size: e.currentTarget.value as HeroTextConfig['size'], },
-                                }),);
-                            }}
-                        >
-                            <For each={HEADING_SIZES}>
-                                {(size,) => <option value={size}>{size.toUpperCase()}</option>}
-                            </For>
-                        </select>
-                        <ColorPicker
-                            value={config?.color || '#ffffff'}
-                            onChange={(color,) => {
-                                updateItem(item.id, it => ({
-                                    ...it,
-                                    [field]: { ...it[field]!, color, },
-                                }),);
-                            }}
-                        />
-                    </div>
-                </Show>
-            </div>
-        );
-    };
-
-    const renderActionSection = (item: HeroItem,) => {
-        const action = item.action;
-        return (
-            <div class="hero-item-card__section">
-                <Show
-                    when={action}
-                    fallback={
-                        <button
-                            class="ui-button ui-button--sm ui-button--ghost"
-                            onClick={() => {
-                                updateItem(item.id, it => ({
-                                    ...it,
-                                    action: {
-                                        label: '',
-                                        url: '',
-                                        openInNewTab: false,
-                                        size: 'small',
-                                    } as HeroActionConfig,
-                                }),);
-                            }}
-                        >
-                            + Add Action
-                        </button>
-                    }
-                >
-                    <div class="hero-item-card__section-header">
-                        <span class="hero-item-card__section-label">Action</span>
-                        <button
-                            class="btn btn--xs btn--danger-ghost"
-                            onClick={() => {
-                                updateItem(item.id, it => {
-                                    const updated = { ...it, };
-                                    delete updated.action;
-                                    return updated;
-                                },);
-                            }}
-                        >
-                            Remove
-                        </button>
-                    </div>
-                    <input
-                        type="text"
-                        class="input input--sm"
-                        placeholder="Button label"
-                        value={action?.label || ''}
-                        onChange={(e,) => {
-                            updateItem(item.id, it => ({
-                                ...it,
-                                action: { ...it.action!, label: e.currentTarget.value, },
-                            }),);
-                        }}
-                    />
-                    <input
-                        type="text"
-                        class="input input--sm"
-                        placeholder="URL (e.g. /donate)"
-                        value={action?.url || ''}
-                        onChange={(e,) => {
-                            updateItem(item.id, it => ({
-                                ...it,
-                                action: { ...it.action!, url: e.currentTarget.value, },
-                            }),);
-                        }}
-                    />
-                    <div class="hero-item-card__field">
-                        <label class="hero-item-card__field-label">Button Size</label>
-                        <select
-                            class="input input--sm input--select"
-                            value={action?.size || 'small'}
-                            onChange={(e,) => {
-                                updateItem(item.id, it => ({
-                                    ...it,
-                                    action: { ...it.action!, size: e.currentTarget.value as HeroButtonSize, },
-                                }),);
-                            }}
-                        >
-                            <option value="small">Small</option>
-                            <option value="normal">Normal</option>
-                            <option value="large">Large</option>
-                        </select>
-                    </div>
-                    <div class="hero-item-card__toggle">
-                        <Toggle
-                            checked={action?.openInNewTab || false}
-                            onChange={(next,) => {
-                                updateItem(item.id, it => ({
-                                    ...it,
-                                    action: { ...it.action!, openInNewTab: next, },
-                                }),);
-                            }}
-                            label="Open in new tab"
-                        />
-                    </div>
-                </Show>
-            </div>
-        );
-    };
 
     // ─── Main render ───
 
@@ -600,302 +332,16 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                     </div>
                 </Show>
 
-                {/* ─── Carousel Options ─── */}
-                <div class="hero-options">
-                    <h3 class="hero-options__title">Carousel Options</h3>
-                    <div class="hero-options__row">
-                        <Show when={!props.hideHeader}>
-                            <button
-                                class="ui-button ui-button--primary ui-button--sm"
-                                disabled={!isDirty() || saving()}
-                                onClick={handleSave}
-                            >
-                                {saving() ? 'Saving...' : 'Save Carousel'}
-                            </button>
-                        </Show>
-                        {/* Auto-scroll */}
-                        <div class="hero-options__group">
-                            <Toggle
-                                checked={options().autoScroll}
-                                disabled={items().length <= 1}
-                                onChange={(next,) => updateOptions({ autoScroll: next, },)}
-                                ariaLabel="Auto-scroll"
-                            />
-                            <span class="hero-options__label">Auto-scroll</span>
-                            <Show when={options().autoScroll}>
-                                <input
-                                    type="number"
-                                    class="input input--sm input--inline-number"
-                                    min={500}
-                                    step={500}
-                                    value={options().autoScrollInterval}
-                                    onChange={(e,) => {
-                                        const val = parseInt(e.currentTarget.value,);
-                                        if (!isNaN(val,) && val >= 500) {
-                                            updateOptions({ autoScrollInterval: val, },);
-                                        }
-                                    }}
-                                />
-                                <span class="hero-options__unit">ms</span>
-                            </Show>
-                        </div>
-
-                        {/* Repeat */}
-                        <div class="hero-options__group">
-                            <Toggle
-                                checked={options().repeat}
-                                disabled={items().length <= 1}
-                                onChange={(next,) => updateOptions({ repeat: next, },)}
-                                ariaLabel="Repeat"
-                            />
-                            <span class="hero-options__label">Repeat</span>
-                        </div>
-
-                        {/* Custom height */}
-                        <div class="hero-options__group">
-                            <Toggle
-                                checked={options().customHeight}
-                                onChange={(next,) => updateOptions({ customHeight: next, },)}
-                                ariaLabel="Custom height"
-                            />
-                            <span class="hero-options__label">Custom height</span>
-                            <Show when={options().customHeight}>
-                                <input
-                                    type="text"
-                                    class={`input input--sm input--inline-text ${
-                                        !isValidHeight(options().height || '',) ? 'input--error' : ''
-                                    }`}
-                                    placeholder="50vh"
-                                    value={options().height || ''}
-                                    onChange={(e,) => updateOptions({ height: e.currentTarget.value, },)}
-                                />
-                            </Show>
-                            <Tooltip
-                                header="Height Values"
-                                content={
-                                    <div>
-                                        <p>
-                                            <code>px</code> — Fixed pixel height (e.g.{' '}
-                                            <code>600px</code>). Stays the same size on all screens.
-                                        </p>
-                                        <p>
-                                            <code>vh</code> — Percentage of viewport height (e.g. <code>50vh</code>{' '}
-                                            = half the screen). Scales with the browser window height.
-                                        </p>
-                                        <p>
-                                            <code>vw</code> — Percentage of viewport width (e.g.{' '}
-                                            <code>30vw</code>). Scales with the browser window width — useful for
-                                            maintaining aspect ratio.
-                                        </p>
-                                        <p>
-                                            <code>%</code> — Percentage of the parent container (e.g.{' '}
-                                            <code>50%</code>). Relative to the element the hero sits inside.
-                                        </p>
-                                    </div>
-                                }
-                            />
-                        </div>
-
-                        {/* Apply gutter */}
-                        <div class="hero-options__group">
-                            <Toggle
-                                checked={options().applyGutter || false}
-                                onChange={(next,) => updateOptions({ applyGutter: next, },)}
-                                ariaLabel="Apply Site Gutter"
-                            />
-                            <span class="hero-options__label">Apply Site Gutter</span>
-                        </div>
-
-                        {/* Items per page */}
-                        <div class="hero-options__group">
-                            <span class="hero-options__label">Items per page</span>
-                            <input
-                                type="number"
-                                class="input input--sm input--inline-number"
-                                min={1}
-                                step={1}
-                                value={options().itemsPerPage ?? 1}
-                                onChange={(e,) => {
-                                    const v = parseInt(e.currentTarget.value,);
-                                    updateOptions({ itemsPerPage: !isNaN(v,) && v >= 1 ? v : 1, },);
-                                }}
-                            />
-                            <Tooltip
-                                header="Items per page"
-                                content={<p>How many carousel items are visible at once (default 1). Higher values show a multi-item row that still pages through the rest.</p>}
-                            />
-                        </div>
-
-                        {/* Scroll by */}
-                        <div class="hero-options__group">
-                            <span class="hero-options__label">Scroll by</span>
-                            <input
-                                type="number"
-                                class="input input--sm input--inline-number"
-                                min={1}
-                                step={1}
-                                value={options().scrollBy ?? 1}
-                                onChange={(e,) => {
-                                    const v = parseInt(e.currentTarget.value,);
-                                    updateOptions({ scrollBy: !isNaN(v,) && v >= 1 ? v : 1, },);
-                                }}
-                            />
-                            <Tooltip
-                                header="Scroll by"
-                                content={<p>How many items to advance when paging left/right (default 1). Set it equal to “Items per page” to move a whole screenful at a time.</p>}
-                            />
-                        </div>
-
-                        {/* Padding (arrow gutter + dot space) */}
-                        <div class="hero-options__group">
-                            <span class="hero-options__label">Padding</span>
-                            <input
-                                type="text"
-                                class="input input--sm input--inline-text"
-                                placeholder="e.g. 0 64px 40px"
-                                value={options().sidePadding || ''}
-                                onChange={(e,) => updateOptions({ sidePadding: e.currentTarget.value.trim() || undefined, },)}
-                            />
-                            <Tooltip
-                                header="Padding"
-                                content={<p>Any CSS padding. <b>One value</b> (e.g. <code>64px</code>) insets the sides so the nav arrows sit in the gutter beside the items. <b>Multiple values</b> (e.g. <code>0 64px 40px</code> = top / sides / bottom) pad the whole carousel — use the <b>bottom</b> value to push the items up so the dots have room and don't sit over the cards.</p>}
-                            />
-                        </div>
-
-                        {/* Item gap */}
-                        <div class="hero-options__group">
-                            <span class="hero-options__label">Item gap</span>
-                            <input
-                                type="text"
-                                class="input input--sm input--inline-text"
-                                placeholder="e.g. 1rem"
-                                value={options().itemGap || ''}
-                                onChange={(e,) => updateOptions({ itemGap: e.currentTarget.value.trim() || undefined, },)}
-                            />
-                            <Tooltip
-                                header="Item gap"
-                                content={<p>Gap between visible items (any CSS length, e.g. <code>1rem</code>).</p>}
-                            />
-                        </div>
-
-                        {/* Show dots */}
-                        <div class="hero-options__group">
-                            <Toggle
-                                checked={options().showDots !== false}
-                                onChange={(next,) => updateOptions({ showDots: next, },)}
-                                ariaLabel="Show navigation dots"
-                            />
-                            <span class="hero-options__label">Show navigation dots</span>
-                            <Tooltip
-                                header="Navigation dots"
-                                content={<p>Show the pager dots under the carousel. Turn off to hide the dots entirely.</p>}
-                            />
-                        </div>
-
-                        {/* Dot color */}
-                        <Show when={options().showDots !== false}>
-                            <div class="hero-options__group">
-                                <span class="hero-options__label">Dot color</span>
-                                <input
-                                    type="color"
-                                    class="input input--sm input--color"
-                                    value={options().dotColor || '#ffffff'}
-                                    onInput={(e,) => updateOptions({ dotColor: e.currentTarget.value, },)}
-                                    aria-label="Dot color"
-                                />
-                                <input
-                                    type="text"
-                                    class="input input--sm input--inline-text"
-                                    placeholder="#ffffff"
-                                    value={options().dotColor || ''}
-                                    onChange={(e,) => updateOptions({ dotColor: e.currentTarget.value.trim() || undefined, },)}
-                                />
-                                <Tooltip
-                                    header="Dot color"
-                                    content={<p>Color of the pager dots (any CSS color — hex, <code>rgb()</code>, or a name). Defaults to white; set a darker color so the dots show on a light background.</p>}
-                                />
-                            </div>
-                        </Show>
-                    </div>
-
-                    {/* ─── Mobile overrides (≤768px) ─── */}
-                    <h4 class="hero-options__subtitle">Mobile (≤768px)</h4>
-                    <div class="hero-options__row">
-                        {/* Render-as-list toggle: when on, the paging-related mobile
-                            options below no longer apply and are hidden. */}
-                        <div class="hero-options__group">
-                            <Toggle
-                                checked={options().listOnMobile || false}
-                                onChange={(next,) => updateOptions({ listOnMobile: next, },)}
-                                ariaLabel="Render as list on mobile"
-                            />
-                            <span class="hero-options__label">Render as list on mobile</span>
-                            <Tooltip
-                                header="Render as list on mobile"
-                                content={<p>On phones (≤768px), stack the items as a plain vertical list instead of a swipeable carousel. Items-per-page, scroll-by and side-padding (mobile) don't apply then.</p>}
-                            />
-                        </div>
-
-                        <Show when={!options().listOnMobile}>
-                        <div class="hero-options__group">
-                            <span class="hero-options__label">Items per page</span>
-                            <input
-                                type="number"
-                                class="input input--sm input--inline-number"
-                                min={1}
-                                step={1}
-                                placeholder="inherit"
-                                value={options().itemsPerPageMobile ?? ''}
-                                onChange={(e,) => {
-                                    const raw = e.currentTarget.value;
-                                    const v = parseInt(raw,);
-                                    updateOptions({ itemsPerPageMobile: raw === '' || isNaN(v,) ? undefined : Math.max(1, v,), },);
-                                }}
-                            />
-                            <Tooltip header="Items per page (mobile)" content={<p>Visible items at once on a phone (≤768px). Blank = same as desktop.</p>} />
-                        </div>
-                        <div class="hero-options__group">
-                            <span class="hero-options__label">Scroll by</span>
-                            <input
-                                type="number"
-                                class="input input--sm input--inline-number"
-                                min={1}
-                                step={1}
-                                placeholder="inherit"
-                                value={options().scrollByMobile ?? ''}
-                                onChange={(e,) => {
-                                    const raw = e.currentTarget.value;
-                                    const v = parseInt(raw,);
-                                    updateOptions({ scrollByMobile: raw === '' || isNaN(v,) ? undefined : Math.max(1, v,), },);
-                                }}
-                            />
-                            <Tooltip header="Scroll by (mobile)" content={<p>Items advanced per page on a phone. Blank = same as desktop.</p>} />
-                        </div>
-                        <div class="hero-options__group">
-                            <span class="hero-options__label">Padding</span>
-                            <input
-                                type="text"
-                                class="input input--sm input--inline-text"
-                                placeholder="inherit"
-                                value={options().sidePaddingMobile || ''}
-                                onChange={(e,) => updateOptions({ sidePaddingMobile: e.currentTarget.value.trim() || undefined, },)}
-                            />
-                            <Tooltip header="Padding (mobile)" content={<p>Carousel padding on a phone — one value insets the sides, multiple values (e.g. <code>0 30px 40px</code>) pad the whole carousel (bottom = dot space). Blank = same as desktop.</p>} />
-                        </div>
-                        </Show>
-                        <div class="hero-options__group">
-                            <span class="hero-options__label">Item gap</span>
-                            <input
-                                type="text"
-                                class="input input--sm input--inline-text"
-                                placeholder="inherit"
-                                value={options().itemGapMobile || ''}
-                                onChange={(e,) => updateOptions({ itemGapMobile: e.currentTarget.value.trim() || undefined, },)}
-                            />
-                            <Tooltip header="Item gap (mobile)" content={<p>Gap between items on a phone (any CSS length). Blank = same as desktop.</p>} />
-                        </div>
-                    </div>
-                </div>
+                {/* ─── Carousel Options ─── (carousel/CarouselOptions.tsx) */}
+                <CarouselOptions
+                    options={options()}
+                    onChange={updateOptions}
+                    itemCount={items().length}
+                    hideSave={props.hideHeader}
+                    canSave={isDirty()}
+                    saving={saving()}
+                    onSave={handleSave}
+                />
 
                 {/* ─── Item Cards ─── */}
                 <h3 class="hero-options__title">Carousel Items</h3>
@@ -1005,13 +451,13 @@ const HeroContentEditor: Component<HeroContentEditorProps> = (props,) => {
                                                         </Show>
 
                                                         {/* Header */}
-                                                        {renderTextSection(item, 'header', 'Header',)}
+                                                        <TextOverlaySection item={item} field="header" label="Header" updateItem={updateItem} />
 
                                                         {/* Subheader */}
-                                                        {renderTextSection(item, 'subheader', 'Subheader',)}
+                                                        <TextOverlaySection item={item} field="subheader" label="Subheader" updateItem={updateItem} />
 
                                                         {/* Action */}
-                                                        {renderActionSection(item,)}
+                                                        <ActionSection item={item} updateItem={updateItem} />
                                                     </>
                                                 }
                                             >

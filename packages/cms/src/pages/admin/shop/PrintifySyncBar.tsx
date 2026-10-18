@@ -34,10 +34,35 @@ function describeOrderReconcile(o: ShopProviderOrderReconcileResult,): string {
     return msg;
 }
 
+/** "2 not sent · 1 on hold · 1 cancelled by Printify" — the reasons, named apart. */
+function attentionReasons(a: { notSent: number; onHold: number; stalled: number; cancelled: number; } | undefined,): string {
+    if (!a) return '';
+    return [
+        a.notSent ? `${a.notSent} not sent to Printify` : '',
+        a.onHold ? `${a.onHold} on hold at Printify` : '',
+        a.stalled ? `${a.stalled} not in production after a day` : '',
+        a.cancelled ? `${a.cancelled} cancelled by Printify (refund?)` : '',
+    ].filter(Boolean,).join(' · ',);
+}
+
 const PrintifySyncBar: Component<{ onSynced?: () => void; }> = (props,) => {
     const toast = useToast();
     const [status, { refetch, },] = createResource(() => cms.shop.printify.status());
     const [busy, setBusy,] = createSignal(false,);
+    const [fullBusy, setFullBusy,] = createSignal(false,);
+
+    // A full year of orders runs in the background (it can outlast a request).
+    const fullResync = async () => {
+        setFullBusy(true,);
+        try {
+            const r = await cms.shop.printify.fullOrderResync();
+            toast.success(`Full order resync started (last ${r.sinceDays} days) — status updates in a few minutes.`,);
+        } catch (err: any) {
+            toast.error(err?.message || 'Could not start the full resync',);
+        } finally {
+            setFullBusy(false,);
+        }
+    };
 
     // Refresh enabled-plugin state so the bar appears as soon as Printify is
     // enabled — even before the first sync (when productCount is still 0).
@@ -92,8 +117,16 @@ const PrintifySyncBar: Component<{ onSynced?: () => void; }> = (props,) => {
                         )}
                     </Show>
                 </div>
-                <button class="ui-button ui-button--primary ui-button--sm" onClick={sync} disabled={busy()}>
+                <button class="ui-button ui-button--primary ui-button--sm" onClick={sync} disabled={busy() || fullBusy()}>
                     {busy() ? 'Syncing…' : 'Sync from Printify'}
+                </button>
+                <button
+                    class="ui-button ui-button--secondary ui-button--sm"
+                    onClick={fullResync}
+                    disabled={busy() || fullBusy()}
+                    title="Sync from Printify checks the last 90 days of orders. This re-checks a full year, in the background."
+                >
+                    {fullBusy() ? 'Starting…' : 'Full order resync'}
                 </button>
 
                 <Show when={(status()?.needsAttentionCount ?? 0) > 0}>
@@ -102,9 +135,11 @@ const PrintifySyncBar: Component<{ onSynced?: () => void; }> = (props,) => {
                         return (
                             <div class="printify-bar__attention" role="status">
                                 <span class="printify-bar__attention-text">
-                                    ⚠ <strong>{n()}</strong> paid order{n() === 1 ? '' : 's'} awaiting Printify
-                                    fulfillment — not sent to Printify, on hold there, or not in production after
-                                    a day. Often your Printify account needs a valid payment method. The system
+                                    ⚠ <strong>{n()}</strong> paid order{n() === 1 ? '' : 's'} need{n() === 1 ? 's' : ''} attention
+                                    <Show when={attentionReasons(status()?.attention,)}>
+                                        {(why,) => <> — {why()}</>}
+                                    </Show>
+                                    . Often your Printify account needs a valid payment method. The system
                                     retries automatically; Sync from Printify refreshes order status now.
                                 </span>
                                 <span class="printify-bar__attention-links">
@@ -116,7 +151,7 @@ const PrintifySyncBar: Component<{ onSynced?: () => void; }> = (props,) => {
                                     >
                                         Open Printify ↗
                                     </a>
-                                    <A href="/admin/shop/orders" class="table-link">Review orders</A>
+                                    <A href="/admin/shop/orders?attention=1" class="table-link">Review orders</A>
                                 </span>
                             </div>
                         );

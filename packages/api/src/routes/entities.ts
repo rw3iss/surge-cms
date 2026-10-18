@@ -10,6 +10,7 @@ import { templateSlotsInput, } from '../api/templateSlotInput';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { NotFoundError, } from '../core/errors';
 import * as cbtSvc from '../services/contentBlockTemplates';
+import * as entityManager from '../entities/entityManager';
 import * as entitiesSvc from '../services/entities';
 import * as typesSvc from '../services/entityTypes';
 
@@ -92,6 +93,10 @@ const templateBlockSchema = z.object({
     style: blockStyleRecord.optional(),
 },);
 const templateBlocksBody = z.object({ blocks: z.array(templateBlockSchema,), },);
+// Create / update may carry the block tree too: applied in ONE transaction with
+// the metadata, so a failed block write can't leave new meta beside old blocks.
+const templateCreateWithBlocks = templateCreateSchema.extend({ blocks: z.array(templateBlockSchema,).optional(), },);
+const templateUpdateWithBlocks = templateUpdateSchema.extend({ blocks: z.array(templateBlockSchema,).optional(), },);
 
 function meta(total: number, page = 1, limit = 20,) {
     return { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit,),), };
@@ -155,7 +160,9 @@ export const entitiesRoutes = [
         auth: 'staff',
         summary: 'List content-block templates for a type',
         input: { params: typeParam, },
-        handler: async ({ params, },) => cbtSvc.listByType(params.type,),
+        // Each with `usages` / `usageCount` — where it is used (not on the
+        // single read: the public site and every admin preview fetch that).
+        handler: async ({ params, },) => cbtSvc.withUsageCounts(await cbtSvc.listByType(params.type,),),
     },),
     defineRoute({
         // Public read: the public site renders `entity` blocks by fetching the
@@ -168,7 +175,16 @@ export const entitiesRoutes = [
         handler: async ({ params, },) => {
             const template = await cbtSvc.findById(params.id,);
             if (!template) throw new NotFoundError(`Content-block template "${params.id}"`,);
-            return { ...template, blocks: await cbtSvc.findBlocksResolved(params.id,), };
+            // The type's variable names travel with the template, so the public
+            // site binds `{{<singularVar>}}` / `{{<pluralVar>}}` exactly as the
+            // editor preview and email do (audit 2026-10-18 P2).
+            await entityManager.ready();
+            const def = entityManager.getType(template.entityTypeKey ?? params.type,);
+            return {
+                ...template,
+                ...(def ? { singularVar: def.singularVar, pluralVar: def.pluralVar, } : {}),
+                blocks: await cbtSvc.findBlocksResolved(params.id,),
+            };
         },
     },),
     defineRoute({
@@ -176,18 +192,26 @@ export const entitiesRoutes = [
         path: '/:type/templates',
         auth: 'admin',
         summary: 'Create a content-block template',
-        input: { params: typeParam, body: templateCreateSchema, },
-        handler: async ({ params, body, },) =>
-            reply(await cbtSvc.create({ ...body, entityTypeKey: params.type, },), { status: 201, },),
+        input: { params: typeParam, body: templateCreateWithBlocks, },
+        handler: async ({ params, body, },) => {
+            const { blocks, ...meta } = body;
+            const tpl = blocks
+                ? await cbtSvc.saveWithBlocks(null, { ...meta, entityTypeKey: params.type, }, blocks,)
+                : await cbtSvc.create({ ...meta, entityTypeKey: params.type, },);
+            return reply(tpl, { status: 201, },);
+        },
     },),
     defineRoute({
         method: 'put',
         path: '/:type/templates/:id',
         auth: 'admin',
         summary: 'Update a content-block template',
-        input: { params: templateIdParam, body: templateUpdateSchema, },
+        input: { params: templateIdParam, body: templateUpdateWithBlocks, },
         handler: async ({ params, body, },) => {
-            const template = await cbtSvc.update(params.id, body,);
+            const { blocks, ...meta } = body;
+            const template = blocks
+                ? await cbtSvc.saveWithBlocks(params.id, meta, blocks,)
+                : await cbtSvc.update(params.id, meta,);
             if (!template) throw new NotFoundError(`Content-block template "${params.id}"`,);
             return template;
         },
@@ -259,8 +283,9 @@ export const entitiesRoutes = [
                 status: query.status,
                 filter: query.filter ? safeJson(query.filter,) : undefined,
             };
-            if (!admin && !q.status) q.status = 'published'; // no-op for statusless types
-            const res = await entitiesSvc.list(params.type, q, { admin, },);
+            // Non-staff: the service drops draft/archived records and gates posts
+            // (entities/publicRead.ts) — the same rules as the bespoke public reads.
+            const res = await entitiesSvc.list(params.type, q, { admin, viewer: admin ? undefined : user, },);
             return reply(res.items, { meta: meta(res.total, query.page, query.limit,), },);
         },
     },),
@@ -271,7 +296,7 @@ export const entitiesRoutes = [
         summary: 'Get one entity by id or slug',
         input: { params: typeRefParam, },
         handler: async ({ params, user, },) =>
-            entitiesSvc.get(params.type, params.idOrSlug, { admin: isStaffRole(user?.role,), },),
+            entitiesSvc.get(params.type, params.idOrSlug, { admin: isStaffRole(user?.role,), viewer: user, },),
     },),
     defineRoute({
         method: 'post',

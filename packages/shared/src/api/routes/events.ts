@@ -56,9 +56,13 @@ export interface EventsSubscribeBody {
     eventId?: string;
     notifyEmail?: boolean;
     notifyPush?: boolean;
+    /** Honeypot — leave empty. */
+    website?: string;
 }
 export interface EventsSubscribeResponse {
-    subscriber: EventSubscriber;
+    subscriber: EventSubscriber | null;
+    /** True for an anonymous subscription: it counts once the emailed link is clicked. */
+    pendingConfirmation?: boolean;
 }
 
 /** POST /events/unsubscribe — token from the email footer. */

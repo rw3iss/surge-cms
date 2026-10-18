@@ -10,6 +10,19 @@
   &__loading { color: var(--site-text-muted, #6b7280); }
   &__gate { margin: 24px 0; }
 
+  // A failed load: says so (an empty gallery and a 500 must not look alike).
+  &__error {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin: 24px 0;
+    padding: 12px 16px;
+    border: 1px solid var(--site-border, #e5e7eb);
+    border-radius: var(--site-radius, 8px);
+    color: var(--site-text, #1f2937);
+  }
+
   &__more {
     display: flex;
     justify-content: center;

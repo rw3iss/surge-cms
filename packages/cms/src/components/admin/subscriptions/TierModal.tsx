@@ -8,7 +8,7 @@ import { A, } from '@solidjs/router';
 import { createMemo, createResource, createSignal, For, onCleanup, onMount, Show, type Component, } from 'solid-js';
 import { createStore, } from 'solid-js/store';
 import type { PermissionWithGrants, RoleDef, StripeSubscriptionPrice, StripeSubscriptionPricesResponse, SubscriptionTier, } from '@sitesurge/types';
-import { isStaffRole, } from '@sitesurge/types';
+import { formatMoney, isStaffRole, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
 import { roleAllows, roleChainOf, } from '../../../utils/permissionInheritance';
 import { useToast, } from '../../common/toast';
@@ -28,7 +28,7 @@ const slugify = (s: string,) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-',).rep
 
 /** "$250.00 / year". */
 function priceAmount(p: StripeSubscriptionPrice,): string {
-    const amt = p.unitAmount !== null ? `$${(p.unitAmount / 100).toFixed(2,)}` : 'custom amount';
+    const amt = p.unitAmount !== null ? formatMoney(p.unitAmount, p.currency,) : 'custom amount';
     return `${amt}${p.intervalCount > 1 ? ` every ${p.intervalCount} ${p.interval}s` : ` / ${p.interval}`}`;
 }
 

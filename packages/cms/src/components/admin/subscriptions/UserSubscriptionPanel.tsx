@@ -17,14 +17,19 @@ const UserSubscriptionPanel: Component<{ userId: string; onChanged?: () => void;
     const [info, { refetch, },] = createResource(() => props.userId, (id,) => cms.users.subscription(id,).catch(() => null),);
     const [tiers,] = createResource(() => cms.subscriptionTiers.list().catch(() => [] as SubscriptionTier[]),);
     const [choice, setChoice,] = createSignal('',);
+    /** Optional end date (YYYY-MM-DD) for a hand-assigned membership — e.g. "free for 3 months". */
+    const [endsOn, setEndsOn,] = createSignal('',);
     const [busy, setBusy,] = createSignal(false,);
 
     const assign = async () => {
         setBusy(true,);
         try {
-            await cms.users.assignSubscription(props.userId, choice() || null,);
+            // End of the chosen day, local time.
+            const endsAt = endsOn() ? new Date(`${endsOn()}T23:59:59`,).toISOString() : null;
+            await cms.users.assignSubscription(props.userId, choice() || null, endsAt,);
             toast.success('Membership updated.',);
             setChoice('',);
+            setEndsOn('',);
             await refetch();
             props.onChanged?.();
         } catch (e) {
@@ -58,11 +63,15 @@ const UserSubscriptionPanel: Component<{ userId: string; onChanged?: () => void;
                     when={info()!.source !== 'stripe'}
                     fallback={<p class="form-help-muted">This user pays through Stripe — change or cancel the subscription in Stripe; their tier and role follow automatically.</p>}
                 >
-                    <div class="u-flex-row u-gap-sm" style={{ 'margin-top': '0.75rem', 'align-items': 'center', }}>
+                    <div class="u-flex-row u-gap-sm user-subscription__assign">
                         <select value={choice()} onChange={(e,) => setChoice(e.currentTarget.value,)}>
                             <option value="">Put on a tier…</option>
                             <For each={(tiers() ?? []).filter((t,) => t.isActive,)}>{(t,) => <option value={t.id}>{t.name}</option>}</For>
                         </select>
+                        <label class="form-help-muted user-subscription__ends">
+                            Ends (optional)
+                            <input type="date" value={endsOn()} min={new Date().toISOString().slice(0, 10,)} onChange={(e,) => setEndsOn(e.currentTarget.value,)} />
+                        </label>
                         <button type="button" class="ui-button ui-button--secondary ui-button--sm" disabled={!choice() || busy()} onClick={assign}>
                             {busy() ? 'Saving…' : 'Apply'}
                         </button>

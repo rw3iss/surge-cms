@@ -5,18 +5,21 @@
  * (`GET /posts/:id/live/viewers`, `POST /posts/:id/live/moderate`).
  */
 import type {
-    LiveBan, LiveModerateBody, LiveModerationAction, LiveModerationState, LiveRoomState, LiveServerEvent, LiveViewer, PostLiveTicketResponse, User,
+    LiveBan, LiveChatMessage, LiveModerateBody, LiveModerationAction, LiveModerationState, LiveRoomState, LiveServerEvent, LiveViewer, PostLiveTicketResponse, User,
 } from '@sitesurge/types';
-import { isStaffRole, LIVE_SILENCE_MIN_MINUTES, } from '@sitesurge/types';
+import { isStaffRole, LIVE_BAN_MAX_MINUTES, LIVE_SILENCE_MIN_MINUTES, } from '@sitesurge/types';
 import { ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError, } from '../../core/errors';
 import { query, } from '../../db';
 import { logger, } from '../../utils/logger';
+import { logAudit, } from '../audit';
+import type { AuditContext, } from '../types';
 import { requirePermission, } from '../permissions';
 import { isHost, viewAccess, } from './access';
 import * as mod from './moderation';
 import { notifyViewer, } from './server';
 import { effectiveStatus, loadLivePost, toState, } from './state';
 import * as store from './store';
+import * as chatLog from './chatLog';
 import { createTicket, } from './tickets';
 
 export { createTicket, verifyTicket, TICKET_TTL_SEC, } from './tickets';
@@ -36,11 +39,39 @@ export async function getState(postId: string, user: User | undefined,): Promise
     return toState(row, await store.totalViewers(row.id,),);
 }
 
+/**
+ * GET /posts/:id/live/chat — the saved chat of an ENDED show, for the replay
+ * (same view gate as the show; deleted lines left out). Empty while live:
+ * the room's own history covers that.
+ */
+export async function replayChat(postId: string, user: User | undefined,): Promise<LiveChatMessage[]> {
+    const row = await requireViewable(postId, user,);
+    if (effectiveStatus(row,) !== 'ended') return [];
+    return chatLog.readChatLog(row.id,);
+}
+
+/** The host's transcript (every line, deleted ones marked). */
+export async function transcript(postId: string,): Promise<{ filename: string; text: string; }> {
+    const row = await loadLivePost(postId,);
+    if (!row) throw new NotFoundError('Live show',);
+    const title = row.title || 'Live show';
+    const text = chatLog.transcriptText(title, await chatLog.readChatLog(row.id, { includeDeleted: true, limit: 20_000, },),);
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-',).replace(/^-|-$/g, '',).slice(0, 60,) || 'live-show';
+    return { filename: `${slug}-chat.txt`, text, };
+}
+
 /** POST /posts/:id/live/ticket — 409 once the show has ended. */
 export async function issueTicketFor(postId: string, user: User | undefined,): Promise<PostLiveTicketResponse> {
     const row = await requireViewable(postId, user,);
     if (effectiveStatus(row,) === 'ended') throw new ConflictError('This show has ended', { code: 'ended', },);
     const userId = user?.id ?? null;
+    // A banned (every show) or kicked (this show) member gets no ticket — the
+    // socket checks again per command, this just fails early and clearly.
+    if (userId && !isStaffRole(user!.role,)) {
+        const key = `u:${userId}`;
+        if (await mod.isBanned(key, null,)) throw new ForbiddenError('You have been banned from live shows',);
+        if ((await mod.getMod(row.id, key,)).kicked) throw new ForbiddenError('A moderator removed you from this show',);
+    }
     const { token, expiresAt, } = createTicket(row.id, userId,);
     return { token, expiresAt, userId, isHost: await isHost(user,), };
 }
@@ -74,12 +105,12 @@ const MODERATED_MESSAGE: Record<LiveModerationAction, string> = {
 };
 
 /** POST /posts/:id/live/moderate */
-export async function moderate(postId: string, body: LiveModerateBody, user: User | undefined,): Promise<{ ok: true; state: LiveModerationState; }> {
+export async function moderate(postId: string, body: LiveModerateBody, user: User | undefined, ctx?: AuditContext,): Promise<{ ok: true; state: LiveModerationState; }> {
     await requireModerator(user,);
     const row = await loadLivePost(postId,);
     if (!row) throw new NotFoundError('Live show',);
     const key = body.key;
-    if (!/^(u|a):[A-Za-z0-9_-]{1,80}$/.test(key,)) throw new ValidationError('Invalid viewer key',);
+    if (!mod.isValidViewerKey(key,)) throw new ValidationError('Invalid viewer key',);
     if (key === `u:${user!.id}`) throw new ValidationError('You cannot moderate yourself',);
 
     const viewers = (await mod.presence(row.id,)).filter((e,) => e.key === key);
@@ -103,7 +134,10 @@ export async function moderate(postId: string, body: LiveModerateBody, user: Use
         case 'kick': entry.kicked = true; break;
         case 'ban': {
             const ipHash = key.startsWith('a:',) ? viewers.find((v,) => v.ipHash)?.ipHash ?? null : null;
-            await mod.addBan(key, ipHash, user!.id, body.reason?.slice(0, 500,) ?? null,);
+            await mod.addBan(key, ipHash, user!.id, body.reason?.slice(0, 500,) ?? null, {
+                minutes: body.minutes ? Math.min(LIVE_BAN_MAX_MINUTES, body.minutes,) : null,
+                postId: row.id,
+            },);
             entry.kicked = true;
             break;
         }
@@ -126,6 +160,15 @@ export async function moderate(postId: string, body: LiveModerateBody, user: Use
         await notifyViewer(body.action === 'ban' ? '*' : row.id, key, event,);
     }
     logger.info('Live viewer moderated', { postId: row.id, key, action: body.action, by: user!.id, },);
+    await logAudit({
+        userId: ctx?.userId ?? user!.id,
+        action: `live_${body.action}`,
+        entityType: 'post',
+        entityId: row.id,
+        newValues: { key, ...(body.action === 'silence' ? { minutes: body.minutes ?? LIVE_SILENCE_MIN_MINUTES, } : {}), ...(body.reason ? { reason: body.reason.slice(0, 500,), } : {}), },
+        ipAddress: ctx?.ipAddress,
+        userAgent: ctx?.userAgent,
+    },);
     return { ok: true, state: mod.modState(entry,), };
 }
 
@@ -133,10 +176,13 @@ export async function moderate(postId: string, body: LiveModerateBody, user: Use
 export async function listBans(user: User | undefined,): Promise<LiveBan[]> {
     await requireModerator(user,);
     const r = await query<Record<string, unknown>>(
-        `SELECT b.user_id, b.anon_key, b.reason, b.created_at, u.display_name, u.handle, c.display_name AS by_name
+        `SELECT b.user_id, b.anon_key, b.reason, b.created_at, b.expires_at, u.display_name, u.handle,
+                c.display_name AS by_name, p.title AS show_title
            FROM live_bans b
            LEFT JOIN users u ON u.id = b.user_id
            LEFT JOIN users c ON c.id = b.created_by
+           LEFT JOIN posts p ON p.id = b.post_id
+          WHERE b.expires_at IS NULL OR b.expires_at > NOW()
           ORDER BY b.created_at DESC LIMIT 500`,
     );
     return r.rows.map((b,) => {
@@ -149,6 +195,8 @@ export async function listBans(user: User | undefined,): Promise<LiveBan[]> {
             reason: (b.reason as string) || null,
             bannedBy: (b.by_name as string) || null,
             createdAt: new Date(b.created_at as string,).toISOString(),
+            expiresAt: b.expires_at ? new Date(b.expires_at as string,).toISOString() : null,
+            fromShow: (b.show_title as string) || null,
         };
     },);
 }

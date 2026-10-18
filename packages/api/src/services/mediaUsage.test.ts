@@ -157,3 +157,32 @@ describe('findMediaUsage', () => {
         await expect(assertNotInUse([ID,],),).resolves.toBeUndefined();
     });
 });
+
+describe('mapLimit (P3)', () => {
+    it('keeps order and never runs more than the limit at once', async () => {
+        const { mapLimit, } = await import('./mediaUsage');
+        let running = 0;
+        let peak = 0;
+        const out = await mapLimit([1, 2, 3, 4, 5, 6, 7,], 3, async (x,) => {
+            running++;
+            peak = Math.max(peak, running,);
+            await new Promise((r,) => setTimeout(r, 2,),);
+            running--;
+            return x * 10;
+        },);
+        expect(out,).toEqual([10, 20, 30, 40, 50, 60, 70,],);
+        expect(peak,).toBeLessThanOrEqual(3,);
+    });
+});
+
+describe('usage sources (A4 / P3)', () => {
+    it('covers archived sent emails and comment bodies; id-keyed sources compare uuids', async () => {
+        const { SOURCES, } = await import('./mediaUsage');
+        const by = (n: string,) => SOURCES.find((s,) => s.name === n,)!;
+        expect(by('sent emails',).sql,).toContain('rendered_html_template LIKE n.pat',);
+        expect(by('sent emails',).toUsage({ media_id: 'm', id: 'j1', label: 'News', field: null, extra: null, },),).toMatchObject({ kind: 'sent_email', adminUrl: '/admin/mail/jobs/j1', },);
+        expect(by('comments',).sql,).toContain(`status <> 'deleted'`,);
+        expect(by('gallery items',).sql,).toContain('gi.media_id = n.media_id::uuid',);
+        expect(by('gallery items',).sql,).not.toContain('LIKE',);
+    });
+});

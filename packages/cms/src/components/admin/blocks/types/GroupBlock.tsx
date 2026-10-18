@@ -60,7 +60,7 @@ const GroupBlock: Component<GroupBlockProps> = (props,) => {
                     </select>
                 </FormField>
                 <Show when={columns() > 12}>
-                    <small class="form-help" style={{ color: '#b46b00', }}>
+                    <small class="form-help form-help--warning">
                         Heads up: more than 12 columns rarely lays out well at typical viewport widths.
                         Set an `Item min width` to control wrap behavior on smaller screens.
                     </small>

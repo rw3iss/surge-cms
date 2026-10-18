@@ -10,7 +10,7 @@
  * order's user_id FK. Orders are never cached.
  */
 import type { ShopAddress, ShopSettings, ShopShippingOption, } from '@sitesurge/types';
-import Stripe from 'stripe';
+import { getStripeClient, } from '../payment/stripe';
 import { config, } from '../../config';
 import { AccessRequiredError, ConflictError, ValidationError, } from '../../core/errors';
 import type { LevelViewer, } from '../access/level';
@@ -25,7 +25,7 @@ import type { AuditContext, } from '../types';
 import { toStripeAddress, } from './address';
 import { buildGroups, groupKeyForLine, NATIVE_GROUP, } from './groups';
 import { buildGroupShipping, } from './groupShipping';
-import { generateOrderNumber, } from './orderNumber';
+import { generateOrderAccessKey, generateOrderNumber, } from './orderNumber';
 import { getShopSettings, } from './settings';
 
 const paymentProvider = getPaymentProvider();
@@ -117,6 +117,7 @@ export interface CheckoutResult {
     clientSecret: string | null;
     orderId: string;
     orderNumber: string;
+    accessKey: string;
     totalCents: number;
 }
 
@@ -164,7 +165,7 @@ export interface ResolvedLine {
  * quantity above what is left for that date — and returns the authoritative
  * price. Tickets are never shipped, so they add nothing to shipping.
  */
-async function resolveTicketLine(line: CheckoutLineInput, viewer: LevelViewer,): Promise<ResolvedLine> {
+async function resolveTicketLine(line: CheckoutLineInput, viewer: LevelViewer, buyerEmail?: string | null,): Promise<ResolvedLine> {
     if (!line.eventId || !line.occurrenceDate || !line.tierId || !Number.isInteger(line.qty,) || line.qty < 1) {
         throw new ValidationError('A ticket line needs an event, a date, a ticket type and a quantity',);
     }
@@ -177,7 +178,7 @@ async function resolveTicketLine(line: CheckoutLineInput, viewer: LevelViewer,):
         name: '',
         priceCents: 0,
         currency: '',
-    },], { viewer, },);
+    },], { viewer, buyerEmail, },);
     const t = lines[0];
     return {
         variantId: line.variantId,
@@ -216,7 +217,7 @@ async function resolveTicketLine(line: CheckoutLineInput, viewer: LevelViewer,):
  */
 async function resolveLines(
     items: CheckoutLineInput[],
-    opts: { lenient?: boolean; viewer?: LevelViewer; } = {},
+    opts: { lenient?: boolean; viewer?: LevelViewer; buyerEmail?: string | null; } = {},
 ): Promise<{ lines: ResolvedLine[]; unavailable: string[]; }> {
     if (!items || items.length === 0) {
         throw new ValidationError('Cart is empty',);
@@ -229,7 +230,7 @@ async function resolveLines(
     for (const line of items) {
         if (line.kind === 'event_ticket') {
             try {
-                resolved.push(await resolveTicketLine(line, opts.viewer ?? null,),);
+                resolved.push(await resolveTicketLine(line, opts.viewer ?? null, opts.buyerEmail,),);
             } catch (err) {
                 // Sold out / unpublished since it was added: the preview drops
                 // it like a stale variant; the real checkout refuses. A sign-in /
@@ -365,10 +366,11 @@ async function computeTax(
     shippingAddress?: ShopAddress | null,
 ): Promise<number> {
     if (!settings.taxEnabled || !settings.stripeTaxEnabled || !shippingAddress) return 0;
-    if (!config.stripe.secretKey) return 0;
+    // The shop's own Stripe account (Settings → Shop → Payment credentials).
+    const stripe = getStripeClient('shop',);
+    if (!stripe) return 0;
 
     try {
-        const stripe = new Stripe(config.stripe.secretKey,);
         const calculation = await stripe.tax.calculations.create({
             currency,
             line_items: lines.map((l, i,) => ({
@@ -470,7 +472,11 @@ async function computeTotals(
 ): Promise<{ lines: ResolvedLine[]; totals: CheckoutTotals; }> {
     const settings = await getShopSettings();
     const currency = settings.currency ?? 'usd';
-    const { lines, unavailable, } = await resolveLines(input.items, opts,);
+    const { lines, unavailable, } = await resolveLines(input.items, {
+        ...opts,
+        // The per-buyer ticket cap counts what this address already holds.
+        buyerEmail: (input as { customerEmail?: string | null; }).customerEmail ?? null,
+    },);
     const subtotalCents = lines.reduce((sum, l,) => sum + l.subtotalCents, 0,);
 
     // Split into fulfilment groups, then quote each independently. Two
@@ -554,6 +560,7 @@ export async function createCheckout(input: CheckoutInput, ctx: AuditContext, vi
 
     const { lines, totals, } = await computeTotals(input, { viewer, },);
     const orderNumber = generateOrderNumber();
+    const accessKey = generateOrderAccessKey();
 
     // Create the order + item snapshots first (pending), then the
     // PaymentIntent, then persist the intent id — all inside one txn so a
@@ -561,6 +568,7 @@ export async function createCheckout(input: CheckoutInput, ctx: AuditContext, vi
     const order = await transaction(async (client,) => {
         const created = await ordersRepo.createOrder(client, {
             orderNumber,
+            accessKey,
             userId: ctx.userId,
             customerEmail: input.customerEmail,
             customerName: input.customerName ?? null,
@@ -633,6 +641,9 @@ export async function createCheckout(input: CheckoutInput, ctx: AuditContext, vi
         clientSecret: order.clientSecret ?? null,
         orderId: order.id,
         orderNumber: order.orderNumber,
+        // For the confirmation link (`/shop/orders/:n?k=`): the number alone
+        // does not reveal the buyer or their downloads.
+        accessKey,
         totalCents: totals.totalCents,
     };
 }

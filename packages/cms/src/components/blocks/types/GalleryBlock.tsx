@@ -9,7 +9,9 @@
  * mobile ≤768px). Items are fetched for THIS viewer, so gated items drop out.
  */
 import type { Block, GalleryBlockSettings, GalleryItem, GalleryQuery, } from '@sitesurge/types';
-import { DEFAULT_GALLERY_BLOCK_SETTINGS, templateDataFor, templateDataIds, type TemplateDataLookup, } from '@sitesurge/types';
+import {
+    bindingIdsIfStatic, DEFAULT_GALLERY_BLOCK_SETTINGS, slotFor, templateDataFor, templateDataIds, type TemplateDataLookup,
+} from '@sitesurge/types';
 import { Component, createResource, Show, } from 'solid-js';
 import GalleryView from '../../gallery/GalleryView';
 import { SlotPlaceholder, slotRecordIds, slotRecordsFor, TemplateDataPlaceholder, useSlotContext, } from '../slotContext';
@@ -44,35 +46,51 @@ export const GalleryBlock: Component<{ block: Block; }> = (props,) => {
     const user = useUser();
     const settings = () => gallerySettingsOf(props.block.settings,);
     const slotCtx = useSlotContext();
-    // `source: 'slot'` → the slot's gallery_item records (same resolver as the entity block).
+    // `source: 'slot'` → the slot's gallery_item ids (same resolver as the entity block).
+    // The source is a PRIMITIVE key of just the slot id + its definition and
+    // binding, so a layout edit (columns, gap, fit) leaves it equal and Solid
+    // does not re-resolve. A `single` / `list` binding already names its ids —
+    // only a `query` needs the records fetched.
     const [slot,] = createResource(
         () => {
             const s = settings();
             if (s.source !== 'slot') return null;
             const ctx = slotCtx();
-            // Track the slot + binding so a changed binding re-resolves.
-            return { slotId: s.slotId, ctx, key: JSON.stringify([ctx?.slots, ctx?.bindings,],), };
+            const found = slotFor(ctx, s.slotId, 'gallery_item',);
+            return JSON.stringify([s.slotId ?? null, found.ok ? found.slot : null, found.ok ? found.binding : null, found.ok ? null : found.reason,],);
         },
-        ({ slotId, ctx, },) => slotRecordsFor(ctx, slotId, 'gallery_item',),
+        async (key: string,): Promise<{ ok: true; ids: string[]; } | { ok: false; reason: 'missing' | 'unfilled' | 'incompatible'; }> => {
+            const [slotId, , binding, reason,] = JSON.parse(key,) as [string | null, { array?: boolean; } | null, never, 'missing' | 'unfilled' | 'incompatible' | null,];
+            if (reason) return { ok: false, reason, };
+            const found = slotFor(slotCtx(), slotId ?? undefined, 'gallery_item',);
+            const staticIds = found.ok ? bindingIdsIfStatic(binding, found.slot.array ? null : 1,) : null;
+            if (staticIds) return { ok: true, ids: staticIds, };
+            const r = await slotRecordsFor(slotCtx(), slotId ?? undefined, 'gallery_item',);
+            return r.ok ? { ok: true, ids: slotRecordIds(r.records,), } : r;
+        },
     );
     // `source: 'template'` → the gallery_item record(s) the template renders.
     const templateData = (): TemplateDataLookup | null =>
         settings().source === 'template' ? templateDataFor(slotCtx()?.templateData, 'gallery_item',) : null;
+    // Keyed on the QUERY + viewer only (a JSON string), so layout-only edits
+    // never refetch the items.
     const [items,] = createResource(
         () => {
             const s = settings();
+            const viewer = user.user?.id ?? 'anon';
             if (s.source === 'template') {
                 const t = templateData();
-                return { q: galleryBlockQuery(s, t?.ok ? templateDataIds(t.records,) : [],), viewer: user.user?.id ?? 'anon', };
+                return JSON.stringify([galleryBlockQuery(s, t?.ok ? templateDataIds(t.records,) : [],), viewer,],);
             }
             if (s.source === 'slot') {
                 const r = slot();
                 if (!r) return false; // still resolving
-                return { q: galleryBlockQuery(s, r.ok ? slotRecordIds(r.records,) : [],), viewer: user.user?.id ?? 'anon', };
+                return JSON.stringify([galleryBlockQuery(s, r.ok ? r.ids : [],), viewer,],);
             }
-            return { q: galleryBlockQuery(s,), viewer: user.user?.id ?? 'anon', };
+            return JSON.stringify([galleryBlockQuery(s,), viewer,],);
         },
-        async ({ q, },) => {
+        async (key: string,) => {
+            const [q,] = JSON.parse(key,) as [GalleryQuery | null, string,];
             if (!q) return [] as GalleryItem[];
             try {
                 return (await cms.gallery.list(q,)).items;

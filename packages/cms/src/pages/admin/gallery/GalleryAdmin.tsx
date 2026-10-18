@@ -20,7 +20,7 @@
  * folder tiles, then the items in no collection.
  */
 import type {
-    GalleryCollection, GalleryCollectionInput, GalleryItem, GallerySettings, RoleDef, SubscriptionTier, SubscriptionTierOption,
+    GalleryCollection, GalleryCollectionInput, GalleryItem, GallerySettings, RoleDef, SubscriptionTierOption,
 } from '@sitesurge/types';
 import { isGalleryAccessRuleActive, } from '@sitesurge/types';
 import { A, useSearchParams, } from '@solidjs/router';
@@ -32,10 +32,14 @@ import CollectionPanel from '../../../components/admin/gallery/CollectionPanel';
 import DeleteCollectionModal, { type DeleteCollectionChoice, } from '../../../components/admin/gallery/DeleteCollectionModal';
 import GalleryItemPanel, { type GalleryDefaults, } from '../../../components/admin/gallery/GalleryItemPanel';
 import {
-    buildPublishBody, displayTitle, draftFromItems, emptyOptions, inheritedOverride, isDraftDirty, mediaFromLibrary, moveItem, persistableDraft, rowsIn,
+    basedOnOf, buildPublishBody, displayTitle, draftFromItems, emptyOptions, inheritedOverride, isDraftDirty, mediaFromLibrary, moveItem, persistableDraft, rowsIn,
     type DraftItem, type DraftOptions,
 } from '../../../components/admin/gallery/galleryDraft';
+import { bulkPatches, filterRows, type BulkAction, type GalleryTypeFilter, } from '../../../components/admin/gallery/galleryBulk';
+import { uploadStaged, } from '../../../components/admin/gallery/publishGallery';
 import { UploadCancelledError, uploadMediaFile, } from '../../../components/admin/gallery/uploadMedia';
+import MediaSearchInput from '../../../components/admin/media/MediaSearchInput';
+import Checkbox from '../../../components/ui/Checkbox';
 import MediaSelectModal, { type MediaItem, } from '../../../components/admin/media/MediaSelectModal';
 import MediaStageModal, { type StagedFile, } from '../../../components/admin/media/MediaStageModal';
 import { cancelMedia, defaultTitle, } from '../../../stores/uploads';
@@ -95,6 +99,35 @@ const GalleryAdmin: Component = () => {
     const openId = () => openCollection()?.id ?? null;
     const viewRows = createMemo(() => rowsIn(draft.rows, openId(),),);
     const liveCount = () => viewRows().filter((r,) => !r.removed,).length;
+
+    // ─── Filter + bulk selection (F2) — every bulk action is a draft edit ───
+    const [filterText, setFilterText,] = createSignal('',);
+    const [filterType, setFilterType,] = createSignal<GalleryTypeFilter>('all',);
+    const filtering = () => Boolean(filterText().trim(),) || filterType() !== 'all';
+    const shownRows = createMemo(() => (filtering() ? filterRows(viewRows(), filterText(), filterType(),) : viewRows()),);
+    const [bulkMode, setBulkMode,] = createSignal(false,);
+    const [picked, setPicked,] = createSignal<Set<string>>(new Set<string>(),);
+    const togglePicked = (key: string, on?: boolean,) => {
+        const next = new Set(picked(),);
+        if (on ?? !next.has(key,)) next.add(key,);
+        else next.delete(key,);
+        setPicked(next,);
+    };
+    const allShownPicked = () => shownRows().length > 0 && shownRows().every((r,) => picked().has(r.key,),);
+    const endBulk = () => { setBulkMode(false,); setPicked(new Set<string>(),); };
+    const [bulkTag, setBulkTag,] = createSignal('',);
+    const applyBulk = (action: BulkAction,) => {
+        const { patches, drop, } = bulkPatches(draft.rows, picked(), action,);
+        for (const [key, patch,] of patches) patchRow(key, patch,);
+        if (drop.length) {
+            const gone = new Set(drop,);
+            revokePreviews(draft.rows.filter((r,) => gone.has(r.key,),),);
+            setDraft('rows', (cur,) => cur.filter((r,) => !gone.has(r.key,),),);
+        }
+        const n = patches.size + drop.length;
+        toast.info(n ? `${n} item${n === 1 ? '' : 's'} changed — saved when you publish.` : 'Nothing to change.',);
+        if (action.kind === 'move' || action.kind === 'remove') setPicked(new Set<string>(),);
+    };
     const selectedCollection = () => collections().find((c,) => c.id === selectedCollectionId(),) ?? null;
     const collectionCount = (id: string,) => draft.rows.filter((r,) => !r.removed && r.collectionId === id,).length;
     const collectionCover = (c: GalleryCollection,) => {
@@ -162,8 +195,10 @@ const GalleryAdmin: Component = () => {
             .map((r,) => {
                 if (!r.id) return r;
                 const s = byId.get(r.id,)!;
-                // A saved item's collection is the SERVER's (moves save at once), never the stored draft's.
-                return { ...r, collectionId: s.collectionId ?? null, media: s.media, url: s.url, commentCount: s.commentCount, };
+                // Moves are drafted: keep the draft's collection while it still exists, else the server's.
+                const drafted = r.collectionId ?? null;
+                const collectionId = drafted === null || collections().some((c,) => c.id === drafted,) ? drafted : (s.collectionId ?? null);
+                return { ...r, collectionId, media: s.media, url: s.url, commentCount: s.commentCount, };
             },);
         const seen = new Set(restored.map((r,) => r.id,).filter(Boolean,),);
         const added = draftFromItems(items.filter((i,) => !seen.has(i.id,),),);
@@ -176,14 +211,15 @@ const GalleryAdmin: Component = () => {
         setLoading(true,);
         setLoadError('',);
         try {
-            const [s, items, t, cols, roleList, tierList,] = await Promise.all([
+            // One tier fetch (P5): the staff-safe options carry everything both pickers need.
+            const [s, items, t, cols, roleList,] = await Promise.all([
                 cms.gallery.settings(),
                 cms.gallery.admin.items(),
                 cms.subscriptionTiers.options().catch(() => [] as SubscriptionTierOption[]),
                 cms.gallery.adminCollections().catch(() => [] as GalleryCollection[]),
                 cms.roles.list().catch(() => [] as RoleDef[]),
-                cms.subscriptionTiers.list().catch(() => [] as SubscriptionTier[]),
             ],);
+            const tierList = t;
             setSettings(s,);
             setTiers(t.filter((x,) => !x.isFree,),);
             setCollections(cols,);
@@ -321,33 +357,24 @@ const GalleryAdmin: Component = () => {
         setDraft('rows', moveItem([...draft.rows,], fullIndex(key,), fullIndex(neighbour.key,),),);
     };
 
-    /** Move a row into a collection (null = the root): published items at once, new ones in the draft. */
-    const moveRow = async (key: string, collectionId: string | null,) => {
+    /**
+     * Move a row into a collection (null = the root). DRAFTED like every other
+     * item edit (C5) — published with the rest, undone by Discard. Collection
+     * create / rename / delete stay immediate (the collection panel says so).
+     */
+    const moveRow = (key: string, collectionId: string | null,) => {
         const r = draft.rows.find((x,) => x.key === key,);
         if (!r || (r.collectionId ?? null) === collectionId) return;
         const where = collectionId ? `"${collections().find((c,) => c.id === collectionId,)?.name ?? 'collection'}"` : 'the gallery root';
-        if (r.id) {
-            const id = r.id;
-            try {
-                await cms.gallery.moveItems({ ids: [id,], collectionId, },);
-            } catch (e) {
-                toast.error((e as Error)?.message || 'Could not move the item.',);
-                return;
-            }
-            setSaved((cur,) => cur.map((i,) => (i.id === id ? { ...i, collectionId, } : i)),);
-            patchRow(key, { collectionId, },);
-            toast.success(`Moved to ${where}.`,);
-        } else {
-            patchRow(key, { collectionId, },);
-            toast.info(`Moved to ${where} — saved when you publish.`,);
-        }
+        patchRow(key, { collectionId, },);
+        toast.info(`Moved to ${where} — saved when you publish.`,);
         if (selectedKey() === key && collectionId !== openId()) setSelectedKey(null,);
     };
 
     const dropOnFolder = (collectionId: string | null,) => {
         const key = dragFrom();
         endDrag();
-        if (key) void moveRow(key, collectionId,);
+        if (key) moveRow(key, collectionId,);
     };
 
     // ─── Collections (saved at once, not drafted) ───
@@ -407,7 +434,8 @@ const GalleryAdmin: Component = () => {
                     const r = all[i];
                     if (r.id) {
                         const s = byId.get(r.id,);
-                        if (!s) { dropped.push(r,); all.splice(i, 1,); } else r.collectionId = s.collectionId ?? null;
+                        // Rows drafted into the deleted collection follow the server; other drafted moves stay.
+                        if (!s) { dropped.push(r,); all.splice(i, 1,); } else if ((r.collectionId ?? null) === c.id) r.collectionId = s.collectionId ?? null;
                     } else if (r.collectionId === c.id) {
                         if (choice.items === 'delete') { dropped.push(r,); all.splice(i, 1,); } else r.collectionId = dest;
                     }
@@ -438,7 +466,7 @@ const GalleryAdmin: Component = () => {
     };
 
     // ─── Publish ───
-    const publish = async () => {
+    const publish = async (opts: { overwrite?: boolean; } = {},) => {
         if (publishing()) return;
         // Removals that also delete their media: say where that media is still used.
         const mediaToDelete = draft.rows
@@ -460,41 +488,47 @@ const GalleryAdmin: Component = () => {
         await new Promise((r,) => requestAnimationFrame(() => r(null,),),);
         autoSave.cancel();
         setPublishing(true,);
-        const uploaded = new Map<string, string>();
+        let uploaded = new Map<string, string>();
         try {
             // 1. Upload staged files, one at a time (each converts to a library row on success,
-            //    so a retry after a failure never uploads the same file twice).
-            for (const r of draft.rows.filter((x,) => x.file && !x.removed,)) {
-                const key = r.key;
-                // Cancelled (removed from the draft) before its turn came.
-                if (!draft.rows.some((x,) => x.key === key && x.file && !x.removed,)) continue;
-                const file = r.file!;
-                const rowTitle = () => {
+            //    so a retry after a failure never uploads the same file twice) — `uploadStaged`.
+            uploaded = await uploadStaged({
+                rows: () => draft.rows,
+                upload: async (r,) => {
+                    const key = r.key;
+                    const file = r.file!;
+                    const rowTitle = () => {
+                        const row = draft.rows.find((x,) => x.key === key,);
+                        return row?.uploadTitle?.trim() || defaultTitle(file.name,);
+                    };
+                    const ac = new AbortController();
+                    uploadAborts.set(key, ac,);
+                    try {
+                        return await uploadMediaFile(file, {
+                            title: rowTitle(), getTitle: rowTitle, signal: ac.signal, onProgress: (p,) => setProgress(key, p,),
+                        },);
+                    } finally {
+                        uploadAborts.delete(key,);
+                    }
+                },
+                isCancelled: (e,) => e instanceof UploadCancelledError,
+                onUploaded: (key, mediaId,) => {
+                    patchRow(key, { mediaId, },);
+                    // The item inherits the media title; an identical override is dropped.
                     const row = draft.rows.find((x,) => x.key === key,);
-                    return row?.uploadTitle?.trim() || defaultTitle(file.name,);
-                };
-                const ac = new AbortController();
-                uploadAborts.set(key, ac,);
-                let mediaId: string;
-                try {
-                    mediaId = await uploadMediaFile(file, {
-                        title: rowTitle(), getTitle: rowTitle, signal: ac.signal, onProgress: (p,) => setProgress(key, p,),
-                    },);
-                } catch (e) {
-                    if (e instanceof UploadCancelledError) continue; // the row already left the draft
-                    throw e;
-                } finally {
-                    uploadAborts.delete(key,);
-                }
-                uploaded.set(key, mediaId,);
-                patchRow(key, { mediaId, },);
-                // The item inherits the media title; an identical override is dropped.
-                const row = draft.rows.find((x,) => x.key === key,);
-                if (row) patchOptions(key, { titleOverride: inheritedOverride(row.options, rowTitle(),), },);
-            }
-            // 2. Apply the whole draft.
+                    const title = row?.uploadTitle?.trim() || defaultTitle(row?.file?.name ?? '',);
+                    if (row) patchOptions(key, { titleOverride: inheritedOverride(row.options, title,), },);
+                },
+            },).catch((e: Error & { uploaded?: Map<string, string>; },) => {
+                if (e.uploaded) uploaded = e.uploaded;
+                throw e;
+            },);
+            // 2. Apply the whole draft — refused (409 GALLERY_CHANGED) when the
+            //    gallery changed since it was loaded, unless "Publish anyway".
             const body = buildPublishBody(draft.rows, uploaded,);
             if (forceMedia) body.forceMedia = true;
+            body.basedOn = basedOnOf(saved(),);
+            if (opts.overwrite) body.overwrite = true;
             const res = await cms.gallery.admin.publish(body,);
             revokePreviews(draft.rows,);
             setSaved(res.items,);
@@ -513,10 +547,22 @@ const GalleryAdmin: Component = () => {
                 const i = draft.rows.findIndex((r,) => r.key === key,);
                 if (i >= 0) setDraft('rows', i, { file: undefined, mediaId, },);
             }
-            toast.error((e as Error)?.message || 'Publishing failed.',);
+            if ((e as { code?: string; })?.code === 'GALLERY_CHANGED') setConflictOpen(true,);
+            else toast.error((e as Error)?.message || 'Publishing failed.',);
         } finally {
             setPublishing(false,);
         }
+    };
+
+    // ─── Publish conflict (C4) ───
+    const [conflictOpen, setConflictOpen,] = createSignal(false,);
+    /** Reload the gallery as it is now; this draft is dropped (the other editor's work wins). */
+    const reloadAfterConflict = async () => {
+        setConflictOpen(false,);
+        revokePreviews(draft.rows,);
+        autoSave.clear();
+        setSelectedKey(null,);
+        await load();
     };
 
     // Ctrl/Cmd+S publishes.
@@ -593,6 +639,123 @@ const GalleryAdmin: Component = () => {
                             Drag to reorder{collections().length ? ' · drop on a folder to move' : ''} · click for options
                         </span>
                     </div>
+
+                    <div class="gallery-admin__filters">
+                        <MediaSearchInput
+                            class="gallery-admin__search"
+                            value={filterText()}
+                            onSearch={setFilterText}
+                            debounce={150}
+                            placeholder="Filter by title, caption or tag…"
+                        />
+                        <select
+                            aria-label="Type"
+                            value={filterType()}
+                            onChange={(e,) => setFilterType(e.currentTarget.value as GalleryTypeFilter,)}
+                        >
+                            <option value="all">All types</option>
+                            <option value="image">Images</option>
+                            <option value="video">Videos</option>
+                        </select>
+                        <Show when={filtering()}>
+                            <span class="form-help-muted">{shownRows().length} of {viewRows().length} shown</span>
+                        </Show>
+                        <button
+                            type="button"
+                            class="ui-button ui-button--secondary ui-button--sm"
+                            aria-pressed={bulkMode()}
+                            disabled={publishing()}
+                            onClick={() => (bulkMode() ? endBulk() : setBulkMode(true,))}
+                        >
+                            {bulkMode() ? 'Done selecting' : 'Select'}
+                        </button>
+                    </div>
+
+                    <Show when={bulkMode()}>
+                        <div class="gallery-admin__bulk" role="toolbar" aria-label="Selected items">
+                            <Checkbox
+                                checked={allShownPicked()}
+                                onChange={(on,) => { for (const r of shownRows()) togglePicked(r.key, on,); }}
+                                label="Select all shown"
+                            />
+                            <span class="form-help-muted">{picked().size} selected</span>
+                            <select
+                                aria-label="Move selected to"
+                                disabled={!picked().size}
+                                value=""
+                                onChange={(e,) => {
+                                    const v = e.currentTarget.value;
+                                    e.currentTarget.value = '';
+                                    if (v) applyBulk({ kind: 'move', collectionId: v === 'root' ? null : v, },);
+                                }}
+                            >
+                                <option value="">Move to…</option>
+                                <option value="root">Gallery root</option>
+                                <For each={collections()}>{(c,) => <option value={c.id}>{c.name}</option>}</For>
+                            </select>
+                            <select
+                                aria-label="Set visibility of selected"
+                                disabled={!picked().size}
+                                value=""
+                                onChange={(e,) => {
+                                    const v = e.currentTarget.value;
+                                    e.currentTarget.value = '';
+                                    if (!v) return;
+                                    if (v.startsWith('tier:',)) applyBulk({ kind: 'visibility', visibility: 'tier', minTierId: v.slice(5,), },);
+                                    else applyBulk({ kind: 'visibility', visibility: v as 'inherit' | 'public' | 'members', },);
+                                }}
+                            >
+                                <option value="">Visibility…</option>
+                                <option value="inherit">Gallery default</option>
+                                <option value="public">Public</option>
+                                <option value="members">Members</option>
+                                <For each={tiers()}>{(t,) => <option value={`tier:${t.id}`}>{t.name}</option>}</For>
+                            </select>
+                            <span class="gallery-admin__bulk-tag">
+                                {/* Applied by the button (or Enter), never per keystroke. */}
+                                <input
+                                    type="text"
+                                    placeholder="Tag"
+                                    aria-label="Tag to add to selected"
+                                    maxLength={40}
+                                    value={bulkTag()}
+                                    onChange={(e,) => setBulkTag(e.currentTarget.value,)}
+                                    onKeyDown={(e,) => {
+                                        if (e.key === 'Enter' && picked().size) {
+                                            e.preventDefault();
+                                            applyBulk({ kind: 'addTag', tag: e.currentTarget.value, },);
+                                            setBulkTag('',);
+                                            e.currentTarget.value = '';
+                                        }
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    class="ui-button ui-button--secondary ui-button--sm"
+                                    disabled={!picked().size}
+                                    onMouseDown={(e,) => e.preventDefault()}
+                                    onClick={(e,) => {
+                                        const input = (e.currentTarget.previousElementSibling as HTMLInputElement | null);
+                                        const tag = input?.value ?? bulkTag();
+                                        if (!tag.trim()) return;
+                                        applyBulk({ kind: 'addTag', tag, },);
+                                        setBulkTag('',);
+                                        if (input) input.value = '';
+                                    }}
+                                >
+                                    Add tag
+                                </button>
+                            </span>
+                            <button
+                                type="button"
+                                class="ui-button ui-button--danger ui-button--sm"
+                                disabled={!picked().size}
+                                onClick={() => applyBulk({ kind: 'remove', },)}
+                            >
+                                Remove
+                            </button>
+                        </div>
+                    </Show>
 
                     <div class="gallery-admin__layout" classList={{ 'has-panel': Boolean(selected() || selectedCollection(),), }}>
                         <div class="gallery-admin__main">
@@ -677,12 +840,12 @@ const GalleryAdmin: Component = () => {
                                         </div>
                                     </div>
                                 </Show>
-                                <For each={viewRows()}>
+                                <For each={shownRows()}>
                                     {(r,) => (
                                         <div
                                             class="media-grid__item gallery-admin__card"
                                             classList={{
-                                                'is-selected': selectedKey() === r.key,
+                                                'is-selected': bulkMode() ? picked().has(r.key,) : selectedKey() === r.key,
                                                 'is-removed': Boolean(r.removed,),
                                                 'is-new': !r.id,
                                                 'is-drag-over': dragOver() === r.key && dragFrom() !== r.key,
@@ -693,18 +856,27 @@ const GalleryAdmin: Component = () => {
                                             onDragOver={(e,) => { e.preventDefault(); setDragOver(r.key,); }}
                                             onDragEnd={endDrag}
                                             onDrop={(e,) => { e.preventDefault(); onDrop(r.key,); }}
-                                            onClick={() => selectItem(selectedKey() === r.key ? null : r.key,)}
+                                            onClick={() => (bulkMode() ? togglePicked(r.key,) : selectItem(selectedKey() === r.key ? null : r.key,))}
                                             role="button"
                                             tabindex="0"
-                                            aria-pressed={selectedKey() === r.key}
+                                            aria-pressed={bulkMode() ? picked().has(r.key,) : selectedKey() === r.key}
                                             onKeyDown={(e,) => {
                                                 if (e.target !== e.currentTarget) return;
-                                                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectItem(r.key,); }
+                                                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (bulkMode()) togglePicked(r.key,); else selectItem(r.key,); }
                                                 if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); nudge(r.key, -1,); }
                                                 if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); nudge(r.key, 1,); }
                                             }}
                                         >
                                             <div class="media-grid__preview gallery-admin__preview">
+                                                <Show when={bulkMode()}>
+                                                    <div class="gallery-admin__pick" onClick={(e,) => e.stopPropagation()}>
+                                                        <Checkbox
+                                                            checked={picked().has(r.key,)}
+                                                            onChange={(on,) => togglePicked(r.key, on,)}
+                                                            label={<span class="sr-only">Select {displayTitle(r,)}</span>}
+                                                        />
+                                                    </div>
+                                                </Show>
                                                 <Show
                                                     when={thumbOf(r,)}
                                                     fallback={
@@ -899,6 +1071,22 @@ const GalleryAdmin: Component = () => {
                 onConfirm={discard}
                 onCancel={() => setRevertOpen(false,)}
             />
+            <ConfirmModal
+                open={conflictOpen()}
+                title="The gallery changed"
+                message="Someone else published, edited, added or removed gallery items since you loaded this page. Publish anyway to replace their changes with yours, or reload to see theirs (your unpublished changes are dropped)."
+                confirmLabel="Publish anyway"
+                cancelLabel="Keep editing"
+                danger
+                onConfirm={() => { setConflictOpen(false,); void publish({ overwrite: true, },); }}
+                onCancel={() => setConflictOpen(false,)}
+            >
+                <p class="form-help-muted">
+                    <button type="button" class="ui-button ui-button--ghost ui-button--sm" onClick={() => void reloadAfterConflict()}>
+                        Reload and drop my changes
+                    </button>
+                </p>
+            </ConfirmModal>
             <ConfirmModal
                 open={guard.pending()}
                 title="Files not uploaded yet"

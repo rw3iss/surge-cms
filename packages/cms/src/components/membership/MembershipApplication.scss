@@ -13,7 +13,7 @@
     padding: 12px;
     border: 1px solid var(--site-border, #{$border-color});
     border-radius: var(--site-radius, 8px);
-    background: #fff;
+    background: var(--site-bg, #fff);
   }
 
   &__error { margin: 0; color: $error-color; }
@@ -51,7 +51,7 @@
   padding: 1.5rem;
   border-radius: var(--site-radius, 10px);
   background: var(--site-bg, #fff);
-  color: var(--site-text, #1a1a1a);
+  color: var(--site-text, #1f2937);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
 }
 

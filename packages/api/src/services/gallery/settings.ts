@@ -21,11 +21,19 @@ export async function getSettings(): Promise<GallerySettings> {
     };
 }
 
+/**
+ * Refused inside a typed CSS value: anything that ends the declaration or the
+ * rule, a comment, `url(` / `expression(` / `@import`, and a BACKSLASH — a CSS
+ * escape such as `\75 rl(…)` decodes to `url(` in the browser, so a value
+ * that looks harmless could still load a remote resource.
+ */
+export const UNSAFE_CSS = /[;{}<>"\\]|\/\*|url\s*\(|expression\s*\(|@import/i;
+
 /** A CSS length/size typed by an editor — anything that could escape a declaration is refused. */
-function cssValue(v: unknown, label: string, max = 64,): string {
+export function cssValue(v: unknown, label: string, max = 64,): string {
     const s = String(v ?? '',).trim();
     if (!s) return '';
-    if (s.length > max || /[;{}<>"]|\/\*|url\s*\(/i.test(s,)) throw new ValidationError(`${label} is not a valid CSS value.`,);
+    if (s.length > max || UNSAFE_CSS.test(s,)) throw new ValidationError(`${label} is not a valid CSS value.`,);
     return s;
 }
 

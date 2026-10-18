@@ -17,13 +17,12 @@
  * disagree about what an email contains.
  */
 import {
-    isSocialAutoFeed, resolveSocialCount, templateDataFor, templateDataIds, templateDataOf, templateRenderGroups, rendersOnce,
-    type ContentBlockTemplate, type SlotBinding, type TemplateSlotContext,
+    bindingIdsIfStatic, isSocialAutoFeed, resolveSocialCount, templateDataFor, templateDataIds, templateDataOf, templateRenderGroups, rendersOnce,
+    slotFor, type ContentBlockTemplate, type SlotBinding, type TemplateSlotContext,
 } from '@sitesurge/types';
 import * as entityManager from '../../entities/entityManager';
 import * as contentBlockTemplates from '../../repositories/contentBlockTemplates.repo';
 import * as socialFeed from '../socialFeed';
-import * as entitiesService from '../entities';
 import { logger, } from '../../utils/logger';
 import { GALLERY_RESOLVED_KEY, resolveGalleryBlockItems, } from '../gallery/serverRender';
 import { resolveMailTemplate, } from './templateRuntime';
@@ -60,6 +59,9 @@ const TEMPLATED_SETTING_KEYS = [
     'buttonText', 'buttonUrl', 'url', 'href', 'alt', 'caption',
 ];
 
+/** The templated keys that hold HTML (the rest are plain text). */
+const HTML_SETTING_KEYS = new Set(['content', 'html',],);
+
 /**
  * How many records a `list`/`query` binding may expand to.
  *
@@ -68,8 +70,53 @@ const TEMPLATED_SETTING_KEYS = [
  */
 const MAX_RECORDS = MAX_BINDING_RECORDS;
 
-/** Guard against a component that includes itself, directly or via a chain. */
+/**
+ * Backstop on nesting depth. The real cycle guard is per-branch ANCESTRY
+ * (`ExpandState.ancestry`): a template is never expanded inside itself, so a
+ * self-referencing template stops at once instead of growing 2^depth copies.
+ */
 const MAX_DEPTH = 5;
+
+/** Per-`expandDynamicBlocks` call state. */
+interface ExpandState {
+    /** Block ids already expanded (the source block stays in the list). */
+    done: Set<string>;
+    /** Block id → template ids already being expanded above it. */
+    ancestry: Map<string, string[]>;
+    /** Template reads, memoised for the call: one email may use a template many times. */
+    templates: Map<string, Promise<LoadedTemplate>>;
+}
+
+interface LoadedTemplate {
+    meta: ContentBlockTemplate | null;
+    blocks: Awaited<ReturnType<typeof contentBlockTemplates.findBlocksResolved>>;
+}
+
+/** A template's meta + resolved blocks, read once per expansion call. Never throws. */
+function loadTemplate(state: ExpandState, templateId: string,): Promise<LoadedTemplate> {
+    let p = state.templates.get(templateId,);
+    if (!p) {
+        p = Promise.all([
+            templateMeta(templateId,),
+            contentBlockTemplates.findBlocksResolved(templateId,).catch(() => []),
+        ],).then(([meta, blocks,],) => ({ meta, blocks, }));
+        state.templates.set(templateId, p,);
+    }
+    return p;
+}
+
+/** Record the ancestry of freshly cloned blocks: their source's, plus `templateId`. */
+function stampAncestry(state: ExpandState, cloned: FlatMailBlock[], sourceId: string, templateId: string,): void {
+    const anc = [...(state.ancestry.get(sourceId,) ?? []), templateId,];
+    for (const b of cloned) state.ancestry.set(b.id, anc,);
+}
+
+/** True (and logged) when expanding `templateId` under `blockId` would recurse. */
+function isCycle(state: ExpandState, blockId: string, templateId: string,): boolean {
+    if (!(state.ancestry.get(blockId,) ?? []).includes(templateId,)) return false;
+    logger.warn('Mail: template references itself — not expanded', { blockId, templateId, },);
+    return true;
+}
 
 /**
  * Resolve which records an entity block binds to.
@@ -79,7 +126,7 @@ const MAX_DEPTH = 5;
  * template that never references the entity (a "latest video" tout) is the
  * common case; skipping the block made it silently invisible.
  */
-async function resolveRecords(cfg: EntityCfg,): Promise<Record<string, unknown>[]> {
+async function resolveRecords(cfg: EntityCfg, max = MAX_RECORDS,): Promise<Record<string, unknown>[]> {
     const type = cfg.entityType;
     const binding = cfg.binding ?? {};
     if (!type) return [];
@@ -91,7 +138,7 @@ async function resolveRecords(cfg: EntityCfg,): Promise<Record<string, unknown>[
     if (binding.mode === 'none' || binding.mode === 'context') return [{},];
     if (binding.mode !== 'single' && binding.mode !== 'list' && binding.mode !== 'query') return [];
     // The SAME resolver every slot-reading block uses (services/templateSlots).
-    return resolveBindingRecords(type, binding as SlotBinding, MAX_RECORDS,) as Promise<Record<string, unknown>[]>;
+    return resolveBindingRecords(type, binding as SlotBinding, max,) as Promise<Record<string, unknown>[]>;
 }
 
 /**
@@ -115,7 +162,9 @@ async function resolveBlockText(
     for (const key of TEMPLATED_SETTING_KEYS) {
         const v = out[key];
         if (typeof v === 'string' && v.includes('{{',)) {
-            out[key] = await resolveMailTemplate(v, context,);
+            // HTML fields escape interpolated values; the others are plain text the
+            // block renderer escapes itself (escaping here too would double it).
+            out[key] = await resolveMailTemplate(v, context, { html: HTML_SETTING_KEYS.has(key,), },);
         }
     }
     return out;
@@ -224,7 +273,15 @@ async function resolveTemplateGallery(settings: Record<string, unknown>,): Promi
 /** Gallery items for a block reading a slot (records of type `gallery_item`, in order). */
 async function resolveSlotGallery(settings: Record<string, unknown>,): Promise<Record<string, unknown>> {
     const ctx = settings[SLOT_CONTEXT_KEY] as TemplateSlotContext | undefined;
-    const ids = recordIds(await resolveSlotRecords(ctx, settings.slotId as string | undefined, 'gallery_item',),);
+    // A `single` / `list` slot already names its items: hand the ids straight
+    // to the EMAIL-audience gallery read (public media, in-site gate ignored).
+    // Fetching the records first went through the site-anonymous gate and
+    // dropped members-only items an items-fed gallery would show. `query`
+    // still has to be resolved.
+    const found = slotFor(ctx, settings.slotId as string | undefined, 'gallery_item',);
+    const staticIds = found.ok ? bindingIdsIfStatic(found.binding, found.slot.array ? MAX_RECORDS : 1,) : null;
+    const ids = staticIds
+        ?? recordIds(await resolveSlotRecords(ctx, settings.slotId as string | undefined, 'gallery_item',),);
     const items = ids.length
         ? await resolveGalleryBlockItems({ ...(settings as Record<string, unknown>), source: 'items', itemIds: ids, } as never, 'email',)
         : [];
@@ -303,15 +360,17 @@ export async function expandDynamicBlocks(
 ): Promise<FlatMailBlock[]> {
     // The outermost call also sizes library videos (after expansion, so a
     // video inside a component or entity template is sized too).
-    if (depth === 0) return attachVideoMediaSize(await expandPass(blocks, 0, done,),);
-    return expandPass(blocks, depth, done,);
+    const state: ExpandState = { done, ancestry: new Map(), templates: new Map(), };
+    if (depth === 0) return attachVideoMediaSize(await expandPass(blocks, 0, state,),);
+    return expandPass(blocks, depth, state,);
 }
 
 async function expandPass(
     blocks: FlatMailBlock[],
     depth: number,
-    done: Set<string>,
+    state: ExpandState,
 ): Promise<FlatMailBlock[]> {
+    const { done, } = state;
     if (depth >= MAX_DEPTH) {
         logger.warn('Mail: dynamic block nesting too deep — stopping expansion',);
         return blocks;
@@ -330,11 +389,13 @@ async function expandPass(
         try {
             if (block.blockType === 'entity') {
                 const cfg = (block.settings.entity ?? {}) as EntityCfg;
-                if (!cfg.templateId) continue;
-                const tplBlocks = await contentBlockTemplates.findBlocksResolved(cfg.templateId,);
+                if (!cfg.templateId || isCycle(state, block.id, cfg.templateId,)) continue;
+                const { meta: tpl, blocks: tplBlocks, } = await loadTemplate(state, cfg.templateId,);
                 if (tplBlocks.length === 0) continue;
 
-                const records = await resolveRecords(cfg,);
+                // The template's own cap applies in email too (never above the inbox cap).
+                const cap = Math.min(tpl?.maxRecords && tpl.maxRecords > 0 ? tpl.maxRecords : MAX_RECORDS, MAX_RECORDS,);
+                const records = await resolveRecords(cfg, cap,);
                 if (records.length === 0) {
                     logger.warn('Mail: entity block resolved to no records', {
                         blockId: block.id, type: cfg.entityType, mode: cfg.binding?.mode,
@@ -342,7 +403,6 @@ async function expandPass(
                     continue;
                 }
 
-                const tpl = await templateMeta(cfg.templateId,);
                 const slots = slotContextOf(tpl, cfg.slots,);
                 // One copy of the template per record (`each`, the default) or
                 // ONE copy with every record (`once`) — the same rule the web
@@ -361,6 +421,7 @@ async function expandPass(
                         tplBlocks as never, block.id, `${block.id}-r${i}`,
                         context, offset, { ...slots, templateData: templateDataOf(cfg.entityType, group,), },
                     );
+                    stampAncestry(state, cloned, block.id, cfg.templateId,);
                     out.push(...cloned,);
                     offset += tplBlocks.length;
                 }
@@ -393,12 +454,14 @@ async function expandPass(
                 if (idx >= 0) out[idx] = { ...out[idx], settings: await resolveSlotPosts(out[idx].settings,), };
             } else if (block.blockType === 'template') {
                 const templateId = block.settings.templateId as string | undefined;
-                if (!templateId) continue;
-                const tplBlocks = await contentBlockTemplates.findBlocksResolved(templateId,);
+                if (!templateId || isCycle(state, block.id, templateId,)) continue;
+                const { meta, blocks: tplBlocks, } = await loadTemplate(state, templateId,);
                 if (tplBlocks.length === 0) continue;
                 // A component binds no entity: its template data is empty.
-                const slotCtx = slotContextOf(await templateMeta(templateId,), block.settings.slots as Record<string, SlotBinding> | undefined,);
-                out.push(...await cloneBlocks(tplBlocks as never, block.id, `${block.id}-c`, null, 0, { ...slotCtx, templateData: null, },),);
+                const slotCtx = slotContextOf(meta, block.settings.slots as Record<string, SlotBinding> | undefined,);
+                const cloned = await cloneBlocks(tplBlocks as never, block.id, `${block.id}-c`, null, 0, { ...slotCtx, templateData: null, },);
+                stampAncestry(state, cloned, block.id, templateId,);
+                out.push(...cloned,);
             }
         } catch (e) {
             // One unresolvable block must not cost the whole email.
@@ -410,5 +473,5 @@ async function expandPass(
 
     // A component can contain an entity block (and vice versa) — expand the
     // newly-added ones too, bounded by MAX_DEPTH.
-    return expandPass(out, depth + 1, done,);
+    return expandPass(out, depth + 1, state,);
 }

@@ -117,6 +117,17 @@ describe('applyFulfilmentState', () => {
         expect(db.writes,).toBe(1,);
     },);
 
+    it('is a no-op when the stored jsonb comes back with its keys reordered', async () => {
+        await applyFulfilmentState('o1', 'printify', 'pf1', state,);
+        // Postgres jsonb orders keys by length then bytes: url, number, carrier, …
+        db.fulfil!.shipments = (db.fulfil!.shipments as Array<Record<string, unknown>>).map((x,) => ({
+            url: x.url, number: x.number, carrier: x.carrier, shippedAt: x.shippedAt, deliveredAt: x.deliveredAt,
+        }));
+        const again = await applyFulfilmentState('o1', 'printify', 'pf1', state,);
+        expect(again.changed,).toBe(false,);
+        expect(db.writes,).toBe(1,);
+    },);
+
     it('never overwrites tracking an admin typed (tracking_manual)', async () => {
         db.order.tracking_number = 'MINE';
         db.order.tracking_url = 'https://mine.example/MINE';

@@ -5,16 +5,16 @@
  * 1,332-line file. Behaviour is unchanged — this is a move, not a rewrite.
  */
 import type { Block, EntityRecord, SlotBinding, TemplateSlotContext, } from '@sitesurge/types';
-import { Component, For, Show, createEffect, createResource, onCleanup, onMount, type JSX, } from 'solid-js';
-import { A, } from '@solidjs/router';
+import { Component, For, Show, createEffect, createResource, onCleanup, type JSX, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import { mountComponentScript, } from '../../../services/componentScript';
 import { useUser, } from '../../../stores/auth';
 import { buildBlockTree, } from '@sitesurge/types';
-import { entityVars, mapTemplateBlocks, resolveRecords, } from '../../../services/entityBinding';
+import { entityVars, type EntityVars, mapTemplateBlocks, } from '../../../services/entityBinding';
 import { type TplCtx, } from './shared';
 import { BlockRenderer, } from '../BlockRenderer';
-import { SlotContext, slotContextOf, withTemplateData, } from '../slotContext';
+import { isAdminView, SlotContext, slotContextOf, withTemplateData, } from '../slotContext';
+import { isTemplateCycle, TemplateAncestryContext, useTemplateAncestry, } from '../templateAncestry';
 import { templateDataOf, } from '@sitesurge/types';
 
 /**
@@ -44,9 +44,13 @@ export const TemplateBlock: Component<{
     ancestry?: readonly string[];
 }> = (props,) => {
     const templateId = () => (props.block.settings?.templateId as string | undefined) || '';
+    // Ancestry from the context (survives groups, slides and entity templates)
+    // plus the legacy prop.
+    const inherited = useTemplateAncestry();
+    const ancestry = () => [...inherited, ...(props.ancestry ?? []),];
     // Self-reference (direct or via a chain) would recurse forever. Detect it
     // before fetching, and say so rather than rendering nothing mysteriously.
-    const isCycle = () => Boolean(templateId()) && (props.ancestry ?? []).includes(templateId(),);
+    const isCycle = () => isTemplateCycle(ancestry(), templateId(),);
 
     const [tpl] = createResource(
         () => (templateId() && !isCycle() ? templateId() : null),
@@ -67,7 +71,7 @@ export const TemplateBlock: Component<{
         () => tpl()?.slots,
         () => props.block.settings?.slots as Record<string, SlotBinding> | undefined,
     ), null,);
-    const nextAncestry = () => [...(props.ancestry ?? []), templateId(),];
+    const nextAncestry = () => [...ancestry(), templateId(),];
     /** Guards the effect below against re-running on unrelated signal changes. */
     let mounted = false;
 
@@ -147,7 +151,11 @@ export const TemplateBlock: Component<{
                     component's own markup (`el.querySelector('.my-thing')`) and
                     enhance it in place, rather than only being able to append
                     its own UI beside it. */}
+                <Show when={!tpl.loading && tpl() === null && isAdminView()}>
+                    <div class="block-message">Component not found (deleted?) — choose another in the block panel.</div>
+                </Show>
                 <div class="template-block__root" ref={(el,) => { mountEl = el; }}>
+                <TemplateAncestryContext.Provider value={nextAncestry()}>
                 <SlotContext.Provider value={slotCtx}>
                 <For each={roots()}>
                     {(child,) => (
@@ -163,6 +171,7 @@ export const TemplateBlock: Component<{
                     )}
                 </For>
                 </SlotContext.Provider>
+                </TemplateAncestryContext.Provider>
                 </div>
             </Show>
         </Show>
@@ -172,6 +181,11 @@ export const TemplateBlock: Component<{
 export function renderEntityTemplateSlide(
     args: {
         roots: Block[]; entityType: string; record: EntityRecord; ctx?: TplCtx;
+        /** The template being rendered — added to the ancestry so a template
+         *  that (indirectly) contains itself renders a notice, not forever. */
+        templateId?: string;
+        /** The type's variable names (from the template read); default names otherwise. */
+        vars?: EntityVars;
         /** The template's slots + the using block's bindings. */
         slots?: TemplateSlotContext;
         /** Set when the template renders ONCE with every record (`listRender:
@@ -180,16 +194,23 @@ export function renderEntityTemplateSlide(
         records?: EntityRecord[];
     },
 ): JSX.Element {
-    const { singular, plural, } = entityVars(args.entityType,);
+    const { singular, plural, } = args.vars ?? entityVars(args.entityType,);
+    const one = { kind: args.entityType, data: args.record, id: String(args.record.id ?? ''), };
+    // Same names as the template editor preview and email: the type's singular
+    // and plural variables, plus the generic `entity`.
     const mergedCtx = {
         ...(args.ctx ?? {}),
-        [singular]: { kind: args.entityType, data: args.record, id: String(args.record.id ?? ''), },
+        entity: one,
+        [singular]: one,
         ...(args.records
             ? { [plural]: { kind: args.entityType, data: args.records as unknown as Record<string, unknown>, id: '', }, }
             : {}),
     } as TplCtx;
     const data = templateDataOf(args.entityType, args.records ?? [args.record,],);
+    const parent = useTemplateAncestry();
+    const ancestry = args.templateId ? [...parent, args.templateId,] : parent;
     return (
+        <TemplateAncestryContext.Provider value={ancestry}>
         <SlotContext.Provider value={withTemplateData(args.slots, data,)}>
             <For each={args.roots}>
                 {(child) => (
@@ -199,5 +220,6 @@ export function renderEntityTemplateSlide(
                 )}
             </For>
         </SlotContext.Provider>
+        </TemplateAncestryContext.Provider>
     );
 }

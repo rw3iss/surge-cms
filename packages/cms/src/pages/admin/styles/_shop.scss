@@ -123,12 +123,12 @@
 
         &.active {
             background: var(--site-primary, $primary-color);
-            color: #fff;
+            color: $background;
 
             .shop-admin__nav-count {
                 background: rgba(255, 255, 255, 0.25);
                 border-color: transparent;
-                color: #fff;
+                color: $background;
             }
         }
     }
@@ -674,6 +674,37 @@
         gap: $spacing-sm;
         flex-wrap: wrap;
     }
+
+    // Suppliers panel: one block per supplier hand-off.
+    &__fulfilment {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-xs;
+
+        & + & {
+            margin-top: $spacing-md;
+            padding-top: $spacing-md;
+            border-top: 1px solid var(--admin-border, $border-color);
+        }
+
+        p {
+            margin: 0;
+        }
+    }
+
+    &__fulfilment-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-sm;
+        text-transform: capitalize;
+    }
+
+    &__fulfilment-error {
+        color: $error-color;
+        font-size: $font-size-sm;
+        word-break: break-word;
+    }
 }
 
 // ─── Collections review fixes (PageLoop) ───────────────────────────────
@@ -977,7 +1008,7 @@
     border: none;
     border-radius: 50%;
     background: rgba(0, 0, 0, 0.6);
-    color: #fff;
+    color: $background;
     font-size: 16px;
     line-height: 1;
     cursor: pointer;
@@ -1026,7 +1057,7 @@
     padding: 1px 6px;
     border-radius: $border-radius-sm;
     background: rgba(0, 0, 0, 0.62);
-    color: #fff;
+    color: $background;
     font-size: $font-size-xs;
     font-weight: 600;
     text-align: center;
@@ -1196,7 +1227,7 @@
         height: 26rem;
         border: 1px solid $border-color;
         border-radius: $border-radius-md;
-        background: #fff;
+        background: $background;
     }
 
     &__actions {

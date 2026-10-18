@@ -158,75 +158,37 @@ async function donateRecurring(
     return { clientSecret: result.clientSecret, paymentIntentId: '', subscriptionId: result.subscriptionId, };
 }
 
+/**
+ * Legacy `POST /payments/subscribe` (published SDK `cms.payments.subscribe`).
+ * Deprecated — use `membership.change`. It now goes THROUGH `membership.change`
+ * so every rule applies (approval levels, Dev Only, hide price, the
+ * subscription-required minimum, settling unpaid attempts, `type: membership`
+ * metadata). Before, it checked only `is_active` + a Stripe price, so a member
+ * could join a level that requires approval without applying.
+ */
 export async function subscribe(userId: string, planId: string,) {
-    const planResult = await query(
-        'SELECT * FROM subscription_plans WHERE id = $1 AND is_active = true',
-        [planId,],
+    const plan = await query<{ is_free: boolean; stripe_price_id: string | null; }>(
+        'SELECT is_free, stripe_price_id FROM subscription_plans WHERE id = $1 AND is_active = true', [planId,],
     );
-    if (planResult.rows.length === 0) throw new NotFoundError('Subscription plan',);
-    const plan = planResult.rows[0];
-
-    if (!plan.stripe_price_id) {
-        throw new ValidationError('Plan is not configured for payments',);
-    }
-
+    if (!plan.rows[0]) throw new NotFoundError('Subscription plan',);
+    if (plan.rows[0].is_free || !plan.rows[0].stripe_price_id) throw new ValidationError('Plan is not configured for payments',);
     const existingSub = await query(
-        `SELECT id FROM subscriptions WHERE user_id = $1 AND status IN ('active', 'past_due')`,
+        `SELECT id FROM subscriptions WHERE user_id = $1 AND status IN ('active', 'past_due') AND stripe_subscription_id IS NOT NULL`,
         [userId,],
     );
     if (existingSub.rows.length > 0) {
         throw new ValidationError('You already have an active subscription',);
     }
-
-    const userResult = await query(
-        'SELECT email, display_name, stripe_customer_id FROM users WHERE id = $1',
-        [userId,],
-    );
-    const user = userResult.rows[0];
-    let customerId = user.stripe_customer_id;
-
-    if (!customerId) {
-        const customer = await paymentProvider.createCustomer({
-            email: user.email,
-            name: user.display_name,
-            userId,
-        },);
-        customerId = customer.id;
-        await query(
-            'UPDATE users SET stripe_customer_id = $1, updated_at = NOW() WHERE id = $2',
-            [customerId, userId,],
-        );
+    // Dynamic import: membership imports this module (createCustomer).
+    const { change, } = await import('./membership/index.js');
+    const r = await change(userId, planId,);
+    if (r.result === 'payment_required') {
+        return { subscriptionId: r.subscriptionId ?? '', status: 'incomplete', clientSecret: r.clientSecret ?? null, };
     }
-
-    const subscription = await paymentProvider.createSubscription({
-        customerId,
-        priceId: plan.stripe_price_id,
-        metadata: { userId, planId, },
-    },);
-
-    await query(
-        `INSERT INTO subscriptions (user_id, plan_id, stripe_subscription_id, stripe_customer_id,
-                                    status, current_period_start, current_period_end)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [
-            userId,
-            planId,
-            subscription.id,
-            customerId,
-            // Recorded as Stripe reports it: `incomplete` until the first payment
-            // succeeds (the webhook flips it). Marking it `active` here granted the
-            // paid tier — and now its role — before any money moved.
-            subscription.status,
-            subscription.currentPeriodStart,
-            subscription.currentPeriodEnd,
-        ],
-    );
-
-    return {
-        subscriptionId: subscription.id,
-        status: subscription.status,
-        clientSecret: subscription.clientSecret,
-    };
+    if (r.result === 'changed' || r.result === 'unchanged') {
+        return { subscriptionId: r.subscriptionId ?? '', status: 'active', clientSecret: null, };
+    }
+    throw new ValidationError('That plan cannot be started here.',);
 }
 
 export async function unsubscribe(userId: string,): Promise<{ message: string; }> {

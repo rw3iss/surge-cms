@@ -21,6 +21,7 @@ import type {
 } from '@sitesurge/types';
 import { z, } from 'zod';
 import { defineRoute, reply, } from '../api/defineRoute';
+import type { RouteDef, } from '../api/types';
 import { isAdminRole, } from '../api/roles';
 import { AppError, NotFoundError, } from '../core/errors';
 import { captureAudience, } from '../services/audienceIntake';
@@ -32,7 +33,12 @@ import * as catalog from '../services/shop/catalog';
 import * as checkout from '../services/shop/checkout';
 import * as merchAnnounce from '../services/shop/merchandiseAnnounce';
 import * as orders from '../services/shop/orders';
-import { requirePermission, } from '../services/permissions';
+import * as providerFulfillment from '../services/shop/providerFulfillment';
+import * as shopStats from '../services/shop/stats';
+import * as orderExport from '../services/shop/orderExport';
+import { sendCsv, sendPrint, } from '../services/export/formats';
+import { getPublicSettings as getSitePublicSettings, } from '../services/settings';
+import { can, requirePermission, } from '../services/permissions';
 import * as products from '../services/shop/products';
 import * as providerWebhooks from '../services/shop/providers/webhooks';
 import * as reviews from '../services/shop/reviews';
@@ -221,11 +227,17 @@ const orderListQuery = z.object({
     status: z.string().optional(),
     /** Only the caller's own orders, even for an admin (the profile page). */
     mine: z.enum(['true', 'false',],).transform((v,) => v === 'true').optional(),
+    search: z.string().max(200,).optional(),
+    attention: z.enum(['true', 'false', '1', '0',],).transform((v,) => v === 'true' || v === '1').optional(),
+    from: z.string().max(40,).refine((v,) => !Number.isNaN(Date.parse(v,),), 'Expected a date',).optional(),
+    to: z.string().max(40,).refine((v,) => !Number.isNaN(Date.parse(v,),), 'Expected a date',).optional(),
     page: z.coerce.number().int().min(1,).default(1,),
     limit: z.coerce.number().int().min(1,).max(100,).default(20,),
 },);
 
 const orderNumberParams = z.object({ orderNumber: z.string(), },);
+/** The order's confirmation secret (see migration 171). */
+const orderKeyQuery = z.object({ k: z.string().max(64,).optional(), },);
 const downloadParams = z.object({ orderNumber: z.string(), token: z.string(), },);
 
 const orderUpdateSchema = z.object({
@@ -313,13 +325,83 @@ type _AssertOrderListQuery = AssertCompatible<z.infer<typeof orderListQuery>, Sh
 // The whole module 404s when the `shop` feature is disabled (guard
 // applied at the registerModule mount).
 
+
+// ─── Permissions ──────────────────────────────────────────────────
+//
+// The route tier (`admin`/`staff`) decides WHO reaches a route; these
+// permissions narrow it within that tier, so an operator removing "Refund
+// orders" or "Manage products" from a role actually changes something. API
+// keys skip the check — they are scoped by the key itself (read/write/admin).
+// Every default already covers the tier, so today's access is unchanged.
+
+/** Throw 403 unless the signed-in caller holds `key`. No user = API key. */
+export async function gate(user: { id: string; role: string; } | undefined, key: string,): Promise<void> {
+    if (user) await requirePermission({ id: user.id, role: user.role, }, key,);
+}
+
+/** `METHOD path` → permission, applied by {@link withPermissions}. */
+export const SHOP_ROUTE_PERMISSIONS: Record<string, string> = {
+    'POST /products/bulk': 'shop:write',
+    'PUT /products/reorder': 'shop:write',
+    'GET /products/:id': 'shop:read',
+    'POST /products': 'shop:write',
+    'PUT /products/:id': 'shop:write',
+    'DELETE /products/:id': 'shop:write',
+    'POST /categories': 'shop:write',
+    'PUT /categories/reorder': 'shop:write',
+    'PUT /categories/:id': 'shop:write',
+    'DELETE /categories/:id': 'shop:write',
+    'POST /collections': 'shop:write',
+    'PUT /collections/:id': 'shop:write',
+    'DELETE /collections/:id': 'shop:write',
+    'GET /reviews': 'shop:read',
+    'PUT /reviews/:id': 'shop:write',
+    'DELETE /reviews/:id': 'shop:write',
+    'PATCH /orders/:id': 'shop.orders:write',
+    'POST /orders/:id/resend-receipt': 'shop.orders:write',
+    'GET /orders/stats': 'shop.orders:read',
+    'GET /orders/export': 'shop.orders:read',
+    'GET /orders/:id/fulfilments': 'shop.orders:read',
+    'GET /merchandise/pending': 'shop:read',
+    'POST /merchandise/announce/preview': 'shop:read',
+    // Mails a real list — the same act as pressing Send on a campaign.
+    'POST /merchandise/announce': 'mailing_lists:send',
+    'GET /settings/admin': 'shop:read',
+    'GET /settings/stripe-status': 'shop:read',
+    'PUT /settings': 'shop:write',
+    'GET /payment-credentials': 'shop:read',
+    'PUT /payment-credentials': 'shop:write',
+    'GET /printify/status': 'shop:read',
+    'POST /printify/sync': 'shop:write',
+    'POST /printify/sync/:id': 'shop:write',
+    'POST /printify/orders/resync': 'shop:write',
+    'POST /orders/:id/fulfilment/:provider/retry': 'shop.orders:write',
+    'POST /orders/:id/fulfilment/:provider/refresh': 'shop.orders:write',
+};
+
+/** Wrap each listed route's handler with its permission check. */
+export function withPermissions(routes: RouteDef[], table: Record<string, string>,): RouteDef[] {
+    return routes.map((r,) => {
+        const key = table[`${r.method.toUpperCase()} ${r.path}`];
+        if (!key) return r;
+        const inner = r.handler;
+        return {
+            ...r,
+            handler: async (ctx,) => {
+                await gate(ctx.user as { id: string; role: string; } | undefined, key,);
+                return inner(ctx,);
+            },
+        };
+    },);
+}
+
 const webhookParams = z.object({
     provider: z.string().max(32,),
     path: z.string().max(64,),
     token: z.string().max(64,),
 },);
 
-export const shopRoutes = [
+const allShopRoutes = [
     // ─── Provider webhooks (public, token in the path) ────────────
     //
     // Declared FIRST so a `/:slug`-shaped route later in this module cannot
@@ -799,8 +881,14 @@ export const shopRoutes = [
             // `mine` drops the admin view: an admin's profile must list the
             // admin's OWN purchases, not every customer's.
             const isAdmin = !query.mine && (isAdminRole(user?.role,) || Boolean(apiKey,));
+            if (isAdmin) await gate(user, 'shop.orders:read',);
             const result = await orders.list(
-                { status: query.status, },
+                {
+                    status: query.status,
+                    // Search / attention / dates are admin tools; an owner's own
+                    // list stays the plain history.
+                    ...(isAdmin ? { search: query.search, attention: query.attention, from: query.from, to: query.to, } : {}),
+                },
                 { isAdmin, userId: user?.id, email: user?.email, },
                 { page: query.page, limit: query.limit, },
             );
@@ -815,10 +903,12 @@ export const shopRoutes = [
         auth: 'optional',
         summary:
             'Fetch an order by its human order number (public confirmation view; limited fields for anonymous callers).',
-        input: { params: orderNumberParams, },
-        handler: async ({ params, user, apiKey, },) => {
+        input: { params: orderNumberParams, query: orderKeyQuery, },
+        handler: async ({ params, query, user, apiKey, },) => {
             const isAdmin = isAdminRole(user?.role,) || Boolean(apiKey,);
-            const order = await orders.getByNumber(params.orderNumber, isAdmin,);
+            const order = await orders.getByNumber(params.orderNumber, {
+                isAdmin, userId: user?.id, email: user?.email, accessKey: query.k,
+            },);
             if (!order) throw new NotFoundError('Order',);
             return order;
         },
@@ -832,10 +922,12 @@ export const shopRoutes = [
         auth: 'optional',
         raw: true,
         summary: 'Download an order receipt as a PDF (by order number, like the confirmation view).',
-        input: { params: orderNumberParams, },
-        handler: async ({ params, user, apiKey, res, },) => {
+        input: { params: orderNumberParams, query: orderKeyQuery, },
+        handler: async ({ params, query, user, apiKey, res, },) => {
             const isAdmin = isAdminRole(user?.role,) || Boolean(apiKey,);
-            const order = await orders.getByNumber(params.orderNumber, isAdmin,);
+            const order = await orders.getByNumber(params.orderNumber, {
+                isAdmin, userId: user?.id, email: user?.email, accessKey: query.k,
+            },);
             if (!order) throw new NotFoundError('Order',);
 
             const { pdf, filename, } = await orders.buildReceipt(order,);
@@ -856,6 +948,81 @@ export const shopRoutes = [
         handler: ({ params, },) => orders.getDigitalDownload(params.orderNumber, params.token,),
     },),
 
+    // Orders export (admin, + data:export) — same filters as the Orders table.
+    // Literal path — declared before /orders/:id.
+    defineRoute({
+        method: 'get',
+        path: '/orders/export',
+        auth: 'admin',
+        raw: true,
+        summary: 'Export orders as CSV (or ?format=print) with the Orders table filters: status, search, attention, from, to.',
+        input: {
+            query: z.object({
+                format: z.enum(['csv', 'print',],).default('csv',),
+                columns: z.enum(['all', 'basic',],).optional(),
+                status: z.string().max(32,).optional(),
+                search: z.string().max(200,).optional(),
+                attention: z.enum(['true', 'false', '1', '0',],).transform((v,) => v === 'true' || v === '1').optional(),
+                from: z.string().max(40,).optional(),
+                to: z.string().max(40,).optional(),
+            },),
+        },
+        handler: async ({ query, res, user, },) => {
+            await gate(user, 'data:export',);
+            const ds = await orderExport.ordersDataset(query,);
+            if (query.format === 'csv') return sendCsv(res, ds,);
+            const site = await getSitePublicSettings().catch(() => ({ siteName: '', }),);
+            sendPrint(res, ds, { siteName: site.siteName ?? '', allColumns: query.columns === 'all', },);
+        },
+    },),
+
+    // Dashboard figures (admin). Literal path — declared before /orders/:id.
+    defineRoute({
+        method: 'get',
+        path: '/orders/stats',
+        auth: 'admin',
+        summary: 'Shop dashboard figures: paid revenue + orders for 7 / 30 days, to ship, needs attention, low stock.',
+        handler: () => shopStats.getStats(),
+    },),
+
+    // Per-supplier hand-off of one order (admin).
+    defineRoute({
+        method: 'get',
+        path: '/orders/:id/fulfilments',
+        auth: 'admin',
+        summary: 'Per-supplier fulfilment rows of an order: status, supplier order id, last error, attempts, sync times.',
+        input: { params: idParams, },
+        handler: async ({ params, },) => {
+            const rows = await providerFulfillment.listOrderFulfilments(params.id,);
+            const printifyUrl = rows.some((r,) => r.provider === 'printify' && r.externalOrderId,)
+                ? (await printify.getStatus().catch(() => null))?.ordersUrl ?? null
+                : null;
+            return rows.map((r,) => ({
+                ...r,
+                // The store's orders page (the per-order URL is not a documented format).
+                externalUrl: r.provider === 'printify' && r.externalOrderId ? printifyUrl : null,
+            }));
+        },
+    },),
+
+    defineRoute({
+        method: 'post',
+        path: '/orders/:id/fulfilment/:provider/retry',
+        auth: 'admin',
+        summary: 'Re-submit an order to one supplier (skipped when it already has a supplier order).',
+        input: { params: z.object({ id: z.string().uuid(), provider: z.string().max(32,), },), },
+        handler: ({ params, },) => providerFulfillment.retryOrderFulfilment(params.id, params.provider,),
+    },),
+
+    defineRoute({
+        method: 'post',
+        path: '/orders/:id/fulfilment/:provider/refresh',
+        auth: 'admin',
+        summary: 'Read one supplier order back and apply its status + tracking to ours.',
+        input: { params: z.object({ id: z.string().uuid(), provider: z.string().max(32,), },), },
+        handler: ({ params, },) => providerFulfillment.refreshOrderFulfilment(params.id, params.provider,),
+    },),
+
     // Order detail by id: user → own, admin → any.
     defineRoute({
         method: 'get',
@@ -863,8 +1030,10 @@ export const shopRoutes = [
         auth: 'user',
         summary: 'Fetch an order by id with items. Users see their own; admins see any.',
         input: { params: idParams, },
-        handler: ({ params, user, apiKey, },) => {
-            const isAdmin = isAdminRole(user?.role,) || Boolean(apiKey,);
+        handler: async ({ params, user, apiKey, },) => {
+            // An admin without shop.orders:read still sees their OWN orders.
+            const isAdmin = (isAdminRole(user?.role,) && (!user || await can({ id: user.id, role: user.role, }, 'shop.orders:read',)))
+                || Boolean(apiKey,);
             return orders.get(params.id, { isAdmin, userId: user?.id, email: user?.email, },);
         },
     },),
@@ -878,8 +1047,10 @@ export const shopRoutes = [
             'Update an order (admin, shop.orders:write): status/fulfillment/notes and the manual carrier/tracking number/tracking URL (marks tracking manual so a supplier sync keeps it). Transition to refunded issues a Stripe refund.',
         input: { params: idParams, body: orderUpdateSchema, },
         handler: async ({ params, body, user, audit, },) => {
-            // API keys are scoped by the key itself; a signed-in admin needs the permission.
-            if (user) await requirePermission({ id: user.id, role: user.role, }, 'shop.orders:write',);
+            // shop.orders:write is checked by the route table; moving an order
+            // to `refunded` sends money back through Stripe, which is its own
+            // permission.
+            if (body.status === 'refunded') await gate(user, 'shop.orders:refund',);
             return orders.update(params.id, body, audit(),);
         },
     },),
@@ -1112,6 +1283,14 @@ export const shopRoutes = [
 
     defineRoute({
         method: 'post',
+        path: '/printify/orders/resync',
+        auth: 'admin',
+        summary: 'Reconcile a full year of Printify orders in the background (answers at once; 409 while a sync runs).',
+        handler: async () => reply(await printify.startFullOrderResync(), { status: 202, },),
+    },),
+
+    defineRoute({
+        method: 'post',
         path: '/printify/sync/:id',
         auth: 'admin',
         summary: 'Resync a single product from Printify (pull the latest for one item).',
@@ -1119,3 +1298,5 @@ export const shopRoutes = [
         handler: ({ params, },) => printify.syncOneProduct(params.id,),
     },),
 ];
+
+export const shopRoutes = withPermissions(allShopRoutes, SHOP_ROUTE_PERMISSIONS,);

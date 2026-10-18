@@ -10,7 +10,7 @@
  */
 import type { EventTicketView, } from '@sitesurge/types';
 import { isStaffRole, } from '@sitesurge/types';
-import { NotFoundError, } from '../../core/errors';
+import { NotFoundError, ValidationError, } from '../../core/errors';
 import { query, } from '../../db';
 import * as repo from '../../repositories/events.repo';
 import { logger, } from '../../utils/logger';
@@ -24,6 +24,7 @@ export function maskEmail(email: string,): string {
 
 interface TicketRow {
     code: string;
+    checked_in_at: Date | null;
     status: EventTicketView['status'];
     price_cents_paid: number;
     currency: string;
@@ -60,7 +61,7 @@ export async function getTicketView(
     if (!event) throw new NotFoundError('Ticket not found',);
 
     const rows = await query<TicketRow & { code: string; }>(
-        `SELECT t.code, t.status, t.price_cents_paid, t.currency, t.order_id, tr.name AS tier_name
+        `SELECT t.code, t.status, t.price_cents_paid, t.currency, t.order_id, t.checked_in_at, tr.name AS tier_name
            FROM event_tickets t
            LEFT JOIN event_ticket_tiers tr ON tr.id = t.tier_id
           WHERE t.registration_id = $1
@@ -128,5 +129,38 @@ export async function getTicketView(
         totalCents: tickets.filter((t,) => t.status !== 'refunded' && t.status !== 'cancelled')
             .reduce((sum, t,) => sum + t.priceCents, 0,),
         isOwner,
+        checkedInAt: (() => {
+            const at = rows.rows.find((r,) => r.code === normalized,)?.checked_in_at;
+            return at ? new Date(at,).toISOString() : null;
+        })(),
+        canCheckIn: !!viewer && isStaffRole(viewer.role as never,),
     };
+}
+
+/**
+ * Check a ticket in at the door (or undo it). Only a `valid` ticket can be
+ * checked in and only a `checked_in` one undone — a refunded or cancelled
+ * ticket stays refused.
+ */
+export async function setTicketCheckIn(code: string, checkedIn: boolean,): Promise<{ code: string; status: string; checkedInAt: string | null; }> {
+    const normalized = code.trim().toUpperCase();
+    const r = await query<{ code: string; status: string; checked_in_at: Date | null; }>(
+        checkedIn
+            ? `UPDATE event_tickets SET status = 'checked_in', checked_in_at = NOW()
+                WHERE code = $1 AND status = 'valid' RETURNING code, status, checked_in_at`
+            : `UPDATE event_tickets SET status = 'valid', checked_in_at = NULL
+                WHERE code = $1 AND status = 'checked_in' RETURNING code, status, checked_in_at`,
+        [normalized,],
+    );
+    const row = r.rows[0];
+    if (!row) {
+        const cur = await query<{ status: string; }>(`SELECT status FROM event_tickets WHERE code = $1`, [normalized,],);
+        if (!cur.rows[0]) throw new NotFoundError('Ticket not found',);
+        throw new ValidationError(
+            cur.rows[0].status === 'checked_in' ? 'This ticket is already checked in.'
+                : cur.rows[0].status === 'valid' ? 'This ticket is not checked in.'
+                : `This ticket is ${cur.rows[0].status} and cannot be checked in.`,
+        );
+    }
+    return { code: row.code, status: row.status, checkedInAt: row.checked_in_at ? new Date(row.checked_in_at,).toISOString() : null, };
 }

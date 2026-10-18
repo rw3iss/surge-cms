@@ -6,6 +6,7 @@ import { cancel, defaultTitle, setUploadTitle, startUpload, uploads, usesMultipa
 import ModalShell from '../common/ModalShell';
 import Toggle from '../common/Toggle';
 import { FormField, } from '../forms';
+import { formatSize, } from './mediaUtils';
 import { formatEta, formatSpeed, } from './videoFormat';
 import './MediaUploadModal.scss';
 import './VideoMedia.scss';
@@ -28,17 +29,13 @@ interface MediaUploadModalProps {
     acceptTypes?: string;
 }
 
-function formatSize(bytes: number,): string {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1,) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1,) + ' MB';
-}
-
 export default function MediaUploadModal(props: MediaUploadModalProps,) {
     const [file, setFile,] = createSignal<File | null>(null,);
     const [previewUrl, setPreviewUrl,] = createSignal('',);
     const [title, setTitle,] = createSignal('',);
     const [description, setDescription,] = createSignal('',);
+    /** Screen-reader text — its own field; the description is NOT copied into it. */
+    const [alt, setAlt,] = createSignal('',);
     const [uploading, setUploading,] = createSignal(false,);
     const [success, setSuccess,] = createSignal(false,);
     const [error, setError,] = createSignal('',);
@@ -131,7 +128,8 @@ export default function MediaUploadModal(props: MediaUploadModalProps,) {
     const startDirect = (f: File,) => {
         const options: UploadSessionOptions = {};
         options.title = title().trim() || defaultTitle(f.name,);
-        if (description()) options.alt = description();
+        if (description()) options.caption = description();
+        if (alt().trim()) options.alt = alt().trim();
         if (isVideo()) {
             options.accessLevel = access();
             options.keepOriginal = keepOriginal();
@@ -177,7 +175,8 @@ export default function MediaUploadModal(props: MediaUploadModalProps,) {
         const sentTitle = title().trim() || defaultTitle(f.name,);
         try {
             const fields: Record<string, string> = { title: sentTitle, };
-            if (description()) fields.alt = description();
+            if (description()) fields.caption = description();
+            if (alt().trim()) fields.alt = alt().trim();
 
             let media = await cms.media.upload(f, fields, { signal: classicAbort.signal, },);
             if (classicAbort.signal.aborted) {
@@ -253,6 +252,20 @@ export default function MediaUploadModal(props: MediaUploadModalProps,) {
                                     placeholder={file() ? defaultTitle(file()!.name,) : 'Media title'}
                                 />
                             </FormField>
+                            <Show when={isImage() || isVideo()}>
+                                <FormField
+                                    label="Alt text (optional)"
+                                    hint="Describe the image for screen readers; leave empty for decorative images."
+                                >
+                                    <input
+                                        type="text"
+                                        value={alt()}
+                                        maxLength={1000}
+                                        onInput={(e,) => setAlt(e.currentTarget.value,)}
+                                        placeholder="e.g. A volunteer handing out food at the shelter"
+                                    />
+                                </FormField>
+                            </Show>
                             <FormField label="Description (optional)">
                                 <textarea
                                     rows={2}

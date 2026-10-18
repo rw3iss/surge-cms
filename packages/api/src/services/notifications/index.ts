@@ -24,8 +24,12 @@ export type { NotificationSpec, NotifyLink, NotifyPerson, NotifyRow, NotifySecti
 const CHANNEL_IDS: NotificationChannelId[] = ['email', 'sms', 'push',];
 
 // Light in-process cache — settings change rarely and every event would
-// otherwise re-read the row. Invalidated on settings update.
+// otherwise re-read the row. Invalidated on settings update on THIS process;
+// the short TTL bounds how long OTHER workers (CLUSTER_WORKERS > 1) keep old
+// recipients — before, a removed admin kept getting member PII until restart.
+export const NOTIFICATION_SETTINGS_TTL_MS = 30_000;
 let cached: NotificationSettings | null = null;
+let cachedAt = 0;
 
 /** Drop the cached notification settings (called after a settings write). */
 export function invalidateNotificationSettings(): void {
@@ -34,7 +38,9 @@ export function invalidateNotificationSettings(): void {
 
 /** Read the stored notification settings. Returns `{}` on miss / parse error. */
 export async function getNotificationSettings(): Promise<NotificationSettings> {
-    if (cached) return cached;
+    if (cached && Date.now() - cachedAt < NOTIFICATION_SETTINGS_TTL_MS) return cached;
+    cached = null;
+    cachedAt = Date.now();
     try {
         const result = await query<{ value: unknown; }>(
             `SELECT value FROM site_settings WHERE key = 'notifications'`,

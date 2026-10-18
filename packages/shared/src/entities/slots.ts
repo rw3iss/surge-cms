@@ -36,6 +36,21 @@ export function capSlotBinding(binding: SlotBinding, array: boolean,): SlotBindi
     return binding;
 }
 
+/**
+ * The record ids a binding names, when they are known WITHOUT a fetch
+ * (`single` / `list`), in order; `null` for a `query` binding (or anything
+ * else), which has to be resolved. Lets a block that only needs ids (a Gallery
+ * fed by a slot) skip fetching every record just to read its `id`.
+ */
+export function bindingIdsIfStatic(binding: SlotBinding | null | undefined, max?: number | null,): string[] | null {
+    if (!binding) return null;
+    let ids: string[] | null = null;
+    if (binding.mode === 'single') ids = binding.ref ? [binding.ref,] : [];
+    else if (binding.mode === 'list') ids = (binding.refs ?? []).filter(Boolean,);
+    if (!ids) return null;
+    return max && max > 0 ? ids.slice(0, max,) : ids;
+}
+
 /** True when a binding names at least one record (or is a query). */
 export function isSlotBindingFilled(b: SlotBinding | null | undefined,): b is SlotBinding {
     if (!b || typeof b !== 'object') return false;

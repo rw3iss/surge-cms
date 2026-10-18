@@ -47,11 +47,18 @@ export class LocalStorageProvider implements StorageProvider {
         }
     }
 
-    async deleteThumbnail(filename: string,): Promise<void> {
-        try {
-            await fs.unlink(path.join(this.uploadDir, `thumb_${filename}`,),);
-        } catch (err) {
-            logger.warn('Failed to delete local thumbnail', { filename, error: err, },);
+    async deleteThumbnail(filename: string, thumbnailUrl?: string | null,): Promise<void> {
+        const names = new Set([`thumb_${filename}`,],);
+        // The row's own thumbnail (a rebuilt one has another name): only a
+        // plain `/uploads/<name>` basename, never a path out of the dir.
+        const own = thumbnailUrl ? /^\/uploads\/([^/?#]+)$/.exec(thumbnailUrl.split(/[?#]/,)[0] ?? '',)?.[1] : undefined;
+        if (own && !own.includes('..',)) names.add(decodeURIComponent(own,),);
+        for (const name of names) {
+            try {
+                await fs.unlink(path.join(this.uploadDir, name,),);
+            } catch (err) {
+                logger.warn('Failed to delete local thumbnail', { filename: name, error: err, },);
+            }
         }
     }
 

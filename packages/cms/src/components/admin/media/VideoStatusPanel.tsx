@@ -13,6 +13,7 @@ import ConfirmModal from '../common/ConfirmModal';
 import Toggle from '../common/Toggle';
 import { FormField, } from '../forms';
 import { formatBytes, } from './videoFormat';
+import VideoShareLinks from './VideoShareLinks';
 import './VideoMedia.scss';
 
 const POLL_MS = 3000;
@@ -328,6 +329,8 @@ const VideoStatusPanel: Component<VideoStatusPanelProps> = (props,) => {
                                 </div>
                             </FormField>
                         </Show>
+
+                        <VideoShareLinks mediaId={props.mediaId} />
                     </>
                 )}
             </Show>

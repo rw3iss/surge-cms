@@ -1,0 +1,5 @@
+// CommitInput — the validation message under a field whose `validate` refused
+// the draft. Tokens are auto-injected via `additionalData`.
+.form-help--error {
+    color: $error-color;
+}

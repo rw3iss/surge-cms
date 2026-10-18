@@ -18,6 +18,8 @@ const KIND_LABEL: Record<MediaUsageKind, string> = {
     social_post: 'Social posts',
     user: 'Users',
     entity: 'Entity records',
+    sent_email: 'Sent emails (archived — will show a broken image)',
+    comment: 'Comments & forum posts',
 };
 
 /**

@@ -26,6 +26,8 @@ import { ConflictError, NotFoundError, ValidationError, } from '../core/errors';
 import { query, transaction, } from '../db';
 import { logger, } from '../utils/logger';
 import { logAudit, } from './audit';
+import { cronRegistry, } from './cron';
+import { listRecurringPrices, } from './payment/recurringPrices';
 import { getStripeClient, } from './payment/stripe';
 import { ENTITLED_STATUSES, invalidatePermissionCache, invalidatePlan, invalidateRoles, } from './permissions';
 import type { AuditContext, } from './types';
@@ -232,12 +234,16 @@ async function setTierPermissions(client: { query: typeof query; }, tierId: stri
 /**
  * Tier RANK (`sort_order`) is automatic: free = 0, paid 1…N by monthly price,
  * cheapest first (equal prices share a rank). The post gate and the entity
- * `subscription` filter compare these. Same statement as migration 131.
+ * `subscription` filter compare these. Same statement as migration 168 (131
+ * before it). "Dev only" levels (test levels, often at a token price) rank 0
+ * with Free and do NOT take a paid rank: a $1 test level used to become rank
+ * 1 and move every real level up. The monthly-equivalent maths mirrors
+ * `perMonthCents` in @sitesurge/types (utils/membershipPrice.ts).
  */
 export const TIER_RANK_SQL = `
 WITH monthly AS (
     SELECT id,
-           COALESCE(is_free, false) AS free,
+           (COALESCE(is_free, false) OR COALESCE(dev_only, false)) AS free,
            COALESCE(price_cents, 0) * CASE lower(COALESCE("interval", 'month'))
                WHEN 'year' THEN 1.0 / 12 WHEN 'week' THEN 52.0 / 12 WHEN 'day' THEN 365.0 / 12 ELSE 1 END
                / GREATEST(COALESCE(interval_count, 1), 1) AS per_month
@@ -370,29 +376,15 @@ export async function deleteTier(id: string, ctx: AuditContext,): Promise<void> 
 
 // ─── Stripe ──────────────────────────────────────────────────────────────
 
-/** Every active recurring price in the connected (default) Stripe account. */
+/** Every active recurring price in the connected (default) Stripe account (read fresh; the shared listing). */
 export async function stripePrices(): Promise<StripeSubscriptionPricesResponse> {
-    const stripe = getStripeClient('default',);
-    if (!stripe) return { connected: false, prices: [], };
+    if (!getStripeClient('default',)) return { connected: false, prices: [], };
     try {
-        const prices = [];
-        for await (const p of stripe.prices.list({ active: true, type: 'recurring', expand: ['data.product',], limit: 100, },)) {
-            const product = typeof p.product === 'string' ? null : p.product;
-            if (product && 'deleted' in product && product.deleted) continue;
-            prices.push({
-                priceId: p.id,
-                productId: typeof p.product === 'string' ? p.product : p.product.id,
-                productName: product && 'name' in product ? product.name : (typeof p.product === 'string' ? p.product : ''),
-                nickname: p.nickname ?? null,
-                unitAmount: p.unit_amount ?? null,
-                currency: p.currency,
-                interval: p.recurring?.interval ?? 'month',
-                intervalCount: p.recurring?.interval_count ?? 1,
-                isProductDefault: Boolean(product && 'default_price' in product && product.default_price
-                    && (typeof product.default_price === 'string' ? product.default_price : product.default_price.id) === p.id,),
-            },);
-            if (prices.length >= 500) break;
-        }
+        const all = await listRecurringPrices({ max: 500, },);
+        const prices = all.filter((p,) => !p.productDeleted,).map((p,) => ({
+            priceId: p.priceId, productId: p.productId ?? '', productName: p.productName, nickname: p.nickname,
+            unitAmount: p.unitAmount, currency: p.currency, interval: p.interval, intervalCount: p.intervalCount, isProductDefault: p.isProductDefault,
+        }));
         return { connected: true, prices, };
     } catch (e) {
         logger.warn('stripe prices list failed', { error: (e as Error).message, },);
@@ -463,7 +455,9 @@ export async function syncByStripeSubscription(stripeSubscriptionId: string,): P
  * subscription and, unless the target is the free tier, starts a new one.
  * A Stripe subscription is never touched here — cancel it in Stripe.
  */
-export async function assignTier(userId: string, tierId: string | null, ctx: AuditContext,): Promise<UserSubscriptionInfo> {
+export async function assignTier(userId: string, tierId: string | null, ctx: AuditContext, endsAt: string | null = null,): Promise<UserSubscriptionInfo> {
+    const ends = endsAt ? new Date(endsAt,) : null;
+    if (ends && (Number.isNaN(ends.getTime(),) || ends.getTime() <= Date.now())) throw new ValidationError('The end date must be in the future.',);
     const user = await query(`SELECT id FROM users WHERE id = $1`, [userId,],);
     if (!user.rows[0]) throw new NotFoundError('User',);
     const tier = tierId ? await getTier(tierId,) : null;
@@ -479,10 +473,45 @@ export async function assignTier(userId: string, tierId: string | null, ctx: Aud
             [userId, ENTITLED_STATUSES,],
         );
         if (tier && !tier.isFree) {
-            await c.query(`INSERT INTO subscriptions (user_id, plan_id, status, current_period_start) VALUES ($1, $2, 'active', NOW())`, [userId, tier.id,],);
+            // A comp may end (e.g. "free for 3 months"): stored as the period end, shown as "Ends".
+            await c.query(
+                `INSERT INTO subscriptions (user_id, plan_id, status, current_period_start, current_period_end, cancel_at_period_end)
+                 VALUES ($1, $2, 'active', NOW(), $3, $4)`,
+                [userId, tier.id, ends, !!ends,],
+            );
         }
     },);
     await syncUserRole(userId,);
-    await logAudit({ userId: ctx.userId, action: 'assign_subscription', entityType: 'user', entityId: userId, newValues: { tierId: tier?.id ?? null, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
+    await logAudit({ userId: ctx.userId, action: 'assign_subscription', entityType: 'user', entityId: userId, newValues: { tierId: tier?.id ?? null, endsAt: ends?.toISOString() ?? null, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
     return userSubscription(userId,);
+}
+
+/**
+ * End hand-assigned memberships whose end date has passed (daily cron) and
+ * move each user's role back with `syncUserRole`. Stripe rows are never
+ * touched — Stripe ends those itself.
+ */
+export async function expireManualSubscriptions(): Promise<number> {
+    const r = await query<{ user_id: string; }>(
+        `UPDATE subscriptions SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
+          WHERE stripe_subscription_id IS NULL AND status = ANY($1)
+            AND current_period_end IS NOT NULL AND current_period_end <= NOW()
+          RETURNING user_id`,
+        [ENTITLED_STATUSES,],
+    );
+    for (const u of new Set(r.rows.map((x,) => x.user_id,),)) {
+        await syncUserRole(u,).catch((e,) => logger.warn('membership expiry: role sync failed', { userId: u, error: (e as Error).message, },),);
+    }
+    if (r.rows.length) logger.info('membership expiry: ended hand-assigned memberships', { count: r.rows.length, },);
+    return r.rows.length;
+}
+
+/** Daily: end hand-assigned memberships past their end date. Registered on the primary only (lib.ts). */
+export function initMembershipCrons(): void {
+    cronRegistry.register({
+        name: 'membership-manual-expiry',
+        schedule: '17 4 * * *',
+        description: 'End hand-assigned memberships whose end date has passed',
+        handler: async () => { await expireManualSubscriptions(); },
+    },);
 }

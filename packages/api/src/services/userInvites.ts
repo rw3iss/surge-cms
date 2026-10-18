@@ -117,9 +117,11 @@ export async function resend(id: string, ctx: AuditContext,): Promise<UserInvite
     const cur = await query(`SELECT * FROM user_invites WHERE id = $1 AND accepted_at IS NULL`, [id,],);
     const row = cur.rows[0];
     if (!row) throw new NotFoundError('Invite',);
+    // A revoked invite stays revoked: "Resend" must not silently un-revoke it.
+    if (row.revoked_at) throw new ValidationError('This invite was revoked — send a new invite instead.',);
     const token = randomBytes(32,).toString('base64url',);
     const expires = new Date(Date.now() + TTL_DAYS * 86400_000,);
-    const r = await query(`UPDATE user_invites SET token_hash = $2, expires_at = $3, revoked_at = NULL WHERE id = $1 RETURNING *`, [id, hash(token,), expires,],);
+    const r = await query(`UPDATE user_invites SET token_hash = $2, expires_at = $3 WHERE id = $1 RETURNING *`, [id, hash(token,), expires,],);
     await sendInviteEmail(row.email, row.name ?? '', token, await roleLabels(row.roles,), expires,);
     await logAudit({ userId: ctx.userId, action: 'resend', entityType: 'user_invite', entityId: id, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
     return mapInvite(r.rows[0],);
@@ -150,14 +152,32 @@ export async function accept(
     input: { name: string; email: string; password: string; },
     ctx: { ipAddress?: string; userAgent?: string; },
 ): Promise<{ userId: string; email: string; role: string; }> {
-    const row = await liveInvite(token,);
+    await liveInvite(token,); // the precise refusal (used / expired / unknown)
+    // CLAIM first, in one conditional UPDATE: two accepts at once (a
+    // double-submit, possibly with two different emails) cannot both pass —
+    // before, both could create an account carrying the invite's roles.
+    const claimed = await query(
+        `UPDATE user_invites SET accepted_at = NOW()
+          WHERE token_hash = $1 AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > NOW()
+          RETURNING *`,
+        [hash(token,),],
+    );
+    const row = claimed.rows[0];
+    if (!row) throw new ConflictError('This invite was already used — sign in instead.',);
     const email = input.email.trim().toLowerCase();
     const { registerMember, } = await import('./auth.js');
-    const res = await registerMember(
-        { name: input.name, email, password: input.password, },
-        ctx,
-        { verified: email === String(row.email,).toLowerCase(), extraRoles: row.roles, },
-    );
-    await query(`UPDATE user_invites SET accepted_at = NOW(), accepted_user_id = $2 WHERE id = $1`, [row.id, res.userId,],);
+    let res: Awaited<ReturnType<typeof registerMember>>;
+    try {
+        res = await registerMember(
+            { name: input.name, email, password: input.password, },
+            ctx,
+            { verified: email === String(row.email,).toLowerCase(), extraRoles: row.roles, },
+        );
+    } catch (e) {
+        // Give the invite back (e.g. the email was taken) so it can be used again.
+        await query(`UPDATE user_invites SET accepted_at = NULL WHERE id = $1 AND accepted_user_id IS NULL`, [row.id,],).catch(() => {},);
+        throw e;
+    }
+    await query(`UPDATE user_invites SET accepted_user_id = $2 WHERE id = $1`, [row.id, res.userId,],);
     return { userId: res.userId, email: res.email, role: 'member', };
 }

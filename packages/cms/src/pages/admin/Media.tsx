@@ -1,7 +1,10 @@
 import { A, useSearchParams, } from '@solidjs/router';
 import type { Media, } from '@sitesurge/types';
-import { Component, createEffect, createResource, createSignal, For, on, onCleanup, Show, } from 'solid-js';
+import { Component, createEffect, createResource, createSignal, For, on, onCleanup, onMount, Show, } from 'solid-js';
 import MediaEditModal from '../../components/admin/media/MediaEditModal';
+import MediaSearchInput from '../../components/admin/media/MediaSearchInput';
+import Checkbox from '../../components/ui/Checkbox';
+import { useToast, } from '../../components/common/toast';
 import MediaTypeFilter, { type MediaKind, } from '../../components/admin/media/MediaTypeFilter';
 import MediaViewerModal from '../../components/admin/media/MediaViewerModal';
 import { downloadFile, formatSize, getTypeLabel, } from '../../components/admin/media/mediaUtils';
@@ -81,7 +84,30 @@ const VideoTile: Component<{ m: Media; onCancel?: () => void; cancelling?: boole
     );
 };
 
-
+/**
+ * A plain (not encoded) video tile: a placeholder until the tile scrolls into
+ * view, then `<video preload="metadata">` — a page of 100 old MP4 uploads
+ * otherwise opened 100 range requests at load.
+ */
+const LazyVideo: Component<{ src: string; }> = (p,) => {
+    const [visible, setVisible,] = createSignal(false,);
+    let el: HTMLDivElement | undefined;
+    onMount(() => {
+        if (!el || typeof IntersectionObserver === 'undefined') { setVisible(true,); return; }
+        const io = new IntersectionObserver((entries,) => {
+            if (entries.some((e,) => e.isIntersecting,)) { setVisible(true,); io.disconnect(); }
+        }, { rootMargin: '200px', },);
+        io.observe(el,);
+        onCleanup(() => io.disconnect());
+    },);
+    return (
+        <div ref={el} class="media-grid__lazy-video">
+            <Show when={visible()} fallback={<div class="media-video-tile__placeholder" aria-hidden="true">&#9654;</div>}>
+                <video src={p.src} preload="metadata" muted playsinline />
+            </Show>
+        </div>
+    );
+};
 
 /** Page sizes offered (server max 200); the choice is remembered per browser. */
 const PAGE_SIZES = [25, 50, 100, 200,];
@@ -109,7 +135,7 @@ const AdminMedia: Component = () => {
     const [meta, setMeta,] = createSignal<{ total: number; totalPages: number; } | null>(null,);
     // Type filter: any combination of types; none selected = All.
     const [types, setTypes,] = createSignal<MediaKind[]>([],);
-    const [searchInput, setSearchInput,] = createSignal('',);
+    const toast = useToast();
     const [searchQuery, setSearchQuery,] = createSignal('',);
     const [sortBy, setSortBy,] = createSignal('date_desc',);
     const [editingMedia, setEditingMedia,] = createSignal<any>(null,);
@@ -125,13 +151,18 @@ const AdminMedia: Component = () => {
         return q;
     };
 
+    // A failed fetch is an ERROR state (with Retry), not "No media found." —
+    // an empty library and a 500 must not look the same.
+    const [listError, setListError,] = createSignal<string | null>(null,);
     const [media, { refetch, },] = createResource(mediaQuery, async (q,) => {
         try {
             const res = await cms.media.list(q as any,);
             const m = res.meta as { total?: number; totalPages?: number; } | undefined;
             setMeta({ total: m?.total ?? res.data.length, totalPages: Math.max(1, m?.totalPages ?? 1,), },);
+            setListError(null,);
             return res.data as Media[];
-        } catch {
+        } catch (e) {
+            setListError((e as Error)?.message || 'Could not load the media library.',);
             return [] as Media[];
         }
     },);
@@ -162,20 +193,130 @@ const AdminMedia: Component = () => {
     // A direct upload finished in the tray → show the new item.
     createEffect(on(uploadsVersion, () => void refetchFresh(), { defer: true, },),);
 
-    const handleUpload = async (e: Event,) => {
-        const input = e.target as HTMLInputElement;
-        const file = input.files?.[0];
-        if (!file) return;
-        input.value = '';
-        if (usesMultipart(file,)) {
-            // Straight to storage; the upload tray shows progress and the list
-            // refetches when it completes.
-            startUpload(file,);
-            return;
+    /**
+     * Upload any number of files (picker or drop). Large files and videos go
+     * straight to storage (the upload tray shows progress; the list refetches
+     * when each completes); the rest through the classic upload, one at a time.
+     */
+    const [uploading, setUploading,] = createSignal(0,);
+    const uploadFiles = async (files: File[],) => {
+        let failed = 0;
+        let classic = 0;
+        for (const file of files) {
+            if (usesMultipart(file,)) {
+                startUpload(file,);
+                continue;
+            }
+            setUploading((n,) => n + 1,);
+            try {
+                await cms.media.upload(file, { title: defaultTitle(file.name,), },);
+                classic++;
+            } catch (e) {
+                failed++;
+                toast.error(`${file.name}: ${(e as Error)?.message || 'Upload failed.'}`,);
+            } finally {
+                setUploading((n,) => n - 1,);
+            }
         }
-        await cms.media.upload(file, { title: defaultTitle(file.name,), },);
-        refetch();
+        if (classic) {
+            toast.success(classic === 1 ? 'File uploaded.' : `${classic} files uploaded.`,);
+            await refetchFresh();
+        }
+        return failed;
     };
+
+    const handleUpload = (e: Event,) => {
+        const input = e.target as HTMLInputElement;
+        const files = [...(input.files ?? []),];
+        input.value = '';
+        if (files.length) void uploadFiles(files,);
+    };
+
+    // Drag files anywhere on the page to upload them.
+    const [dragging, setDragging,] = createSignal(false,);
+    let dragDepth = 0;
+    const hasFiles = (e: DragEvent,) => [...(e.dataTransfer?.types ?? []),].includes('Files',);
+    const onDragEnter = (e: DragEvent,) => {
+        if (!hasFiles(e,)) return;
+        e.preventDefault();
+        dragDepth++;
+        setDragging(true,);
+    };
+    const onDragLeave = () => {
+        dragDepth = Math.max(0, dragDepth - 1,);
+        if (!dragDepth) setDragging(false,);
+    };
+    const onDrop = (e: DragEvent,) => {
+        if (!hasFiles(e,)) return;
+        e.preventDefault();
+        dragDepth = 0;
+        setDragging(false,);
+        const files = [...(e.dataTransfer?.files ?? []),];
+        if (files.length) void uploadFiles(files,);
+    };
+
+    // ─── Selection (bulk delete) ─────────────────────────────────────
+    const [selecting, setSelecting,] = createSignal(false,);
+    const [selected, setSelected,] = createSignal<Set<string>>(new Set(),);
+    const isSelected = (id: string,) => selected().has(id,);
+    const toggleSelected = (id: string, on?: boolean,) => {
+        const next = new Set(selected(),);
+        if (on ?? !next.has(id,)) next.add(id,);
+        else next.delete(id,);
+        setSelected(next,);
+    };
+    const pageIds = () => (media.latest ?? []).map((m,) => m.id);
+    const allOnPage = () => pageIds().length > 0 && pageIds().every(isSelected,);
+    const stopSelecting = () => { setSelecting(false,); setSelected(new Set<string>(),); };
+    const [bulkBusy, setBulkBusy,] = createSignal(false,);
+    const bulkDelete = async () => {
+        const ids = [...selected(),];
+        if (!ids.length) return;
+        const ok = await confirmMediaDelete({
+            ids,
+            title: ids.length === 1 ? 'Delete 1 file?' : `Delete ${ids.length} files?`,
+            message: `Delete ${ids.length === 1 ? 'this file' : `these ${ids.length} files`} from the library and storage? This cannot be undone.`,
+        },);
+        if (!ok.confirmed) return;
+        setBulkBusy(true,);
+        try {
+            const r = await cms.media.bulkRemove(ids, { force: ok.force, },);
+            if (r.deleted.length) toast.success(r.deleted.length === 1 ? '1 file deleted.' : `${r.deleted.length} files deleted.`,);
+            if (r.failed.length) toast.error(`${r.failed.length} could not be deleted.`,);
+            stopSelecting();
+        } catch (err) {
+            toast.error(isMediaInUseError(err,)
+                ? 'Some of these files were just put to use — nothing was deleted. Try again to see where.'
+                : (err as Error)?.message || 'Delete failed.',);
+        } finally {
+            setBulkBusy(false,);
+            await refetchFresh();
+        }
+    };
+
+    // ─── "In gallery" chips + usage badges for the visible page ──────
+    const [inGallery, setInGallery,] = createSignal<Record<string, string>>({},);
+    createEffect(on(() => media.latest, (list,) => {
+        if (!list?.length || !isFeatureEnabled('gallery',)) { setInGallery({},); return; }
+        cms.gallery.admin.mediaLinks(list.map((m,) => m.id),).then(setInGallery,).catch(() => setInGallery({},),);
+    },),);
+    const [showUsage, setShowUsage,] = createSignal(false,);
+    const [usageCounts, setUsageCounts,] = createSignal<Record<string, number> | null>(null,);
+    createEffect(on([showUsage, () => media.latest,], async ([on, list,],) => {
+        if (!on || !list?.length) { setUsageCounts(null,); return; }
+        try {
+            const ids = list.map((m,) => m.id);
+            const counts: Record<string, number> = {};
+            for (let i = 0; i < ids.length; i += 100) {
+                const usage = await cms.media.usage(ids.slice(i, i + 100,),);
+                for (const [id, u,] of Object.entries(usage,)) counts[id] = u.length;
+            }
+            setUsageCounts(counts,);
+        } catch (e) {
+            toast.error((e as Error)?.message || 'Could not load usage.',);
+            setShowUsage(false,);
+        }
+    },),);
 
     /** Stop a video's encode and delete it (files, row, gallery items made from it). */
     const [cancellingId, setCancellingId,] = createSignal<string | null>(null,);
@@ -192,7 +333,7 @@ const AdminMedia: Component = () => {
             await cancelMedia(m.id, { force: ok.force, },);
             await refetchFresh();
         } catch (e) {
-            alert((e as Error)?.message || 'Could not cancel.',);
+            toast.error((e as Error)?.message || 'Could not cancel.',);
         } finally {
             setCancellingId(null,);
         }
@@ -230,7 +371,7 @@ const AdminMedia: Component = () => {
             if (processing) await cancelMedia(m.id, { force: ok.force, },);
             else await cms.media.remove(m.id, { force: ok.force, },);
         } catch (err) {
-            alert(isMediaInUseError(err,)
+            toast.error(isMediaInUseError(err,)
                 ? 'This file was just put to use somewhere — it was not deleted. Try again to see where.'
                 : (err as Error)?.message || 'Delete failed.',);
         }
@@ -250,18 +391,6 @@ const AdminMedia: Component = () => {
         setViewingMedia(null,);
     };
 
-
-    let searchTimeout: ReturnType<typeof setTimeout>;
-    const handleSearchInput = (value: string,) => {
-        setSearchInput(value,);
-        clearTimeout(searchTimeout,);
-        searchTimeout = setTimeout(() => setSearchQuery(value,), 300,);
-    };
-
-    const clearSearch = () => {
-        setSearchInput('',);
-        setSearchQuery('',);
-    };
 
     /** The page buttons + "Per page" row — rendered above AND below the grid. */
     const pager = (where: 'top' | 'bottom',) => (
@@ -283,69 +412,57 @@ const AdminMedia: Component = () => {
         </div>
     );
 
+    /** Clicking a tile: toggles it while selecting, else opens the viewer. */
+    const activate = (m: Media,) => (selecting() ? toggleSelected(m.id,) : openModal(m,));
+
     return (
-        <div>
+        <div
+            class={`media-library ${dragging() ? 'media-library--dragging' : ''}`}
+            onDragEnter={onDragEnter}
+            onDragOver={(e,) => { if (hasFiles(e,)) e.preventDefault(); }}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+        >
             <AdminTitle>Media</AdminTitle>
             <div class="admin-header">
                 <h1>Media Library</h1>
                 <div class="admin-header__actions">
-                <A href="/admin/media/settings" class="ui-button ui-button--secondary">Settings</A>
-                <label class="ui-button ui-button--primary">
-                    Upload File
-                    <input
-                        type="file"
-                        onChange={handleUpload}
-                        accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.zip"
-                        style={{ display: 'none', }}
-                    />
-                </label>
+                    <A href="/admin/media/settings" class="ui-button ui-button--secondary">Settings</A>
+                    <button
+                        type="button"
+                        class="ui-button ui-button--secondary"
+                        aria-pressed={selecting()}
+                        onClick={() => (selecting() ? stopSelecting() : setSelecting(true,))}
+                    >
+                        {selecting() ? 'Done' : 'Select'}
+                    </button>
+                    <label class="ui-button ui-button--primary">
+                        {uploading() ? `Uploading ${uploading()}…` : 'Upload Files'}
+                        <input
+                            type="file"
+                            multiple
+                            onChange={handleUpload}
+                            accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.zip"
+                            class="media-library__file-input"
+                        />
+                    </label>
                 </div>
             </div>
 
-            <div
-                class="media-filters"
-                style={{
-                    display: 'flex',
-                    gap: '0.75rem',
-                    'margin-bottom': '1.5rem',
-                    'flex-wrap': 'wrap',
-                    'align-items': 'center',
-                }}
-            >
+            <Show when={dragging()}>
+                <div class="media-library__drop" aria-hidden="true">Drop files to upload</div>
+            </Show>
+
+            <div class="media-filters">
                 <MediaTypeFilter value={types()} onChange={setTypes} />
-                <div class="form-group" style={{ margin: '0', flex: '1', 'min-width': '200px', position: 'relative', }}>
-                    <input
-                        type="text"
-                        placeholder="Search by title or description..."
-                        value={searchInput()}
-                        onInput={(e,) => handleSearchInput(e.currentTarget.value,)}
-                        style={{ 'padding-right': '2rem', }}
-                    />
-                    <Show when={searchInput()}>
-                        <button
-                            type="button"
-                            onClick={clearSearch}
-                            style={{
-                                position: 'absolute',
-                                right: '8px',
-                                top: '50%',
-                                transform: 'translateY(-50%)',
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
-                                padding: '2px 6px',
-                                'font-size': '1.1rem',
-                                color: '#94a3b8',
-                                'line-height': '1',
-                            }}
-                            title="Clear search"
-                        >
-                            &times;
-                        </button>
-                    </Show>
-                </div>
-                <div class="form-group" style={{ margin: '0', }}>
-                    <select value={sortBy()} onChange={(e,) => setSortBy(e.currentTarget.value,)}>
+                <MediaSearchInput
+                    class="media-filters__search"
+                    value={searchQuery()}
+                    onSearch={setSearchQuery}
+                    placeholder="Search by title or description..."
+                />
+                <div class="form-group media-filters__sort">
+                    <select value={sortBy()} onChange={(e,) => setSortBy(e.currentTarget.value,)} aria-label="Sort">
                         <option value="date_desc">Newest First</option>
                         <option value="date_asc">Oldest First</option>
                         <option value="title_asc">Title A-Z</option>
@@ -354,29 +471,85 @@ const AdminMedia: Component = () => {
                         <option value="size_asc">Smallest First</option>
                     </select>
                 </div>
+                <button
+                    type="button"
+                    class="ui-button ui-button--sm ui-button--secondary"
+                    aria-pressed={showUsage()}
+                    title="Show which files on this page are used somewhere (pages, posts, blocks, gallery, …)"
+                    onClick={() => setShowUsage(!showUsage(),)}
+                >
+                    {showUsage() ? 'Hide usage' : 'Show usage'}
+                </button>
             </div>
+
+            <Show when={selecting()}>
+                <div class="media-bulk-bar" role="toolbar" aria-label="Selected media">
+                    <Checkbox
+                        checked={allOnPage()}
+                        onChange={(on,) => { for (const id of pageIds()) toggleSelected(id, on,); }}
+                        label="Select all on this page"
+                    />
+                    <span class="media-bulk-bar__count">{selected().size} selected</span>
+                    <button
+                        type="button"
+                        class="ui-button ui-button--sm ui-button--danger"
+                        disabled={!selected().size || bulkBusy()}
+                        onClick={() => void bulkDelete()}
+                    >
+                        {bulkBusy() ? 'Deleting…' : 'Delete'}
+                    </button>
+                    <button type="button" class="ui-button ui-button--sm ui-button--secondary" onClick={stopSelecting}>Cancel</button>
+                </div>
+            </Show>
+
+            <Show when={listError()}>
+                <div class="alert alert--error media-library__error" role="alert">
+                    <span>Couldn't load the media library: {listError()}</span>
+                    <button type="button" class="ui-button ui-button--sm ui-button--secondary" onClick={() => void refetchFresh()}>Retry</button>
+                </div>
+            </Show>
 
             {pager('top',)}
             <Show
                 when={media.latest?.length}
                 fallback={
-                    <div class="empty-state">
-                        {media.loading ? 'Loading...' : 'No media found.'}
-                    </div>
+                    <Show when={!listError()}>
+                        <div class="empty-state">
+                            {media.loading ? 'Loading...' : 'No media found.'}
+                        </div>
+                    </Show>
                 }
             >
                 <div class="media-grid">
                     <For each={media.latest}>
                         {(m: any,) => (
-                            <div class="media-grid__item" onClick={() => openModal(m,)}>
-                                <div class="media-grid__preview">
+                            <div
+                                class="media-grid__item"
+                                classList={{ 'is-selected': selecting() && isSelected(m.id,), }}
+                                onClick={() => activate(m,)}
+                            >
+                                <Show when={selecting()}>
+                                    <div class="media-grid__select" onClick={(e,) => e.stopPropagation()}>
+                                        <Checkbox
+                                            checked={isSelected(m.id,)}
+                                            onChange={(on,) => toggleSelected(m.id, on,)}
+                                            label={<span class="sr-only">Select {m.title || m.originalName}</span>}
+                                        />
+                                    </div>
+                                </Show>
+                                <button
+                                    type="button"
+                                    class="media-grid__preview media-grid__open"
+                                    aria-label={selecting() ? `Select ${m.title || m.originalName}` : `View ${m.title || m.originalName}`}
+                                    onClick={(e,) => { e.stopPropagation(); activate(m,); }}
+                                >
                                     <Show when={m.mimeType?.startsWith('image/',)}>
-                                        <img src={m.thumbnailUrl || m.url} alt={m.alt || m.title || m.originalName} />
+                                        <img src={m.thumbnailUrl || m.url} alt={m.alt || m.title || m.originalName} loading="lazy" decoding="async" />
                                     </Show>
                                     <Show when={m.mimeType?.startsWith('video/',)}>
                                         <Show
                                             when={isEncodedVideo(m,)}
-                                            fallback={<video src={m.url} preload="metadata" muted playsinline />}
+                                            fallback={<LazyVideo src={m.url} />}
                                         >
                                             <VideoTile m={m} onCancel={() => void handleCancel(m,)} cancelling={cancellingId() === m.id} />
                                         </Show>
@@ -388,7 +561,7 @@ const AdminMedia: Component = () => {
                                             <span>{getTypeLabel(m.mimeType,)}</span>
                                         </div>
                                     </Show>
-                                </div>
+                                </button>
 
                                 <div class="media-grid__info">
                                     <div class="media-grid__name" title={m.title || m.originalName}>
@@ -405,21 +578,42 @@ const AdminMedia: Component = () => {
                                         <span>{formatSize(m.size,)}</span>
                                         <span>{new Date(m.createdAt,).toLocaleDateString()}</span>
                                     </div>
+                                    <Show when={inGallery()[m.id] || usageCounts()}>
+                                        <div class="media-grid__chips">
+                                            <Show when={inGallery()[m.id]}>
+                                                <span class="media-grid__chip media-grid__chip--gallery">In gallery</span>
+                                            </Show>
+                                            <Show when={usageCounts()}>
+                                                {(c,) => (
+                                                    <Show
+                                                        when={(c()[m.id] ?? 0) > 0}
+                                                        fallback={<span class="media-grid__chip media-grid__chip--unused">Unused</span>}
+                                                    >
+                                                        <span class="media-grid__chip">Used ×{c()[m.id]}</span>
+                                                    </Show>
+                                                )}
+                                            </Show>
+                                        </div>
+                                    </Show>
                                     <div class="media-grid__actions">
                                         <button
+                                            type="button"
                                             class="ui-button ui-button--sm ui-button--secondary"
                                             onClick={(e,) => startEdit(m, e,)}
                                         >
                                             Edit
                                         </button>
                                         <button
+                                            type="button"
                                             class="ui-button ui-button--sm ui-button--secondary"
                                             onClick={(e,) => handleDownload(m, e,)}
                                             title="Download"
+                                            aria-label={`Download ${m.title || m.originalName}`}
                                         >
                                             &#8595;
                                         </button>
                                         <button
+                                            type="button"
                                             class="ui-button ui-button--sm ui-button--danger"
                                             onClick={(e,) => handleDelete(m, e,)}
                                         >

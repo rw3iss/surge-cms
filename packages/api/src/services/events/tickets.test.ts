@@ -10,12 +10,17 @@ import { describe, expect, it, vi, beforeEach, } from 'vitest';
 const findById = vi.fn();
 const findTierById = vi.fn();
 const countSoldByTier = vi.fn();
+const countHeldByEmail = vi.fn(async () => 0);
 
 vi.mock('../../repositories/events.repo', () => ({
     findById: (...a: unknown[]) => findById(...a),
     findTierById: (...a: unknown[]) => findTierById(...a),
     countSoldByTier: (...a: unknown[]) => countSoldByTier(...a),
+    countHeldByEmail: (...a: unknown[]) => (countHeldByEmail as (...x: unknown[]) => unknown)(...a),
 }),);
+vi.mock('./access', () => ({ assertCanRegister: async () => undefined, assertCanBuyTier: async () => undefined, }),);
+const assertBookable = vi.fn(async () => undefined);
+vi.mock('./bookable', () => ({ assertBookableOccurrence: (...a: unknown[]) => (assertBookable as (...x: unknown[]) => unknown)(...a), }),);
 vi.mock('../../db', () => ({ query: vi.fn(), }),);
 
 const { resolveTicketLines, } = await import('./tickets');
@@ -110,5 +115,45 @@ describe('resolveTicketLines', () => {
             line({ tierId: 't2', quantity: 1, },),
         ] as never,);
         expect(totalCents,).toBe(2 * 2500 + 5000,);
+    },);
+},);
+
+describe('ticketCode', () => {
+    it('is XXXXX-XXXXX from the unambiguous alphabet', async () => {
+        const { ticketCode, } = await import('./tickets');
+        for (let i = 0; i < 200; i += 1) {
+            expect(ticketCode(),).toMatch(/^[A-HJ-NP-Z2-9]{5}-[A-HJ-NP-Z2-9]{5}$/,);
+        }
+    },);
+    it('does not use Math.random', async () => {
+        const { ticketCode, } = await import('./tickets');
+        const spy = vi.spyOn(Math, 'random',);
+        ticketCode();
+        expect(spy,).not.toHaveBeenCalled();
+        spy.mockRestore();
+    },);
+},);
+
+describe('resolveTicketLines — public path', () => {
+    it('checks the date is a bookable occurrence', async () => {
+        assertBookable.mockRejectedValueOnce(new Error('That date has already passed.',),);
+        await expect(resolveTicketLines([line(),] as never, { viewer: null, },),).rejects.toThrow(/already passed/,);
+    },);
+
+    it('enforces the per-buyer cap against tickets the email already holds', async () => {
+        findTierById.mockResolvedValue({ ...TIER, maxPerOrder: 4, },);
+        countHeldByEmail.mockResolvedValueOnce(3,);
+        await expect(resolveTicketLines([line({ quantity: 2, },),] as never, { viewer: null, buyerEmail: 'a@b.test', },),)
+            .rejects.toThrow(/limited to 4 per person — you can add 1 more/,);
+        countHeldByEmail.mockResolvedValueOnce(0,);
+        await expect(resolveTicketLines([line({ quantity: 4, },),] as never, { viewer: null, buyerEmail: 'a@b.test', },),)
+            .resolves.toMatchObject({ totalCents: 10000, },);
+    },);
+
+    it('the post-payment path (no viewer) skips the public checks', async () => {
+        findTierById.mockResolvedValue({ ...TIER, maxPerOrder: 1, },);
+        assertBookable.mockClear();
+        await expect(resolveTicketLines([line({ quantity: 3, },),] as never,),).resolves.toBeTruthy();
+        expect(assertBookable,).not.toHaveBeenCalled();
     },);
 },);

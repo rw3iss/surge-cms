@@ -129,3 +129,27 @@ export interface MediaVideoShareResponse {
     url: string;
     expiresAt: string;
 }
+
+/** One issued share link (from the audit log; the token itself is never stored). */
+export interface MediaVideoShareLink {
+    createdAt: string;
+    createdBy: { id: string; name: string; } | null;
+    expiresAt: string | null;
+    days: number | null;
+    /** Revoked by "Revoke share links" or an access-level change since it was issued. */
+    revoked: boolean;
+    /** Past its expiry. */
+    expired: boolean;
+}
+
+/** GET /video/:id/shares — the links issued for a video, newest first (≤ 50). */
+export interface MediaVideoSharesResponse {
+    links: MediaVideoShareLink[];
+    /** When every link was last revoked (null = never). */
+    lastRevokedAt: string | null;
+}
+
+/** POST /video/:id/share/revoke — invalidates every link issued so far. */
+export interface MediaVideoShareRevokeResponse {
+    revoked: true;
+}

@@ -1,9 +1,10 @@
-/** Small helpers shared by the media library page, its viewer and the select modal. */
+/** Small helpers shared by the media library page, its viewer, the modals and the gallery admin. */
+import { formatFileSize, } from '@sitesurge/types';
 
-export function formatSize(bytes: number,): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1,)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1,)} MB`;
+/** `532 B`, `4.2 KB`, `1.3 GB` — the ONE size formatter for media UI (GB/TB aware). */
+export function formatSize(bytes: number | null | undefined,): string {
+    if (bytes === null || bytes === undefined || !Number.isFinite(Number(bytes,),)) return '—';
+    return formatFileSize(Number(bytes,),);
 }
 
 export function getTypeLabel(mimeType: string,): string {

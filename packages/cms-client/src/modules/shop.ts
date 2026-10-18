@@ -1,4 +1,6 @@
 import type {
+    ShopOrderFulfilment,
+    ShopStats,
     Paginated,
     ShopCheckoutBody,
     ShopCheckoutPreviewBody,
@@ -238,10 +240,41 @@ export class ShopModule extends ModuleBase {
         getByNumber: (
             orderNumber: string,
             options?: QueryOptions,
+            /** The order's access key (`?k=` of the confirmation link): unlocks
+             *  the buyer's name/email and digital download tokens. */
+            accessKey?: string | null,
         ): Promise<ShopOrderByNumberResponse> =>
             this.get<ShopOrderByNumberResponse>('/shop/orders/number/:orderNumber', {
-                params: { orderNumber, }, options,
+                params: { orderNumber, },
+                ...(accessKey ? { query: { k: accessKey, }, } : {}),
+                options,
             },),
+
+        /** GET /shop/orders/export — URL (CSV, or `print`), with the Orders table
+         *  filters; opened by navigation so the session cookie authenticates it. */
+        exportUrl: (format: 'csv' | 'print', query: Record<string, string | number | boolean | undefined | null> = {},): string => {
+            const qs = new URLSearchParams({ format, },);
+            for (const [k, v,] of Object.entries(query,)) {
+                if (v !== undefined && v !== null && v !== '' && v !== false) qs.set(k, String(v,),);
+            }
+            return `${this.core.config.apiBase}/shop/orders/export?${qs.toString()}`;
+        },
+
+        /** GET /shop/orders/stats (admin) — dashboard figures for named periods. */
+        stats: (): Promise<ShopStats> =>
+            this.get<ShopStats>('/shop/orders/stats', { options: { cache: false, }, },),
+
+        /** GET /shop/orders/:id/fulfilments (admin) — per-supplier hand-off rows. */
+        fulfilments: (id: string,): Promise<ShopOrderFulfilment[]> =>
+            this.get<ShopOrderFulfilment[]>('/shop/orders/:id/fulfilments', { params: { id, }, options: { cache: false, }, },),
+
+        /** POST /shop/orders/:id/fulfilment/:provider/retry (admin) — re-submit to one supplier. */
+        retryFulfilment: (id: string, provider: string,): Promise<{ submitted: string[]; failed: Array<{ provider: string; error: string; }>; skipped: string[]; }> =>
+            this.mutate('POST', '/shop/orders/:id/fulfilment/:provider/retry', { params: { id, provider, }, invalidates: ['shop',], },),
+
+        /** POST /shop/orders/:id/fulfilment/:provider/refresh (admin) — read the supplier order back. */
+        refreshFulfilment: (id: string, provider: string,): Promise<{ linked: boolean; changed: boolean; orderStatusAfter: string; conflict?: string; }> =>
+            this.mutate('POST', '/shop/orders/:id/fulfilment/:provider/refresh', { params: { id, provider, }, invalidates: ['shop',], },),
 
         /** PATCH /shop/orders/:id (admin) — status/fulfillment/tracking/notes/refund. */
         update: (id: string, body: ShopOrderUpdateBody,): Promise<ShopOrderUpdateResponse> =>
@@ -271,8 +304,9 @@ export class ShopModule extends ModuleBase {
          * bytes here would mean hand-rolling an object URL and re-deriving the
          * filename on the client.
          */
-        receiptUrl: (orderNumber: string,): string =>
-            `${this.core.config.apiBase}/shop/orders/${encodeURIComponent(orderNumber,)}/receipt`,
+        receiptUrl: (orderNumber: string, accessKey?: string | null,): string =>
+            `${this.core.config.apiBase}/shop/orders/${encodeURIComponent(orderNumber,)}/receipt`
+                + (accessKey ? `?k=${encodeURIComponent(accessKey,)}` : ''),
     };
 
     /**
@@ -369,6 +403,11 @@ export class ShopModule extends ModuleBase {
         sync: (): Promise<PrintifySyncResponse> =>
             this.mutate<PrintifySyncResponse>('POST', '/shop/printify/sync', { invalidates: ['shop',], },),
 
+        /** POST /shop/printify/orders/resync — a full year of orders, in the
+         *  background (202 at once; 409 while another sync runs). */
+        fullOrderResync: (): Promise<{ started: true; sinceDays: number; }> =>
+            this.mutate<{ started: true; sinceDays: number; }>('POST', '/shop/printify/orders/resync', { invalidates: ['shop',], },),
+
         /** POST /shop/printify/sync/:id — resync a single product from Printify. */
         syncOne: (id: string,): Promise<PrintifyOneSyncResponse> =>
             this.mutate<PrintifyOneSyncResponse>('POST', '/shop/printify/sync/:id', {
@@ -395,6 +434,8 @@ export interface PrintifyStatusResponse {
     /** Count of paid orders whose Printify handoff hasn't completed and need
      *  operator attention (auto-retried by the cron). Absent on older servers. */
     needsAttentionCount?: number;
+    /** The same count split by reason (an order can have two). */
+    attention?: { total: number; notSent: number; onHold: number; stalled: number; cancelled: number; };
     /** Printify dashboard URL of the store's orders page. */
     ordersUrl?: string | null;
 }

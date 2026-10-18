@@ -743,3 +743,9 @@
   flex-wrap: wrap;
   gap: $spacing-sm $spacing-lg;
 }
+
+// ─── API keys panel + role manager (moved from inline styles) ───
+.api-key__created { margin-top: $spacing-sm; }
+.api-key__created-value { flex: 1; word-break: break-all; }
+.api-key__scopes { gap: 6px; margin-bottom: $spacing-sm; }
+.role-manager__actions { text-align: right; white-space: nowrap; }

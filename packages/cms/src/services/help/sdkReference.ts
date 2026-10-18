@@ -1057,7 +1057,7 @@ export default AnnouncementEditor;`,
                         'The admin Live console previews the webcam and microphone, and holds the show settings: archive '
                         + 'video (record for later, default on), chat (off / public / members / subscribers) and reactions.',
                         'Once the post is published, host controls drive the live room: Go live, Pause / Resume, Mute, '
-                        + 'End show (asks to confirm; an ended show cannot restart). Ending sets `live_ended_at`.',
+                        + 'End show (asks to confirm). Ending sets `live_ended_at`; Recordings → Restart show re-opens it.',
                         'Viewers on the post page join a WebSocket room (`/ws/live?post=<id>`) for status, chat and '
                         + 'reactions. Every command carries a short-lived room ticket (`cms.posts.liveTicket(id)`), and '
                         + 'the server re-checks who sent it — host commands need `posts.live:host`, deleting chat '
@@ -1069,6 +1069,7 @@ export default AnnouncementEditor;`,
                         + 'plays on the post page at camera quality; the multi-quality version replaces it once encoded.',
                     ],
                 },
+                { links: [{ href: '/admin/help/live-shows', label: 'Live shows', desc: 'The operator guide: provider setup, recording, replays, viewers and moderation.', },], },
             ],
         },
         {
@@ -1274,6 +1275,107 @@ await cms.gallery.updateSettings({ baseUrl: '/photos', access: 'members', allowV
                 },
                 {
                     p: 'Guest comments also need comments:anonymous (Comments feature). Deleting media from the gallery also needs media:write.',
+                },
+            ],
+        },
+    ],
+};
+
+/** Operator guide for live shows — mirrors docs/how-it-works/LIVE-SHOWS.md. */
+export const LIVE_SHOWS_DOC: SdkDoc = {
+    id: 'live-shows',
+    path: '/admin/help/live-shows',
+    title: 'Live shows',
+    lead:
+        'A Live Show is a post type: the host streams from the browser, viewers watch on the post page with chat and '
+        + 'reactions, and the show is recorded so it can be replayed. This guide covers setup, running a show, '
+        + 'recordings and replays, and moderating viewers.',
+    sections: [
+        {
+            heading: 'Set up the video provider',
+            blocks: [
+                {
+                    list: [
+                        'Posts → Settings → Live Show: choose the provider. Cloudflare Stream is the implemented one '
+                        + '(LiveKit and 100ms are listed but not implemented).',
+                        'Cloudflare: enable Stream on the account, create an API token with Account → Stream → Edit, and enter '
+                        + 'the account id, the token and the customer subdomain. Secrets are masked after saving.',
+                        'The host publishes over WHIP and viewers watch over WHEP, with under a second of delay. The site\'s '
+                        + 'Content Security Policy is extended with the provider host automatically.',
+                    ],
+                },
+                { note: 'Behind nginx, `/ws/live` needs the WebSocket upgrade headers (the same as `/ws/admin`).', },
+            ],
+        },
+        {
+            heading: 'Run a show',
+            blocks: [
+                {
+                    list: [
+                        'Posts → New Post → Live Show. The console previews the camera and microphone and holds the show '
+                        + 'settings: chat (off / public / members / subscribers), reactions, and whether to record.',
+                        'Publish the post, then use the host controls: Go live, Pause / Resume, Mute, End show (asks to confirm).',
+                        'Who can watch follows the post: its subscription tier and published status. A viewer the post locks '
+                        + 'out sees the upgrade message instead of the player.',
+                        'Host controls need `posts.live:host`; deleting chat messages needs `posts.live:chat_moderate`.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'Recording and replays',
+            blocks: [
+                {
+                    table: [
+                        ['Recording method', 'What happens',],
+                        ['Browser (default)', 'The host page records the camera and uploads it in 8 MiB parts while live. A reload starts "part 2"; it never appends.',],
+                        ['Server', 'Planned: a recorder on the server. Not available yet.',],
+                        ['None', 'Nothing is recorded.',],
+                    ],
+                },
+                {
+                    list: [
+                        'When the show ends the recording becomes a video in the Media library. An H.264 recording (Chrome, '
+                        + 'Edge, Safari) gets a quick replay within a minute or two; the multi-quality version replaces it once encoded.',
+                        'Each completed recording is a new VERSION. The console\'s Recordings card lists them: play one, '
+                        + 'Show on post, or Delete it (its files are removed from storage and the CDN).',
+                        'Restart show re-opens an ended show so you can go live again and record another version.',
+                        'A video still used elsewhere (a gallery item, another post, a template) is only removed from '
+                        + 'this post when you delete it; the confirm dialog lists where it is used.',
+                        'The chat is saved too: the ended post shows it read-only beside the replay, and the Recordings '
+                        + 'card has Download chat transcript (deleted lines marked).',
+                        'A safety net completes an unfinished recording 10 minutes after the show ends, plus a daily sweep.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'Viewers and moderation',
+            blocks: [
+                {
+                    list: [
+                        'Click the viewer count in the console header to open the Viewers panel (Settings swaps back).',
+                        'Each non-staff viewer has a menu: Mute (no chat), Silence for N minutes (at least 5; no chat, no '
+                        + 'reactions), Kick (this show) and Ban (every show — permanent, or for 1 hour to 30 days). Staff cannot be moderated.',
+                        'A guest is banned by their browser id AND their IP, since clearing storage gives a new id. Unban from '
+                        + 'the panel\'s Banned list.',
+                        'Every moderation action is recorded in the audit log (`live_mute`, `live_ban`, …).',
+                        'The server checks bans and kicks on every chat and reaction, not only at connect — a banned member '
+                        + 'cannot chat from a fresh anonymous window.',
+                        'Moderation needs `posts.live:moderate_viewers` (staff by default).',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'SDK and API',
+            blocks: [
+                {
+                    code: `const room = await cms.posts.liveState(id);                  // status, viewers, chat mode
+const { token } = await cms.posts.liveTicket(id);            // room ticket (15 min)
+const viewers = await cms.posts.liveViewers(id);             // staff
+await cms.posts.liveModerate(id, { key: 'u:<userId>', action: 'mute' });
+const versions = await cms.posts.liveReplays.list(id);       // recording versions`,
                 },
             ],
         },

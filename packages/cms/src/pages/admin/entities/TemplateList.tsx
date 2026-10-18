@@ -54,6 +54,7 @@ const TemplateList: Component = () => {
                                         </A>
                                         <span class="entity-template-row__mode">
                                             {t.mode}{t.maxRecords ? ` · max ${t.maxRecords}` : ''}
+                                            {t.usageCount != null ? ` · used in ${t.usageCount}` : ''}
                                         </span>
                                     </div>
                                     <Show when={t.description}>

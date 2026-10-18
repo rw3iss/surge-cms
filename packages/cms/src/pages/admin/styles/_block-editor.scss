@@ -550,6 +550,19 @@
     font-weight: 600;
     font-size: 10px;
     flex: 1;
+    // A <button> (keyboard-reachable select control) styled as the old label.
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    text-align: left;
+    font-family: inherit;
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: 2px solid $primary-color;
+      outline-offset: 2px;
+    }
   }
 
   &__hover-btn {
@@ -1672,4 +1685,42 @@
     justify-content: space-between;
     gap: 0.75rem;
     flex-wrap: wrap;
+}
+
+// Amber advisory text under a block-panel field (e.g. "more than 12 columns").
+.form-help--warning {
+  display: block;
+  color: color.adjust($warning-color, $lightness: -20%);
+  font-size: $font-size-xs;
+}
+
+// Muted one-line summary in a block's collapsed preview ("Carousel — 3 slides").
+.block-preview-summary {
+  color: var(--admin-text-muted, #{$text-light});
+  font-size: $font-size-sm;
+}
+
+// Post-list "Brevity" tooltip paragraphs.
+.post-list-brevity-help p {
+  margin: 0 0 $spacing-xs;
+
+  &:last-child {
+    margin: 0;
+  }
+}
+
+// Video block panel.
+.block-video {
+  &__preview {
+    margin-bottom: $spacing-sm;
+  }
+
+  &__view {
+    margin-bottom: $spacing-sm;
+  }
+
+  // Hidden behind the "Upload video" button.
+  &__file {
+    display: none;
+  }
 }

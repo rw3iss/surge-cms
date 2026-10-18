@@ -86,3 +86,24 @@ export function templateDataPlaceholderText(blockLabel: string, lookup: Extract<
     if (lookup.actual) return `${head} (no ${lookup.actual} records are bound here)`;
     return `${head} (this block is not inside an entity template)`;
 }
+
+/**
+ * How many records a `query` binding asks for: the query's OWN limit, never
+ * above the template's cap (`maxRecords`), never above `ceiling` (the inbox
+ * cap in email). No query limit → the cap; no cap either → 20 (or `ceiling`).
+ *
+ * Shared by the web resolver (cms `services/entityBinding.ts`) and the server
+ * one (api `services/templateSlots.ts`), so a template shows the same number
+ * of records on the site and in email by construction.
+ */
+export function bindingQueryLimit(
+    maxRecords: number | null | undefined,
+    queryLimit: number | null | undefined,
+    ceiling = Infinity,
+): number {
+    const cap = Math.min(maxRecords && maxRecords > 0 ? maxRecords : Infinity, ceiling,);
+    const fallback = Number.isFinite(cap,) ? cap : 20;
+    const want = queryLimit && queryLimit > 0 ? queryLimit : fallback;
+    return Math.min(cap, want,);
+}
+

@@ -65,6 +65,8 @@ const syncBody = z.object({
     items: z.array(patch.extend({ id: z.string().uuid().optional(), mediaId: z.string().uuid().optional(), },),).max(5000,),
     remove: z.array(z.object({ id: z.string().uuid(), deleteMedia: z.boolean().optional(), },),).max(5000,).optional(),
     forceMedia: z.boolean().optional(),
+    basedOn: z.object({ updatedAt: z.string().datetime().nullable(), count: z.number().int().min(0,), },).optional(),
+    overwrite: z.boolean().optional(),
 },) satisfies z.ZodType<GallerySyncBody>;
 
 /** `?listing=true` (gallery pages only) — query strings carry booleans as text. */
@@ -80,6 +82,7 @@ const listQuery = z.object({
     sort: z.enum(['order', 'newest', 'oldest', 'title', 'random',],).optional(),
     limit: z.coerce.number().int().min(1,).max(200,).optional(),
     page: z.coerce.number().int().min(1,).optional(),
+    seed: z.string().regex(/^[\w-]{1,32}$/,).optional(),
     listing: queryBool,
 },);
 

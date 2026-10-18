@@ -1,3 +1,5 @@
+import rateLimit, { ipKeyGenerator, } from 'express-rate-limit';
+import { RedisRateLimitStore, } from '../middleware/rateLimitStore';
 import * as applications from '../services/membershipApplications';
 import type { MembershipApplyBody, MembershipApplySubmitBody, } from '@sitesurge/types';
 /**
@@ -79,6 +81,17 @@ const pageQuery = z.object({
 // Query coerces (string → number), so assert z.infer compatibility.
 type _AssertPaymentsPageQuery = AssertCompatible<z.infer<typeof pageQuery>, PaymentsTransactionsQuery>;
 
+/** Membership application submits: 10 per IP per hour (Redis-backed, so the ceiling holds across workers). */
+const applicationLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 10,
+    store: new RedisRateLimitStore('rl:apply:',),
+    message: { success: false, error: { code: 'RATE_LIMITED', message: 'Too many applications from this network. Please try again later.', }, },
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req,) => (req.ip ? ipKeyGenerator(req.ip,) : 'unknown'),
+},);
+
 export const paymentsRoutes = [
 
     defineRoute({
@@ -155,11 +168,15 @@ export const paymentsRoutes = [
     defineRoute({
         method: 'post', path: '/membership/apply/submit', auth: 'optional',
         summary: 'Step 1 of applying: the answers, signed in or not. The team is emailed now; a signed-out applicant gets a token to claim it after creating an account.',
+        // Anonymous + sends mail: rate-limited per IP (shared across workers),
+        // a honeypot field, and one pending row per (email, level) in the service.
+        pre: [applicationLimiter,],
         input: {
             body: z.object({
                 tierId: z.string().uuid(),
                 priceId: z.string().max(255,).optional(),
                 answers: z.array(z.object({ questionId: z.string().max(100,), value: z.unknown(), },),).max(100,),
+                website: z.string().max(500,).optional(),
             },),
         },
         handler: async ({ body, user, audit, },) => {

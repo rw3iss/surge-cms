@@ -11,6 +11,7 @@
  * fetching the referenced template's blocks, exactly as it already does for an
  * `entity` block. Writes are admin-only.
  */
+import { isStaffRole, } from '@sitesurge/types';
 import { z, } from 'zod';
 import { blockStyleRecord, } from '../api/blockStyleInput';
 import { templateSlotsInput, } from '../api/templateSlotInput';
@@ -61,6 +62,9 @@ const blockSchema = z.object({
     style: blockStyleRecord.optional(),
 },);
 const blocksBody = z.object({ blocks: z.array(blockSchema,), },);
+// Create / update may carry the block tree, applied with the metadata in ONE transaction.
+const createWithBlocks = createSchema.extend({ blocks: z.array(blockSchema,).optional(), },);
+const updateWithBlocks = updateSchema.extend({ blocks: z.array(blockSchema,).optional(), },);
 
 export const componentsRoutes = [
     defineRoute({
@@ -68,7 +72,11 @@ export const componentsRoutes = [
         path: '/templates',
         auth: 'optional',
         summary: 'List global (entity-less) block templates',
-        handler: async () => cbtSvc.listGlobal(),
+        // Staff also get each component's `usages` / `usageCount`.
+        handler: async ({ user, },) => {
+            const list = await cbtSvc.listGlobal();
+            return isStaffRole(user?.role,) ? cbtSvc.withUsageCounts(list,) : list;
+        },
     },),
 
     defineRoute({
@@ -122,11 +130,15 @@ export const componentsRoutes = [
         path: '/templates',
         auth: 'admin',
         summary: 'Create a global block template',
-        input: { body: createSchema, },
+        input: { body: createWithBlocks, },
         handler: async ({ body, user, },) => {
             await assertMayWriteScript(body, user,);
+            const { blocks, ...meta } = body;
             // entityTypeKey stays null — that IS what makes it global.
-            return reply(await cbtSvc.create({ ...body, entityTypeKey: null, },), { status: 201, },);
+            const tpl = blocks
+                ? await cbtSvc.saveWithBlocks(null, { ...meta, entityTypeKey: null, }, blocks,)
+                : await cbtSvc.create({ ...meta, entityTypeKey: null, },);
+            return reply(tpl, { status: 201, },);
         },
     },),
 
@@ -135,10 +147,13 @@ export const componentsRoutes = [
         path: '/templates/:id',
         auth: 'admin',
         summary: 'Update a global block template',
-        input: { params: idParam, body: updateSchema, },
+        input: { params: idParam, body: updateWithBlocks, },
         handler: async ({ params, body, user, },) => {
             await assertMayWriteScript(body, user,);
-            const template = await cbtSvc.update(params.id, body,);
+            const { blocks, ...meta } = body;
+            const template = blocks
+                ? await cbtSvc.saveWithBlocks(params.id, meta, blocks,)
+                : await cbtSvc.update(params.id, meta,);
             if (!template) throw new NotFoundError(`Block template "${params.id}"`,);
             return template;
         },

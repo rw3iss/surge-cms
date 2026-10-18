@@ -1,7 +1,12 @@
 /**
  * Cron jobs for social media integrations.
- * Conditionally registers jobs based on active connections in the database.
- * Exports register/unregister functions for use by the connections route.
+ *
+ * Every job is registered ONCE at boot on the cluster primary (crons are
+ * primary-only) and checks the connections itself on each run — so
+ * connecting / disconnecting a provider needs no (re)registration. That used
+ * to happen inside the request handler, i.e. on whichever worker served it:
+ * the job then ran on a worker, ran twice after a restart, and a disconnect
+ * only stopped it on one process.
  */
 import { query, } from '../db';
 import { logger, } from '../utils/logger';
@@ -36,10 +41,8 @@ async function refreshInstagramToken(): Promise<void> {
     );
 
     const credentials = result.rows[0]?.credentials;
-    if (!credentials?.accessToken) {
-        logger.warn('No Instagram access token found, skipping refresh',);
-        return;
-    }
+    // Not connected (the job is always registered): nothing to do.
+    if (!credentials?.accessToken) return;
 
     if (!credentials.appId || !credentials.appSecret) {
         logger.warn('Instagram app credentials missing, cannot refresh token',);
@@ -72,22 +75,6 @@ async function refreshInstagramToken(): Promise<void> {
     logger.info(`Instagram token refreshed, expires in ${tokenResult.expiresIn} seconds`,);
 }
 
-// ─── Public API: register/unregister by provider ───
-
-export function registerProviderCron(provider: string,): void {
-    const def = PROVIDER_CRONS[provider];
-    if (!def) return;
-
-    cronRegistry.registerAndStart(def,);
-}
-
-export function unregisterProviderCron(provider: string,): void {
-    const def = PROVIDER_CRONS[provider];
-    if (!def) return;
-
-    cronRegistry.unregister(def.name,);
-}
-
 // ─── Background feed sync ───
 
 /**
@@ -118,24 +105,11 @@ export const SOCIAL_SYNC_CRON = {
     },
 };
 
-// ─── Init: check DB for existing connected providers and register their crons ───
+// ─── Init (primary only) ───
+
+/** Every social job, registered unconditionally — each one checks the connections itself. */
+export const SOCIAL_CRONS = (): ProviderCronDef[] => [SOCIAL_SYNC_CRON, ...Object.values(PROVIDER_CRONS,),];
 
 export async function initSocialCrons(): Promise<void> {
-    // Always registered: it checks the connections itself on every run, so a
-    // provider connected later needs no re-registration.
-    cronRegistry.register(SOCIAL_SYNC_CRON,);
-    try {
-        const result = await query(
-            `SELECT provider FROM social_connections WHERE is_connected = true`,
-        );
-
-        for (const row of result.rows) {
-            if (PROVIDER_CRONS[row.provider]) {
-                cronRegistry.register(PROVIDER_CRONS[row.provider],);
-                logger.info(`Registered cron for connected provider: ${row.provider}`,);
-            }
-        }
-    } catch (error) {
-        logger.warn('Could not check social connections for cron init', { error, },);
-    }
+    for (const def of SOCIAL_CRONS()) cronRegistry.register(def,);
 }

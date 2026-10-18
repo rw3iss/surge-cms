@@ -26,5 +26,6 @@ export {
     matchPrintifyOrder,
     reconcilePrintifyOrders,
     SEND_CUSTOMER_SHIPPING_EMAILS_ON_SYNC,
+    startFullOrderResync,
     syncProductsAndOrders,
 } from './orderSync';

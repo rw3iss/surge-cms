@@ -1,4 +1,5 @@
 import { A, } from '@solidjs/router';
+import Checkbox from '../../../components/ui/Checkbox';
 import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
 import EmptyState from '../../../components/admin/common/EmptyState';
 import LoadingState from '../../../components/admin/common/LoadingState';
@@ -203,7 +204,7 @@ const ShopProductsInner: Component = () => {
                                         <th style={{ width: '32px', }} title="Drag to reorder" />
                                     </Show>
                                     <th style={{ width: '40px', }}>
-                                        <input type="checkbox" checked={allSelected()} onChange={toggleAll} />
+                                        <Checkbox checked={allSelected()} onChange={() => toggleAll()} />
                                     </th>
                                     <th style={{ width: '56px', }} aria-label="Image" />
                                     <th>Title</th>
@@ -237,8 +238,7 @@ const ShopProductsInner: Component = () => {
                                                 </td>
                                             </Show>
                                             <td onClick={(e,) => e.stopPropagation()}>
-                                                <input
-                                                    type="checkbox"
+                                                <Checkbox
                                                     checked={isSelected(p.id,)}
                                                     onChange={() => toggle(p.id,)}
                                                 />

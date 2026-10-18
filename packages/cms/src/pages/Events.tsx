@@ -13,9 +13,10 @@ import './Events.scss';
 const EventsPage: Component = () => {
     const navigate = useNavigate();
 
-    /** Prefer the slug — it's the readable, shareable form. */
+    /** Prefer the slug — it's the readable, shareable form. The clicked DATE
+     *  rides along: week 3 of a weekly series must sign up for week 3. */
     const open = (occ: EventOccurrence,) =>
-        navigate(`/events/${occ.event.slug || occ.event.id}`,);
+        navigate(`/events/${occ.event.slug || occ.event.id}?date=${encodeURIComponent(occ.occurrenceDate,)}`,);
 
     return (
         <div class="events-page page-wrapper">

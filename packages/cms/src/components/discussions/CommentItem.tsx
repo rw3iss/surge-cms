@@ -10,6 +10,7 @@ import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
 import AuthorCard from './AuthorCard';
 import CommentComposer, { errorText, } from './CommentComposer';
+import DiscussionDialog from './DiscussionDialog';
 import './discussions.scss';
 
 export interface CommentItemProps {
@@ -91,24 +92,27 @@ const CommentItem: Component<CommentItemProps> = (props,) => {
         }
     };
 
+    const [dialog, setDialog,] = createSignal<'delete' | 'report' | null>(null,);
+
     const remove = async () => {
-        if (!window.confirm('Delete this comment?',)) return;
         try {
             await cms.discussions.remove(c().id,);
+            setDialog(null,);
             props.onChanged?.();
         } catch (e) {
+            setDialog(null,);
             setError(errorText(e,),);
         }
     };
 
-    const report = async () => {
-        const reason = window.prompt('Why are you reporting this comment? (optional)',);
-        if (reason === null) return;
+    const report = async (reason: string,) => {
         try {
             await cms.discussions.report(c().id, reason || undefined,);
             setReported(true,);
         } catch (e) {
             setError(errorText(e,),);
+        } finally {
+            setDialog(null,);
         }
     };
 
@@ -204,10 +208,10 @@ const CommentItem: Component<CommentItemProps> = (props,) => {
                         <button type="button" class="comment-item__action" onClick={startEdit}>Edit</button>
                     </Show>
                     <Show when={c().canDelete}>
-                        <button type="button" class="comment-item__action" onClick={() => void remove()}>Delete</button>
+                        <button type="button" class="comment-item__action" onClick={() => setDialog('delete',)}>Delete</button>
                     </Show>
                     <Show when={auth.isAuthenticated && !deleted() && c().status === 'visible' && c().author.id !== auth.user?.id}>
-                        <button type="button" class="comment-item__action" disabled={reported()} onClick={() => void report()}>
+                        <button type="button" class="comment-item__action" disabled={reported()} onClick={() => setDialog('report',)}>
                             {reported() ? 'Reported' : 'Report'}
                         </button>
                     </Show>
@@ -228,6 +232,28 @@ const CommentItem: Component<CommentItemProps> = (props,) => {
                         onPosted={() => { setReplying(false,); props.onChanged?.(); }}
                     />
                 </div>
+            </Show>
+            <Show when={dialog() === 'delete'}>
+                <DiscussionDialog
+                    title="Delete this comment?"
+                    message="This cannot be undone."
+                    confirmLabel="Delete"
+                    danger
+                    onConfirm={() => remove()}
+                    onCancel={() => setDialog(null,)}
+                />
+            </Show>
+            <Show when={dialog() === 'report'}>
+                <DiscussionDialog
+                    title="Report this comment"
+                    message="A moderator will review it."
+                    confirmLabel="Report"
+                    reason
+                    reasonLabel="Why are you reporting it? (optional)"
+                    maxLength={1000}
+                    onConfirm={(reason,) => report(reason,)}
+                    onCancel={() => setDialog(null,)}
+                />
             </Show>
         </div>
     );

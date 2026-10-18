@@ -372,7 +372,9 @@ describe('expandDynamicBlocks — template slots', () => {
 
         const out = await expandDynamicBlocks([usingBlock({ photos: { mode: 'list', refs: ['b', 'a',], }, },),],);
         const g = out.find((b,) => b.blockType === 'gallery')!;
-        expect(entityGet,).toHaveBeenCalledWith('gallery_item', 'b',);
+        // A list slot already names its items: no record fetch (which went
+        // through the SITE gate), the ids go straight to the email-audience read.
+        expect(entityGet,).not.toHaveBeenCalled();
         expect(resolveGalleryBlockItems.mock.calls[0][0],).toMatchObject({ source: 'items', itemIds: ['b', 'a',], },);
         expect(resolveGalleryBlockItems.mock.calls[0][1],).toBe('email',);
         expect(g.settings.__galleryItems,).toEqual([{ id: 'b', }, { id: 'a', },],);
@@ -477,5 +479,44 @@ describe('template list render + template data', () => {
         const gallery = out.find((b,) => b.blockType === 'gallery');
         expect(gallery!.settings.__galleryItems,).toEqual([],);
         expect(resolveGalleryBlockItems,).not.toHaveBeenCalled();
+    },);
+},);
+
+describe('expandDynamicBlocks — cycles, caps, memo (audit 2026-10-18 S4 / P3 / A4)', () => {
+    const selfRef = { id: 's', parentBlockId: null, blockType: 'template', position: 0, settings: { templateId: 'tpl-1', }, style: {}, };
+
+    it('a component that contains itself expands ONCE, not 2^depth times', async () => {
+        // Two self-references per copy used to grow to 2^5 copies.
+        findBlocksResolved.mockResolvedValue([selfRef, { ...selfRef, id: 's2', },],);
+        const out = await expandDynamicBlocks([{ id: 'root', parentBlockId: null, blockType: 'template', position: 0, settings: { templateId: 'tpl-1', }, style: {}, },],);
+        // root → its two children; the children are NOT expanded again.
+        expect(out.length,).toBe(3,);
+    },);
+
+    it('an entity template that contains an entity block bound to itself stops', async () => {
+        const inner = { id: 'in', parentBlockId: null, blockType: 'entity', position: 0, settings: { entity: { entityType: 'post', templateId: 'tpl-1', binding: { mode: 'none', }, }, }, style: {}, };
+        findBlocksResolved.mockResolvedValue([inner,],);
+        const out = await expandDynamicBlocks([entityBlock({ settings: { entity: { entityType: 'post', templateId: 'tpl-1', binding: { mode: 'none', }, }, }, },),],);
+        expect(out.length,).toBe(2,);
+    },);
+
+    it("caps a binding at the template's maxRecords", async () => {
+        findBlocksResolved.mockResolvedValue([tplBlock(),],);
+        findTemplate.mockResolvedValue({ id: 'tpl-1', mode: 'list', maxRecords: 2, },);
+        entityGet.mockImplementation((_t: string, ref: string,) => Promise.resolve({ id: ref, title: ref, },),);
+        const out = await expandDynamicBlocks([entityBlock({
+            settings: { entity: { entityType: 'post', templateId: 'tpl-1', binding: { mode: 'list', refs: ['a', 'b', 'c', 'd',], }, }, },
+        },),],);
+        expect(out.filter((b,) => b.parentBlockId === 'e1').length,).toBe(2,);
+    },);
+
+    it('reads a template used twice in one email only once', async () => {
+        findBlocksResolved.mockResolvedValue([tplBlock(),],);
+        await expandDynamicBlocks([
+            { id: 'c1', parentBlockId: null, blockType: 'template', position: 0, settings: { templateId: 'tpl-9', }, style: {}, },
+            { id: 'c2', parentBlockId: null, blockType: 'template', position: 1, settings: { templateId: 'tpl-9', }, style: {}, },
+        ],);
+        expect(findBlocksResolved,).toHaveBeenCalledTimes(1,);
+        expect(findTemplate,).toHaveBeenCalledTimes(1,);
     },);
 },);

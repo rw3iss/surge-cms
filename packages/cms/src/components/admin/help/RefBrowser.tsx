@@ -8,11 +8,13 @@
  * the filter clears if it would hide the target, and the item scrolls into
  * view highlighted.
  *
+ * The filter lives in `?q=` too (shareable, kept on reload / Back).
+ *
  * Filtering never rebuilds the tree: groups and items render from the
  * original (static) data and are shown/hidden from a memoised visibility set,
  * so typing doesn't remount hundreds of rows.
  */
-import { A, useLocation, } from '@solidjs/router';
+import { A, useLocation, useSearchParams, } from '@solidjs/router';
 import { Component, For, Show, createEffect, createMemo, createSignal, type JSX, on, } from 'solid-js';
 import { inlineCode, } from './inlineCode';
 import './RefBrowser.scss';
@@ -63,7 +65,14 @@ const RefBrowser: Component<RefBrowserProps> = (props,) => {
     const location = useLocation();
     // A search-as-you-type box: filtering per keystroke is the point, and it
     // lifts nothing to a parent — so not the commit-on-blur rule.
-    const [query, setQuery,] = createSignal('',);
+    // The filter is mirrored to `?q=` (replace, no history entries), so a
+    // filtered view can be shared and survives reload / Back.
+    const [search, setSearch,] = useSearchParams<{ q?: string; }>();
+    const [query, setQueryLocal,] = createSignal(typeof search.q === 'string' ? search.q : '',);
+    const setQuery = (v: string,) => {
+        setQueryLocal(v,);
+        setSearch({ q: v.trim() ? v : undefined, }, { replace: true, scroll: false, },);
+    };
     const [open, setOpen,] = createSignal<Set<string>>(new Set(),);
     const [target, setTarget,] = createSignal('',);
 
@@ -106,7 +115,7 @@ const RefBrowser: Component<RefBrowserProps> = (props,) => {
     // whatever is open alone.
     createEffect(on([tokens, () => props.itemFilterActive?.(),], () => {
         if (filtering()) setOpen(new Set(shownGroups().map((g,) => g.id),),);
-    }, { defer: true, },),);
+    },),);
 
     const isOpen = (id: string,) => open().has(id,);
     const toggle = (id: string,) => {
@@ -128,7 +137,13 @@ const RefBrowser: Component<RefBrowserProps> = (props,) => {
         const g = groupOf(id,);
         if (!g) return;
         if (!visible().has(id,)) {
-            setQuery('',);
+            // Clear the filter but KEEP the hash (a router navigation would drop it).
+            setQueryLocal('',);
+            if (typeof window !== 'undefined') {
+                const u = new URL(window.location.href,);
+                u.searchParams.delete('q',);
+                window.history.replaceState(window.history.state, '', u,);
+            }
             props.onClearItemFilter?.();
         }
         setOpen(new Set([...open(), g.id,],),);
@@ -220,6 +235,7 @@ const RefBrowser: Component<RefBrowserProps> = (props,) => {
                                             type="button"
                                             class="ref-browser__toggle"
                                             aria-expanded={isOpen(g.id,)}
+                                            aria-controls={`${g.id}-body`}
                                             onClick={() => toggle(g.id,)}
                                         >
                                             <span class="ref-browser__chevron">{isOpen(g.id,) ? '▼' : '▶'}</span>
@@ -235,7 +251,7 @@ const RefBrowser: Component<RefBrowserProps> = (props,) => {
                                     </div>
 
                                     <Show when={isOpen(g.id,)}>
-                                        <div class="ref-browser__body">
+                                        <div class="ref-browser__body" id={`${g.id}-body`}>
                                             <Show when={g.description}>
                                                 <p class="ref-browser__desc">{inlineCode(g.description!,)}</p>
                                             </Show>

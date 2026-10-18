@@ -16,12 +16,15 @@ import { A, useSearchParams, } from '@solidjs/router';
 import { Component, createMemo, createSignal, For, onMount, Show, } from 'solid-js';
 import { createStore, reconcile, unwrap, } from 'solid-js/store';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
+import ConfirmModal from '../../../components/admin/common/ConfirmModal';
 import Toggle from '../../../components/admin/common/Toggle';
 import { FormField, } from '../../../components/admin/forms';
 import CommitInput from '../../../components/admin/gallery/CommitInput';
 import { useToast, } from '../../../components/common/toast';
 import { Slider, } from '../../../components/ui/Slider';
 import { Tabs, } from '../../../components/ui/Tabs';
+import { useKeyboardShortcuts, } from '../../../hooks/useKeyboardShortcuts';
+import { useNavigationGuard, } from '../../../hooks/useNavigationGuard';
 import { cms, } from '../../../services/cmsClient';
 import { isFeatureEnabled, } from '../../../stores/siteSettings';
 import './GallerySettings.scss';
@@ -96,6 +99,14 @@ const GallerySettingsPage: Component = () => {
             setSaving(false,);
         }
     };
+
+    // Leaving with unsaved edits asks first (sidebar, back button, tab close).
+    const guard = useNavigationGuard({ isDirty: () => dirty() && !saving(), },);
+    // Ctrl/Cmd+S saves, as on the gallery page.
+    useKeyboardShortcuts([{
+        key: 's', ctrl: true, preventDefault: true,
+        handler: () => { if (dirty() && !saving()) void save(); },
+    },],);
 
     const revert = () => {
         const l = loaded();
@@ -383,6 +394,16 @@ const GallerySettingsPage: Component = () => {
                     </div>
                 </Show>
             </Show>
+            <ConfirmModal
+                open={guard.pending()}
+                title="Leave without saving?"
+                message="Your gallery settings changes have not been saved. Leaving now drops them."
+                confirmLabel="Leave anyway"
+                cancelLabel="Stay"
+                danger
+                onConfirm={guard.confirmLeave}
+                onCancel={guard.cancelLeave}
+            />
         </div>
     );
 };

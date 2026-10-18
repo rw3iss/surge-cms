@@ -22,6 +22,7 @@ const ACTIONS = ['approve', 'hide', 'delete', 'restore', 'dismiss_reports',] as 
 const listQuery = z.object({
     target,
     sort: z.enum(['newest', 'oldest', 'top',],).optional(),
+    root: z.string().uuid().optional(),
     page: z.coerce.number().int().min(1,).optional(),
     limit: z.coerce.number().int().min(1,).max(100,).optional(),
 },);
@@ -105,6 +106,13 @@ export const discussionsRoutes = [
             await discussions.moderation.report(params.id, body.reason, viewer(user,),);
             return { reported: true as const, };
         },
+    },),
+
+    defineRoute({
+        method: 'get', path: '/comments/:id/locate', auth: 'optional',
+        summary: 'Where a comment lives: its top-level comment (load it with `GET /comments?root=`) — for `#comment-<id>` deep links.',
+        input: { params: idParams, },
+        handler: ({ params, user, },) => discussions.comments.locate(params.id, viewer(user,),),
     },),
 
     defineRoute({

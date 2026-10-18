@@ -7,14 +7,16 @@
  *                      deleting the shown one makes the post say
  *                      "Video has been removed."
  *   - Restart show   — (ended shows) re-open the show to record a new version
+ *   - Download chat transcript — (ended shows) every chat line, deleted ones marked
  */
-import type { LiveRecordingVersion, } from '@sitesurge/types';
+import type { LiveRecordingVersion, MediaUsage, } from '@sitesurge/types';
 import { formatDateTime, formatFileSize, } from '@sitesurge/types';
 import { Component, createEffect, createSignal, For, on, onCleanup, Show, } from 'solid-js';
 import MediaVideo from '../../../../blocks/media/MediaVideo';
 import { useToast, } from '../../../../common/toast';
 import { cms, } from '../../../../../services/cmsClient';
 import ConfirmModal from '../../../common/ConfirmModal';
+import MediaUsageList from '../../../media/MediaUsageList';
 
 const STATUS: Record<LiveRecordingVersion['status'], string> = {
     uploading: 'Uploading',
@@ -47,6 +49,17 @@ const LiveRecordings: Component<LiveRecordingsProps> = (props,) => {
     const [busy, setBusy,] = createSignal<string | null>(null,);
     const [confirmDelete, setConfirmDelete,] = createSignal<LiveRecordingVersion | null>(null,);
     const [confirmRestart, setConfirmRestart,] = createSignal(false,);
+    /** Where else the version being deleted is used (not this post) — the file is then kept. */
+    const [otherUses, setOtherUses,] = createSignal<MediaUsage[]>([],);
+    const askDelete = async (v: LiveRecordingVersion,) => {
+        setOtherUses([],);
+        setConfirmDelete(v,);
+        try {
+            const usage = await cms.media.usage([v.mediaId,],);
+            if (confirmDelete()?.mediaId !== v.mediaId) return;
+            setOtherUses((usage[v.mediaId] ?? []).filter((u,) => !(u.kind === 'post' && u.id === props.postId)),);
+        } catch { /* no usage info — the server still checks */ }
+    };
 
     const load = async () => {
         try {
@@ -86,7 +99,10 @@ const LiveRecordings: Component<LiveRecordingsProps> = (props,) => {
         try {
             setVersions(await cms.posts.liveReplays.remove(props.postId, v.mediaId,),);
             if (playing() === v.mediaId) setPlaying(null,);
-            toast.success(v.current ? 'Recording deleted — the post now says "Video has been removed."' : 'Recording deleted.',);
+            const kept = otherUses().length > 0;
+            toast.success(kept
+                ? 'Removed from this post. The video file is kept — it is still used elsewhere.'
+                : v.current ? 'Recording deleted — the post now says "Video has been removed."' : 'Recording deleted.',);
         } catch (e) {
             toast.error((e as Error).message || 'Delete failed',);
         } finally {
@@ -115,6 +131,14 @@ const LiveRecordings: Component<LiveRecordingsProps> = (props,) => {
             <div class="live-recordings__head">
                 <h3 class="live-console__card-title">Recordings</h3>
                 <Show when={props.ended}>
+                    {/* A plain link: the session cookie authenticates the download. */}
+                    <a
+                        class="ui-button ui-button--secondary ui-button--sm"
+                        href={cms.posts.liveChatTranscriptUrl(props.postId,)}
+                        download=""
+                    >
+                        Download chat transcript
+                    </a>
                     <button
                         type="button"
                         class="ui-button ui-button--secondary ui-button--sm"
@@ -182,7 +206,7 @@ const LiveRecordings: Component<LiveRecordingsProps> = (props,) => {
                                         type="button"
                                         class="ui-button ui-button--danger ui-button--sm"
                                         disabled={busy() === v.mediaId}
-                                        onClick={() => setConfirmDelete(v,)}
+                                        onClick={() => void askDelete(v,)}
                                     >
                                         Delete
                                     </button>
@@ -196,16 +220,22 @@ const LiveRecordings: Component<LiveRecordingsProps> = (props,) => {
             <ConfirmModal
                 open={!!confirmDelete()}
                 title="Delete this recording?"
-                message={confirmDelete()?.current
-                    ? 'The video and every saved version of it (all qualities, teaser, downloads, original) are deleted from storage and the CDN. The post stays and says "Video has been removed." This cannot be undone.'
-                    : 'The video and every saved version of it (all qualities, teaser, downloads, original) are deleted from storage and the CDN. This cannot be undone.'}
-                confirmLabel="Delete recording"
+                message={otherUses().length
+                    ? 'This video is still used elsewhere, so only this post\'s copy is removed — the file stays in the Media library.'
+                    : confirmDelete()?.current
+                        ? 'The video and every saved version of it (all qualities, teaser, downloads, original) are deleted from storage and the CDN. The post stays and says "Video has been removed." This cannot be undone.'
+                        : 'The video and every saved version of it (all qualities, teaser, downloads, original) are deleted from storage and the CDN. This cannot be undone.'}
+                confirmLabel={otherUses().length ? 'Remove from post' : 'Delete recording'}
                 danger
                 loading={!!confirmDelete() && busy() === confirmDelete()!.mediaId}
                 busyLabel="Deleting…"
                 onConfirm={() => void remove()}
                 onCancel={() => setConfirmDelete(null,)}
-            />
+            >
+                <Show when={otherUses().length}>
+                    <MediaUsageList usages={otherUses()} heading="Still used by" />
+                </Show>
+            </ConfirmModal>
             <ConfirmModal
                 open={confirmRestart()}
                 title="Restart the show?"

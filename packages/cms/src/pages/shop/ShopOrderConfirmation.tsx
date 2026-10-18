@@ -1,11 +1,13 @@
-import { A, useParams, } from '@solidjs/router';
+import { A, useParams, useSearchParams, } from '@solidjs/router';
 import NotFoundPage from '../NotFound';
 import type { ShopOrderDetail, } from '@sitesurge/types';
-import { Component, createEffect, createResource, For, onCleanup, Show, } from 'solid-js';
+import { Component, createEffect, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
 import SeoHead from '../../components/common/seo/SeoHead';
 import { cms, } from '../../services/cmsClient';
 import ShopStoreGuard from './ShopStoreGuard';
-import { money, shipBreakdown, } from './shopFormat';
+import { money, } from './shopFormat';
+import OrderTotals from '../../components/shop/OrderTotals';
+import { useToast, } from '../../components/common/toast';
 import OrderTracking from '../../components/shop/OrderTracking';
 import './shop.scss';
 
@@ -15,12 +17,30 @@ import './shop.scss';
  */
 const SETTLED_STATUSES = new Set(['paid', 'delivered', 'shipped', 'fulfilled', 'refunded', 'cancelled', 'failed',],);
 
+/** Buyer-facing words for an order status. */
+const STATUS_LABELS: Record<string, string> = {
+    pending: 'Awaiting payment',
+    paid: 'Confirmed',
+    processing: 'Being prepared',
+    shipped: 'Shipped',
+    delivered: 'Delivered',
+    cancelled: 'Cancelled',
+    refunded: 'Refunded',
+    failed: 'Payment failed',
+};
+
 /** How often to re-check an unsettled order, and for how long before giving up. */
 const POLL_MS = 4000;
 const POLL_TIMEOUT_MS = 2 * 60 * 1000;
 
 const ShopOrderConfirmationInner: Component = () => {
     const params = useParams<{ number: string, }>();
+    const [search,] = useSearchParams<{ k?: string; }>();
+    const toast = useToast();
+    // The access key from the post-checkout redirect / the confirmation email:
+    // without it the page shows status, items and tracking, but not the
+    // buyer's details or their downloads.
+    const accessKey = () => (typeof search.k === 'string' ? search.k : undefined);
 
     const [order, { refetch, },] = createResource(
         () => params.number,
@@ -28,7 +48,7 @@ const ShopOrderConfirmationInner: Component = () => {
             try {
                 // `cache: false`: the SWR cache would otherwise serve the same
                 // stale `pending` order to every poll.
-                return await cms.shop.orders.getByNumber(num, { cache: false, },) as ShopOrderDetail;
+                return await cms.shop.orders.getByNumber(num, { cache: false, }, accessKey(),) as ShopOrderDetail;
             } catch {
                 return null;
             }
@@ -59,17 +79,28 @@ const ShopOrderConfirmationInner: Component = () => {
     const [shopCfg] = createResource(async () => {
         try { return await cms.shop.settings.getPublic(); } catch { return null; }
     },);
-    const shipBd = (o: ShopOrderDetail,) => {
-        const units = o.items.filter((i,) => !i.isDigital).reduce((s, i,) => s + i.quantity, 0,);
-        return shipBreakdown(o.shippingCents, units, shopCfg()?.settings?.shipping,);
+
+    const [downloading, setDownloading,] = createSignal<string | null>(null,);
+    const download = async (o: ShopOrderDetail, token: string, itemId: string,) => {
+        setDownloading(itemId,);
+        try {
+            const { url, } = await cms.shop.orders.downloadUrl(o.orderNumber, token,);
+            window.location.assign(url,);
+        } catch {
+            toast.error('That download is not available. Contact us with your order number.',);
+        } finally {
+            setDownloading(null,);
+        }
     };
 
     return (
         <div class="shop-store shop-order page-wrapper">
             <SeoHead title="Order confirmation" type="website" />
-            <Show when={!order.loading} fallback={<div class="shop-store__loading">Loading…</div>}>
+            {/* Gate on the FIRST load only: each poll's refetch sets `loading`,
+                and gating on it replaced the whole page with "Loading…" every 4 s. */}
+            <Show when={order.state !== 'pending' && order.state !== 'unresolved'} fallback={<div class="shop-store__loading">Loading…</div>}>
                 <Show
-                    when={order()}
+                    when={order.latest}
                     fallback={
                         <NotFoundPage title="Order not found" message="Check the order number from your confirmation email." link={{ href: "/shop", label: "Back to the shop", }} />
                     }
@@ -83,7 +114,7 @@ const ShopOrderConfirmationInner: Component = () => {
                                     <p class="shop-order__headline-meta">
                                         Order <strong>{o().orderNumber}</strong> — status{' '}
                                         <span class={`shop-order__status shop-order__status--${o().status}`}>
-                                            {o().status}
+                                            {STATUS_LABELS[o().status] ?? o().status}
                                         </span>
                                         <Show when={!SETTLED_STATUSES.has(o().status,)}>
                                             <span class="shop-order__status-wait">
@@ -93,7 +124,7 @@ const ShopOrderConfirmationInner: Component = () => {
                                     </p>
                                     <a
                                         class="btn btn--secondary shop-order__receipt"
-                                        href={cms.shop.orders.receiptUrl(o().orderNumber,)}
+                                        href={cms.shop.orders.receiptUrl(o().orderNumber, accessKey(),)}
                                         target="_blank"
                                         rel="noopener"
                                     >
@@ -115,6 +146,16 @@ const ShopOrderConfirmationInner: Component = () => {
                                                 <span class="shop-order__item-qty">Qty: {item.quantity}</span>
                                             </div>
                                             <span class="shop-order__item-price">{money(item.subtotalCents, o().currency,)}</span>
+                                            <Show when={item.isDigital && item.downloadToken}>
+                                                <button
+                                                    type="button"
+                                                    class="shop-order__download"
+                                                    disabled={downloading() === item.id}
+                                                    onClick={() => void download(o(), item.downloadToken!, item.id,)}
+                                                >
+                                                    {downloading() === item.id ? 'Preparing…' : 'Download'}
+                                                </button>
+                                            </Show>
                                         </div>
                                     )}
                                 </For>
@@ -139,39 +180,14 @@ const ShopOrderConfirmationInner: Component = () => {
                                     )}
                                 </Show>
 
-                                <div class="shop-order__totals">
-                                    <div class="shop-order__total-row">
-                                        <span>Subtotal</span>
-                                        <span>{money(o().subtotalCents, o().currency,)}</span>
-                                    </div>
-                                    <div class="shop-order__total-row">
-                                        <span>Shipping{o().shippingMethod ? ` (${o().shippingMethod})` : ''}</span>
-                                        <span>{money(o().shippingCents, o().currency,)}</span>
-                                    </div>
-                                    <Show when={shipBd(o(),)}>
-                                        {(bd,) => (
-                                            <>
-                                                <div class="shop-order__total-row shop-order__total-sub">
-                                                    <span>First item shipping</span>
-                                                    <span>1 × {money(bd().firstItemCents, o().currency,)} = {money(bd().firstItemCents, o().currency,)}</span>
-                                                </div>
-                                                <div class="shop-order__total-row shop-order__total-sub">
-                                                    <span>Additional items shipping</span>
-                                                    <span>{bd().additionalUnits} × {money(bd().additionalItemCents, o().currency,)} = {money(bd().additionalItemCents * bd().additionalUnits, o().currency,)}</span>
-                                                </div>
-                                            </>
-                                        )}
-                                    </Show>
-                                    <div class="shop-order__total-row">
-                                        <span>Tax</span>
-                                        <span>{money(o().taxCents, o().currency,)}</span>
-                                    </div>
-                                    <div class="shop-order__total-row shop-order__total-row--grand">
-                                        <span>Total</span>
-                                        <strong>{money(o().totalCents, o().currency,)}</strong>
-                                    </div>
-                                </div>
+                                <OrderTotals order={o()} shipping={shopCfg()?.settings?.shipping} variant="store" />
                             </div>
+
+                            <Show when={o().items.some((i,) => i.isDigital,) && !o().items.some((i,) => i.downloadToken,)}>
+                                <p class="shop-order__download-hint">
+                                    Your downloads are on the order link in your confirmation email.
+                                </p>
+                            </Show>
 
                             <A href="/shop" class="btn btn--secondary">Continue shopping</A>
                         </>

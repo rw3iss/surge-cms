@@ -26,11 +26,10 @@ import type {
     HeroPostsConfig,
     TemplateSlotContext,
 } from '@sitesurge/types';
-import { buildBlockTree, featuredImagePath, rendersOnce, templateRenderGroups, } from '@sitesurge/types';
+import { featuredImagePath, } from '@sitesurge/types';
 import { Component, createMemo, createResource, type JSX, } from 'solid-js';
-import { mapTemplateBlocks, resolveRecords, type TplEntities, } from '../../services/entityBinding';
+import { type EntityVars, resolveEntityTemplate, type TplEntities, } from '../../services/entityBinding';
 import { fetchPostList, type PostWithBlocks, } from '../../services/postsService';
-import { cms, } from '../../services/cmsClient';
 import HeroCarousel, { type HeroSlide, } from './HeroCarousel';
 
 /** Args passed to the injected entity-slide renderer. Kept as an interface so the
@@ -45,6 +44,10 @@ export interface RenderEntitySlideArgs {
     slots?: TemplateSlotContext;
     /** Every record, when the template renders ONCE with all of them. */
     records?: EntityRecord[];
+    /** The template id (template ancestry — cycle guard). */
+    templateId?: string;
+    /** The type's template variable names. */
+    vars?: EntityVars;
 }
 
 export interface ResolvedHeroCarouselProps {
@@ -85,6 +88,8 @@ interface EntitySlideDescriptor {
     slots: TemplateSlotContext;
     /** Set for a `once` list template: this one slide renders every record. */
     records?: EntityRecord[];
+    templateId: string;
+    vars: EntityVars;
 }
 type ResolvedDescriptor = HeroItem | EntitySlideDescriptor;
 const isEntityDescriptor = (d: ResolvedDescriptor,): d is EntitySlideDescriptor =>
@@ -94,21 +99,21 @@ const isEntityDescriptor = (d: ResolvedDescriptor,): d is EntitySlideDescriptor 
 async function resolveEntityItem(item: HeroItem, ctx: TplEntities | undefined,): Promise<EntitySlideDescriptor[]> {
     const cfg = item.entity;
     if (!cfg?.entityType || !cfg.templateId) return [];
-    const tpl = await cms.contentBlockTemplates.getOne(cfg.entityType, cfg.templateId,).catch(() => null);
-    if (!tpl) return [];
-    const roots = buildBlockTree(mapTemplateBlocks(tpl.blocks ?? [],),);
-    const records = await resolveRecords(cfg.entityType, cfg.binding, tpl.maxRecords, ctx,);
+    // The SAME resolver as the entity block (limits, variable names, `once`).
+    const r = await resolveEntityTemplate(cfg, ctx,);
+    if (!r.found) return [];
     // One slide per record (`each`), or ONE slide with every record (`once`).
-    const once = rendersOnce(tpl,);
-    return templateRenderGroups(records, tpl,).map((group, i,) => ({
+    return r.groups.map((group, i,) => ({
         __entity: true as const,
         id: `${item.id}:${String(group[0]!.id ?? i)}`,
         entityType: cfg.entityType,
-        roots,
+        roots: r.roots,
         record: group[0]!,
         order: i,
-        slots: { slots: tpl.slots ?? [], bindings: cfg.slots ?? {}, },
-        ...(once ? { records: group, } : {}),
+        slots: { slots: r.tplSlots, bindings: cfg.slots ?? {}, },
+        templateId: r.templateId,
+        vars: r.vars,
+        ...(r.once ? { records: group, } : {}),
     }));
 }
 
@@ -194,13 +199,14 @@ const ResolvedHeroCarousel: Component<ResolvedHeroCarouselProps> = (props,) => {
     const [resolved,] = createResource(
         () => hasDynamic() ? JSON.stringify(props.items,) : null,
         async () => {
-            const out: ResolvedDescriptor[] = [];
-            for (const item of props.items) {
-                if (item.type === 'posts') out.push(...await resolvePostsItem(item,),);
-                else if (item.type === 'entity') out.push(...await resolveEntityItem(item, props.ctx,),);
-                else out.push(item,);
-            }
-            return out;
+            // Every dynamic item resolves in PARALLEL (was one after another),
+            // then flattens back into the items' order.
+            const parts = await Promise.all(props.items.map(async (item,): Promise<ResolvedDescriptor[]> => {
+                if (item.type === 'posts') return resolvePostsItem(item,);
+                if (item.type === 'entity') return resolveEntityItem(item, props.ctx,);
+                return [item,];
+            },),);
+            return parts.flat();
         },
     );
 
@@ -226,6 +232,8 @@ const ResolvedHeroCarousel: Component<ResolvedHeroCarouselProps> = (props,) => {
                         ctx: props.ctx,
                         slots: d.slots,
                         records: d.records,
+                        templateId: d.templateId,
+                        vars: d.vars,
                     },),
                 };
             }

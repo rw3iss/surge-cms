@@ -92,18 +92,8 @@ export async function comments(handle: string, viewer: Viewer, opts: { page?: nu
         [u.id,],
     )).rows;
 
-    // Per-target access, resolved once per item in this request.
-    const access = new Map<string, boolean>();
-    const visible: Row[] = [];
-    for (const r of rows) {
-        const key = `${r.target_type}:${r.target_id}`;
-        if (!access.has(key,)) {
-            const t = await engine.findTarget(r.target_type,);
-            const a = t ? await t.access(r.target_id, viewer,).catch(() => null) : null;
-            access.set(key, Boolean(a?.canRead,),);
-        }
-        if (access.get(key,)) visible.push(r,);
-    }
+    // Per-target access: each distinct item once, in parallel (shared helper).
+    const visible = await engine.filterReadable(rows, viewer, (r,) => ({ type: r.target_type, id: r.target_id, }),);
 
     const summaries = await engine.moderation.targetSummaries(visible,);
     const mapped = await engine.comments.mapForViewer(visible, viewer,);

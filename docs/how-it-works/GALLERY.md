@@ -29,11 +29,18 @@ collection is a folder of items; its public page is
 placed FIRST (sort order = current minimum − 1) unless `sortOrder` is given.
 Deleting a collection (`DELETE /admin/collections/:id`, one transaction)
 decides what happens to its items: `delete` removes them from the gallery
-(+ their comment threads; their media only with `deleteMedia` + `media:write`,
+(+ their comments and comment threads; their media only with `deleteMedia` + `media:write`,
 after the commit), `root` moves them to the gallery root, `move` moves them
 into `targetId` (must exist, must differ). Publish (`PUT /admin/items`)
 **preserves** `collection_id` / `access_*` / `hidden_in_gallery` for items whose input omits them;
-a new item may carry `collectionId` + `access` + `hiddenInGallery`.
+any item may carry `collectionId` + `access` + `hiddenInGallery`.
+
+**Removing items** — one remover for all four paths (item remove, Publish
+removals, collection delete, media discard): `removeGalleryItems(client, …)`
+in `services/gallery/items.ts` deletes the rows, soft-deletes their comments
+through the discussions engine (`setStatus → 'deleted'`, so activity counts,
+reply counts and the discovery feeds stop counting comments on a gone item)
+and deletes their comment threads, in the caller's transaction.
 
 ### Hide from gallery (`hiddenInGallery`, items + collections)
 
@@ -75,6 +82,24 @@ browsed.
   the media row and the gallery item.
 - **Deleting the media** leaves the item with `media_id = NULL`: listed in the
   admin (`media: null`), hidden from every public read (404).
+- **What is drafted, what saves at once.** Item edits, order, add, remove AND
+  moving an item into / out of a collection are drafted (localStorage) and
+  sent by **Publish**; **Discard** undoes all of them. Collection create /
+  rename / settings / delete save immediately (the collection panel says so).
+- **Publish conflicts.** Publish sends `basedOn` = the newest `updatedAt` and
+  the item count of the gallery the draft was loaded from. When the gallery
+  changed since (another editor or tab published, edited, added or removed
+  items) the server answers 409 `GALLERY_CHANGED`; the admin offers **Publish
+  anyway** (`overwrite: true`, last writer wins), **Keep editing**, or
+  **Reload and drop my changes**. SDK / MCP callers that send no `basedOn` are
+  not checked. Publish runs two bulk statements (one UPDATE over
+  `jsonb_array_elements`, one INSERT … ON CONFLICT), not one per item.
+- **Filter + bulk edit (admin).** A filter box (title / caption / tag) and a
+  type filter narrow the grid; **Select** turns on selection
+  (`components/ui/Checkbox`) with bulk **Move to…**, **Visibility…**, **Add
+  tag** and **Remove** — all draft edits (`components/admin/gallery/galleryBulk.ts`).
+- **Copy links.** The item and collection panels have **Copy page link** and
+  **Copy template** (`{{gallery('<id>')}}` / `{{gallery(collection='<id>')}}`).
 - Settings: `gallery_settings` keyed row (`GallerySettings` in
   `@sitesurge/types` `types/gallery.ts`) — title, description, `baseUrl`
   (default `/gallery`), `access` + `minTierId`, `allowVideos`, comment
@@ -139,8 +164,11 @@ Anonymous never passes an active rule. What the viewer holds is built once per
 request (`services/access/grants.ts` `viewerGrants`) and bound into the SQL
 predicate (`itemGateSql`), so counts and pagination stay right.
 
-A **collection** is listed / openable only when its rule is inactive or the
-viewer passes it (`collectionGateSql`); its `itemCount` + cover use the same
+A **collection** is listed / openable only when the viewer passes its active
+rule, or — rule inactive — passes the **gallery floor** (`collectionGateSql`
+with the floor: a members-only gallery lists NO collection names or
+descriptions to an anonymous caller, and the SSR collection page falls back to
+the gallery title); its `itemCount` + cover use the same
 item gate, so the count matches the collection page. An item with its OWN
 active rule follows that rule even inside a collection the viewer cannot open
 (first match wins). The `email` audience ignores all in-site rules, as above.
@@ -157,22 +185,28 @@ The `email` audience is deliberate: the gallery's gates are for the SITE. An
 inbox may show a members-only item whenever its media is public, using the
 media's own CDN URL; private media (private videos) never reach an email.
 
-Anonymous `site` lists are cached 60 s (`CACHE_KEYS.galleryList`, except
-`sort=random`); `cache.invalidateGalleryCache()` runs on every gallery write
-and settings change and from `invalidateMediaConsumersCache()` (media edits
-and deletes). Gallery writes also drop the sitemap cache.
+`site` lists and collection lists are cached 60 s per **viewer signature**
+(`viewerSignature`: level + staff + roles + tiers — every input of the gate),
+so anonymous visitors share one entry and members with the same grants share
+another (`CACHE_KEYS.galleryList`). `sort=random` is cached only with a
+`seed`: the public pages send one seed per page view, so every "Load more"
+page shares one shuffle (`ORDER BY md5(id || seed)` — no repeats, no gaps).
+`cache.invalidateGalleryCache()` runs on every gallery write and settings
+change, from `invalidateMediaConsumersCache()` (media edits and deletes) and
+when a video's `media.status` changes (it becomes listable once `ready`).
+Gallery writes also drop the sitemap cache.
 
 ## API (`/api/v1/gallery`, feature-gated → 404 when off)
 
 | Route | Auth | |
 |---|---|---|
 | `GET /config` | optional | Title, route, appearance, `canView` + `reason` for THIS viewer |
-| `GET /` | optional | Query: `collectionId` (`root` or a uuid; absent = all items), `type`, `tag`, `search`, `ids` (comma list, kept in order), `sort`, `limit`, `page`, `listing` (gallery pages: leave out hidden items) |
+| `GET /` | optional | Query: `collectionId` (`root` or a uuid; absent = all items), `type`, `tag`, `search`, `ids` (comma list, kept in order), `sort`, `seed` (random order only: a stable shuffle across pages), `limit`, `page`, `listing` (gallery pages: leave out hidden items) |
 | `GET /collections` | optional | Collections visible to the viewer (sort order, name), `itemCount` = items the viewer can see, cover; `listing=true` leaves out hidden collections |
 | `GET /collections/:id` | optional | One collection; 404 when missing, 403 `SIGN_IN_REQUIRED` / `SUBSCRIPTION_REQUIRED` when the viewer fails its rule (the page forwards to `/login?redirect=…&reason=…`) |
 | `GET /items/:id` | optional | One item; 404 when missing / media gone, 403 `SIGN_IN_REQUIRED` / `SUBSCRIPTION_REQUIRED` when gated (the page forwards to `/login?redirect=…&reason=…`) |
 | `GET /admin/items` | staff, `gallery:manage` | Every item in order |
-| `PUT /admin/items` | staff, `gallery:manage` | **Publish** the draft: ordered `items` (existing `id` / new `mediaId` + options) and `remove` (`deleteMedia`) in one transaction; media deletes run after commit — media still used elsewhere is KEPT (`mediaKept`) unless `forceMedia: true` |
+| `PUT /admin/items` | staff, `gallery:manage` | **Publish** the draft: ordered `items` (existing `id` / new `mediaId` + options + `collectionId`) and `remove` (`deleteMedia`) in one transaction; media deletes run after commit — media still used elsewhere is KEPT (`mediaKept`) unless `forceMedia: true`. Optional `basedOn: { updatedAt, count }` → 409 `GALLERY_CHANGED` when the gallery changed since, unless `overwrite: true` |
 | `PATCH /admin/items/:id` | staff | Edit one item (incl. `collectionId`, `access`, `hiddenInGallery`) |
 | `POST /admin/items/move` | staff, `gallery:manage` | `{ ids, collectionId }` (null = root) |
 | `GET /admin/collections` | staff, `gallery:manage` | Every collection, counts of ALL items |

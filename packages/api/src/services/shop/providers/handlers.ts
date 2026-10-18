@@ -9,6 +9,7 @@ import { query, } from '../../../db';
 import { logger, } from '../../../utils/logger';
 import { runStoreAdd, } from './storeAdd';
 import { designStemFromSku, } from './apliiq/provider';
+import { parseApliiqTracking, } from './apliiq/tracking';
 import type { IncomingStoreProduct, ProviderConfig, } from './types';
 import type { WebhookResult, } from './webhooks';
 
@@ -182,10 +183,43 @@ async function apliiqWebhook(
 
         case 'fulfillment':
         case 'warehouse_shipment_complete': {
-            // Signed (fulfillment) or not (warehouse); either way the tracking
-            // write lands in Task 5 with the per-provider fulfilment records.
-            logger.info(`[shop:apliiq] ${event} received: ${JSON.stringify(input.body,).slice(0, 400,)}`,);
-            return { status: 200, body: { received: true, }, };
+            // Tracking pushed by Apliiq → the same write path Printify's
+            // reconcile uses. Logs carry ids only: the body also holds the
+            // customer's name and address.
+            const update = parseApliiqTracking(event, input.body,);
+            if (!update) {
+                logger.warn(`[shop:apliiq] ${event}: no order id in the payload — ignored`,);
+                return { status: 200, body: { received: true, matched: false, }, };
+            }
+            const match = await query<{ order_id: string; external_order_id: string | null; }>(
+                `SELECT f.order_id, f.external_order_id
+                   FROM shop_order_fulfillments f
+                  WHERE f.provider = 'apliiq' AND $1::text IS NOT NULL AND f.external_order_id = $1
+                 UNION ALL
+                 SELECT o.id, f.external_order_id
+                   FROM shop_orders o
+                   LEFT JOIN shop_order_fulfillments f ON f.order_id = o.id AND f.provider = 'apliiq'
+                  WHERE $2::text IS NOT NULL AND o.order_number = $2
+                    AND EXISTS (SELECT 1 FROM shop_order_items oi
+                                 WHERE oi.order_id = o.id AND oi.fulfillment_group = 'apliiq')
+                  LIMIT 1`,
+                [update.externalOrderId, update.orderNumber,],
+            );
+            const row = match.rows[0];
+            if (!row) {
+                logger.warn(`[shop:apliiq] ${event} for unknown order (apliiq ${update.externalOrderId ?? '-'}, ours ${update.orderNumber ?? '-'})`,);
+                return { status: 200, body: { received: true, matched: false, }, };
+            }
+            const externalId = update.externalOrderId ?? row.external_order_id;
+            if (!externalId) {
+                logger.warn(`[shop:apliiq] ${event} for ${update.orderNumber}: no Apliiq order id to link — ignored`,);
+                return { status: 200, body: { received: true, matched: false, }, };
+            }
+            const { applyFulfilmentState, } = await import('../providerFulfillment.js');
+            const applied = await applyFulfilmentState(row.order_id, 'apliiq', externalId, update.state,);
+            logger.info(`[shop:apliiq] ${event}: order ${row.order_id} → ${update.state.status}`
+                + `${applied.conflict ? ` (conflict: linked to ${applied.conflict})` : ''}`,);
+            return { status: 200, body: { received: true, matched: true, }, };
         }
 
         default:

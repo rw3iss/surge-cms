@@ -22,11 +22,11 @@
       width: 1.6rem;
       height: 1.6rem;
       border-radius: 999px;
-      border: 1px solid var(--site-border, #d1d5db);
+      border: 1px solid var(--site-border, #e5e7eb);
       font-weight: 600;
     }
 
-    .is-active { color: var(--site-text, #111); font-weight: 600; }
+    .is-active { color: var(--site-text, #1f2937); font-weight: 600; }
     .is-active span, .is-done span {
       background: var(--site-primary, #e63946);
       border-color: var(--site-primary, #e63946);
@@ -78,7 +78,7 @@
   &__card {
     padding: 0.75rem;
     margin-bottom: 1rem;
-    border: 1px solid var(--site-border, #d1d5db);
+    border: 1px solid var(--site-border, #e5e7eb);
     border-radius: var(--site-radius, 6px);
     background: var(--site-bg, #fff);
   }

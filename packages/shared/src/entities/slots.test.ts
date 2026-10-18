@@ -1,5 +1,5 @@
 import { describe, expect, it, } from 'vitest';
-import { autoSlotBinding, capSlotBinding, previewSlotBindings, slotFor, } from './slots';
+import { autoSlotBinding, bindingIdsIfStatic, capSlotBinding, previewSlotBindings, slotFor, } from './slots';
 
 const slots = [
     { id: 'photos', entityType: 'gallery_item', array: true, },
@@ -30,5 +30,14 @@ describe('capSlotBinding / preview', () => {
             lead: { mode: 'single', ref: 'p1', },
         },);
         expect(autoSlotBinding(slots[1],),).toEqual({ mode: 'query', query: { limit: 1, }, },);
+    },);
+},);
+
+describe('bindingIdsIfStatic', () => {
+    it('returns ids for single/list, capped, and null for a query', () => {
+        expect(bindingIdsIfStatic({ mode: 'single', ref: 'a', },),).toEqual(['a',],);
+        expect(bindingIdsIfStatic({ mode: 'list', refs: ['a', '', 'b', 'c',], }, 2,),).toEqual(['a', 'b',],);
+        expect(bindingIdsIfStatic({ mode: 'query', query: {}, },),).toBeNull();
+        expect(bindingIdsIfStatic(null,),).toBeNull();
     },);
 },);

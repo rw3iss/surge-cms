@@ -7,7 +7,7 @@
 import { A, } from '@solidjs/router';
 import { createResource, createSignal, For, Show, type Component, } from 'solid-js';
 import type { MembershipApplication, } from '@sitesurge/types';
-import { formatDateTime, } from '@sitesurge/types';
+import { billingFrequency, formatDateTime, formatMoney, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
 import { useToast, } from '../../common/toast';
 import ConfirmModal from '../common/ConfirmModal';
@@ -29,7 +29,7 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
     const toast = useToast();
     const [app, { refetch, },] = createResource(() => props.applicationId, (id,) => cms.membershipApplications.getById(id,),);
     const [note, setNote,] = createSignal('',);
-    const [confirm, setConfirm,] = createSignal<'approve' | 'reject' | null>(null,);
+    const [confirm, setConfirm,] = createSignal<'approve' | 'reject' | 'withdraw' | null>(null,);
     const [busy, setBusy,] = createSignal(false,);
 
     const decide = async () => {
@@ -38,7 +38,10 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
         setBusy(true,);
         try {
             const body = note().trim() ? { note: note().trim(), } : {};
-            if (action === 'approve') {
+            if (action === 'withdraw') {
+                await cms.membershipApplications.withdrawOffer(props.applicationId,);
+                toast.success('Offer withdrawn. The applicant can no longer start this membership.',);
+            } else if (action === 'approve') {
                 const done = await cms.membershipApplications.approve(props.applicationId, body,);
                 toast.success(done.tierHidePrice
                     ? 'Approved. The applicant was emailed a link to choose their billing and start the membership.'
@@ -62,6 +65,8 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
     /** A "hide price" application approved without a card = an offer (no charge now). */
     const offer = () => Boolean(app()?.tierHidePrice && !app()?.card,);
     const card = (a: MembershipApplication,) => a.card ? `${cap(a.card.brand,)} •••• ${a.card.last4}` : 'No card saved';
+    /** "$1,500.00 every 2 weeks" — what approval charges (the price the applicant chose). */
+    const charge = (a: MembershipApplication,) => a.price ? `${formatMoney(a.price.amount, a.price.currency,)} ${billingFrequency(a.price.interval, a.price.intervalCount,)}` : null;
 
     return (
         <ModalShell open onClose={() => !busy() && props.onClose()} size="md" showClose ariaLabel="Review application">
@@ -83,7 +88,13 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                                         </Show>
                                     </dd>
                                 </div>
-                                <div><dt>Membership level</dt><dd><strong>{a().tierName}</strong></dd></div>
+                                <div>
+                                    <dt>Membership level</dt>
+                                    <dd>
+                                        <strong>{a().tierName}</strong>
+                                        <Show when={!offer() && charge(a(),)}>{(c,) => <div class="form-help-muted">Charges {c()}</div>}</Show>
+                                    </dd>
+                                </div>
                                 <div><dt>Submitted</dt><dd>{formatDateTime(a().createdAt,)}</dd></div>
                                 <div>
                                     <dt>Status</dt>
@@ -135,6 +146,17 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                                 </p>
                             </Show>
 
+                            {/* An approved, unstarted offer (hide-price level) can be withdrawn. */}
+                            <Show when={a().status === 'approved' && a().tierHidePrice && !a().activatedAt}>
+                                <Show when={a().offerExpiresAt}>
+                                    <p class="form-help-muted">The offer is open until {formatDateTime(a().offerExpiresAt!,)}.</p>
+                                </Show>
+                                <div class="review-application__footer">
+                                    <button type="button" class="ui-button ui-button--secondary" onClick={props.onClose} disabled={busy()}>Close</button>
+                                    <button type="button" class="ui-button ui-button--danger" onClick={() => setConfirm('withdraw',)} disabled={busy()}>Withdraw offer</button>
+                                </div>
+                            </Show>
+
                             <Show when={a().status === 'pending'}>
                                 <FormField label="Note (optional)" hint="Kept with the decision. A rejection note is included in the email to the applicant.">
                                     <textarea rows={2} value={note()} onBlur={(e,) => setNote(e.currentTarget.value,)} />
@@ -159,10 +181,21 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                                 title={`Approve ${a().user?.displayName || 'this applicant'} for ${a().tierName}?`}
                                 message={offer()
                                     ? 'Nothing is charged now. They get an email to choose their billing and start the membership.'
-                                    : `This charges the saved card (${card(a(),)}) now and starts the ${a().tierName} membership.`}
+                                    : `This charges the saved card (${card(a(),)}) ${charge(a(),) ? `${charge(a(),)}, starting now,` : 'now'} and starts the ${a().tierName} membership.`}
                                 confirmLabel={offer() ? 'Approve' : 'Approve & charge'}
                                 busyLabel={offer() ? 'Approving…' : 'Charging…'}
                                 loading={busy()}
+                                onConfirm={() => void decide()}
+                                onCancel={() => setConfirm(null,)}
+                            />
+                            <ConfirmModal
+                                open={confirm() === 'withdraw'}
+                                title="Withdraw this offer?"
+                                message="They have not started the membership yet. After this they cannot start it from their approval email."
+                                confirmLabel="Withdraw offer"
+                                busyLabel="Withdrawing…"
+                                loading={busy()}
+                                danger
                                 onConfirm={() => void decide()}
                                 onCancel={() => setConfirm(null,)}
                             />

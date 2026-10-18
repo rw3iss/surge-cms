@@ -359,6 +359,22 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 ]
             },
             {
+                "name": "resendVerificationByEmail",
+                "signature": "resendVerificationByEmail(email: string): Promise<{ message: string; }>",
+                "summary": "POST /auth/resend-verification-by-email — for a login refused with `EMAIL_NOT_VERIFIED` (no session yet). Always answers the same, so it never reveals whether an account exists.",
+                "params": [
+                    {
+                        "name": "email",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<{ message: string; }>",
+                "routes": [
+                    "POST /api/v1/auth/resend-verification-by-email"
+                ]
+            },
+            {
                 "name": "resetPassword",
                 "signature": "resetPassword(body: AuthResetPasswordBody): Promise<AuthResetPasswordResponse>",
                 "summary": "POST /auth/reset-password — set a new password and log in. A stale, used or expired token rejects with a 400.",
@@ -1549,6 +1565,22 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 ]
             },
             {
+                "name": "locate",
+                "signature": "locate(id: string): Promise<DiscussionsCommentLocateResponse>",
+                "summary": "The top-level comment a `#comment-<id>` deep link lives under (load it with `list(target, { root })`).",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<DiscussionsCommentLocateResponse>",
+                "routes": [
+                    "GET /api/v1/discussions/comments/:id/locate"
+                ]
+            },
+            {
                 "name": "moderation.act",
                 "signature": "moderation.act(id: string, action: DiscussionsModerationAction): Promise<DiscussionsModerationActResponse>",
                 "summary": "",
@@ -2055,6 +2087,27 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 ]
             },
             {
+                "name": "checkIn",
+                "signature": "checkIn(code: string, checkedIn: boolean): Promise<{ code: string; status: string; checkedInAt: string | null; }>",
+                "summary": "PUT /events/tickets/:code/check-in (staff) — check a ticket in, or undo it.",
+                "params": [
+                    {
+                        "name": "code",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "checkedIn",
+                        "type": "boolean",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<{ code: string; status: string; checkedInAt: string | null; }>",
+                "routes": [
+                    "PUT /api/v1/events/tickets/:code/check-in"
+                ]
+            },
+            {
                 "name": "create",
                 "signature": "create(body: CalendarEventInput): Promise<CalendarEvent>",
                 "summary": "",
@@ -2121,7 +2174,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "register",
-                "signature": "register(id: string, body: { email: string; name?: string; phone?: string; occurrenceDate?: string; fields?: Record<string, unknown>; }): Promise<{ registration: unknown; }>",
+                "signature": "register(id: string, body: { email: string; name?: string; phone?: string; occurrenceDate?: string; fields?: Record<string, unknown>; /** Honeypot — leave empty. */ website?: string; }): Promise<{ registration: unknown; }>",
                 "summary": "POST /events/:id/register — attendee registration (NOT the notification subscribe; this is what tells the organiser who is coming).",
                 "params": [
                     {
@@ -2131,7 +2184,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                     },
                     {
                         "name": "body",
-                        "type": "{ email: string; name?: string; phone?: string; occurrenceDate?: string; fields?: Record<string, unknown>; }",
+                        "type": "{ email: string; name?: string; phone?: string; occurrenceDate?: string; fields?: Record<string, unknown>; /** Honeypot — leave empty. */ website?: string; }",
                         "optional": false
                     }
                 ],
@@ -2159,6 +2212,39 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "returns": "",
                 "routes": [
                     "GET /api/v1/events/:id/registrations"
+                ]
+            },
+            {
+                "name": "registrationsExportUrl",
+                "signature": "registrationsExportUrl(id: string, occurrenceDate: string, format: 'csv' | 'print' = 'csv', query: Record<string, string | undefined> = {}): string",
+                "summary": "GET /events/:id/registrations/export — URL (CSV, or `print` for a door list); opened by navigation so the session cookie authenticates it.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "occurrenceDate",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "format",
+                        "type": "'csv' | 'print'",
+                        "optional": true,
+                        "default": "'csv'"
+                    },
+                    {
+                        "name": "query",
+                        "type": "Record<string, string | undefined>",
+                        "optional": true,
+                        "default": "{}"
+                    }
+                ],
+                "returns": "string",
+                "routes": [
+                    "GET /api/v1/events/:id/registrations/export"
                 ]
             },
             {
@@ -2236,16 +2322,16 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "subscribe",
-                "signature": "subscribe(body: { email: string; eventId?: string; notifyEmail?: boolean; notifyPush?: boolean; })",
-                "summary": "",
+                "signature": "subscribe(body: { email: string; eventId?: string; notifyEmail?: boolean; notifyPush?: boolean; website?: string; }): Promise<{ subscriber: unknown; pendingConfirmation?: boolean; }>",
+                "summary": "POST /events/subscribe — anonymous subscriptions are double opt-in (`pendingConfirmation: true` until the emailed link is clicked).",
                 "params": [
                     {
                         "name": "body",
-                        "type": "{ email: string; eventId?: string; notifyEmail?: boolean; notifyPush?: boolean; }",
+                        "type": "{ email: string; eventId?: string; notifyEmail?: boolean; notifyPush?: boolean; website?: string; }",
                         "optional": false
                     }
                 ],
-                "returns": "",
+                "returns": "Promise<{ subscriber: unknown; pendingConfirmation?: boolean; }>",
                 "routes": [
                     "POST /api/v1/events/subscribe"
                 ]
@@ -4641,6 +4727,22 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 ]
             },
             {
+                "name": "video.revokeShares",
+                "signature": "video.revokeShares(id: string): Promise<MediaVideoShareRevokeResponse>",
+                "summary": "POST /video/:id/share/revoke — invalidate every share link issued so far for this video.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<MediaVideoShareRevokeResponse>",
+                "routes": [
+                    "POST /api/v1/video/:id/share/revoke"
+                ]
+            },
+            {
                 "name": "video.rotateKey",
                 "signature": "video.rotateKey(): Promise<MediaVideoKeyRotateResponse>",
                 "summary": "POST /video/keys/rotate — new key; private videos are re-packaged onto it.",
@@ -4679,6 +4781,22 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "returns": "Promise<MediaVideoShareResponse>",
                 "routes": [
                     "POST /api/v1/video/:id/share"
+                ]
+            },
+            {
+                "name": "video.shares",
+                "signature": "video.shares(id: string): Promise<MediaVideoSharesResponse>",
+                "summary": "GET /video/:id/shares — share links issued for the video (from the audit log), with revoked / expired flags.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<MediaVideoSharesResponse>",
+                "routes": [
+                    "GET /api/v1/video/:id/shares"
                 ]
             },
             {
@@ -4865,6 +4983,22 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "returns": "Promise<MembershipApplicationsSummaryResponse>",
                 "routes": [
                     "GET /api/v1/membership-applications/summary"
+                ]
+            },
+            {
+                "name": "withdrawOffer",
+                "signature": "withdrawOffer(id: string): Promise<MembershipApplication>",
+                "summary": "POST /membership-applications/:id/withdraw-offer — withdraw an approved, unstarted offer (hide-price levels).",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<MembershipApplication>",
+                "routes": [
+                    "POST /api/v1/membership-applications/:id/withdraw-offer"
                 ]
             }
         ]
@@ -5680,7 +5814,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             {
                 "name": "subscribe",
                 "signature": "subscribe(body: PaymentsSubscribeBody): Promise<PaymentsSubscribeResponse>",
-                "summary": "POST /payments/subscribe — may return a clientSecret for confirmation.",
+                "summary": "POST /payments/subscribe — may return a clientSecret for confirmation. legacy route now runs the same membership rules, so it refuses levels that need an application, Dev only levels and levels below the required minimum.",
                 "params": [
                     {
                         "name": "body",
@@ -6305,6 +6439,38 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "returns": "Promise<LiveBan[]>",
                 "routes": [
                     "GET /api/v1/posts/live/bans"
+                ]
+            },
+            {
+                "name": "liveChat",
+                "signature": "liveChat(id: string): Promise<LiveChatMessage[]>",
+                "summary": "GET /posts/:id/live/chat — the saved chat of an ended show (for the replay).",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<LiveChatMessage[]>",
+                "routes": [
+                    "GET /api/v1/posts/:id/live/chat"
+                ]
+            },
+            {
+                "name": "liveChatTranscriptUrl",
+                "signature": "liveChatTranscriptUrl(id: string): string",
+                "summary": "URL of the chat transcript download (staff; open by navigation so the session cookie authenticates).",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "string",
+                "routes": [
+                    "GET /api/v1/posts/:id/live/chat/transcript"
                 ]
             },
             {
@@ -8094,6 +8260,44 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 ]
             },
             {
+                "name": "orders.exportUrl",
+                "signature": "orders.exportUrl(format: 'csv' | 'print', query: Record<string, string | number | boolean | undefined | null> = {}): string",
+                "summary": "GET /shop/orders/export — URL (CSV, or `print`), with the Orders table filters; opened by navigation so the session cookie authenticates it.",
+                "params": [
+                    {
+                        "name": "format",
+                        "type": "'csv' | 'print'",
+                        "optional": false
+                    },
+                    {
+                        "name": "query",
+                        "type": "Record<string, string | number | boolean | undefined | null>",
+                        "optional": true,
+                        "default": "{}"
+                    }
+                ],
+                "returns": "string",
+                "routes": [
+                    "GET /api/v1/shop/orders/export"
+                ]
+            },
+            {
+                "name": "orders.fulfilments",
+                "signature": "orders.fulfilments(id: string): Promise<ShopOrderFulfilment[]>",
+                "summary": "GET /shop/orders/:id/fulfilments (admin) — per-supplier hand-off rows.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<ShopOrderFulfilment[]>",
+                "routes": [
+                    "GET /api/v1/shop/orders/:id/fulfilments"
+                ]
+            },
+            {
                 "name": "orders.get",
                 "signature": "orders.get(id: string): Promise<ShopOrderResponse>",
                 "summary": "GET /shop/orders/:id — full order detail.",
@@ -8111,7 +8315,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "orders.getByNumber",
-                "signature": "orders.getByNumber(orderNumber: string, options?: QueryOptions): Promise<ShopOrderByNumberResponse>",
+                "signature": "orders.getByNumber(orderNumber: string, options?: QueryOptions, /** The order's access key (`?k=` of the confirmation link): unlocks * the buyer's name/email and digital download tokens. */ accessKey?: string | null): Promise<ShopOrderByNumberResponse>",
                 "summary": "GET /shop/orders/number/:orderNumber — confirmation-page detail. `options` is exposed so a caller polling for a payment to settle can pass `{ cache: false }`; without it every poll would be served from the SWR cache and the status would never appear to change.",
                 "params": [
                     {
@@ -8123,6 +8327,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                         "name": "options",
                         "type": "QueryOptions",
                         "optional": true
+                    },
+                    {
+                        "name": "/** The order's access key (`?k=` of the confirmation link)",
+                        "type": "unlocks * the buyer's name/email and digital download tokens. */ accessKey?: string | null",
+                        "optional": false
                     }
                 ],
                 "returns": "Promise<ShopOrderByNumberResponse>",
@@ -8148,18 +8357,44 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "orders.receiptUrl",
-                "signature": "orders.receiptUrl(orderNumber: string): string",
+                "signature": "orders.receiptUrl(orderNumber: string, accessKey?: string | null): string",
                 "summary": "Absolute URL of the order's receipt PDF. A URL rather than a fetch on purpose: the endpoint replies with `Content-Disposition: attachment`, so letting the browser navigate to it gives a normal \"save file\" with the right filename. Fetching the bytes here would mean hand-rolling an object URL and re-deriving the filename on the client.",
                 "params": [
                     {
                         "name": "orderNumber",
                         "type": "string",
                         "optional": false
+                    },
+                    {
+                        "name": "accessKey",
+                        "type": "string | null",
+                        "optional": true
                     }
                 ],
                 "returns": "string",
                 "routes": [
                     "GET /api/v1/shop/orders/:orderNumber/receipt"
+                ]
+            },
+            {
+                "name": "orders.refreshFulfilment",
+                "signature": "orders.refreshFulfilment(id: string, provider: string): Promise<{ linked: boolean; changed: boolean; orderStatusAfter: string; conflict?: string; }>",
+                "summary": "POST /shop/orders/:id/fulfilment/:provider/refresh (admin) — read the supplier order back.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "provider",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<{ linked: boolean; changed: boolean; orderStatusAfter: string; conflict?: string; }>",
+                "routes": [
+                    "POST /api/v1/shop/orders/:id/fulfilment/:provider/refresh"
                 ]
             },
             {
@@ -8176,6 +8411,37 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "returns": "Promise<ShopOrderResendReceiptResponse>",
                 "routes": [
                     "POST /api/v1/shop/orders/:id/resend-receipt"
+                ]
+            },
+            {
+                "name": "orders.retryFulfilment",
+                "signature": "orders.retryFulfilment(id: string, provider: string): Promise<{ submitted: string[]; failed: Array<{ provider: string; error: string; }>; skipped: string[]; }>",
+                "summary": "POST /shop/orders/:id/fulfilment/:provider/retry (admin) — re-submit to one supplier.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "provider",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<{ submitted: string[]; failed: Array<{ provider: string; error: string; }>; skipped: string[]; }>",
+                "routes": [
+                    "POST /api/v1/shop/orders/:id/fulfilment/:provider/retry"
+                ]
+            },
+            {
+                "name": "orders.stats",
+                "signature": "orders.stats(): Promise<ShopStats>",
+                "summary": "GET /shop/orders/stats (admin) — dashboard figures for named periods.",
+                "params": [],
+                "returns": "Promise<ShopStats>",
+                "routes": [
+                    "GET /api/v1/shop/orders/stats"
                 ]
             },
             {
@@ -8197,6 +8463,16 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "returns": "Promise<ShopOrderUpdateResponse>",
                 "routes": [
                     "PATCH /api/v1/shop/orders/:id"
+                ]
+            },
+            {
+                "name": "printify.fullOrderResync",
+                "signature": "printify.fullOrderResync(): Promise<{ started: true; sinceDays: number; }>",
+                "summary": "POST /shop/printify/orders/resync — a full year of orders, in the background (202 at once; 409 while another sync runs).",
+                "params": [],
+                "returns": "Promise<{ started: true; sinceDays: number; }>",
+                "routes": [
+                    "POST /api/v1/shop/printify/orders/resync"
                 ]
             },
             {
@@ -9147,8 +9423,8 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         "methods": [
             {
                 "name": "assignSubscription",
-                "signature": "assignSubscription(id: string, tierId: string | null): Promise<UserSubscriptionInfo>",
-                "summary": "PUT /users/:id/subscription — put the user on a tier by hand (null / free ends a manual one).",
+                "signature": "assignSubscription(id: string, tierId: string | null, endsAt?: string | null): Promise<UserSubscriptionInfo>",
+                "summary": "`endsAt` (ISO): the hand-assigned membership ends then (a daily sweep moves the user off it); omitted/null = no end.",
                 "params": [
                     {
                         "name": "id",
@@ -9159,6 +9435,11 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                         "name": "tierId",
                         "type": "string | null",
                         "optional": false
+                    },
+                    {
+                        "name": "endsAt",
+                        "type": "string | null",
+                        "optional": true
                     }
                 ],
                 "returns": "Promise<UserSubscriptionInfo>",
@@ -9320,6 +9601,22 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 ]
             },
             {
+                "name": "markEmailVerified",
+                "signature": "markEmailVerified(id: string): Promise<UserByIdResponse['user']>",
+                "summary": "POST /users/:id/verification/verify — mark the email verified by hand (audited).",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<UserByIdResponse['user']>",
+                "routes": [
+                    "POST /api/v1/users/:id/verification/verify"
+                ]
+            },
+            {
                 "name": "remove",
                 "signature": "remove(id: string): Promise<UserDeleteResponse>",
                 "summary": "",
@@ -9365,6 +9662,22 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "returns": "Promise<UserInvite>",
                 "routes": [
                     "POST /api/v1/users/invites/:inviteId/resend"
+                ]
+            },
+            {
+                "name": "resendVerification",
+                "signature": "resendVerification(id: string): Promise<{ sent: boolean; }>",
+                "summary": "POST /users/:id/verification/resend — a fresh verification link (`sent:false` when already verified).",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<{ sent: boolean; }>",
+                "routes": [
+                    "POST /api/v1/users/:id/verification/resend"
                 ]
             },
             {
@@ -9637,4 +9950,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 51;
-export const SDK_METHOD_COUNT = 565;
+export const SDK_METHOD_COUNT = 582;

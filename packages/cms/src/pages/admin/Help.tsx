@@ -1,10 +1,15 @@
 import { A, } from '@solidjs/router';
-import { Component, For, } from 'solid-js';
+import { Component, createMemo, createSignal, For, Show, } from 'solid-js';
 import './Help.scss';
 import AdminTitle from '../../components/admin/common/AdminTitle';
+import { isFeatureEnabled, } from '../../stores/siteSettings';
 
-/** `dev` = a developer reference (right column); otherwise a general guide. */
-interface HelpTopic { path: string; title: string; desc: string; dev?: boolean; }
+/**
+ * `dev` = a developer reference (right column); otherwise a general guide.
+ * `feature` = the guide documents that feature: it is marked "(feature off)"
+ * and listed last while the feature is disabled.
+ */
+interface HelpTopic { path: string; title: string; desc: string; dev?: boolean; feature?: string; }
 
 /** Admin documentation index. New help topics get added here as the CMS grows. */
 const TOPICS: HelpTopic[] = [
@@ -51,21 +56,31 @@ const TOPICS: HelpTopic[] = [
     },
     {
         path: '/admin/help/post-types',
+        feature: 'posts',
         title: 'Post types',
         desc: 'Article, Video, Short, Live Show and Custom posts — and how to create your own post type: register it, add a custom editor form, a gated sample and a public display.',
     },
     {
+        path: '/admin/help/live-shows',
+        feature: 'posts',
+        title: 'Live shows',
+        desc: 'Stream a show from the browser: provider setup, running the show, recordings and replays, and moderating viewers (mute, silence, kick, ban).',
+    },
+    {
         path: '/admin/help/comments-and-forum',
+        feature: 'discussions',
         title: 'Comments & Forum',
         desc: 'Comments on posts and events, the members\' forum, moderation, member pages + activity counts, and showing latest / hottest discussions anywhere.',
     },
     {
         path: '/admin/help/gallery',
+        feature: 'gallery',
         title: 'Gallery',
         desc: 'Publish media to a public gallery: drafts + Publish, item visibility and comments, settings and appearance, the Gallery block, {{gallery()}} and the SDK.',
     },
     {
         path: '/admin/help/video',
+        feature: 'video',
         title: 'Video hosting',
         desc: 'Upload large videos, how encoding works, public vs private videos and teasers, using a video in a block, and server setup.',
     },
@@ -88,16 +103,32 @@ const DEV_ORDER = [
     '/admin/help/api',
 ];
 
+/** `discussions` is the hidden base of Comments + Forum: on when either is. */
+const topicFeatureOn = (t: HelpTopic,): boolean => {
+    if (!t.feature) return true;
+    if (t.feature === 'discussions') return isFeatureEnabled('comments',) || isFeatureEnabled('forum',);
+    return isFeatureEnabled(t.feature,);
+};
+
+const matches = (t: HelpTopic, q: string,): boolean =>
+    !q || `${t.title} ${t.desc}`.toLowerCase().includes(q,);
+
+/** Enabled topics first (in their own order), then the ones for features that are off. */
+const byFeature = (list: HelpTopic[],): HelpTopic[] => [...list.filter(topicFeatureOn,), ...list.filter((t,) => !topicFeatureOn(t,)),];
+
 const SECTIONS = TOPICS.filter((t,) => !t.dev,);
 const DEV_REFERENCES = TOPICS.filter((t,) => t.dev,)
     .sort((a, b,) => DEV_ORDER.indexOf(a.path,) - DEV_ORDER.indexOf(b.path,));
 
 const TopicList: Component<{ topics: HelpTopic[]; }> = (props,) => (
     <div class="admin-help__topics">
-        <For each={props.topics}>
+        <For each={props.topics} fallback={<p class="form-help-muted">No matching topics.</p>}>
             {(t,) => (
-                <A href={t.path} class="admin-help__card">
-                    <h3 class="admin-help__card-title">{t.title}</h3>
+                <A href={t.path} class="admin-help__card" classList={{ 'admin-help__card--off': !topicFeatureOn(t,), }}>
+                    <h3 class="admin-help__card-title">
+                        {t.title}
+                        <Show when={!topicFeatureOn(t,)}><span class="admin-help__card-off"> (feature off)</span></Show>
+                    </h3>
                     <p class="admin-help__card-desc">{t.desc}</p>
                 </A>
             )}
@@ -105,7 +136,13 @@ const TopicList: Component<{ topics: HelpTopic[]; }> = (props,) => (
     </div>
 );
 
-const AdminHelp: Component = () => (
+const AdminHelp: Component = () => {
+    // Search-as-you-type filter (local only — nothing is lifted or fetched).
+    const [query, setQuery,] = createSignal('',);
+    const q = () => query().trim().toLowerCase();
+    const sections = createMemo(() => byFeature(SECTIONS.filter((t,) => matches(t, q(),),),),);
+    const devRefs = createMemo(() => DEV_REFERENCES.filter((t,) => matches(t, q(),),),);
+    return (
     <div class="admin-help">
         <AdminTitle>Help</AdminTitle>
         <div class="admin-header">
@@ -114,6 +151,14 @@ const AdminHelp: Component = () => (
         <p class="form-help-muted admin-help__intro">
             Reference documentation for this Surge CMS site.
         </p>
+        <input
+            type="search"
+            class="admin-help__filter"
+            placeholder="Filter topics…"
+            aria-label="Filter help topics"
+            value={query()}
+            onInput={(e,) => setQuery(e.currentTarget.value,)}
+        />
         {/* Two columns on wide screens; below 900px one column, with the
             developer references after the general sections (DOM order). */}
         <div class="admin-help__columns">
@@ -122,17 +167,18 @@ const AdminHelp: Component = () => (
                     <h2>Sections</h2>
                     <p class="form-help-muted">Guides to the site's features.</p>
                 </header>
-                <TopicList topics={SECTIONS} />
+                <TopicList topics={sections()} />
             </section>
             <section class="admin-section admin-help__group">
                 <header class="admin-section__header">
                     <h2>Developer References</h2>
                     <p class="form-help-muted">The SDK, the REST API, modules, permissions and templating.</p>
                 </header>
-                <TopicList topics={DEV_REFERENCES} />
+                <TopicList topics={devRefs()} />
             </section>
         </div>
     </div>
-);
+    );
+};
 
 export default AdminHelp;

@@ -84,7 +84,7 @@ const RoleManager: Component<{ onChanged?: () => void; }> = (props,) => {
                                     <td>{r.baseRole ?? '—'}</td>
                                     <td>{r.userCount ?? 0}</td>
                                     <td class="form-help-muted">{r.description}</td>
-                                    <td style={{ 'text-align': 'right', 'white-space': 'nowrap', }}>
+                                    <td class="role-manager__actions">
                                         <Show when={!r.isSystem}>
                                             <button
                                                 type="button"

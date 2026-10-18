@@ -240,3 +240,52 @@ describe('renderItemsTable — supplier grouping', () => {
         }
     },);
 },);
+
+describe('orderEmails — HTML escaping (buyer- and supplier-typed values)', () => {
+    const evil = '<a href="https://evil">Refund request</a>';
+    const o = () => order({
+        customerName: evil,
+        shippingMethod: '<script>x</script>',
+        shippingAddress: { name: '<script>alert(1)</script>', line1: '1 <b>Main</b> St', city: 'X', state: 'CA', postalCode: '1', country: 'US', },
+        items: [{
+            id: 'oi1', title: '<img src=x onerror=alert(1)>', variantTitle: '<i>v</i>', sku: '<s>', quantity: 1,
+            unitPriceCents: 100, subtotalCents: 100, isDigital: false, downloadToken: null,
+        },],
+    } as Partial<OrderDetail>,);
+
+    it('the seller notification never carries raw markup from the order', async () => {
+        const { buildSellerNotification, } = await import('./orderEmails');
+        const { html, } = buildSellerNotification(o(), { businessName: 'Shop', frontendUrl: 'https://x.com', currency: 'usd', },);
+        expect(html,).not.toContain('<a href="https://evil">',);
+        expect(html,).not.toContain('<script>',);
+        expect(html,).not.toContain('<img src=x',);
+        expect(html,).toContain('&lt;a href=',);
+    },);
+
+    it('the buyer confirmation escapes items and addresses', () => {
+        const { html, } = buildBuyerConfirmation(o(), { businessName: '<b>Shop</b>', frontendUrl: 'https://x.com', currency: 'usd', },);
+        expect(html,).not.toContain('<script>',);
+        expect(html,).not.toContain('<img src=x',);
+        expect(html,).not.toContain('<b>Shop</b>',);
+        expect(html,).toContain('1 &lt;b&gt;Main&lt;/b&gt; St',);
+    },);
+
+    it('uses the site primary colour for links when it is a hex, else the default', async () => {
+        const { accentOf, DEFAULT_ACCENT, } = await import('./orderEmails');
+        expect(accentOf({ accentColor: '#ED2024', },),).toBe('#ED2024',);
+        expect(accentOf({ accentColor: 'swatch:abc', },),).toBe(DEFAULT_ACCENT,);
+        expect(accentOf(null,),).toBe(DEFAULT_ACCENT,);
+    },);
+},);
+
+describe('orderEmails — order page link', () => {
+    it('links the buyer to the confirmation page with its access key', async () => {
+        const { buildBuyerConfirmation: build, orderPageLink, } = await import('./orderEmails');
+        const o = order({ accessKey: 'abc123', } as Partial<OrderDetail>,);
+        expect(orderPageLink(o, 'https://x.com/',),).toBe('https://x.com/shop/orders/SS-1001?k=abc123',);
+        const { html, } = build(o, { businessName: 'S', frontendUrl: 'https://x.com', currency: 'usd', },);
+        expect(html,).toContain('View your order',);
+        const digital = order({ accessKey: 'k', items: [{ id: 'i', title: 'E-Book', quantity: 1, unitPriceCents: 1, subtotalCents: 1, isDigital: true, downloadToken: 't', },], } as Partial<OrderDetail>,);
+        expect(build(digital, { businessName: 'S', frontendUrl: 'https://x.com', currency: 'usd', },).html,).toContain('Get your downloads',);
+    },);
+},);

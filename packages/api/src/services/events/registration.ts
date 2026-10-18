@@ -11,11 +11,12 @@ import { ValidationError, } from '../../core/errors';
 import { query, } from '../../db';
 import * as repo from '../../repositories/events.repo';
 import { logger, } from '../../utils/logger';
-import { sendEmail, } from '../email';
+import { sendPurposeMail, } from '../mail/purposes';
 import { assertCanRegister, } from './access';
+import { assertBookableOccurrence, nextOccurrenceDate, } from './bookable';
 import type { LevelViewer, } from '../access/level';
 import { getByIdOrSlug, } from './crud';
-import { eventUrl, } from './format';
+import { describeWhen, escapeHtml, eventLink, } from './format';
 import { eventSender, getSettings, } from './settings';
 
 /**
@@ -66,7 +67,11 @@ export async function register(input: {
     const email = (input.email || '').trim();
     if (!isValidEmail(email,)) throw new ValidationError('A valid email address is required',);
 
-    const occurrenceDate = input.occurrenceDate || defaultOccurrenceDate(event.startsAt,);
+    // No date named → the next upcoming occurrence (not the series start, which
+    // for a weekly series is usually long past). A public caller's date must be
+    // a real, open occurrence — capacity is per date.
+    const occurrenceDate = input.occurrenceDate || await nextOccurrenceDate(event,);
+    if ('viewer' in input) await assertBookableOccurrence(event, occurrenceDate,);
 
     const registration = await repo.upsertRegistration({
         eventId: event.id,
@@ -82,19 +87,24 @@ export async function register(input: {
 
     // Confirmation is best-effort: a mail failure must not lose the registration.
     try {
-        const when = new Date(event.startsAt,).toLocaleString('en-US', {
-            dateStyle: 'full',
-            timeStyle: 'short',
-        },);
-        await sendEmail({
-            ...(await eventSender()),
+        const when = await describeWhen(event, occurrenceDate,);
+        const url = await eventLink(event,);
+        // A mail purpose (Events settings → Emails): the operator can edit or
+        // switch it off; this body is the built-in default.
+        await sendPurposeMail('event_registered', {
             to: email,
-            subject: `You're registered: ${event.title}`,
-            html: `<h2>You're registered</h2>
-                <p><strong>${event.title}</strong></p>
-                <p>${when}</p>
-                ${event.location ? `<p>${event.location}</p>` : ''}
-                <p><a href="${eventUrl(event,)}">View the event</a></p>`,
+            ...(await eventSender()),
+            defaultSubject: `You're registered: ${event.title}`,
+            defaultHtml: `<h2>You're registered</h2>
+                <p><strong>${escapeHtml(event.title,)}</strong></p>
+                <p>${escapeHtml(when,)}</p>
+                ${event.location ? `<p>${escapeHtml(event.location,)}</p>` : ''}
+                <p><a href="${escapeHtml(url,)}">View the event</a></p>`,
+            context: {
+                event: { title: event.title, location: event.location ?? '', url, },
+                occurrence: { date: occurrenceDate, when, },
+                registration: { name: input.name ?? '', email, },
+            },
         },);
     } catch (e) {
         logger.warn('event registration: confirmation email failed', {

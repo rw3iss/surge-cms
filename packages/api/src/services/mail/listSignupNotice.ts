@@ -21,6 +21,7 @@ import * as lists from '../../repositories/mailingLists.repo';
 import * as subs from '../../repositories/mailingListSubscribers.repo';
 import { escapeHtml, } from '../../utils/html';
 import { logger, } from '../../utils/logger';
+import { allow, } from '../discussions/spam';
 import { sendEmail, } from '../email';
 import * as mailTemplates from '../mailTemplates';
 import { renderDefaultReply, replyLayout, } from '../reply/defaultTemplate';
@@ -82,6 +83,21 @@ async function renderFor(list: MailingList, sub: MailingListSubscriber, unsubscr
     return { to: sub.email, subject, html: renderDefaultReply(content, await replyLayout(),), unsubscribeUrl, };
 }
 
+/**
+ * Abuse limits. Public subscribe takes any typed address, so without these a
+ * script could make the site mail thousands of third parties (bounces and
+ * complaints ruin the sender reputation): ONE notice per address per day, and
+ * a site-wide ceiling per hour. Fail open (Redis down → send).
+ */
+export const NOTICE_PER_ADDRESS_PER_DAY = 1;
+export const NOTICE_SITE_PER_HOUR = 300;
+
+export async function noticeAllowed(email: string,): Promise<boolean> {
+    const addr = email.trim().toLowerCase();
+    if (!(await allow(`notice:addr:${addr}`, NOTICE_PER_ADDRESS_PER_DAY, 86_400,))) return false;
+    return allow('notice:site', NOTICE_SITE_PER_HOUR, 3600,);
+}
+
 /** Send the notice when the setting is on. Never throws. */
 export async function sendListSignupNotice(listId: string, subscriberId: string,): Promise<void> {
     try {
@@ -93,6 +109,10 @@ export async function sendListSignupNotice(listId: string, subscriberId: string,
             return renderSignupNotice(listId, subscriberId, null,);
         },);
         if (!msg) return;
+        if (!(await noticeAllowed(msg.to,))) {
+            logger.info('list signup notice skipped (rate limit)', { listId, subscriberId, },);
+            return;
+        }
         await sendEmail({
             to: msg.to,
             subject: msg.subject,
@@ -100,7 +120,8 @@ export async function sendListSignupNotice(listId: string, subscriberId: string,
             fromName: settings.defaultFromName,
             fromEmail: settings.defaultFromEmail,
             replyTo: settings.defaultReplyTo,
-            headers: { 'List-Unsubscribe': `<${msg.unsubscribeUrl}>`, },
+            // RFC 8058 one-click, as every other list send (Gmail/Yahoo bulk rules).
+            headers: { 'List-Unsubscribe': `<${msg.unsubscribeUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click', },
         },);
         msg = null;
     } catch (e) {

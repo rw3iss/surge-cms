@@ -136,7 +136,11 @@ export type MediaUsageKind =
     | 'footer'
     | 'social_post'
     | 'user'
-    | 'entity';
+    | 'entity'
+    /** An archived sent email (`/mail/:jobId`): deleting the media breaks its image there. */
+    | 'sent_email'
+    /** A comment / forum post body (Markdown) linking the file. */
+    | 'comment';
 
 /** One place a media item is used — matched by media id (block settings,
  *  gallery/product links, video URLs) or by its file URL (any host, or a

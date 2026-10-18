@@ -13,9 +13,14 @@ export interface DiscussionsCommentsQuery {
     /** `post:<uuid>`, `event:<uuid>`, `forum_thread:<uuid>`. */
     target: CommentTargetRef;
     sort?: 'newest' | 'oldest' | 'top';
-    /** Pages TOP-LEVEL comments; each comes with its whole reply tree. */
+    /**
+     * Pages TOP-LEVEL comments; each comes with its replies — the newest
+     * `REPLIES_PER_ROOT` (50); the rest are counted in `Comment.hiddenReplies`.
+     */
     page?: number;
     limit?: number;
+    /** Only this top-level comment, with ALL its replies ("show more replies"). */
+    root?: string;
 }
 
 /** Top-level comments with nested `replies`. Pagination rides on `meta`. */
@@ -56,6 +61,13 @@ export interface DiscussionsReportBody { reason?: string; }
 export interface DiscussionsReportResponse { reported: true; }
 
 // ─── GET /discussions/comments/:id/history (moderators) ──────────────
+
+/** GET /discussions/comments/:id/locate — the top-level comment a deep link (`#comment-<id>`) lives under. */
+export interface DiscussionsCommentLocateResponse {
+    id: string;
+    rootId: string;
+    target: CommentTargetRef;
+}
 
 export type DiscussionsHistoryResponse = { body: string; editedBy: string | null; editedAt: string; }[];
 

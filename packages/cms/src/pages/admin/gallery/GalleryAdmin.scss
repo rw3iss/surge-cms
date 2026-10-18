@@ -340,3 +340,41 @@
 }
 
 .gallery-panel__foot.gallery-panel__actions { justify-content: space-between; }
+
+// Filter row + bulk bar (F2).
+.gallery-admin__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.gallery-admin__search { flex: 1; min-width: 220px; max-width: 420px; }
+
+.gallery-admin__bulk {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-bg-subtle);
+
+  &-tag { display: inline-flex; gap: 4px; }
+}
+
+.gallery-admin__pick {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 3;
+  padding: 2px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .9);
+}

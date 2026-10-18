@@ -17,6 +17,8 @@ export interface UserFilters {
     subscription?: string;
     /** Membership application status: pending / approved / rejected. */
     approval?: string;
+    /** Email verification: `unverified` = an account still waiting on its link. */
+    verified?: 'verified' | 'unverified';
     sortBy?: string;
     sortOrder?: string;
 }
@@ -76,6 +78,8 @@ export async function findUsers(
         params.push(filters.approval,);
         whereClause += ` AND u.approval_status = $${params.length}`;
     }
+    if (filters.verified === 'unverified') whereClause += ` AND u.email_verified = false`;
+    else if (filters.verified === 'verified') whereClause += ` AND u.email_verified IS NOT FALSE`;
     if (filters.subscription) {
         // Same entitlement rule as the permission resolver (active/trialing/past_due).
         const entitled = `EXISTS (SELECT 1 FROM subscriptions es JOIN subscription_plans ep ON ep.id = es.plan_id

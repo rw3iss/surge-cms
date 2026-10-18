@@ -213,6 +213,8 @@ export interface EventTicketTier {
     position: number;
     /** Only subscribers of this tier (or higher) may buy this ticket type. */
     requiredTierId: string | null;
+    /** Most tickets of this type one buyer (by email) may hold per date. null = no cap. */
+    maxPerOrder?: number | null;
     /** Derived, not stored: tickets already issued for the occurrence. */
     sold?: number;
     remaining?: number | null;
@@ -302,6 +304,10 @@ export interface EventTicketView {
     totalCents: number;
     /** True when the viewer is the attendee or staff (unmasked details). */
     isOwner: boolean;
+    /** When this ticket was checked in at the door (null = not yet). */
+    checkedInAt?: string | null;
+    /** The viewer is staff and may check this ticket in / undo it. */
+    canCheckIn?: boolean;
 }
 
 /** Which fields an attendee must supply. */

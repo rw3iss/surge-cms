@@ -27,6 +27,14 @@ import { isVideoMime, registerVideo, } from './register';
 import { videoMimeFor, } from '@sitesurge/types';
 import { getVideoSettings, } from './settings';
 import { planParts, } from './uploadMath';
+import { assertFileAllowed, isAllowedType, } from '../mediaUploadPolicy';
+
+/**
+ * Re-checks the caller's permission for a session's file type. Passed by the
+ * route to `partUrls` / `complete` so a session started before a permission
+ * was revoked cannot still be finished.
+ */
+export type SessionAuthorizer = (mimeType: string,) => Promise<void>;
 
 export const PART_URL_TTL = 3600;
 export const MAX_PART_URLS = 50;
@@ -137,8 +145,16 @@ export async function createOrResume(userId: string | null, body: MediaUploadCre
     const options = validateOptions(body.options,);
 
     const settings = await getVideoSettings();
-    if (size > settings.maxUploadGb * GIB) {
-        throw new ValidationError(`File is larger than the ${settings.maxUploadGb} GB upload limit`,);
+    // The operator's policy applies here as on the multer routes: the MIME
+    // allow-list for every file; video is sized by `maxUploadGb`, anything
+    // else by UPLOAD_MAX_SIZE_MB (a 40 GB .zip must not slip through here).
+    if (isVideoMime(mimeType,)) {
+        if (!isAllowedType(mimeType,)) throw new ValidationError(`File type not allowed: ${mimeType}`,);
+        if (size > settings.maxUploadGb * GIB) {
+            throw new ValidationError(`File is larger than the ${settings.maxUploadGb} GB upload limit`,);
+        }
+    } else {
+        assertFileAllowed(mimeType, size,);
     }
     const s = await store();
     const owner = uuidOrNull(userId,);
@@ -185,10 +201,12 @@ export async function partUrls(
     userId: string | null,
     id: string,
     partNumbers: number[],
+    authorize?: SessionAuthorizer,
 ): Promise<{ urls: { partNumber: number; url: string; }[]; expiresIn: number; }> {
     if (!Array.isArray(partNumbers,) || partNumbers.length === 0) throw new ValidationError('partNumbers is required',);
     if (partNumbers.length > MAX_PART_URLS) throw new ValidationError(`At most ${MAX_PART_URLS} part numbers per request`,);
     const row = await loadOwned(userId, id,);
+    if (authorize) await authorize(row.mime_type,);
     assertOpen(row,);
     const unique = [...new Set(partNumbers,),];
     for (const n of unique) {
@@ -214,8 +232,10 @@ export async function complete(
     id: string,
     ctx: AuditContext,
     body: { title?: string; } = {},
+    authorize?: SessionAuthorizer,
 ): Promise<Media> {
     const row = await loadOwned(userId, id,);
+    if (authorize) await authorize(row.mime_type,);
     assertOpen(row,);
     const s = await store();
     const size = Number(row.size,);

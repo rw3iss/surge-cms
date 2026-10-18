@@ -145,7 +145,7 @@
     &__tier {
         display: grid;
         // name / price / quantity / requires / remove
-        grid-template-columns: minmax(0, 2fr) minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 1.6fr) 32px;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 1.6fr) 32px;
         gap: 8px;
         align-items: center;
 

@@ -23,6 +23,7 @@ import sharp from 'sharp';
 import type { MediaAccessLevel, VideoJobStatus, VideoSettings, } from '@sitesurge/types';
 import * as repo from '../../repositories/video.repo';
 import * as wrepo from '../../repositories/videoWorker.repo';
+import { setMediaStatus, } from './mediaStatus';
 import { logger, } from '../../utils/logger';
 import * as cache from '../cache';
 import { IMMUTABLE_CACHE, isObjectStore, type ObjectStore, resolveStorageProvider, } from '../storage';
@@ -356,9 +357,7 @@ export async function runEncodeJob(run: JobRun,): Promise<void> {
     const free = await diskFreeBytes();
     if (free !== null) {
         const priorMs = Number((video.probe as { durationMs?: number; } | null)?.durationMs ?? 0,);
-        const topKbps = Math.max(...s.ladder.map((r,) => r.maxrateKbps + r.audioKbps),);
-        const rung = priorMs > 0 ? topKbps * 125 * (priorMs / 1000) * 1.3 : head.size;
-        const need = Math.max(0, head.size - have,) + 2 * rung + s.minFreeDiskGb * 1e9;
+        const need = diskNeedBytes({ sourceBytes: head.size, haveBytes: have, priorDurationMs: priorMs, ladder: s.ladder, minFreeDiskGb: s.minFreeDiskGb, },);
         if (free < need) {
             throw new BlockedError('disk', 600, `Not enough free disk in ${videoTempDir()}: ${fmtGb(free,)} free, ${fmtGb(need,)} needed`,);
         }
@@ -455,23 +454,32 @@ export async function runEncodeJob(run: JobRun,): Promise<void> {
     const durationUs = probe.durationMs * 1000;
     const tw = teaserWindow(video, probe.durationMs,);
     let anyReady = rowsList.some((r,) => r.variant === 'full' && r.status === 'ready');
-    if (anyReady) await wrepo.setMediaStatus(mediaId, 'ready',);
+    if (anyReady) await setMediaStatus(mediaId, 'ready',);
 
-    // 6. One rung at a time.
-    for (const rung of encodeOrder(full, s.encodeOrder,)) {
+    // 6. One rung at a time — the plan says what each rung still needs
+    //    (resume = rows already READY are skipped; see `planRungs`).
+    const plan = planRungs({
+        rungs: encodeOrder(full, s.encodeOrder,),
+        status: (key,) => rows.get(key,)?.status,
+        teaser: Boolean(video.teaserPrefix,),
+        spritesDone: spritesTried,
+    },);
+    spritesTried = true;
+    for (const step of plan) {
+        const rung = step.rung;
         ctl.throwIfAborted();
         const fKey = `full:${rung.name}`;
         let row = rows.get(fKey,)!;
         const localMp4 = path.join(work, `${rung.name}.mp4`,);
         let haveMp4 = false;
 
-        if (row.status !== 'ready') {
+        if (step.encode) {
             await encodeFullRung({ run, store, lp, s, work, src, rung, row, prefix: video.storagePrefix, enc: enc.enc, durationUs, setProg, fKey, },);
             haveMp4 = true;
             row = (await repo.listRenditions(mediaId, 'full',)).find((r,) => r.name === rung.name) ?? row;
             if (!anyReady) {
                 anyReady = true;
-                await wrepo.setMediaStatus(mediaId, 'ready',);
+                await setMediaStatus(mediaId, 'ready',);
             }
         }
 
@@ -485,7 +493,7 @@ export async function runEncodeJob(run: JobRun,): Promise<void> {
         };
 
         const tRow = rows.get(`teaser:${rung.name}`,);
-        if (tRow && tRow.status !== 'ready' && video.teaserPrefix) {
+        if (step.teaser && tRow && video.teaserPrefix) {
             await ctl.setStatus('encoding',);
             await buildTeaser({
                 store, ctl, lp, work, mp4: await ensureMp4(), row: tRow, teaserPrefix: video.teaserPrefix,
@@ -494,8 +502,8 @@ export async function runEncodeJob(run: JobRun,): Promise<void> {
             setProg(`teaser:${rung.name}`, 100,);
         }
 
-        if (!spritesTried) {
-            spritesTried = true; // once per job, from the first finished rung
+        if (step.sprites) {
+            // once per job, from the first rung in order
             try {
                 const vtt = await buildSprites({ store, ctl, lp, work, mp4: await ensureMp4(), assets, durationSec: probe.durationMs / 1000, },);
                 video = (await repo.updateVideo(mediaId, { thumbnailsVtt: vtt, },))!;
@@ -510,7 +518,7 @@ export async function runEncodeJob(run: JobRun,): Promise<void> {
     // 7. Finalize.
     await ctl.setStatus('finalizing',);
     await handleOriginal(store, video, media, s,);
-    await wrepo.setMediaStatus(mediaId, 'ready',);
+    await setMediaStatus(mediaId, 'ready',);
     await repo.finishJob(job.id, 'ready',);
     await removeJobDir(job.id,);
     await cache.invalidateVideoCache(mediaId,);
@@ -524,6 +532,54 @@ export async function runEncodeJob(run: JobRun,): Promise<void> {
 }
 
 const fmtGb = (b: number,): string => `${(b / 1e9).toFixed(1,)} GB`;
+
+/**
+ * Bytes of free disk an encode needs: what is still to download, two rungs'
+ * worth of working files (estimated from the previous probe's duration at the
+ * top rung's bitrate, +30 %; the source size when never probed) and the
+ * operator's reserve.
+ */
+export function diskNeedBytes(o: {
+    sourceBytes: number; haveBytes: number; priorDurationMs: number;
+    ladder: { maxrateKbps: number; audioKbps: number; }[]; minFreeDiskGb: number;
+},): number {
+    const topKbps = Math.max(0, ...o.ladder.map((r,) => r.maxrateKbps + r.audioKbps),);
+    const rung = o.priorDurationMs > 0 ? topKbps * 125 * (o.priorDurationMs / 1000) * 1.3 : o.sourceBytes;
+    return Math.max(0, o.sourceBytes - o.haveBytes,) + 2 * rung + o.minFreeDiskGb * 1e9;
+}
+
+export interface RungStep<R extends { name: string; },> {
+    rung: R;
+    /** The full rendition is not READY yet → encode it. */
+    encode: boolean;
+    /** A teaser row exists for this rung and is not READY → cut it. */
+    teaser: boolean;
+    /** Build the scrub sprites from this rung (the first in order, once per job). */
+    sprites: boolean;
+}
+
+/**
+ * What each rung still needs, in encode order (A2). Pure, so resume is
+ * testable: READY rows are the source of truth — a job restarted after rung 2
+ * re-encodes only the rest, a teaser already cut is not cut again, and the
+ * sprites are tried at most once (never when already built or turned off).
+ */
+export function planRungs<R extends { name: string; },>(o: {
+    rungs: R[];
+    status: (key: string,) => string | undefined;
+    teaser: boolean;
+    spritesDone: boolean;
+},): RungStep<R>[] {
+    return o.rungs.map((rung, i,) => {
+        const t = o.status(`teaser:${rung.name}`,);
+        return {
+            rung,
+            encode: o.status(`full:${rung.name}`,) !== 'ready',
+            teaser: o.teaser && t !== undefined && t !== 'ready',
+            sprites: !o.spritesDone && i === 0,
+        };
+    },);
+}
 
 /** Delete a full prefix's rung dirs + downloads (NOT poster/sprites). */
 /**
@@ -557,7 +613,7 @@ async function prepareLiveRecording(o: {
             await store.putFile(key, out, { contentType: 'video/mp4', cacheControl: IMMUTABLE_CACHE, },);
             const size = (await stat(out,)).size;
             await repo.updateVideo(mediaId, { quickReplayPath: key, quickReplayBytes: size, },);
-            await wrepo.setMediaStatus(mediaId, 'ready',);
+            await setMediaStatus(mediaId, 'ready',);
             await cache.invalidateVideoCache(mediaId,);
             logger.info('Quick replay ready', { mediaId, bytes: size, },);
         }

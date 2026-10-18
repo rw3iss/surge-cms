@@ -27,15 +27,15 @@ import { mapForViewer, } from './comments';
 import { onDiscussionEvent, } from './events';
 import { targetSummaries, } from './moderation';
 import { type NormalizedQuery, hotScoreSql, normalizeQuery, queryHash, windowHours, } from './queryParams';
-import { AUTHOR_JOIN, COMMENT_COLUMNS, type CommentRow, excerptOf, mapAuthor, } from './rows';
-import { allTargets, findTarget, type TargetAccess, } from './targets';
+import { AUTHOR_JOIN, authorColumns, authorJoin, COMMENT_COLUMNS, type CommentRow, excerptOf, mapAuthor, } from './rows';
+import { accessFor, } from './readable';
+import { allTargets, findTarget, } from './targets';
 import type { Viewer, } from './viewer';
 
 export { normalizeQuery, } from './queryParams';
 
 const FEED_TTL_SECONDS = 300;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ENTITLED = `ARRAY['active','trialing','past_due']`;
 
 /** Total reactions on a comment row aliased `alias`. */
 const reactionTotal = (alias: string,) =>
@@ -47,20 +47,6 @@ export interface QueryResult {
     limit: number;
     /** Upper bound (before per-item access filtering). */
     total: number;
-}
-
-/** Per-call memo of target access, keyed `type:id`. */
-function accessMemo(viewer: Viewer,) {
-    const memo = new Map<string, Promise<TargetAccess | null>>();
-    return (type: string, id: string,): Promise<TargetAccess | null> => {
-        const k = `${type}:${id}`;
-        let p = memo.get(k,);
-        if (!p) {
-            p = findTarget(type,).then((t,) => (t ? t.access(id, viewer,) : null)).catch(() => null);
-            memo.set(k, p,);
-        }
-        return p;
-    };
 }
 
 /** Target types usable right now (registered AND their feature on). */
@@ -157,20 +143,13 @@ async function queryThreads(q: NormalizedQuery, take: number,): Promise<{ rows: 
         FROM forum_threads t
         JOIN forum_categories fc ON fc.id = t.category_id
         LEFT JOIN comments oc ON oc.target_type = 'forum_thread' AND oc.target_id = t.id AND oc.is_opening
-        LEFT JOIN users u ON u.id = t.author_id
-        LEFT JOIN user_activity ua ON ua.user_id = t.author_id
+        ${authorJoin('t.author_id',)}
         WHERE ${where.join(' AND ',)}`;
     const total = Number((await dbQuery<{ n: number; }>(`SELECT COUNT(*)::int AS n ${from}`, params,)).rows[0]?.n ?? 0,);
     const rows = (await dbQuery<ThreadRow>(
         `SELECT t.id, t.slug, t.title, t.author_id, t.pinned, t.locked, t.reply_count, t.view_count,
                 t.last_reply_at, t.created_at, fc.slug AS cat_slug, fc.name AS cat_name,
-                oc.body AS opening_body, ${reactions} AS reaction_total, ${score} AS score,
-                u.display_name AS a_name, u.handle AS a_handle, u.profile_public AS a_public,
-                u.avatar_url AS a_avatar, u.role AS a_role, u.created_at AS a_joined,
-                COALESCE(ua.total, 0) AS a_activity,
-                (SELECT sp.name FROM subscriptions s JOIN subscription_plans sp ON sp.id = s.plan_id
-                  WHERE s.user_id = t.author_id AND s.status = ANY(${ENTITLED})
-                  ORDER BY sp.sort_order DESC LIMIT 1) AS a_tier
+                oc.body AS opening_body, ${reactions} AS reaction_total, ${score} AS score,${authorColumns('t.author_id',)}
          ${from} ORDER BY ${order} LIMIT ${take}`,
         params,
     )).rows;
@@ -218,11 +197,13 @@ async function compute(q: NormalizedQuery, viewer: Viewer,): Promise<QueryResult
         wantThreads ? queryThreads(q, take,) : Promise.resolve({ rows: [], total: 0, }),
     ],);
 
-    const access = accessMemo(viewer,);
-    const commentRows = [];
-    for (const r of c.rows) if ((await access(r.target_type, r.target_id,))?.canRead) commentRows.push(r,);
-    const threadRows = [];
-    for (const r of t.rows) if ((await access('forum_thread', r.id,))?.canRead) threadRows.push(r,);
+    // Access for every distinct target, in parallel / batched (readable.ts).
+    const access = await accessFor([
+        ...c.rows.map((r,) => ({ type: r.target_type, id: r.target_id, })),
+        ...t.rows.map((r,) => ({ type: 'forum_thread', id: r.id, })),
+    ], viewer,);
+    const commentRows = c.rows.filter((r,) => access.get(`${r.target_type}:${r.target_id}`,)?.canRead,);
+    const threadRows = t.rows.filter((r,) => access.get(`forum_thread:${r.id}`,)?.canRead,);
 
     const merged: DiscussionItem[] = [
         ...(await toCommentItems(commentRows, viewer,)),
@@ -251,7 +232,10 @@ export async function thread(ref: string, viewer: Viewer,): Promise<DiscussionTh
 }
 
 // Any comment change (incl. a thread's opening post and moderation) can move
-// a list: drop the cached anonymous feeds. Reactions too — they drive hot/top.
-onDiscussionEvent(async () => {
+// a list: drop the cached anonymous feeds. NOT reactions: they only nudge
+// hot/top ordering, the 5-minute TTL covers that, and invalidating on every
+// toggle let one user keep every feed on the site uncached.
+onDiscussionEvent(async (e,) => {
+    if (e.type === 'reacted') return;
     await cache.invalidateDiscussionFeedCache();
 },);

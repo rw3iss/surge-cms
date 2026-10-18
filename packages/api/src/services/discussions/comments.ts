@@ -11,7 +11,7 @@
  * same transaction as that change (`applyVisibility`).
  */
 import type { PoolClient, } from 'pg';
-import type { Comment, DiscussionsCommentCreateBody, } from '@sitesurge/types';
+import type { Comment, CommentTargetRef, DiscussionsCommentCreateBody, } from '@sitesurge/types';
 import { ForbiddenError, NotFoundError, ValidationError, } from '../../core/errors';
 import { query, transaction, } from '../../db';
 import * as permissions from '../permissions';
@@ -27,7 +27,14 @@ export interface ListOptions {
     sort?: 'newest' | 'oldest' | 'top';
     page?: number;
     limit?: number;
+    /** Only this top-level comment, with all its replies (up to ROOT_REPLIES_MAX). */
+    root?: string;
 }
+
+/** Replies returned per top-level comment in a list (newest kept; the rest counted). */
+export const REPLIES_PER_ROOT = 50;
+/** Cap for one root's full reply set (`root` option). */
+export const ROOT_REPLIES_MAX = 1000;
 
 /** Total reactions on a comment, for `top`. */
 const REACTION_TOTAL = `(SELECT COALESCE(SUM(v::int), 0) FROM jsonb_each_text(c.reaction_counts) AS j(k, v))`;
@@ -53,9 +60,9 @@ async function ownRights(viewer: Viewer,): Promise<{ edit: boolean; del: boolean
     return { edit, del, };
 }
 
-/** Is the edit window still open for this comment? */
-async function inEditWindow(createdAt: Date,): Promise<boolean> {
-    const { editWindowMinutes, } = await getSettings();
+/** Is the edit window still open for this comment? (pass `minutes` to skip the settings read) */
+async function inEditWindow(createdAt: Date, minutes?: number,): Promise<boolean> {
+    const editWindowMinutes = minutes ?? (await getSettings()).editWindowMinutes;
     return !editWindowMinutes || Date.now() - new Date(createdAt,).getTime() <= editWindowMinutes * 60_000;
 }
 
@@ -77,11 +84,13 @@ async function myReactionsFor(viewerId: string | null | undefined, ids: string[]
 export async function mapForViewer(rows: CommentRow[], viewer: Viewer, moderator?: boolean,): Promise<Comment[]> {
     const mod = moderator ?? (await isModerator(viewer,));
     const [mine, rights,] = await Promise.all([myReactionsFor(viewer.id, rows.map((r,) => r.id),), ownRights(viewer,),],);
+    // Settings read ONCE per list, not once per row.
+    const windowMinutes = rights.edit ? (await getSettings()).editWindowMinutes : 0;
     const out: Comment[] = [];
     for (const r of rows) {
         const opts: MapOpts = {
             viewerId: viewer.id, moderator: mod, myReactions: mine.get(r.id,),
-            canEditOwn: rights.edit && (await inEditWindow(r.created_at,)), canDeleteOwn: rights.del,
+            canEditOwn: rights.edit && (await inEditWindow(r.created_at, windowMinutes,)), canDeleteOwn: rights.del,
         };
         out.push(mapComment(r, opts,),);
     }
@@ -111,30 +120,59 @@ export async function list(ref: string, viewer: Viewer, opts: ListOptions = {},)
     const params: unknown[] = [target.type, id,];
     const vis = visibilityClause(viewer, moderator, params,);
     // The forum's opening post is the thread body, not a comment in the list.
-    const where = `c.target_type = $1 AND c.target_id = $2 AND c.parent_id IS NULL AND NOT c.is_opening AND (${vis})`;
+    let where = `c.target_type = $1 AND c.target_id = $2 AND c.parent_id IS NULL AND NOT c.is_opening AND (${vis})`;
+    const oneRoot = opts.root && /^[0-9a-f-]{36}$/i.test(opts.root,) ? opts.root : null;
+    if (oneRoot) {
+        params.push(oneRoot,);
+        where += ` AND c.id = $${params.length}`;
+    }
     const total = Number((await query<{ n: string; }>(`SELECT COUNT(*)::int AS n FROM comments c WHERE ${where}`, params,)).rows[0]?.n ?? 0,);
     const tops = (await query<CommentRow>(
-        `SELECT ${COMMENT_COLUMNS} FROM comments c ${AUTHOR_JOIN} WHERE ${where} ORDER BY ${order} LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
+        `SELECT ${COMMENT_COLUMNS} FROM comments c ${AUTHOR_JOIN} WHERE ${where} ORDER BY ${order}
+          LIMIT ${oneRoot ? 1 : limit} OFFSET ${oneRoot ? 0 : (page - 1) * limit}`,
         params,
     )).rows;
     if (!tops.length) return { items: [], total, page, limit, };
 
+    // Replies: the newest REPLIES_PER_ROOT per root (all of one root's, up to
+    // ROOT_REPLIES_MAX, for `root`) — one popular thread must not return
+    // thousands of rows on every poll. Returned oldest first.
+    const perRoot = oneRoot ? ROOT_REPLIES_MAX : REPLIES_PER_ROOT;
     const rParams: unknown[] = [tops.map((t,) => t.id),];
     const rVis = visibilityClause(viewer, moderator, rParams,);
-    const replies = (await query<CommentRow>(
-        `SELECT ${COMMENT_COLUMNS} FROM comments c ${AUTHOR_JOIN}
-          WHERE c.root_id = ANY($1::uuid[]) AND (${rVis}) ORDER BY c.created_at ASC`,
+    const ranked = (await query<CommentRow & { rn: number; root_total: number; }>(
+        `SELECT * FROM (
+            SELECT ${COMMENT_COLUMNS},
+                   ROW_NUMBER() OVER (PARTITION BY c.root_id ORDER BY c.created_at DESC) AS rn,
+                   COUNT(*) OVER (PARTITION BY c.root_id) AS root_total
+              FROM comments c ${AUTHOR_JOIN}
+             WHERE c.root_id = ANY($1::uuid[]) AND (${rVis})
+         ) x WHERE x.rn <= ${perRoot} ORDER BY x.created_at ASC`,
         rParams,
     )).rows;
+    const hidden = new Map<string, number>();
+    for (const r of ranked) {
+        if (r.root_id) hidden.set(r.root_id, Math.max(0, Number(r.root_total,) - perRoot,),);
+    }
+    const replies: CommentRow[] = ranked;
 
     const mapped = await mapForViewer([...tops, ...replies,], viewer, moderator,);
     const byId = new Map(mapped.map((c,) => [c.id, c,],),);
     for (const c of mapped) {
         if (!c.parentId) continue;
-        const parent = byId.get(c.parentId,);
+        // A reply whose parent fell outside the newest-N window hangs off its
+        // root instead of disappearing.
+        const parent = byId.get(c.parentId,) ?? (c.rootId ? byId.get(c.rootId,) : undefined);
         if (parent) (parent.replies ??= []).push(c,);
     }
-    return { items: tops.map((t,) => byId.get(t.id,)!), total, page, limit, };
+    return {
+        items: tops.map((t,) => {
+            const c = byId.get(t.id,)!;
+            const more = hidden.get(t.id,) ?? 0;
+            return more > 0 ? { ...c, hiddenReplies: more, } : c;
+        },),
+        total, page, limit,
+    };
 }
 
 /** One comment row with its author card (null when missing). */
@@ -284,9 +322,13 @@ export async function update(id: string, bodyIn: string, viewer: Viewer,): Promi
     return (await mapForViewer([fresh,], viewer, moderator,))[0];
 }
 
-/** Change a comment's status, keeping every counter in step. Returns the old row. */
-export async function setStatus(id: string, next: CommentRow['status'],): Promise<{ before: CommentRow; after: CommentRow; }> {
-    return transaction(async (client,) => {
+/**
+ * Change a comment's status, keeping every counter in step. Returns the old
+ * row. Pass `client` to run inside the caller's transaction (so e.g. a forum
+ * thread's status and its opening comment change atomically).
+ */
+export async function setStatus(id: string, next: CommentRow['status'], client?: PoolClient,): Promise<{ before: CommentRow; after: CommentRow; }> {
+    const run = async (client: PoolClient,) => {
         const before = (await client.query<CommentRow>(`SELECT * FROM comments WHERE id = $1 FOR UPDATE`, [id,],)).rows[0];
         if (!before) throw new NotFoundError('Comment',);
         if (before.status === next) return { before, after: before, };
@@ -296,7 +338,8 @@ export async function setStatus(id: string, next: CommentRow['status'],): Promis
         if (before.status === 'visible') await applyVisibility(client, before, -1,);
         if (next === 'visible') await applyVisibility(client, after, 1,);
         return { before, after, };
-    },);
+    };
+    return client ? run(client,) : transaction(run,);
 }
 
 export async function remove(id: string, viewer: Viewer,): Promise<void> {
@@ -310,6 +353,27 @@ export async function remove(id: string, viewer: Viewer,): Promise<void> {
     const { after, } = await setStatus(row.id, 'deleted',);
     await query(`UPDATE comment_reports SET status = 'resolved', resolved_by = $2, resolved_at = NOW() WHERE comment_id = $1 AND status = 'open'`, [row.id, viewer.id ?? null,],);
     emitDiscussionEvent({ type: 'deleted', comment: after, actor: viewer, },);
+}
+
+/**
+ * A deep link's comment → its top-level comment, for the viewer. 404 unless
+ * the viewer may read the item AND see the comment (visible, a deleted one
+ * that still has replies, their own pending one, or any for a moderator).
+ */
+export async function locate(id: string, viewer: Viewer,): Promise<{ id: string; rootId: string; target: CommentTargetRef; }> {
+    const row = await getRow(id,);
+    if (!row) throw new NotFoundError('Comment',);
+    const target = await getTarget(row.target_type,).catch(() => null);
+    if (!target) throw new NotFoundError('Comment',);
+    const moderator = await isModerator(viewer,);
+    if (!moderator) {
+        const access = await target.access(row.target_id, viewer,);
+        if (!access?.canRead) throw new NotFoundError('Comment',);
+        const own = Boolean(viewer.id,) && row.author_id === viewer.id;
+        const seen = row.status === 'visible' || (row.status === 'deleted' && Number(row.reply_count,) > 0) || (own && row.status === 'pending');
+        if (!seen) throw new NotFoundError('Comment',);
+    }
+    return { id: row.id, rootId: row.root_id ?? row.id, target: `${row.target_type}:${row.target_id}` as CommentTargetRef, };
 }
 
 /** Edit history, newest first (moderators). */

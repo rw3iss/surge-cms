@@ -1,4 +1,9 @@
 /**
+ * Reads go through the entities service WITHOUT `admin`, so they follow the
+ * public read rules (entities/publicRead.ts): no draft/archived records, and
+ * posts pass the subscription gate as an anonymous reader. An email is public
+ * — a newsletter bound to "newest 5 posts" must never send a draft.
+ *
  * Server side of template SLOTS (see `@sitesurge/types` `entities/slots.ts`).
  *
  * ONE resolver for a binding → records, used both by the `entity` block's own
@@ -6,10 +11,11 @@
  * Posts), so a slot resolves exactly like an entity block would.
  */
 import {
-    slotFor, type EntityQuery, type EntityRecord, type SlotBinding, type TemplateSlotContext,
+    bindingQueryLimit, slotFor, type EntityQuery, type EntityRecord, type SlotBinding, type TemplateSlotContext,
 } from '@sitesurge/types';
 import { logger, } from '../utils/logger';
 import * as entitiesService from './entities';
+import { UUID_RE, } from '../utils/uuid';
 
 /** Default record cap for a server-rendered binding (an inbox can't scroll forever). */
 export const MAX_BINDING_RECORDS = 25;
@@ -31,13 +37,26 @@ export async function resolveBindingRecords(
                 return rec ? [rec,] : [];
             }
             case 'list': {
+                // Capped BEFORE the fetch, then ONE list read (`id in refs`)
+                // instead of one read per record; a ref it did not return (a
+                // slug, or a provider-backed type ignoring the id filter) falls
+                // back to a single read. Order follows `refs`.
                 const refs = (binding.refs ?? []).filter(Boolean,).slice(0, max,);
-                const recs = await Promise.all(refs.map((r,) => entitiesService.get(type, r,).catch(() => null)),);
-                return recs.filter((r,): r is EntityRecord => r !== null);
+                if (refs.length === 0) return [];
+                const byId = new Map<string, EntityRecord>();
+                const uuids = refs.filter((r,) => UUID_RE.test(r,),);
+                if (uuids.length > 0) {
+                    const res = await entitiesService.list(type, { filter: { id: { op: 'in', value: uuids, }, }, limit: uuids.length, } as EntityQuery,)
+                        .catch(() => null);
+                    for (const r of res?.items ?? []) byId.set(String(r.id,), r,);
+                }
+                const recs = await Promise.all(refs.map((r,) => byId.get(r,) ?? entitiesService.get(type, r,).catch(() => null)),);
+                return recs.filter((r,): r is EntityRecord => r !== null && r !== undefined);
             }
             case 'query': {
                 const q: EntityQuery = { ...(binding.query ?? {}), };
-                const limit = Math.min(max, Number(q.limit ?? max,) || max,);
+                // The shared rule (also the web's): the query's own limit, capped.
+                const limit = bindingQueryLimit(max, Number(q.limit,) || undefined,);
                 const res = await entitiesService.list(type, { ...q, limit, },);
                 return (res.items ?? []).slice(0, limit,);
             }

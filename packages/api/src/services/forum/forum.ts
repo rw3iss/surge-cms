@@ -19,7 +19,7 @@ import * as permissions from '../permissions';
 import { getRedis, } from '../cache';
 import { applyVisibility, getRow, mapForViewer, setStatus, } from '../discussions/comments';
 import { emitDiscussionEvent, } from '../discussions/events';
-import { type CommentRow, excerptOf, mapAuthor, } from '../discussions/rows';
+import { authorColumns, authorJoin, type CommentRow, excerptOf, mapAuthor, } from '../discussions/rows';
 import { getSettings as getEngineSettings, } from '../discussions/settings';
 import { checkWriteRate, } from '../discussions/spam';
 import { isModerator, isStaffViewer, type Viewer, } from '../discussions/viewer';
@@ -47,18 +47,13 @@ interface ThreadRow {
 
 const THREAD_SELECT = `
     SELECT t.*, fc.slug AS c_slug, fc.name AS c_name, fc.read_min_rank, fc.post_min_rank, fc.locked AS c_locked,
-           u.display_name AS a_name, u.handle AS a_handle, u.profile_public AS a_public, u.avatar_url AS a_avatar,
-           u.role AS a_role, u.created_at AS a_joined, COALESCE(ua.total, 0) AS a_activity,
-           (SELECT sp.name FROM subscriptions s JOIN subscription_plans sp ON sp.id = s.plan_id
-             WHERE s.user_id = t.author_id AND s.status = ANY(ARRAY['active','trialing','past_due'])
-             ORDER BY sp.sort_order DESC LIMIT 1) AS a_tier,
+           ${authorColumns('t.author_id',)},
            lu.display_name AS lr_name, CASE WHEN lu.profile_public THEN lu.handle END AS lr_handle,
            oc.body AS opening_body,
            (SELECT COALESCE(SUM(v::int), 0) FROM jsonb_each_text(oc.reaction_counts) AS j(k, v)) AS reactions
       FROM forum_threads t
       JOIN forum_categories fc ON fc.id = t.category_id
-      LEFT JOIN users u ON u.id = t.author_id
-      LEFT JOIN user_activity ua ON ua.user_id = t.author_id
+      ${authorJoin('t.author_id',)}
       LEFT JOIN users lu ON lu.id = t.last_reply_user_id
       LEFT JOIN comments oc ON oc.target_type = 'forum_thread' AND oc.target_id = t.id AND oc.is_opening`;
 
@@ -402,12 +397,16 @@ export async function actOnThread(id: string, action: ForumThreadAction, viewer:
         await query(`UPDATE forum_threads SET ${col} = $2, updated_at = NOW() WHERE id = $1`, [id, val,],);
     } else if (statusFor[action]) {
         const next = statusFor[action]!;
-        await query(`UPDATE forum_threads SET status = $2, updated_at = NOW() WHERE id = $1`, [id, next,],);
-        const opening = (await query<{ id: string; }>(
-            `SELECT id FROM comments WHERE target_type = 'forum_thread' AND target_id = $1 AND is_opening`, [id,],
-        )).rows[0];
-        if (opening) {
-            const { after, } = await setStatus(opening.id, next,);
+        // ONE transaction: the thread row and its opening comment (+ counters)
+        // never disagree. The event fires after commit.
+        const after = await transaction(async (client,) => {
+            await client.query(`UPDATE forum_threads SET status = $2, updated_at = NOW() WHERE id = $1`, [id, next,],);
+            const opening = (await client.query<{ id: string; }>(
+                `SELECT id FROM comments WHERE target_type = 'forum_thread' AND target_id = $1 AND is_opening`, [id,],
+            )).rows[0];
+            return opening ? (await setStatus(opening.id, next, client,)).after : null;
+        },);
+        if (after) {
             emitDiscussionEvent({
                 type: next === 'visible' ? (action === 'approve' ? 'approved' : 'restored') : next === 'hidden' ? 'hidden' : 'deleted',
                 comment: after, actor: viewer,

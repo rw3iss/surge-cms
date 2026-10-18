@@ -60,6 +60,13 @@ const FIELD_ORDER: EventRegistrationField[] = ['name', 'email', 'phone', 'organi
 export interface EventSignupProps {
     event: CalendarEvent;
     tiers: EventTicketTier[];
+    /** The occurrence (`YYYY-MM-DD`) being signed up for. Defaults to the event's own date. */
+    occurrenceDate?: string;
+    /** Human "when" of that occurrence, shown on the card. */
+    occurrenceLabel?: string;
+    /** Upcoming dates of a series; more than one shows a date picker. */
+    dateChoices?: Array<{ date: string; label: string; }>;
+    onDateChange?: (date: string,) => void;
     /** Tickets were issued — the host re-reads what is left. */
     onClaimed?: () => void;
     /** The viewer signed in (or their access may have changed): the host re-reads the event + tiers. */
@@ -69,6 +76,7 @@ export interface EventSignupProps {
 const EventSignup: Component<EventSignupProps> = (props,) => {
     const auth = useAuth();
     const toast = useToast();
+    const [honeypot, setHoneypot,] = createSignal('',);
 
     /** What this viewer may do (absent on older payloads = allowed). */
     const access = () => props.event.access;
@@ -154,7 +162,8 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
     const [submitting, setSubmitting,] = createSignal(false,);
     const [loginOpen, setLoginOpen,] = createSignal(false,);
 
-    const occurrenceDate = () => props.event.startsAt.slice(0, 10,);
+    const occurrenceDate = () => props.occurrenceDate
+        || (String(props.event.startsAt as unknown as string,)).slice(0, 10,);
     /** Organization / notes travel in `fields`; name, email and phone have columns. */
     const extraFields = () => {
         const out: Record<string, string> = {};
@@ -203,7 +212,7 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                     addTicketsToCart();
                 }
             } else {
-                await cms.events.register(props.event.id, { ...identity(), occurrenceDate: occurrenceDate(), },);
+                await cms.events.register(props.event.id, { ...identity(), occurrenceDate: occurrenceDate(), website: honeypot(), },);
                 setDone(true,);
             }
         } catch (err) {
@@ -270,6 +279,28 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
         <Show when={mode()}>
             <section class="event-detail__card event-signup">
                 <h2>{mode() === 'tickets' ? 'Tickets' : 'Register'}</h2>
+
+                {/* Which date this is for — a series offers its upcoming dates. */}
+                <Show
+                    when={(props.dateChoices?.length ?? 0) > 1}
+                    fallback={
+                        <Show when={props.occurrenceLabel}>
+                            <p class="event-signup__date">For {props.occurrenceLabel}</p>
+                        </Show>
+                    }
+                >
+                    <label class="event-signup__date-pick">
+                        <span>Date</span>
+                        <select
+                            value={occurrenceDate()}
+                            onChange={(e,) => props.onDateChange?.(e.currentTarget.value,)}
+                        >
+                            <For each={props.dateChoices}>
+                                {(c,) => <option value={c.date}>{c.label}</option>}
+                            </For>
+                        </select>
+                    </label>
+                </Show>
 
                 <Show when={props.event.showRegistrantCount && props.event.metadata?.registrantCount}>
                     <p class="event-detail__count">
@@ -375,6 +406,17 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                     </Show>
                     <Show when={!registerGate()}>
                     <form onSubmit={submit} class="event-detail__form">
+                        {/* Honeypot: hidden from people (and screen readers), filled by bots. */}
+                        <input
+                            type="text"
+                            name="website"
+                            class="event-signup__hp"
+                            tabIndex={-1}
+                            autocomplete="off"
+                            aria-hidden="true"
+                            value={honeypot()}
+                            onInput={(e,) => setHoneypot(e.currentTarget.value,)}
+                        />
                         <Show when={auth.user}>
                             <p class="event-signup__as">Signing up as:</p>
                         </Show>

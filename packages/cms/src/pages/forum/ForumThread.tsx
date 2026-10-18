@@ -2,7 +2,8 @@
  * /forum/:category/:thread — the thread: title, opening post, replies (oldest
  * first, paged) and the reply box. Replies are discussion comments, rendered
  * with the same components as post/event comments. Moderators get pin / lock
- * / hide controls; the author can rename the thread.
+ * / hide (confirmed) / move controls; the author can rename the thread and
+ * delete it while nobody has replied.
  */
 import type { Comment, CommentTargetRef, DiscussionsSettings, ForumThreadDetail, } from '@sitesurge/types';
 import { formatRelativeTime, } from '@sitesurge/types';
@@ -14,6 +15,7 @@ import SeoHead from '../../components/common/seo/SeoHead';
 import CommentComposer, { errorText, } from '../../components/discussions/CommentComposer';
 import CommentItem from '../../components/discussions/CommentItem';
 import CommentThread from '../../components/discussions/CommentThread';
+import DiscussionDialog from '../../components/discussions/DiscussionDialog';
 import '../../components/discussions/discussions.scss';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
@@ -51,18 +53,30 @@ const ForumThread: Component = () => {
 
     const [replies, setReplies,] = createSignal<Comment[]>([],);
     const [totalPages, setTotalPages,] = createSignal(1,);
+    const [repliesError, setRepliesError,] = createSignal('',);
+    /** Latest request wins — an out-of-order response never overwrites a newer one. */
+    let repliesSeq = 0;
     const loadReplies = async () => {
         const th = t();
         if (!th) return;
+        const mine = ++repliesSeq;
         try {
             const r = await cms.discussions.list(`forum_thread:${th.id}`, { sort: 'oldest', page: page(), limit: perPage(), },);
+            if (mine !== repliesSeq) return;
             setReplies(r.data,);
             setTotalPages(r.meta?.totalPages ?? 1,);
-        } catch {
+            setRepliesError('',);
+        } catch (e) {
+            if (mine !== repliesSeq) return;
             setReplies([],);
+            setRepliesError(errorText(e,),);
         }
     };
-    createEffect(on(() => [t()?.id, page(), perPage(),] as const, () => void loadReplies(),),);
+    // Wait for the forum settings, or the page size changes 20 → configured
+    // and the replies load twice.
+    createEffect(on(() => [t()?.id, page(), perPage(), forumSettings.state === 'ready' || forumSettings.state === 'errored',] as const, ([, , , settled,],) => {
+        if (settled) void loadReplies();
+    },),);
 
     const refreshAll = () => {
         void refetchThread();
@@ -85,6 +99,30 @@ const ForumThread: Component = () => {
             setBusy(false,);
         }
     };
+    const [confirming, setConfirming,] = createSignal<'hide' | 'delete' | null>(null,);
+    const own = () => Boolean(auth.user?.id,) && t()?.author.id === auth.user?.id;
+    /** The author may delete their own thread while nobody has replied. */
+    const canDeleteOwn = () => own() && (t()?.replyCount ?? 0) === 0 && !t()?.canModerate;
+
+    // Move to another category (moderators).
+    const [categories,] = createResource(
+        () => (t()?.canModerate ? t()!.id : false),
+        () => cms.forum.categories.list().catch(() => [],),
+    );
+    const move = async (categoryId: string,) => {
+        if (!categoryId || categoryId === t()?.categoryId) return;
+        setBusy(true,);
+        setModError('',);
+        try {
+            const moved = await cms.forum.threads.update(t()!.id, { categoryId, },);
+            navigate(`/forum/${moved.category.slug}/${moved.slug}`, { replace: true, },);
+        } catch (e) {
+            setModError(errorText(e,),);
+        } finally {
+            setBusy(false,);
+        }
+    };
+
     const [renaming, setRenaming,] = createSignal(false,);
     const [newTitle, setNewTitle,] = createSignal('',);
     const rename = async () => {
@@ -157,11 +195,41 @@ const ForumThread: Component = () => {
                                         <Show when={th().canModerate}>
                                             <button type="button" class="btn btn--outline" disabled={busy()} onClick={() => act(th().pinned ? 'unpin' : 'pin',)}>{th().pinned ? 'Unpin' : 'Pin'}</button>
                                             <button type="button" class="btn btn--outline" disabled={busy()} onClick={() => act(th().locked ? 'unlock' : 'lock',)}>{th().locked ? 'Unlock' : 'Lock'}</button>
-                                            <button type="button" class="btn btn--outline" disabled={busy()} onClick={() => act('hide',)}>Hide</button>
+                                            <button type="button" class="btn btn--outline" disabled={busy()} onClick={() => setConfirming('hide',)}>Hide</button>
+                                            <Show when={(categories() ?? []).length > 1}>
+                                                <label class="forum__move">
+                                                    <span class="sr-only">Move to category</span>
+                                                    <select
+                                                        disabled={busy()}
+                                                        value=""
+                                                        onChange={(e,) => { const v = e.currentTarget.value; e.currentTarget.value = ''; void move(v,); }}
+                                                    >
+                                                        <option value="">Move to…</option>
+                                                        {(categories() ?? []).filter((c,) => c.id !== th().categoryId).map((c,) => <option value={c.id}>{c.name}</option>)}
+                                                    </select>
+                                                </label>
+                                            </Show>
+                                        </Show>
+                                        <Show when={canDeleteOwn()}>
+                                            <button type="button" class="btn btn--outline" disabled={busy()} onClick={() => setConfirming('delete',)}>Delete thread</button>
                                         </Show>
                                     </div>
                                 </div>
                                 <Show when={modError()}><p class="forum__error">{modError()}</p></Show>
+                                <Show when={confirming()}>
+                                    {(what,) => (
+                                        <DiscussionDialog
+                                            title={what() === 'hide' ? 'Hide this thread?' : 'Delete this thread?'}
+                                            message={what() === 'hide'
+                                                ? 'Members will no longer see it. You can restore it from Forum admin.'
+                                                : 'This cannot be undone.'}
+                                            confirmLabel={what() === 'hide' ? 'Hide' : 'Delete'}
+                                            danger
+                                            onConfirm={async () => { const a = what(); setConfirming(null,); await act(a,); }}
+                                            onCancel={() => setConfirming(null,)}
+                                        />
+                                    )}
+                                </Show>
                                 <p class="forum__byline">
                                     {th().replyCount} {th().replyCount === 1 ? 'reply' : 'replies'} · {th().viewCount} views · started {formatRelativeTime(th().createdAt,)}
                                 </p>
@@ -181,7 +249,8 @@ const ForumThread: Component = () => {
                                 </Show>
 
                                 <h2 class="forum__replies-head">Replies</h2>
-                                <Show when={replies().length} fallback={<p class="forum__byline">No replies yet.</p>}>
+                                <Show when={repliesError()}><p class="forum__error" role="alert">Replies could not be loaded: {repliesError()}</p></Show>
+                                <Show when={replies().length} fallback={<Show when={!repliesError()}><p class="forum__byline">No replies yet.</p></Show>}>
                                     <CommentThread
                                         comments={replies()}
                                         target={target()}

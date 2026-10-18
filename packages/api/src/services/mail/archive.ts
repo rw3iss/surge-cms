@@ -99,7 +99,7 @@ export async function viewSentMail(jobId: string, opts: { token?: string | null;
         withUnsubscribe: Boolean(recipient || viewerSub,),
     },);
 
-    const html = absolutiseUrls(await resolveMailTemplate(job.renderedHtmlTemplate, ctx,), site.url || frontendUrl(),);
+    const html = absolutiseUrls(await resolveMailTemplate(job.renderedHtmlTemplate, ctx, { html: true, },), site.url || frontendUrl(),);
     return {
         jobId: job.id,
         subject: (await resolveMailTemplate(job.subject, ctx,)).trim(),

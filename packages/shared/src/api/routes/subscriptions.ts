@@ -127,6 +127,8 @@ export interface UserSubscriptionInfo {
 export interface UserSubscriptionAssignBody {
     /** The tier to put the user on; null or the free tier ends a manual one. */
     tierId: string | null;
+    /** When the hand-assigned membership ends (ISO); null/omitted = no end. A daily sweep ends it. */
+    endsAt?: string | null;
 }
 
 /** GET /subscription-tiers/options (staff) — tier picker for content gating. */

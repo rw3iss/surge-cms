@@ -8,6 +8,7 @@
  * Reuses the shop repos (structure sync, taxonomy) rather than raw SQL, so a
  * Printify product ends up identical to a native one apart from provenance.
  */
+import { attentionCounts, type AttentionCounts, } from '../shop/attention';
 import { generateSlug, } from '@sitesurge/types';
 import { config, } from '../../config';
 import { query, } from '../../db';
@@ -326,6 +327,8 @@ export interface PrintifyStatus {
      *  send-to-production held — commonly a missing Printify payment method).
      *  The cron auto-retries these, but they warrant operator attention. */
     needsAttentionCount: number;
+    /** The same count split by reason (an order can have two). */
+    attention: AttentionCounts;
     /** The store's orders page in the Printify dashboard. */
     ordersUrl: string;
 }
@@ -342,31 +345,9 @@ export async function getStatus(): Promise<PrintifyStatus> {
     );
     const row = r.rows[0] || {};
 
-    // Paid orders whose Printify handoff is stuck, read from the per-provider
-    // fulfilment rows (the legacy `shop_orders.printify_order_id` is not written
-    // by the provider path, so keying on it reported every provider-submitted
-    // order as awaiting forever):
-    //   - Printify lines but no Printify order id (never created / submit failed);
-    //   - Printify says on hold (payment not received, has issues);
-    //   - created a day ago and still not in production — or never reconciled.
-    const att = await query(
-        `SELECT COUNT(*)::int AS n FROM shop_orders o
-             WHERE o.status IN ('paid', 'processing')
-               AND (
-                 (EXISTS (SELECT 1 FROM shop_order_items oi
-                           WHERE oi.order_id = o.id AND oi.fulfillment_group = $1)
-                  AND NOT EXISTS (SELECT 1 FROM shop_order_fulfillments f
-                                   WHERE f.order_id = o.id AND f.provider = $1
-                                     AND f.external_order_id IS NOT NULL))
-                 OR EXISTS (SELECT 1 FROM shop_order_fulfillments f
-                             WHERE f.order_id = o.id AND f.provider = $1
-                               AND f.external_order_id IS NOT NULL
-                               AND (f.status = 'on_hold'
-                                    OR (f.status IN ('pending', 'submitted')
-                                        AND COALESCE(f.submitted_at, f.created_at) < NOW() - INTERVAL '1 day')))
-               )`,
-        [PROVIDER,],
-    );
+    // Paid orders whose Printify handoff is stuck — the shared definition the
+    // orders list's `attention` filter uses too (services/shop/attention.ts).
+    const attention = await attentionCounts(PROVIDER,);
     const orderCfg = await getPrintifyOrderConfig();
 
     return {
@@ -376,7 +357,8 @@ export async function getStatus(): Promise<PrintifyStatus> {
         lastSyncedAt: row.last_synced ? new Date(row.last_synced,).toISOString() : null,
         shopId: cfg?.shopId ?? null,
         syncIntervalMinutes: cfg?.syncIntervalMinutes ?? null,
-        needsAttentionCount: att.rows[0]?.n ?? 0,
+        needsAttentionCount: attention.total,
+        attention,
         ordersUrl: printifyOrdersUrl(orderCfg?.shopId ?? cfg?.shopId,),
     };
 }

@@ -169,43 +169,48 @@ describe('sync validation', () => {
     },);
 },);
 
-describe('sync preserves collection + access', () => {
-    const updateOf = () => calls.find((c,) => c.sql.startsWith('UPDATE gallery_items SET sort_order',),)!;
+describe('sync preserves collection + access (bulk statements, P2)', () => {
+    const rowsOf = (kind: 'UPDATE' | 'INSERT',) => {
+        const c = calls.find((x,) => x.sql.trim().startsWith(kind === 'UPDATE' ? 'UPDATE gallery_items g SET' : 'INSERT INTO gallery_items',),)!;
+        return JSON.parse(c.params[0] as string,) as Record<string, unknown>[];
+    };
+
+    it('ONE update statement for every kept item, in draft order', async () => {
+        await items.sync({ items: [{ id: I1, titleOverride: 'x', }, { id: ID, },], }, CTX,);
+        const ups = calls.filter((x,) => x.sql.trim().startsWith('UPDATE gallery_items g SET',),);
+        expect(ups.length,).toBe(1,);
+        expect(rowsOf('UPDATE',).map((r,) => [r.id, r.ord,]),).toEqual([[I1, 0,], [ID, 1,],],);
+    },);
 
     it('an existing item whose input omits collectionId/access keeps them', async () => {
         await items.sync({ items: [{ id: I1, titleOverride: 'x', },], }, CTX,);
-        expect(updateOf().sql,).not.toContain('collection_id',);
-        expect(updateOf().sql,).not.toContain('access_enabled',);
+        const [row,] = rowsOf('UPDATE',);
+        expect(row,).toMatchObject({ title: 'x', },);
+        expect(row,).not.toHaveProperty('collection_id',);
+        expect(row,).not.toHaveProperty('access_enabled',);
     },);
 
     it('sets them when given (null = root)', async () => {
         await items.sync({ items: [{ id: I1, collectionId: null, access: { enabled: true, roles: ['vip',], tierIds: [], }, },], }, CTX,);
-        expect(updateOf().sql,).toContain('collection_id = $',);
-        expect(updateOf().sql,).toContain('access_roles = $',);
-        expect(updateOf().params,).toContain(null,);
+        expect(rowsOf('UPDATE',)[0],).toMatchObject({ collection_id: null, access_enabled: true, access_roles: ['vip',], },);
     },);
 
     it('a new item lands in its collection', async () => {
         mediaRows = [{ id: M1, mime_type: 'image/png', },];
         await items.sync({ items: [{ mediaId: M1, collectionId: C1, },], }, CTX,);
-        const ins = calls.find((c,) => c.sql.includes('INSERT INTO gallery_items',),)!;
-        expect(ins.sql,).toContain('collection_id',);
-        expect(ins.params,).toContain(C1,);
+        expect(rowsOf('INSERT',)[0],).toMatchObject({ media_id: M1, collection_id: C1, visibility: 'inherit', },);
     },);
 
     it('hiddenInGallery: omitted = unchanged, given = set (update + insert)', async () => {
         await items.sync({ items: [{ id: I1, titleOverride: 'x', },], }, CTX,);
-        expect(updateOf().sql,).not.toContain('hidden_in_gallery',);
+        expect(rowsOf('UPDATE',)[0],).not.toHaveProperty('hidden_in_gallery',);
         calls.length = 0;
         await items.sync({ items: [{ id: I1, hiddenInGallery: true, },], }, CTX,);
-        expect(updateOf().sql,).toContain('hidden_in_gallery = $',);
-        expect(updateOf().params,).toContain(true,);
+        expect(rowsOf('UPDATE',)[0],).toMatchObject({ hidden_in_gallery: true, },);
         calls.length = 0;
         mediaRows = [{ id: M1, mime_type: 'image/png', },];
         await items.sync({ items: [{ mediaId: M1, hiddenInGallery: true, },], }, CTX,);
-        const ins = calls.find((c,) => c.sql.includes('INSERT INTO gallery_items',),)!;
-        expect(ins.sql,).toContain('hidden_in_gallery',);
-        expect(ins.params.at(-1,),).toBe(true,);
+        expect(rowsOf('INSERT',)[0],).toMatchObject({ hidden_in_gallery: true, },);
     },);
 
     it('refuses an unknown collection', async () => {
@@ -213,3 +218,79 @@ describe('sync preserves collection + access', () => {
         await expect(items.sync({ items: [{ id: I1, collectionId: C1, },], }, CTX,),).rejects.toThrow(/collection no longer exists/,);
     },);
 },);
+
+const { setStatus, } = vi.hoisted(() => ({ setStatus: vi.fn(async () => ({}),), }),);
+vi.mock('../discussions/comments.js', () => ({ setStatus, }),);
+
+describe('removeGalleryItems (C6 / A3)', () => {
+    function client(opts: { comments?: string[]; installed?: boolean; },) {
+        const seen: string[] = [];
+        return {
+            seen,
+            query: async (sql: string,) => {
+                seen.push(sql,);
+                if (sql.startsWith('DELETE FROM gallery_items',)) return { rows: [{ id: I1, media_id: M1, },], };
+                if (sql.includes('to_regclass',)) return { rows: [opts.installed === false ? { comments: null, threads: null, } : { comments: 'comments', threads: 'comment_threads', },], };
+                if (sql.startsWith('SELECT id FROM comments',)) return { rows: (opts.comments ?? []).map((id,) => ({ id, })), };
+                return { rows: [], };
+            },
+        };
+    }
+
+    it('soft-deletes the items\' comments through the engine, then drops their threads', async () => {
+        setStatus.mockClear();
+        const c = client({ comments: ['c1', 'c2',], },);
+        const r = await items.removeGalleryItems(c as never, { ids: [I1,], },);
+        expect(r,).toEqual({ ids: [I1,], mediaIds: [M1,], rows: [{ id: I1, mediaId: M1, },], },);
+        expect(setStatus,).toHaveBeenCalledTimes(2,);
+        expect(setStatus,).toHaveBeenCalledWith('c1', 'deleted', c,);
+        expect(c.seen.some((s,) => s.startsWith('DELETE FROM comment_threads',),),).toBe(true,);
+    });
+
+    it('works where the discussions tables were never installed', async () => {
+        setStatus.mockClear();
+        const c = client({ installed: false, },);
+        await items.removeGalleryItems(c as never, { collectionId: C1, },);
+        expect(setStatus,).not.toHaveBeenCalled();
+        expect(c.seen.some((s,) => s.includes('comment_threads',) && s.startsWith('DELETE',),),).toBe(false,);
+    });
+
+    it('selects by collection or media', async () => {
+        const a = client({},);
+        await items.removeGalleryItems(a as never, { collectionId: C1, },);
+        expect(a.seen[0],).toContain('WHERE collection_id = $1',);
+        const b = client({},);
+        await items.removeGalleryItems(b as never, { mediaId: M1, },);
+        expect(b.seen[0],).toContain('WHERE media_id = $1',);
+    });
+});
+
+describe('assertUnchangedSince (C4)', () => {
+    it('passes when nothing changed (count + newest updated_at match)', async () => {
+        await expect(items.assertUnchangedSince({ updatedAt: null, count: 0, },),).resolves.toBeUndefined();
+    });
+    it('refuses with 409 GALLERY_CHANGED when the count moved', async () => {
+        await expect(items.assertUnchangedSince({ updatedAt: null, count: 3, },),).rejects.toMatchObject({ statusCode: 409, code: 'GALLERY_CHANGED', },);
+    });
+    it('sync skips the check with overwrite', async () => {
+        await expect(items.sync({ items: [], basedOn: { updatedAt: null, count: 3, }, overwrite: true, }, CTX,),).resolves.toBeDefined();
+        await expect(items.sync({ items: [], basedOn: { updatedAt: null, count: 3, }, }, CTX,),).rejects.toMatchObject({ code: 'GALLERY_CHANGED', },);
+    });
+});
+
+describe('viewerSignature (F4)', () => {
+    const g = (o: Partial<{ signedIn: boolean; staff: boolean; roles: string[]; tierIds: string[]; }> = {},) =>
+        ({ signedIn: true, staff: false, roles: ['member',], tierIds: [], ...o, });
+    it('same gate inputs → same signature, role order irrelevant', () => {
+        expect(items.viewerSignature(0, g({ roles: ['member', 'vip',], },),),).toBe(items.viewerSignature(0, g({ roles: ['vip', 'member',], },),),);
+    });
+    it('any gate input differs → a different signature', () => {
+        const base = items.viewerSignature(0, g(),);
+        expect(items.viewerSignature(1, g(),),).not.toBe(base,);
+        expect(items.viewerSignature(0, g({ roles: ['member', 'vip',], },),),).not.toBe(base,);
+        expect(items.viewerSignature(0, g({ tierIds: [C1,], },),),).not.toBe(base,);
+    });
+    it('staff share one signature (they pass every gate)', () => {
+        expect(items.viewerSignature(1_000_000, g({ staff: true, roles: ['admin',], },),),).toBe('staff',);
+    });
+});

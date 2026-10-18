@@ -13,7 +13,7 @@ import type { EventTicketView, } from '@sitesurge/types';
 import { formatCurrency, } from '@sitesurge/types';
 import { Title, } from '@solidjs/meta';
 import { A, useParams, } from '@solidjs/router';
-import { Component, createResource, For, Show, } from 'solid-js';
+import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { cms, } from '../services/cmsClient';
 import './EventTicket.scss';
 
@@ -31,7 +31,7 @@ function money(cents: number, currency: string,): string {
 const EventTicketPage: Component = () => {
     const params = useParams<{ code: string; }>();
 
-    const [ticket,] = createResource(() => params.code, async (code,) => {
+    const [ticket, { mutate, },] = createResource(() => params.code, async (code,) => {
         try {
             return await cms.events.ticket(code,);
         } catch {
@@ -41,13 +41,40 @@ const EventTicketPage: Component = () => {
 
     const when = (t: EventTicketView,) => {
         // The occurrence date is the one this ticket is for (a recurring
-        // event's startsAt is the FIRST date); the time comes from the event.
+        // event's startsAt is the FIRST date). Occurrence keys are UTC dates,
+        // so the time is the series' UTC time of day on that date, shown in
+        // the event's own time zone.
         const start = new Date(t.event.startsAt,);
-        const [y, m, d,] = t.occurrenceDate.split('-',).map(Number,);
-        const day = new Date(y, m - 1, d, start.getHours(), start.getMinutes(),);
+        const day = new Date(`${t.occurrenceDate}T${start.toISOString().slice(11,)}`,);
+        const at = Number.isNaN(day.getTime(),) ? start : day;
+        const zone = (() => {
+            if (!t.event.timezone) return undefined;
+            try { new Intl.DateTimeFormat('en-US', { timeZone: t.event.timezone, },); return t.event.timezone; } catch { return undefined; }
+        })();
         return t.event.allDay ?
-            day.toLocaleDateString('en-US', { dateStyle: 'full', },) :
-            day.toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short', },);
+            at.toLocaleDateString('en-US', { dateStyle: 'full', timeZone: 'UTC', },) :
+            at.toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short', ...(zone ? { timeZone: zone, timeZoneName: 'short', } : {}), },);
+    };
+
+    // Staff at the door: check the ticket in (or undo a mistaken check-in).
+    const [checking, setChecking,] = createSignal(false,);
+    const [checkError, setCheckError,] = createSignal('',);
+    const setCheckIn = async (t: EventTicketView, checkedIn: boolean,) => {
+        setChecking(true,);
+        setCheckError('',);
+        try {
+            const r = await cms.events.checkIn(t.code, checkedIn,);
+            mutate({
+                ...t,
+                status: r.status as EventTicketView['status'],
+                checkedInAt: r.checkedInAt,
+                tickets: t.tickets.map((x,) => (x.code === t.code ? { ...x, status: r.status as EventTicketView['status'], } : x)),
+            },);
+        } catch (err) {
+            setCheckError(err instanceof Error ? err.message : 'Could not update the check-in.',);
+        } finally {
+            setChecking(false,);
+        }
     };
 
     /** Tickets grouped by how they were obtained: free, or per order. */
@@ -91,6 +118,24 @@ const EventTicketPage: Component = () => {
                                         <span class={`event-ticket__status event-ticket__status--${t().status}`}>
                                             {STATUS_LABEL[t().status]}
                                         </span>
+                                        <Show when={t().checkedInAt}>
+                                            <span class="event-ticket__checked-at">
+                                                {new Date(t().checkedInAt!,).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', },)}
+                                            </span>
+                                        </Show>
+                                        <Show when={t().canCheckIn && (t().status === 'valid' || t().status === 'checked_in')}>
+                                            <button
+                                                type="button"
+                                                class="btn btn--secondary event-ticket__checkin"
+                                                disabled={checking()}
+                                                onClick={() => void setCheckIn(t(), t().status === 'valid',)}
+                                            >
+                                                {checking() ? 'Saving…' : t().status === 'valid' ? 'Check in' : 'Undo check-in'}
+                                            </button>
+                                        </Show>
+                                        <Show when={checkError()}>
+                                            <span class="event-ticket__checkin-error" role="alert">{checkError()}</span>
+                                        </Show>
                                     </div>
                                 </header>
 

@@ -1,17 +1,17 @@
-import { splitFullName, } from '@sitesurge/types';
+import { isStaffRole, splitFullName, } from '@sitesurge/types';
 import type { AuthResponse, User, UserRole, } from '@sitesurge/types';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { nanoid, } from '../utils/nanoid';
 import { config, } from '../config';
-import { ConflictError, } from '../core/errors';
+import { AppError, ConflictError, } from '../core/errors';
 import { query, transaction, } from '../db';
 import { logAudit, } from './audit';
 import { captureAudience, } from './audienceIntake';
 import { logger, } from '../utils/logger';
 import { mapRow, } from '../utils/mapRow';
 import { getUsersSettings, } from './settings';
-import { generateVerificationToken, sendVerificationEmail, } from './mail/verification';
+import { generateVerificationToken, resendVerification, sendVerificationEmail, } from './mail/verification';
 import { buildNotification, notifyUser, notifyWith, personLabel, } from './notifications';
 import { assignHandle, } from './handles';
 
@@ -233,6 +233,38 @@ export async function authenticateWithPatreon(
     return { user, accessToken, refreshToken, expiresAt, };
 }
 
+/** Error code for a login refused because the email is not verified yet (the form offers "Resend the link"). */
+export const EMAIL_NOT_VERIFIED = 'EMAIL_NOT_VERIFIED';
+/** Neutral refusal for a banned IP — says nothing about the email typed. */
+export const NETWORK_BANNED_MESSAGE = 'Sign-in is not available from this network';
+
+async function isIpBanned(ip: string,): Promise<boolean> {
+    const r = await query('SELECT 1 FROM users_banned WHERE ip_address = $1 AND (expires_at IS NULL OR expires_at > NOW())', [ip,],);
+    return r.rows.length > 0;
+}
+
+async function isEmailBanned(email: string,): Promise<boolean> {
+    const r = await query('SELECT 1 FROM users_banned WHERE lower(email) = lower($1) AND (expires_at IS NULL OR expires_at > NOW())', [email,],);
+    return r.rows.length > 0;
+}
+
+/**
+ * A fresh verification link for an UNVERIFIED account, asked for by email from
+ * the login form (login refused it, so there is no session to use). Always
+ * resolves the same way, so it never reveals whether an account exists.
+ */
+export async function resendVerificationByEmail(email: string,): Promise<void> {
+    try {
+        const r = await query<{ id: string; }>(
+            `SELECT id FROM users WHERE lower(email) = lower($1) AND email_verified = false AND is_active = true AND is_banned = false LIMIT 1`,
+            [email,],
+        );
+        if (r.rows[0]) await resendVerification(r.rows[0].id,);
+    } catch (err) {
+        logger.warn('resend verification by email failed', { error: (err as Error).message, },);
+    }
+}
+
 export async function authenticateWithEmail(
     email: string,
     password: string,
@@ -240,15 +272,11 @@ export async function authenticateWithEmail(
     userAgent?: string,
     rememberMe = false,
 ): Promise<AuthResponse> {
-    // Check if user is banned
-    const banCheck = await query(
-        'SELECT 1 FROM users_banned WHERE (email = $1 OR ip_address = $2) AND (expires_at IS NULL OR expires_at > NOW())',
-        [email, ipAddress,],
-    );
-
-    if (banCheck.rows.length > 0) {
-        throw new Error('Account has been banned',);
-    }
+    // A banned NETWORK is refused first, with a neutral message (it says
+    // nothing about the email typed). A banned EMAIL is checked only after
+    // the password, so the login form cannot be used to learn that an
+    // address is banned.
+    if (ipAddress && await isIpBanned(ipAddress,)) throw new Error(NETWORK_BANNED_MESSAGE,);
 
     const result = await query(
         `SELECT id, email, password_hash, display_name, avatar_url, role,
@@ -269,6 +297,8 @@ export async function authenticateWithEmail(
         throw new Error('Invalid email or password',);
     }
 
+    if (await isEmailBanned(email,)) throw new Error('Account has been banned',);
+
     if (!dbUser.is_active || dbUser.is_banned) {
         throw new Error('Account is disabled or banned',);
     }
@@ -277,14 +307,15 @@ export async function authenticateWithEmail(
     // (staff accounts are admin-vouched; Patreon accounts are OAuth-verified),
     // and only when the operator has verification enabled. `email_verified`
     // defaults true for every pre-existing / non-self-signup account.
-    if (dbUser.role === 'member' && dbUser.email_verified === false) {
+    // Every non-staff role (member and custom member-based roles alike).
+    if (!isStaffRole(dbUser.role,) && dbUser.email_verified === false) {
         const usersSettings = await getUsersSettings();
-    const { requireEmailVerification, } = usersSettings;
+        const { requireEmailVerification, } = usersSettings;
         // Subscription-required mode lets an unverified member sign in: they
         // land restricted (pay, then verify), so a sign-up interrupted before
         // the verification email can still finish.
         if (requireEmailVerification && usersSettings.requireSubscription !== true) {
-            throw new Error(
+            throw new AppError(401, EMAIL_NOT_VERIFIED,
                 'Please verify your email address before logging in. Check your inbox for the verification link.',
             );
         }
@@ -496,6 +527,12 @@ export async function registerMember(
     },);
 
 
+    // An invite link proved the address: attach applications sent from it.
+    if (opts.verified) {
+        const { claimByVerifiedEmail, } = await import('./membershipApplications.js');
+        await claimByVerifiedEmail(row.id, row.email,);
+    }
+
     return { userId: row.id, email: row.email, verificationRequired: requireEmailVerification, };
 }
 
@@ -516,7 +553,12 @@ export async function verifyEmailToken(token: string,): Promise<User | null> {
         [token,],
     );
     if (result.rows.length === 0) return null;
-    return mapRow<User>(result.rows[0],);
+    const user = mapRow<User>(result.rows[0],);
+    // The address is proven now: attach membership applications sent from it
+    // before the account existed (dynamic import — that module imports auth's neighbours).
+    const { claimByVerifiedEmail, } = await import('./membershipApplications.js');
+    await claimByVerifiedEmail(user.id, user.email,);
+    return user;
 }
 
 export function generateState(): string {

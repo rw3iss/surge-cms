@@ -14,7 +14,7 @@ import { useToast, } from '../../common/toast';
 import Pagination from '../common/Pagination';
 import SortTh from '../common/SortTh';
 import EntityFilterBar from './EntityFilterBar';
-import '../../../pages/admin/entities/EntitiesList.scss';
+import './EntityDataTable.scss';
 import ExportMenu from '../common/ExportMenu';
 
 export interface EntityDataTableProps {
@@ -339,7 +339,7 @@ const EntityDataTable: Component<EntityDataTableProps> = (props,) => {
                                                 {(col,) => <td>{display(rec, col.key,)}</td>}
                                             </For>
                                             <td>
-                                                <code class="schema-field__key">{String(rec.id,).slice(0, 8,)}</code>
+                                                <code class="entity-data-table__id">{String(rec.id,).slice(0, 8,)}</code>
                                             </td>
                                             <td>
                                                 <div class="entity-row-actions">

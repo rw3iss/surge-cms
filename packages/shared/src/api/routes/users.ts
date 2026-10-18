@@ -42,6 +42,8 @@ export interface UserListQuery {
     subscription?: string;
     /** Membership application status (pending / approved / rejected). */
     approval?: 'pending' | 'approved' | 'rejected';
+    /** Email verification state (`unverified` = still waiting on the link). */
+    verified?: 'verified' | 'unverified';
     sortBy?: string;
     sortOrder?: string;
     page?: number;
@@ -239,3 +241,6 @@ export interface UserInviteAcceptBody {
     email: string;
     password: string;
 }
+
+/** POST /users/:id/verification/resend — `sent: false` when already verified. */
+export interface UserVerificationResendResponse { sent: boolean; }

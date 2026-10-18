@@ -6,18 +6,34 @@
 import { RateLimitError, } from '../../core/errors';
 import { getRedis, } from '../cache';
 
+/**
+ * INCR + "set the TTL when the key has none" in ONE atomic script. A separate
+ * `EXPIRE` after `INCR` could fail (blip, restart) and leave a counter with no
+ * TTL — a user rate-limited forever. Checking `TTL < 0` (not `n === 1`) also
+ * heals any such key left by the old code. Works on every Redis/Valkey version.
+ */
+const INCR_WITH_TTL = `local n = redis.call('INCR', KEYS[1])
+if redis.call('TTL', KEYS[1]) < 0 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
+return n`;
+
+/** Count one hit on `key`; returns the hit count in the window (0 when Redis is down). */
+export async function hit(key: string, windowSeconds: number,): Promise<number> {
+    try {
+        const n = await getRedis().eval(INCR_WITH_TTL, 1, `discussions:rl:${key}`, String(windowSeconds,),);
+        return Number(n,) || 0;
+    } catch {
+        return 0; // fail open
+    }
+}
+
+/** True while `key` has had at most `max` hits inside `windowSeconds` (counts this one). */
+export async function allow(key: string, max: number, windowSeconds: number,): Promise<boolean> {
+    return (await hit(key, windowSeconds,)) <= max;
+}
+
 /** Throws RateLimitError once `max` hits land on `key` inside `windowSeconds`. */
 export async function rateLimit(key: string, max: number, windowSeconds: number,): Promise<void> {
-    let n = 0;
-    try {
-        const r = getRedis();
-        const k = `discussions:rl:${key}`;
-        n = await r.incr(k,);
-        if (n === 1) await r.expire(k, windowSeconds,);
-    } catch {
-        return;
-    }
-    if (n > max) throw new RateLimitError();
+    if (!(await allow(key, max, windowSeconds,))) throw new RateLimitError();
 }
 
 export const countLinks = (body: string,): number => (body.match(/https?:\/\//gi,) ?? []).length;

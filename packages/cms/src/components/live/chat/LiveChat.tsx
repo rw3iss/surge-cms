@@ -187,6 +187,25 @@ const LiveChat: Component<LiveChatProps> = (props,) => {
         },
     ),);
 
+    // Screen readers: the list is a `role="log"` with live announcements OFF
+    // (a busy chat would read without stopping); only a NEW message that
+    // @mentions this viewer is announced, through a hidden polite region.
+    const [announce, setAnnounce,] = createSignal('',);
+    let lastSeenId: string | undefined;
+    createEffect(on(
+        () => props.messages[props.messages.length - 1]?.id,
+        (lastId,) => {
+            const prevId = lastSeenId;
+            lastSeenId = lastId;
+            if (!prevId || !lastId) return;
+            const from = props.messages.findIndex((m,) => m.id === prevId,);
+            const fresh = from >= 0 ? props.messages.slice(from + 1,) : [];
+            const me = props.me ? { name: props.me.name, handle: props.me.handle, } : null;
+            const hit = [...fresh,].reverse().find((m,) => !(props.me?.userId && m.userId === props.me.userId) && mentionsMe(m.text, me,));
+            if (hit) setAnnounce(`${hit.name} mentioned you: ${hit.text}`,);
+        },
+    ),);
+
     const jumpTo = (id: string,) => {
         const el = listEl?.querySelector<HTMLElement>(`[data-msg-id="${CSS.escape(id,)}"]`,);
         if (!el) return;
@@ -306,8 +325,9 @@ const LiveChat: Component<LiveChatProps> = (props,) => {
                 {props.headerExtra}
             </header>
 
+            <div class="sr-only" aria-live="polite" aria-atomic="true">{announce()}</div>
             <div class="live-chat__body">
-                <div class="live-chat__messages" ref={listEl} onScroll={onScroll} aria-live="polite">
+                <div class="live-chat__messages" ref={listEl} onScroll={onScroll} role="log" aria-live="off" aria-label="Chat messages">
                     <Show when={props.messages.length} fallback={<p class="live-chat__empty">No messages yet.</p>}>
                         <For each={props.messages}>
                             {(m,) => {

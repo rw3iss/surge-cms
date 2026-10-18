@@ -10,6 +10,11 @@ import MediaPickerModal, { MediaItem, } from '../../media/MediaPickerModal';
 import { cms, } from '@/services/cmsClient';
 import Toggle from '../../common/Toggle';
 import { FormField, } from '../../forms';
+import { CommitInput, } from '../../forms/CommitInput';
+
+/** A size field's value is any CSS length; refuse what could escape a declaration. */
+const lengthError = (v: string,): string | null =>
+    !v || (cssLength(v,) && !/[;{}<>]/.test(v,)) ? null : 'Use a CSS length, e.g. 480, 480px, 60vh or 40rem.';
 
 interface VideoBlockProps {
     data: Record<string, any>;
@@ -31,6 +36,7 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
     const [uploadRowId, setUploadRowId,] = createSignal<string | null>(null,);
     const [uploadError, setUploadError,] = createSignal<string | null>(null,);
     const [showPicker, setShowPicker,] = createSignal(false,);
+    let fileInput: HTMLInputElement | undefined;
 
     const uploadPercent = () => {
         const id = uploadRowId();
@@ -178,15 +184,14 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
                     </div>
                 }
             >
-                <div class="form-group">
-                    <label>Video</label>
+                <FormField label="Video">
+                    <div class="block-video">
                     <Show when={props.data.url || props.data.mediaId}>
-                        {preview({ 'max-width': '320px', 'margin-bottom': '0.5rem', },)}
+                        <div class="block-video__preview">{preview({ 'max-width': '320px', },)}</div>
                         <Show when={props.data.mediaId}>
                             <button
                                 type="button"
-                                class="ui-button ui-button--sm ui-button--secondary"
-                                style={{ 'margin-bottom': '0.5rem', }}
+                                class="ui-button ui-button--sm ui-button--secondary block-video__view"
                                 onClick={() => openMediaViewer({ id: props.data.mediaId!, },)}
                             >
                                 View full size
@@ -203,7 +208,24 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
                     </Show>
                     <Show when={!uploading()}>
                         <div class="block-media-controls">
-                            <input type="file" accept="video/*" onChange={handleFileUpload} />
+                            {/* A styled button over a hidden file input (as in the
+                                Image block) — not the browser's "Choose file". */}
+                            <input
+                                ref={fileInput}
+                                type="file"
+                                accept="video/*"
+                                class="block-video__file"
+                                tabIndex={-1}
+                                aria-hidden="true"
+                                onChange={handleFileUpload}
+                            />
+                            <button
+                                type="button"
+                                class="ui-button ui-button--sm ui-button--secondary"
+                                onClick={() => fileInput?.click()}
+                            >
+                                Upload video
+                            </button>
                             <button
                                 type="button"
                                 class="ui-button ui-button--sm ui-button--secondary"
@@ -215,10 +237,15 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
                     </Show>
                     <Show when={props.data.fileName}>
                         <span class="form-help">
-                            {props.data.fileName} ({Math.round((props.data.fileSize || 0) / 1024 / 1024 * 10,) / 10} MB)
+                            {props.data.fileName}
+                            {/* The size only when it is known — "(0 MB)" read as an empty file. */}
+                            <Show when={Number(props.data.fileSize,) > 0}>
+                                {` (${Math.round(Number(props.data.fileSize,) / 1024 / 1024 * 10,) / 10} MB)`}
+                            </Show>
                         </span>
                     </Show>
-                </div>
+                    </div>
+                </FormField>
                 <FormField label="URL (or paste a URL instead of uploading)">
                     <input
                         type="url"
@@ -233,28 +260,20 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
                     />
                 </FormField>
                 <div class="form-row">
-                    <FormField label="Max Width (px)">
-                        <input
-                            type="number"
-                            value={props.data.maxWidth || ''}
-                            onChange={(e,) =>
-                                props.onUpdate({
-                                    ...props.data,
-                                    maxWidth: parseInt(e.currentTarget.value,) || undefined,
-                                },)}
+                    <FormField label="Max Width" tooltip="Any CSS length (a bare number = px). Empty = no cap.">
+                        <CommitInput
+                            value={props.data.maxWidth}
                             placeholder="Auto"
+                            validate={lengthError}
+                            onCommit={(v,) => props.onUpdate({ ...props.data, maxWidth: v || undefined, },)}
                         />
                     </FormField>
-                    <FormField label="Max Height (px)">
-                        <input
-                            type="number"
-                            value={props.data.maxHeight || ''}
-                            onChange={(e,) =>
-                                props.onUpdate({
-                                    ...props.data,
-                                    maxHeight: parseInt(e.currentTarget.value,) || undefined,
-                                },)}
+                    <FormField label="Max Height" tooltip="Any CSS length (a bare number = px). Empty = no cap.">
+                        <CommitInput
+                            value={props.data.maxHeight}
                             placeholder="Auto"
+                            validate={lengthError}
+                            onCommit={(v,) => props.onUpdate({ ...props.data, maxHeight: v || undefined, },)}
                         />
                     </FormField>
                     <FormField

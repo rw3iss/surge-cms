@@ -143,6 +143,10 @@ export function notifySubscriptionChange(
     sub: Stripe.Subscription,
     previous?: Partial<Stripe.Subscription> | null,
 ): void {
+    // A new subscription still `incomplete` is an unpaid attempt — most are
+    // cancelled by settleOpenAttempts when the member retries. The
+    // incomplete → active "payment received" notice covers the one that pays.
+    if (kind === 'created' && sub.status === 'incomplete') return;
     const fallbackTitle = kind === 'created' ? 'Membership started' : kind === 'deleted' ? 'Membership cancelled' : 'Membership updated';
     void notifyWith('subscription_change', () => buildSubscriptionNotice(kind, sub, previous,), {
         subject: fallbackTitle,

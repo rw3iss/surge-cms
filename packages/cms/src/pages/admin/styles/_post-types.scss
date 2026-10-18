@@ -361,9 +361,12 @@
 .live-recordings {
   &__head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
     gap: $spacing-sm;
+
+    // Title left, the action buttons grouped right.
+    > :first-child { margin-right: auto; }
   }
 
   &__player {

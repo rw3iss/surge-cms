@@ -35,7 +35,12 @@ export class PaymentsModule extends ModuleBase {
         return this.get<PaymentPublishableKeyResponse>('/payments/publishable-key', { query: { context, }, },);
     }
 
-    /** POST /payments/subscribe — may return a clientSecret for confirmation. */
+    /**
+     * POST /payments/subscribe — may return a clientSecret for confirmation.
+     * @deprecated Use `changeMembership` (POST /payments/membership/change). This
+     * legacy route now runs the same membership rules, so it refuses levels that
+     * need an application, Dev only levels and levels below the required minimum.
+     */
     subscribe(body: PaymentsSubscribeBody,): Promise<PaymentsSubscribeResponse> {
         return this.mutate<PaymentsSubscribeResponse>('POST', '/payments/subscribe', { body, },);
     }

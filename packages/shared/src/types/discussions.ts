@@ -63,6 +63,8 @@ export interface Comment {
     canDelete: boolean;
     /** Nested replies (list endpoints return a tree under each top-level comment). */
     replies?: Comment[];
+    /** Top-level only: replies left out of `replies` (fetch them with `root`). */
+    hiddenReplies?: number;
 }
 
 /** What a comment is attached to, for lists shown away from the item. */

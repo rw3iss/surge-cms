@@ -55,6 +55,9 @@ const LiveViewers: Component<LiveViewersProps> = (props,) => {
     const [busyKey, setBusyKey,] = createSignal<string | null>(null,);
     const [confirm, setConfirm,] = createSignal<{ group: ViewerGroup; action: 'kick' | 'ban'; } | null>(null,);
     const [banReason, setBanReason,] = createSignal('',);
+    /** Ban length in minutes; 0 = permanent. */
+    const [banMinutes, setBanMinutes,] = createSignal(0,);
+    const [banQuery, setBanQuery,] = createSignal('',);
     const [bansOpen, setBansOpen,] = createSignal(false,);
     const [bans, setBans,] = createSignal<LiveBan[] | null>(null,);
     const [unbanning, setUnbanning,] = createSignal<string | null>(null,);
@@ -103,9 +106,22 @@ const LiveViewers: Component<LiveViewersProps> = (props,) => {
 
     onMount(() => {
         void load();
-        const poll = setInterval(() => void load(), POLL_MS,);
-        const tick = setInterval(() => setNow(Date.now(),), 1000,);
-        onCleanup(() => { disposed = true; clearInterval(poll,); clearInterval(tick,); },);
+        // A background tab does not poll (or tick); returning refreshes at once.
+        const visible = () => document.visibilityState === 'visible';
+        const poll = setInterval(() => { if (visible()) void load(); }, POLL_MS,);
+        const tick = setInterval(() => { if (visible()) setNow(Date.now(),); }, 1000,);
+        const onVisibility = () => {
+            if (!visible()) return;
+            setNow(Date.now(),);
+            void load();
+        };
+        document.addEventListener('visibilitychange', onVisibility,);
+        onCleanup(() => {
+            disposed = true;
+            clearInterval(poll,);
+            clearInterval(tick,);
+            document.removeEventListener('visibilitychange', onVisibility,);
+        },);
     },);
 
     const groups = createMemo(() => sortViewers(groupViewers(list(),),));
@@ -126,14 +142,27 @@ const LiveViewers: Component<LiveViewersProps> = (props,) => {
         }
     };
 
+    const filteredBans = createMemo(() => {
+        const q = banQuery().trim().toLowerCase().replace(/^@/, '',);
+        const list = bans() ?? [];
+        if (!q) return list;
+        return list.filter((b,) => `${b.name} ${b.handle ?? ''} ${b.reason ?? ''} ${b.fromShow ?? ''}`.toLowerCase().includes(q,));
+    },);
+
     const runConfirm = async () => {
         const c = confirm();
         if (!c) return;
         const reason = banReason().trim();
-        const ok = await moderate(c.group, c.action, c.action === 'ban' && reason ? { reason, } : {},);
+        const extra: Partial<LiveModerateBody> = {};
+        if (c.action === 'ban') {
+            if (reason) extra.reason = reason;
+            if (banMinutes() > 0) extra.minutes = banMinutes();
+        }
+        const ok = await moderate(c.group, c.action, extra,);
         if (ok) {
             setConfirm(null,);
             setBanReason('',);
+            setBanMinutes(0,);
             if (c.action === 'ban' && bansOpen()) void loadBans();
         }
     };
@@ -197,8 +226,17 @@ const LiveViewers: Component<LiveViewersProps> = (props,) => {
                 <Show when={bansOpen()}>
                     <Show when={bans()} fallback={<p class="live-viewers__empty">Loading…</p>}>
                         <Show when={bans()!.length} fallback={<p class="live-viewers__empty">No one is banned.</p>}>
+                            <input
+                                type="search"
+                                class="live-viewers__input live-viewers__search"
+                                placeholder="Search banned viewers"
+                                aria-label="Search banned viewers"
+                                // Search-as-you-type over the in-memory list (no request per key).
+                                value={banQuery()}
+                                onInput={(e,) => setBanQuery(e.currentTarget.value,)}
+                            />
                             <ul class="live-viewers__list">
-                                <For each={bans()!}>
+                                <For each={filteredBans()} fallback={<li class="live-viewers__empty">No match.</li>}>
                                     {(b,) => (
                                         <li class="live-viewers__row" classList={{ 'is-busy': unbanning() === b.key, }}>
                                             <span class="live-viewers__avatar" classList={{ 'is-guest': b.anonymous, }} aria-hidden="true">
@@ -213,6 +251,8 @@ const LiveViewers: Component<LiveViewersProps> = (props,) => {
                                                 <div class="live-viewers__meta">
                                                     <span>{new Date(b.createdAt,).toLocaleDateString()}</span>
                                                     <Show when={b.bannedBy}><span>· by {b.bannedBy}</span></Show>
+                                                    <span>· {b.expiresAt ? `until ${new Date(b.expiresAt,).toLocaleString()}` : 'permanent'}</span>
+                                                    <Show when={b.fromShow}><span>· in “{b.fromShow}”</span></Show>
                                                     <Show when={b.reason}><span>· {b.reason}</span></Show>
                                                 </div>
                                             </div>
@@ -239,7 +279,7 @@ const LiveViewers: Component<LiveViewersProps> = (props,) => {
                     ? `Ban ${confirm()?.group.viewer.name} from all live shows?`
                     : `Kick ${confirm()?.group.viewer.name}?`}
                 message={confirm()?.action === 'ban'
-                    ? 'They are removed now and can\'t join this or any future live show until unbanned.'
+                    ? 'They are removed now and can\'t join this or any future live show until the ban ends or they are unbanned.'
                     : 'They are removed now and can\'t rejoin this show.'}
                 confirmLabel={confirm()?.action === 'ban' ? 'Ban' : 'Kick'}
                 busyLabel={confirm()?.action === 'ban' ? 'Banning…' : 'Kicking…'}
@@ -249,6 +289,15 @@ const LiveViewers: Component<LiveViewersProps> = (props,) => {
                 onCancel={() => setConfirm(null,)}
             >
                 <Show when={confirm()?.action === 'ban'}>
+                    <FormField label="Length">
+                        <select
+                            class="live-viewers__input"
+                            value={String(banMinutes(),)}
+                            onChange={(e,) => setBanMinutes(Number(e.currentTarget.value,),)}
+                        >
+                            <For each={BAN_LENGTHS}>{(o,) => <option value={String(o.minutes,)}>{o.label}</option>}</For>
+                        </select>
+                    </FormField>
                     <FormField label="Reason (optional)" hint="Kept with the ban for other staff.">
                         <input
                             type="text"
@@ -264,6 +313,15 @@ const LiveViewers: Component<LiveViewersProps> = (props,) => {
         </div>
     );
 };
+
+/** Ban length choices (minutes; 0 = permanent). */
+const BAN_LENGTHS: { minutes: number; label: string; }[] = [
+    { minutes: 0, label: 'Permanent', },
+    { minutes: 60, label: '1 hour', },
+    { minutes: 24 * 60, label: '1 day', },
+    { minutes: 7 * 24 * 60, label: '7 days', },
+    { minutes: 30 * 24 * 60, label: '30 days', },
+];
 
 const GuestIcon = () => (
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">

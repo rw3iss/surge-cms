@@ -293,7 +293,7 @@ const ShopCheckoutInner: Component = () => {
 
         setPlacing(true,);
         try {
-            const { clientSecret, orderNumber, } = await cms.shop.checkout.create({
+            const { clientSecret, orderNumber, accessKey, } = await cms.shop.checkout.create({
                 items: lines(),
                 customerEmail: email(),
                 customerName: fullName() || undefined,
@@ -325,7 +325,9 @@ const ShopCheckoutInner: Component = () => {
             }
             if (result.paymentIntent?.status === 'succeeded') {
                 clearCart();
-                navigate(`/shop/orders/${orderNumber}`,);
+                // The key lets the confirmation page show the buyer's details
+                // and downloads — the order number alone does not.
+                navigate(`/shop/orders/${orderNumber}${accessKey ? `?k=${encodeURIComponent(accessKey,)}` : ''}`,);
                 return;
             }
             setError('Payment did not complete. Please try again.',);

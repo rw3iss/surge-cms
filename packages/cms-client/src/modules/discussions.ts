@@ -1,5 +1,5 @@
 import type {
-    Comment, CommentTargetRef, DiscussionsCommentCreateBody, DiscussionsCommentDeleteResponse, DiscussionsCommentsQuery,
+    Comment, CommentTargetRef, DiscussionsCommentCreateBody, DiscussionsCommentDeleteResponse, DiscussionsCommentLocateResponse, DiscussionsCommentsQuery,
     DiscussionsHistoryResponse, DiscussionsModerationAction, DiscussionsModerationActResponse,
     DiscussionsModerationBulkResponse, DiscussionsModerationCountsResponse, DiscussionsModerationQuery,
     DiscussionItem, DiscussionQuery, DiscussionsReactResponse, DiscussionsReportResponse, DiscussionsSettings, DiscussionsSettingsBody, ModerationItem,
@@ -42,6 +42,11 @@ export class DiscussionsModule extends ModuleBase {
 
     report(id: string, reason?: string,): Promise<DiscussionsReportResponse> {
         return this.mutate('POST', '/discussions/comments/:id/report', { params: { id, }, body: { reason, }, },);
+    }
+
+    /** The top-level comment a `#comment-<id>` deep link lives under (load it with `list(target, { root })`). */
+    locate(id: string,): Promise<DiscussionsCommentLocateResponse> {
+        return this.get('/discussions/comments/:id/locate', { params: { id, }, options: { cache: false, }, },);
     }
 
     /** Edit history (moderators). */

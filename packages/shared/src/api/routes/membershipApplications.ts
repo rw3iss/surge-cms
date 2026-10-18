@@ -52,6 +52,10 @@ export interface MembershipApplication {
     answers: MembershipApplicationAnswer[];
     /** The saved card (charged only on approval). */
     card: { brand: string; last4: string; } | null;
+    /** What approval will charge: the price the applicant chose (else the level's default). Single-application reads only. */
+    price?: { priceId: string; amount: number; currency: string; interval: string; intervalCount: number; } | null;
+    /** A "hide price" approval (offer) ends at this time; null = no end. */
+    offerExpiresAt?: string | null;
     note: string | null;
     /** Last approval error (e.g. the card was declined); the application stays pending. */
     error: string | null;
@@ -76,6 +80,8 @@ export interface MembershipApplySubmitBody {
     /** The chosen price (one of the level's `prices`); omitted = the default. */
     priceId?: string;
     answers: Array<{ questionId: string; value: unknown; }>;
+    /** Honeypot — a hidden field people never fill. When set, nothing is stored or sent. */
+    website?: string;
 }
 
 export interface MembershipApplySubmitResponse {

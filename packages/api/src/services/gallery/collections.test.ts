@@ -20,6 +20,7 @@ function answer(sql: string, params: unknown[],) {
         return { rows: existing.includes(params[0] as string,) ? [{ id: params[0], },] : [], };
     }
     if (sql.startsWith('DELETE FROM gallery_items WHERE collection_id',)) return { rows: deletedItems, rowCount: deletedItems.length, };
+    if (sql.includes('to_regclass',)) return { rows: [{ comments: 'comments', threads: 'comment_threads', },], };
     if (sql.startsWith('UPDATE gallery_items',)) return { rows: [], rowCount: 2, };
     if (sql.startsWith('UPDATE gallery_collections',)) return { rows: [], rowCount: 1, };
     if (sql.includes('INSERT INTO gallery_collections',)) return { rows: [{ id: C1, },], };
@@ -41,7 +42,8 @@ vi.mock('../../db', () => ({
         },
     },),
 }),);
-vi.mock('../settings', () => ({ get: async () => ({}), set: async () => undefined, }),);
+let storedSettings: Record<string, unknown> = {};
+vi.mock('../settings', () => ({ get: async () => storedSettings, set: async () => undefined, }),);
 vi.mock('../cache', () => ({
     cache: { get: async () => null, set: async () => undefined, invalidateGalleryCache: async () => undefined, invalidateSitemapCache: async () => undefined, },
     CACHE_KEYS: { galleryList: (h: string,) => `gallery:list:${h}`, galleryCollections: 'gallery:collections', galleryCollectionsListing: 'gallery:collections:listing', },
@@ -68,6 +70,7 @@ beforeEach(() => {
     deletedItems = [];
     mediaRemoved.length = 0;
     mediaInUse = [];
+    storedSettings = {};
 },);
 
 const txSql = () => calls.filter((c,) => c.tx,).map((c,) => c.sql,);
@@ -165,7 +168,7 @@ describe('listCollections (site)', () => {
     it('gates collections + counts by the viewer, binding their roles', async () => {
         await col.listCollections({ id: I1, role: 'member', },);
         const sel = calls.find((c,) => c.sql.startsWith('SELECT gc.*',),)!;
-        expect(sel.sql,).toContain('NOT (gc.access_enabled',);
+        expect(sel.sql,).toContain('CASE WHEN (gc.access_enabled',);
         expect(sel.sql,).toContain('gi.collection_id = gc.id',);
         expect(sel.sql,).toContain('CASE WHEN (gi.access_enabled',);
         expect(sel.params,).toContainEqual(['member', 'ambassador',],);
@@ -193,6 +196,16 @@ describe('listCollections (site)', () => {
         calls.length = 0;
         await col.updateCollection(C1, { name: 'x', }, CTX,);
         expect(calls.find((c,) => c.sql.startsWith('UPDATE gallery_collections',),)!.sql,).not.toContain('hidden_in_gallery',);
+    },);
+
+    it('S2: a members-only gallery gates collections by its floor (anonymous: floor 0 > level -1)', async () => {
+        storedSettings = { access: 'members', };
+        await col.listCollections(null,);
+        const sel = calls.find((c,) => c.sql.startsWith('SELECT gc.*',),)!;
+        // Inactive rule → the gallery floor decides.
+        expect(sel.sql,).toMatch(/CASE WHEN \(gc\.access_enabled[^]*ELSE \$\d+::int <= \$\d+::int END/,);
+        // [floor, level] are bound right before the collection gate's roles / tiers.
+        expect(sel.params.slice(-4, -2,),).toEqual([0, -1,],);
     },);
 
     it('admin: no gates', async () => {

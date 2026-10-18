@@ -74,7 +74,7 @@ export async function issueOrderTickets(
                 sendConfirmation: false,
             },);
             const tickets = await issueTickets(registration.id, lines, { orderId, },);
-            await sendTicketConfirmation(meta.eventId, email, tickets,);
+            await sendTicketConfirmation(meta.eventId, email, tickets, meta.occurrenceDate,);
             logger.info('Event tickets issued for paid shop order', {
                 orderId,
                 eventId: meta.eventId,

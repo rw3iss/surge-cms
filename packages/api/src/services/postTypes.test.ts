@@ -20,4 +20,20 @@ describe('post types', () => {
         expect(() => resolveTypeSettings('live', { archiveVideo: 'yes', },)).toThrow(/archiveVideo/,);
         expect(() => resolveTypeSettings('live', [],)).toThrow(/object/,);
     },);
+    it('never lets a save overwrite server-managed live keys (S2)', () => {
+        const existing = {
+            chatMode: 'public',
+            recordingVersions: [{ mediaId: 'a', }, { mediaId: 'b', },],
+            recordingMediaId: 'b',
+            recordingRemovedAt: null,
+            providerInputId: 'inp-1',
+        };
+        // A stale editor copy (from before recording `b` completed).
+        const stale = { chatMode: 'members', recordingVersions: [{ mediaId: 'a', },], recordingMediaId: 'a', providerInputId: null, };
+        const out = resolveTypeSettings('live', stale, existing,);
+        expect(out.chatMode,).toBe('members',);
+        expect(out.recordingVersions,).toEqual(existing.recordingVersions,);
+        expect(out.recordingMediaId,).toBe('b',);
+        expect(out.providerInputId,).toBe('inp-1',);
+    },);
 },);

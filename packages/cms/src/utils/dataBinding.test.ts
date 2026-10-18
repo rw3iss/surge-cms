@@ -1,6 +1,6 @@
 import { describe, expect, it, } from 'vitest';
 import {
-    bindingFromPick, bindingRefs, dataBindingSummary, describeQuery, recordLabel, saveLineText, toggleRef,
+    bindingFromPick, bindingRefs, dataBindingSummary, describeQuery, orderSelection, recordLabel, saveLineText, toggleRef,
 } from './dataBinding';
 
 describe('bindingFromPick', () => {
@@ -59,5 +59,23 @@ describe('summaries', () => {
         expect(bindingRefs({ mode: 'query', query: {}, },),).toEqual([],);
         expect(recordLabel({ id: '1', name: 'N', },),).toBe('N',);
         expect(recordLabel({ id: '1', },),).toBe('1',);
+    },);
+},);
+
+describe('orderSelection', () => {
+    const known = {
+        a: { id: 'a', title: 'Banana', }, b: { id: 'b', title: 'apple', }, c: { id: 'c', title: 'Cherry', }, d: { id: 'd', },
+    } as never;
+    it('keeps the pick order with no sort chosen', () => {
+        expect(orderSelection({ refs: ['c', 'a',], sortBy: '', sortOrder: 'desc', known, serverRank: new Map(), },),).toEqual(['c', 'a',],);
+    },);
+    it('follows the server rank first, then the field for unloaded records (empty last)', () => {
+        const serverRank = new Map([['c', 0,], ['a', 1,],],);
+        expect(orderSelection({ refs: ['d', 'b', 'a', 'c',], sortBy: 'title', sortOrder: 'asc', known, serverRank, },),)
+            .toEqual(['c', 'a', 'b', 'd',],);
+    },);
+    it('compares case-insensitively in the chosen direction', () => {
+        expect(orderSelection({ refs: ['a', 'b', 'c',], sortBy: 'title', sortOrder: 'desc', known, serverRank: new Map(), },),)
+            .toEqual(['c', 'a', 'b',],);
     },);
 },);

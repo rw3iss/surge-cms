@@ -136,11 +136,17 @@ const GalleryCollectionPage: Component<GalleryCollectionPageProps> = (props,) =>
                                                 thumbSize={a().thumbSize}
                                                 hoverZoom={a().hoverZoom}
                                                 videoBadge={a().videoBadge}
-                                                empty="Nothing here yet."
+                                                empty={list.error() ? undefined : 'Nothing here yet.'}
                                             />
                                         )}
                                     </Show>
-                                    <Show when={list.hasMore()}>
+                                    <Show when={list.error()}>
+                                        <div class="gallery-page__error" role="alert">
+                                            <span>Couldn't load {list.items().length ? 'more items' : 'the gallery'}.</span>
+                                            <button type="button" class="btn" onClick={() => void list.retry()}>Retry</button>
+                                        </div>
+                                    </Show>
+                                    <Show when={list.hasMore() && !list.error()}>
                                         <div class="gallery-page__more">
                                             <button type="button" class="btn" disabled={list.loadingMore()} onClick={() => void list.loadMore()}>
                                                 {list.loadingMore() ? 'Loading…' : 'Load more'}

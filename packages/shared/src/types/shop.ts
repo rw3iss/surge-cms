@@ -173,6 +173,11 @@ export type ShopOrderStatus =
     | 'cancelled'
     | 'refunded';
 
+/** Every order status, in lifecycle order — the one list admin filters use. */
+export const SHOP_ORDER_STATUSES: readonly ShopOrderStatus[] = [
+    'pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded',
+];
+
 export type ShopFulfillmentStatus = 'unfulfilled' | 'partial' | 'fulfilled';
 
 export interface ShopAddress {
@@ -223,6 +228,11 @@ export interface ShopOrder {
     printifyOrderId?: string | null;
     printifyStatus?: string | null;
     notes?: string | null;
+    /**
+     * Confirmation secret (`?k=` on the order page link). Present for admins,
+     * the signed-in owner and a caller that presented it; null otherwise.
+     */
+    accessKey?: string | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -430,4 +440,40 @@ export interface ShopPublicSettings {
      *  the buyer always pays once. */
     cartDisplay?: 'combined' | 'grouped';
     storefrontMode?: 'builtin' | 'page';
+}
+
+// ── Admin: dashboard stats + per-supplier fulfilment ─────────────────
+
+/** GET /shop/orders/stats — dashboard figures for named periods. */
+export interface ShopStats {
+    currency: string;
+    /** Paid orders (paid → delivered) and their revenue, per period. */
+    periods: Array<{ days: number; revenueCents: number; orders: number; }>;
+    /** Paid / processing — money taken, not shipped yet. */
+    toShip: number;
+    /** Supplier hand-offs that need a human (same rule as the orders filter). */
+    needsAttention: number;
+    /** Active products at or below `lowStockThreshold` units. */
+    lowStock: number;
+    lowStockThreshold: number;
+    productCount: number;
+    activeProductCount: number;
+}
+
+/** One supplier's hand-off for an order (GET /shop/orders/:id/fulfilments). */
+export interface ShopOrderFulfilment {
+    provider: string;
+    /** Row status (`not_sent` when the supplier has lines but no row yet). */
+    status: string;
+    externalStatus: string | null;
+    externalOrderId: string | null;
+    lastError: string | null;
+    attempts: number;
+    submittedAt: string | null;
+    lastSyncedAt: string | null;
+    shippedAt: string | null;
+    deliveredAt: string | null;
+    trackingNumbers: string[];
+    /** The supplier's own page for this order, when known. */
+    externalUrl?: string | null;
 }

@@ -45,13 +45,18 @@ export type { ListOpts, } from './events/crud';
 export { listOccurrences, setOccurrenceStatus, } from './events/calendar';
 
 export {
+    confirmSubscription,
     registerPushEndpoint,
     subscribe,
     unsubscribe,
 } from './events/subscriptions';
 
+export { assertBookableOccurrence, nextOccurrenceDate, occurrenceProblem, } from './events/bookable';
+export { checkPublicWriteRate, } from './events/abuse';
+
 export { notifyForEvent, runReminderSweep, } from './events/notifications';
-export { getTicketView, } from './events/ticketView';
+export { getTicketView, setTicketCheckIn, } from './events/ticketView';
+export { registrantsDataset, } from './events/registrantExport';
 export type { NotifyKind, } from './events/notifications';
 
 export {

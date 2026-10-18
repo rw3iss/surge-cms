@@ -17,6 +17,20 @@ import { cache, CACHE_KEYS, } from './cache';
 import { NotFoundError, ValidationError, } from '../middleware/error';
 
 import { UUID_RE, } from '../utils/uuid';
+import {
+    type EntityViewer, gatePostRecords, hiddenPostCondition, isGatedType, isHiddenStatus, rankFor, statusAllows,
+    visibleStatusCondition,
+} from '../entities/publicRead';
+
+/**
+ * Read options. `admin` = a staff caller (every status, no gate, no cache).
+ * `viewer` = the signed-in non-staff caller, for the post subscription gate;
+ * omitted = anonymous (SSR, mail, the backend template runtime).
+ */
+export interface EntityReadOpts {
+    admin?: boolean;
+    viewer?: EntityViewer;
+}
 
 /**
  * Cache key for a query.
@@ -64,30 +78,46 @@ async function requireType(typeKey: string,) {
     return entityManager.requireType(typeKey,);
 }
 
-/** List/query records. `admin` responses (all statuses) bypass the cache. */
+/**
+ * List/query records. `admin` responses (all statuses) bypass the cache.
+ *
+ * A non-admin read never returns a draft/archived record and runs posts
+ * through the subscription gate (entities/publicRead.ts) — the same rules as
+ * the bespoke public endpoints, so this surface is not a side door.
+ */
 export async function list(
     typeKey: string,
     q: EntityQuery = {},
-    opts: { admin?: boolean; } = {},
+    opts: EntityReadOpts = {},
 ): Promise<{ items: EntityRecord[]; total: number; }> {
     guardPrivateRead(typeKey, opts.admin,);
     const t = await requireType(typeKey,);
+    // An explicit request for a hidden status from a non-staff caller matches nothing.
+    if (!opts.admin && t.hasStatus && isHiddenStatus(q.status,)) return { items: [], total: 0, };
+    const gated = !opts.admin && isGatedType(typeKey,);
+    const rank = gated ? await rankFor(opts.viewer,) : null;
     const cacheable = Boolean(t.caching?.indexEnabled,) && !opts.admin;
-    const key = CACHE_KEYS.entityList(typeKey, hashQuery(q,),);
-    if (cacheable) {
-        const cached = await cache.get<{ items: EntityRecord[]; total: number; }>(key,);
-        if (cached) return cached;
+    // The hidden-post clause depends on the viewer's rank, so the rank is part of the key.
+    const key = CACHE_KEYS.entityList(typeKey, hashQuery(gated ? { ...q, filter: { ...(q.filter ?? {}), __rank: String(rank,), }, } as EntityQuery : q,),);
+    let res: { items: EntityRecord[]; total: number; } | null = cacheable ? await cache.get<{ items: EntityRecord[]; total: number; }>(key,) : null;
+    if (!res) {
+        const provider = getEntityDataProvider(typeKey,);
+        const { query: plainQ, conditions, } = await splitVirtualFilters(typeKey, q,);
+        if (!opts.admin && t.hasStatus) conditions.push(visibleStatusCondition,);
+        const hidden = gated ? hiddenPostCondition(rank,) : null;
+        if (hidden) conditions.push(hidden,);
+        // A provider gets the FULL query, virtual keys included, and interprets
+        // them itself (e.g. the discussion types' sort/window/category knobs);
+        // the generic repo gets them pre-resolved as SQL conditions.
+        res = provider?.list ? await provider.list(q, opts,) : await repo.list(t, plainQ, { extraWhere: conditions, },);
+        // Any record with a `featuredImage` URL gets its media item (title,
+        // description, credits) — what `{{post.featuredImage.credits}}` reads.
+        await attachFeaturedMedia(res.items,);
+        // Cached UNGATED (the body is replaced per request below).
+        if (cacheable) await cache.set(key, res, t.caching.indexTtlSeconds,);
     }
-    const provider = getEntityDataProvider(typeKey,);
-    const { query: plainQ, conditions, } = await splitVirtualFilters(typeKey, q,);
-    // A provider gets the FULL query, virtual keys included, and interprets
-    // them itself (e.g. the discussion types' sort/window/category knobs);
-    // the generic repo gets them pre-resolved as SQL conditions.
-    const res = provider?.list ? await provider.list(q, opts,) : await repo.list(t, plainQ, { extraWhere: conditions, },);
-    // Any record with a `featuredImage` URL gets its media item (title,
-    // description, credits) — what `{{post.featuredImage.credits}}` reads.
-    await attachFeaturedMedia(res.items,);
-    if (cacheable) await cache.set(key, res, t.caching.indexTtlSeconds,);
+    if (!opts.admin && t.hasStatus) res.items = res.items.filter((r,) => statusAllows(t, r,),);
+    if (gated) res.items = await gatePostRecords(res.items, rank,);
     return res;
 }
 
@@ -111,25 +141,34 @@ async function splitVirtualFilters(typeKey: string, q: EntityQuery,): Promise<{ 
     return { query: { ...q, filter: rest as EntityQuery['filter'], }, conditions, };
 }
 
-/** Get one record by id OR slug. */
-export async function get(typeKey: string, idOrSlug: string, opts: { admin?: boolean; } = {},): Promise<EntityRecord> {
+/** Get one record by id OR slug. Non-admin: hidden statuses 404, posts are gated. */
+export async function get(typeKey: string, idOrSlug: string, opts: EntityReadOpts = {},): Promise<EntityRecord> {
     guardPrivateRead(typeKey, opts.admin,);
     const t = await requireType(typeKey,);
     const cacheable = Boolean(t.caching?.recordEnabled,) && !opts.admin && UUID_RE.test(idOrSlug,);
     const key = CACHE_KEYS.entityRecord(typeKey, idOrSlug,);
-    if (cacheable) {
-        const cached = await cache.get<EntityRecord>(key,);
-        if (cached) return cached;
+    let rec: EntityRecord | null = cacheable ? await cache.get<EntityRecord>(key,) : null;
+    if (!rec) {
+        const provider = getEntityDataProvider(typeKey,);
+        const byId = UUID_RE.test(idOrSlug,);
+        const getFirst = provider?.getById || provider?.getBySlug ? provider : { getById: (id: string,) => repo.getById(t, id,), getBySlug: (sl: string,) => repo.getBySlug(t, sl,), };
+        rec = (byId
+            ? (await getFirst.getById?.(idOrSlug,)) ?? (await getFirst.getBySlug?.(idOrSlug,).catch(() => null))
+            : (await getFirst.getBySlug?.(idOrSlug,)) ?? (await getFirst.getById?.(idOrSlug,).catch(() => null))) ?? null;
+        if (!rec) throw new NotFoundError(`${t.label} "${idOrSlug}"`,);
+        await withFeaturedMedia(rec,);
+        // Cached UNGATED (the gate below runs per request).
+        if (cacheable) await cache.set(key, rec, t.caching.recordTtlSeconds,);
     }
-    const provider = getEntityDataProvider(typeKey,);
-    const byId = UUID_RE.test(idOrSlug,);
-    const getFirst = provider?.getById || provider?.getBySlug ? provider : { getById: (id: string,) => repo.getById(t, id,), getBySlug: (sl: string,) => repo.getBySlug(t, sl,), };
-    const rec = byId
-        ? (await getFirst.getById?.(idOrSlug,)) ?? (await getFirst.getBySlug?.(idOrSlug,).catch(() => null))
-        : (await getFirst.getBySlug?.(idOrSlug,)) ?? (await getFirst.getById?.(idOrSlug,).catch(() => null));
-    if (!rec) throw new NotFoundError(`${t.label} "${idOrSlug}"`,);
-    await withFeaturedMedia(rec,);
-    if (cacheable) await cache.set(key, rec, t.caching.recordTtlSeconds,);
+    if (!opts.admin) {
+        // NotFound, not 403: a draft's existence is not revealed.
+        if (!statusAllows(t, rec,)) throw new NotFoundError(`${t.label} "${idOrSlug}"`,);
+        if (isGatedType(typeKey,)) {
+            const [gatedRec,] = await gatePostRecords([rec,], await rankFor(opts.viewer,),);
+            if (!gatedRec) throw new NotFoundError(`${t.label} "${idOrSlug}"`,);
+            rec = gatedRec;
+        }
+    }
     return rec;
 }
 

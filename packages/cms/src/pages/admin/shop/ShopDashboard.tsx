@@ -1,7 +1,7 @@
 import { A, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { createSafeResource, } from '../../../hooks/createSafeResource';
-import type { ShopOrder, ShopProduct, } from '@sitesurge/types';
+import type { ShopOrder, ShopStats, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
 import { getStatusBadgeClass, } from '../../../utils/badges';
 import PrintifySyncBar from './PrintifySyncBar';
@@ -11,8 +11,6 @@ import ShopifyManagedBanner from './ShopifyManagedBanner';
 import { formatCents, formatDate, } from './shopUtils';
 import { isShopifyActive, shopifyAdminUrl, shopifySource, } from '../../../services/shopifySource';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
-
-const PAID_STATUSES = new Set(['paid', 'processing', 'shipped', 'delivered',],);
 
 const ShopDashboardInner: Component = () => {
     // Recent orders (rows for the table) + the true total for the nav count.
@@ -25,14 +23,13 @@ const ShopDashboardInner: Component = () => {
     );
     const orders = () => ordersData()?.rows ?? [];
 
-    const [productsData,] = createSafeResource(
-        async () => {
-            const res = await cms.shop.products.list({ limit: 100, },);
-            return { rows: res.data as ShopProduct[], total: res.meta?.total ?? res.data.length, };
-        },
-        { rows: [] as ShopProduct[], total: 0, },
+    // Real period figures in one server round-trip (paid revenue for 7 / 30
+    // days, to ship, needs attention, low stock, product counts) — the old
+    // headline summed whichever of the last 10 orders happened to be paid.
+    const [stats, { refetch: refetchStats, },] = createSafeResource<ShopStats | null>(
+        async () => cms.shop.orders.stats(),
+        null,
     );
-    const products = () => productsData()?.rows ?? [];
 
     const [categoriesCount,] = createSafeResource(async () => (await cms.shop.categories.list()).length, 0,);
 
@@ -49,12 +46,6 @@ const ShopDashboardInner: Component = () => {
         0,
     );
 
-    const totalSales = () =>
-        orders()
-            .filter((o,) => PAID_STATUSES.has(o.status,))
-            .reduce((sum, o,) => sum + (o.totalCents || 0), 0,);
-
-    const paidCount = () => orders().filter((o,) => PAID_STATUSES.has(o.status,)).length;
 
     // Shopify override: stats + recent orders sourced from Shopify (read-only).
     /**
@@ -85,7 +76,7 @@ const ShopDashboardInner: Component = () => {
 
     // Left-nav entries. `count: null` renders no badge (Settings has no items).
     const navLinks = (): { href: string; label: string; count: number | null; }[] => [
-        { href: '/admin/shop/products', label: 'Products', count: productsData()?.total ?? 0, },
+        { href: '/admin/shop/products', label: 'Products', count: stats()?.productCount ?? 0, },
         { href: '/admin/shop/orders', label: 'Orders', count: ordersData()?.total ?? 0, },
         { href: '/admin/shop/categories', label: 'Categories', count: categoriesCount() ?? 0, },
         { href: '/admin/shop/collections', label: 'Collections', count: collectionsCount() ?? 0, },
@@ -109,7 +100,7 @@ const ShopDashboardInner: Component = () => {
             </div>
 
             <ShopifyManagedBanner />
-            <PrintifySyncBar onSynced={() => void refetchOrders()} />
+            <PrintifySyncBar onSynced={() => { void refetchOrders(); void refetchStats(); }} />
 
             {/* Shopify-backed lightweight dashboard (read-only) when the plugin is on. */}
             <Show when={isShopifyActive()}>
@@ -191,11 +182,28 @@ const ShopDashboardInner: Component = () => {
                     </nav>
 
                     <div class="shop-admin__cards shop-admin__cards--sidebar">
-                        <div class="shop-admin__card stat-card">
-                            <span class="stat-card__label">Recent paid sales</span>
-                            <span class="stat-card__value">{formatCents(totalSales(),)}</span>
-                            <span class="form-help-muted">{paidCount()} of last {orders().length} orders</span>
-                        </div>
+                        <For each={stats()?.periods ?? []}>
+                            {(p,) => (
+                                <div class="shop-admin__card stat-card">
+                                    <span class="stat-card__label">Paid sales · last {p.days} days</span>
+                                    <span class="stat-card__value">{formatCents(p.revenueCents, stats()?.currency,)}</span>
+                                    <span class="form-help-muted">{p.orders} order{p.orders === 1 ? '' : 's'}</span>
+                                </div>
+                            )}
+                        </For>
+                        <Show when={stats()}>
+                            {(st,) => (
+                                <div class="shop-admin__card stat-card">
+                                    <span class="stat-card__label">To do</span>
+                                    <A href="/admin/shop/orders?status=paid" class="table-link">
+                                        {st().toShip} paid, not shipped
+                                    </A>
+                                    <A href="/admin/shop/orders?attention=1" class="table-link">
+                                        {st().needsAttention} need{st().needsAttention === 1 ? 's' : ''} attention
+                                    </A>
+                                </div>
+                            )}
+                        </Show>
                     </div>
                 </div>
 
@@ -337,11 +345,13 @@ const ShopDashboardInner: Component = () => {
                             <A href="/admin/shop/products" class="table-link">All products</A>
                         </div>
                         <Show
-                            when={products().length}
+                            when={(stats()?.productCount ?? 0) > 0}
                             fallback={<div class="empty-state">No products yet.</div>}
                         >
                             <p class="form-help-muted">
-                                Inventory per variant is shown on each product; open a product to adjust stock.
+                                {stats()!.lowStock} live product{stats()!.lowStock === 1 ? '' : 's'} at or below{' '}
+                                {stats()!.lowStockThreshold} units ({stats()!.activeProductCount} of {stats()!.productCount} live).
+                                Open a product to adjust stock.
                             </p>
                         </Show>
                     </div>

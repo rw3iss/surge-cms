@@ -38,6 +38,13 @@ const ICONS: Record<string, string> = {
     settings: '<circle cx="8" cy="8" r="2.5" stroke="currentColor" fill="none" stroke-width="1.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.3 3.3l1.4 1.4M11.3 11.3l1.4 1.4M3.3 12.7l1.4-1.4M11.3 4.7l1.4-1.4" stroke="currentColor" stroke-width="1"/>',
     developer: '<path d="M5 5L2 8l3 3M11 5l3 3-3 3M9 3l-2 10" stroke="currentColor" fill="none" stroke-width="1.2"/>',
     help: '<circle cx="8" cy="8" r="6" stroke="currentColor" fill="none" stroke-width="1.2"/><path d="M6.3 6.2a1.7 1.7 0 013.3.5c0 1.2-1.6 1.4-1.6 2.5" stroke="currentColor" fill="none" stroke-width="1.2" stroke-linecap="round"/><circle cx="8" cy="11.3" r="0.6" fill="currentColor"/>',
+    forum: '<path d="M1.5 2.5h9v6h-5l-2.5 2v-2h-1.5z" stroke="currentColor" fill="none" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 5.5h2.5v6H13v2l-2.5-2H7" stroke="currentColor" fill="none" stroke-width="1.2" stroke-linejoin="round"/>',
+    comments: '<path d="M2 3h12v8H6l-3 2v-2H2V3z" stroke="currentColor" fill="none" stroke-width="1.2"/><path d="M5 6.2c0-.7.5-1.2 1.2-1.2M5 6.2V8h1.6V6.4H5M8.8 6.2c0-.7.5-1.2 1.2-1.2M8.8 6.2V8h1.6V6.4H8.8" stroke="currentColor" fill="none" stroke-width="1"/>',
+    gallery: '<rect x="2" y="2" width="5" height="5" rx=".5" stroke="currentColor" fill="none" stroke-width="1.2"/><rect x="9" y="2" width="5" height="5" rx=".5" stroke="currentColor" fill="none" stroke-width="1.2"/><rect x="2" y="9" width="5" height="5" rx=".5" stroke="currentColor" fill="none" stroke-width="1.2"/><rect x="9" y="9" width="5" height="5" rx=".5" stroke="currentColor" fill="none" stroke-width="1.2"/>',
+    calendar: '<rect x="2" y="3" width="12" height="11" rx="1" stroke="currentColor" fill="none" stroke-width="1.2"/><path d="M2 6.5h12M5 1.5v3M11 1.5v3" stroke="currentColor" fill="none" stroke-width="1.2"/><path d="M5 9h1M7.5 9h1M10 9h1M5 11.5h1M7.5 11.5h1" stroke="currentColor" stroke-width="1.2"/>',
+    wiki: '<path d="M8 4c-1.5-1-3.5-1.3-6-1v9.5c2.5-.3 4.5 0 6 1 1.5-1 3.5-1.3 6-1V3c-2.5-.3-4.5 0-6 1z" stroke="currentColor" fill="none" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 4v9.5" stroke="currentColor" stroke-width="1.2"/>',
+    components: '<path d="M3 5h2.5a1.5 1.5 0 113 0H11v2.5a1.5 1.5 0 110 3V13H8.5a1.5 1.5 0 10-3 0H3v-2.5a1.5 1.5 0 100-3V5z" stroke="currentColor" fill="none" stroke-width="1.2" stroke-linejoin="round"/>',
+    plugins: '<path d="M6 1.5v3M10 1.5v3M4 4.5h8v3a4 4 0 01-8 0v-3zM8 11.5v3" stroke="currentColor" fill="none" stroke-width="1.2" stroke-linecap="round"/>',
     collapse: '<path d="M11 3L5 8l6 5" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
     expand: '<path d="M5 3l6 5-6 5" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
 };
@@ -69,7 +76,27 @@ interface NavItem {
      * always render — they're core CMS surfaces.
      */
     feature?: Exclude<FeatureKey, 'patreon' | 'discussions'>;
+    /** Shown when ANY of these features is on (instead of `feature`). */
+    anyFeature?: Exclude<FeatureKey, 'patreon' | 'discussions'>[];
+    /** Dynamic label / href (e.g. "Moderation" when only the forum is on). */
+    labelFn?: () => string;
+    hrefFn?: () => string;
+    /** Pending-count badge. */
+    badge?: () => number;
 }
+
+// ─── Moderation badge (pending + reported), polled while the tab is visible ───
+const [moderationCount, setModerationCount,] = createSignal(0,);
+let moderationTimer: ReturnType<typeof setInterval> | null = null;
+async function refreshModerationCount(): Promise<void> {
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+    if (!isFeatureEnabled('comments',) && !isFeatureEnabled('forum',)) { setModerationCount(0,); return; }
+    try {
+        const c = await cms.discussions.moderation.counts();
+        setModerationCount((c.pending ?? 0) + (c.reported ?? 0),);
+    } catch { /* no permission / feature off → no badge */ }
+}
+const commentsOnly = () => isFeatureEnabled('comments',);
 
 const NAV_ITEMS: NavItem[] = [
     { path: '/admin', label: 'Dashboard', icon: 'dashboard', end: true, },
@@ -78,31 +105,38 @@ const NAV_ITEMS: NavItem[] = [
     { path: '/admin/campaigns', label: 'Campaigns', icon: 'campaigns', feature: 'campaigns', },
     { path: '/admin/forms', label: 'Forms', icon: 'forms', feature: 'forms', },
     // Events sits with the other content-authoring areas, after Forms.
-    { path: '/admin/events', label: 'Events', icon: 'campaigns', feature: 'events', },
+    { path: '/admin/events', label: 'Events', icon: 'calendar', feature: 'events', },
     // The forum's own section (Comments sits under Messages, below).
-    { path: '/admin/forum', label: 'Forum', icon: 'messages', feature: 'forum', },
+    { path: '/admin/forum', label: 'Forum', icon: 'forum', feature: 'forum', },
     { path: '/admin/mailing-lists', label: 'Mailing Lists', icon: 'mail', feature: 'mailing_lists', adminOnly: true, },
     // Published media (feature `gallery`), with the Media library right under it.
-    { path: '/admin/gallery', label: 'Gallery', icon: 'media', feature: 'gallery', },
+    { path: '/admin/gallery', label: 'Gallery', icon: 'gallery', feature: 'gallery', },
     { path: '/admin/media', label: 'Media', icon: 'media', },
     // Wiki sits directly above Users, per the module's design.
-    { path: '/admin/wiki', label: 'Wiki', icon: 'pages', feature: 'wiki', },
+    { path: '/admin/wiki', label: 'Wiki', icon: 'wiki', feature: 'wiki', },
     { path: '/admin/users', label: 'Users', icon: 'users', feature: 'users', adminOnly: true, },
     // Contacts (CRM) — aliases to the `contact` entity's Data table. Shown under
     // Users, only when the `contacts` feature is enabled.
     { path: '/admin/entities/contact/data', label: 'Contacts', icon: 'users', feature: 'contacts', adminOnly: true, },
     { path: '/admin/messages', label: 'Messages', icon: 'messages', feature: 'messages', },
-    // The comment moderation queue, with the other inbound items.
-    { path: '/admin/comments', label: 'Comments', icon: 'messages', feature: 'comments', },
+    // The moderation queue (comments AND forum replies), with the other inbound
+    // items. Shown when either feature is on — with only the forum on it is
+    // where forum replies are moderated, labelled "Moderation".
+    {
+        path: '/admin/comments', label: 'Comments', icon: 'comments', anyFeature: ['comments', 'forum',],
+        labelFn: () => (commentsOnly() ? 'Comments' : 'Moderation'),
+        hrefFn: () => (commentsOnly() ? '/admin/comments' : '/admin/comments?scope=forum'),
+        badge: moderationCount,
+    },
     // Entities + Components are tools rather than content areas, so they sit
     // below the day-to-day authoring items.
     { path: '/admin/entities', label: 'Entities', icon: 'developer', adminOnly: true, },
     // Reusable block templates, referenced by `template` blocks. Sits beside
     // Entities because it is the same storage without the entity binding.
-    { path: '/admin/components', label: 'Components', icon: 'developer', adminOnly: true, },
+    { path: '/admin/components', label: 'Components', icon: 'components', adminOnly: true, },
     { path: '/admin/social', label: 'Social', icon: 'social', feature: 'social', adminOnly: true, },
     { path: '/admin/shop', label: 'Shop', icon: 'shop', feature: 'shop', adminOnly: true, },
-    { path: '/admin/plugins', label: 'Plugins', icon: 'developer', feature: 'plugins', adminOnly: true, },
+    { path: '/admin/plugins', label: 'Plugins', icon: 'plugins', feature: 'plugins', adminOnly: true, },
     { path: '/admin/settings', label: 'Settings', icon: 'settings', adminOnly: true, },
     { path: '/admin/help', label: 'Help', icon: 'help', },
 ];
@@ -151,6 +185,26 @@ const AdminLayout: ParentComponent = (props,) => {
         if (path.startsWith('/admin',)) adminChannel.notifyNavigate(path,);
     },);
     onCleanup(() => adminChannel.disconnect(),);
+
+    // Moderation badge: poll every 60 s while visible, refresh on return and
+    // on navigation (acting in the queue changes the count).
+    createEffect(() => {
+        if (auth.isLoading || !isStaffRole(auth.user?.role,)) return;
+        void refreshModerationCount();
+        if (!moderationTimer) moderationTimer = setInterval(() => void refreshModerationCount(), 60_000,);
+    },);
+    createEffect(() => {
+        const inQueue = location.pathname.startsWith('/admin/comments',);
+        location.search;
+        if (inQueue && !auth.isLoading && isStaffRole(auth.user?.role,)) void refreshModerationCount();
+    },);
+    const onVisible = () => void refreshModerationCount();
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible,);
+    onCleanup(() => {
+        if (moderationTimer) clearInterval(moderationTimer,);
+        moderationTimer = null;
+        if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible,);
+    },);
 
     // Site appearance settings flow into the admin shell as `--site-*`
     // CSS custom properties so admin chrome (Save buttons, focus rings,
@@ -305,17 +359,23 @@ const AdminLayout: ParentComponent = (props,) => {
                                         (!item.sysadminOnly || auth.user?.role === 'sysadmin')
                                         && (!item.adminOnly || isAdminRole(auth.user?.role,))
                                         && (!item.feature || isFeatureEnabled(item.feature,))
+                                        && (!item.anyFeature || item.anyFeature.some((f,) => isFeatureEnabled(f,)))
                                     }
                                 >
                                     <A
-                                        href={item.path}
+                                        href={item.hrefFn?.() ?? item.path}
                                         end={item.end}
                                         class={`admin-layout__nav-link ${isActive(item.path, item.end,) ? 'active' : ''}`}
                                         onClick={handleNavClick}
-                                        title={collapsed() ? item.label : undefined}
+                                        title={collapsed() ? (item.labelFn?.() ?? item.label) : undefined}
                                     >
                                         <NavIcon name={item.icon} />
-                                        <span class="admin-layout__nav-label">{item.label}</span>
+                                        <span class="admin-layout__nav-label">{item.labelFn?.() ?? item.label}</span>
+                                        <Show when={(item.badge?.() ?? 0) > 0}>
+                                            <span class="admin-layout__nav-badge" aria-label={`${item.badge!()} waiting`}>
+                                                {item.badge!() > 99 ? '99+' : item.badge!()}
+                                            </span>
+                                        </Show>
                                     </A>
                                 </Show>
                             )}

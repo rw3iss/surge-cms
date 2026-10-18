@@ -4,6 +4,7 @@ import type {
     ShopAddress,
     ShopFulfillmentStatus,
     ShopOrderDetail as OrderDetail,
+    ShopOrderFulfilment,
     ShopOrderStatus,
 } from '@sitesurge/types';
 import { FormField, } from '../../../components/admin/forms';
@@ -12,15 +13,34 @@ import { cms, } from '../../../services/cmsClient';
 import { getStatusBadgeClass, } from '../../../utils/badges';
 import ShopGuard from './ShopGuard';
 import { formatCents, formatDate, } from './shopUtils';
-import { shipBreakdown, } from '../../shop/shopFormat';
+import ConfirmModal from '../../../components/admin/common/ConfirmModal';
+import OrderTotals from '../../../components/shop/OrderTotals';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
 import CommitInput from '../../../components/admin/gallery/CommitInput';
 import OrderTracking from '../../../components/shop/OrderTracking';
 import { carrierLabel, DEFAULT_CARRIER_TRACKING_TEMPLATES, } from '@sitesurge/types';
 
+/** Settable from the Status select. `refunded` is deliberately absent: moving
+ *  an order there sends money back through Stripe, so it is the Refund
+ *  button's job (with its own confirmation and permission). */
 const ORDER_STATUSES: ShopOrderStatus[] = [
-    'pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded',
+    'pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled',
 ];
+
+/** Plain words for a supplier row status. */
+const FULFILMENT_LABELS: Record<string, string> = {
+    not_sent: 'Not sent',
+    pending: 'Pending',
+    submitting: 'Sending…',
+    submitted: 'Sent',
+    failed: 'Failed',
+    on_hold: 'On hold',
+    in_production: 'In production',
+    partially_shipped: 'Partly shipped',
+    shipped: 'Shipped',
+    delivered: 'Delivered',
+    cancelled: 'Cancelled by supplier',
+};
 const FULFILLMENT_STATUSES: ShopFulfillmentStatus[] = ['unfulfilled', 'partial', 'fulfilled',];
 
 function AddressBlock(props: { title: string; address?: ShopAddress | null; },) {
@@ -44,7 +64,7 @@ const ShopOrderDetailInner: Component = () => {
     const params = useParams();
     const toast = useToast();
 
-    const [order, { mutate, },] = createResource(
+    const [order, { mutate, refetch: refetchOrder, },] = createResource(
         () => params.id,
         async (id,) => {
             try { return await cms.shop.orders.get(id,); } catch { return null; }
@@ -54,9 +74,36 @@ const ShopOrderDetailInner: Component = () => {
     const [shopCfg] = createResource(async () => {
         try { return await cms.shop.settings.getPublic(); } catch { return null; }
     },);
-    const shipBd = (o: OrderDetail,) => {
-        const units = o.items.filter((i,) => !i.isDigital).reduce((s, i,) => s + i.quantity, 0,);
-        return shipBreakdown(o.shippingCents, units, shopCfg()?.settings?.shipping,);
+
+    // Per-supplier hand-off (what the "awaiting Printify" alert counts).
+    const [fulfilments, { refetch: refetchFulfilments, },] = createResource(
+        () => params.id,
+        async (id,): Promise<ShopOrderFulfilment[]> => {
+            try { return await cms.shop.orders.fulfilments(id,); } catch { return []; }
+        },
+    );
+    const [supplierBusy, setSupplierBusy,] = createSignal<string | null>(null,);
+    const supplierAction = async (provider: string, kind: 'retry' | 'refresh',) => {
+        const o = order();
+        if (!o) return;
+        setSupplierBusy(`${provider}:${kind}`,);
+        try {
+            if (kind === 'retry') {
+                const r = await cms.shop.orders.retryFulfilment(o.id, provider,);
+                if (r.failed.length) toast.error(`${provider}: ${r.failed[0].error}`,);
+                else if (r.submitted.length) toast.success(`Sent to ${provider}.`,);
+                else toast.info(`${provider} already has this order.`,);
+            } else {
+                const r = await cms.shop.orders.refreshFulfilment(o.id, provider,);
+                if (r.conflict) toast.error(`This order is linked to a different ${provider} order (${r.conflict}).`,);
+                else toast.success(r.changed ? `Updated from ${provider}.` : `No change at ${provider}.`,);
+            }
+            await Promise.all([refetchFulfilments(), refetchOrder(),],);
+        } catch {
+            /* error bus */
+        } finally {
+            setSupplierBusy(null,);
+        }
     };
 
     const [status, setStatus,] = createSignal<ShopOrderStatus>('pending',);
@@ -66,6 +113,8 @@ const ShopOrderDetailInner: Component = () => {
     const [trackingUrl, setTrackingUrl,] = createSignal('',);
     const [notes, setNotes,] = createSignal('',);
     const [busy, setBusy,] = createSignal(false,);
+    const [resending, setResending,] = createSignal(false,);
+    const [refundOpen, setRefundOpen,] = createSignal(false,);
 
     // sync local editable fields when the order loads / changes
     const sync = (o: OrderDetail,) => {
@@ -129,27 +178,40 @@ const ShopOrderDetailInner: Component = () => {
         void applyUpdate({ notifyCustomer, },);
     };
 
-    const refund = async () => {
-        if (!confirm('Mark this order as refunded? Issue the actual refund in Stripe separately.',)) return;
-        setStatus('refunded',);
+    // The server refunds through Stripe when the order moves to `refunded`
+    // (and treats "already refunded in Stripe" as done) — the copy says so.
+    const confirmRefund = async () => {
         await applyUpdate({ status: 'refunded', },);
+        setRefundOpen(false,);
     };
 
     const resendReceipt = async () => {
         const o = order();
-        if (!o) return;
+        if (!o || resending()) return;
+        setResending(true,);
         try {
             await cms.shop.orders.resendReceipt(o.id,);
             toast.success('Receipt resent.',);
         } catch {
             /* error bus */
+        } finally {
+            setResending(false,);
         }
     };
 
     return (
         <div class="shop-admin shop-order">
             <AdminTitle>Order</AdminTitle>
-            <Show when={order()} fallback={<div class="empty-state">Loading order...</div>}>
+            <Show when={!order.loading || order.latest} fallback={<div class="empty-state">Loading order...</div>}>
+            <Show
+                when={order()}
+                fallback={
+                    <div class="empty-state">
+                        <p>Order not found.</p>
+                        <A href="/admin/shop/orders" class="table-link">&larr; Back to orders</A>
+                    </div>
+                }
+            >
                 {(o,) => (
                         <>
                             <div class="admin-header">
@@ -200,25 +262,7 @@ const ShopOrderDetailInner: Component = () => {
                                         </table>
                                     </div>
 
-                                    <div class="shop-order__totals">
-                                        <div><span>Subtotal</span><span>{formatCents(o().subtotalCents, o().currency,)}</span></div>
-                                        <div><span>Shipping{o().shippingMethod ? ` (${o().shippingMethod})` : ''}</span><span>{formatCents(o().shippingCents, o().currency,)}</span></div>
-                                        <Show when={shipBd(o(),)}>
-                                            {(bd,) => (
-                                                <>
-                                                    <div class="shop-order__totals-sub"><span>First item shipping</span><span>1 × {formatCents(bd().firstItemCents, o().currency,)}</span></div>
-                                                    <div class="shop-order__totals-sub"><span>Additional items</span><span>{bd().additionalUnits} × {formatCents(bd().additionalItemCents, o().currency,)} = {formatCents(bd().additionalItemCents * bd().additionalUnits, o().currency,)}</span></div>
-                                                </>
-                                            )}
-                                        </Show>
-                                        <div><span>Tax</span><span>{formatCents(o().taxCents, o().currency,)}</span></div>
-                                        <Show when={o().discountCents > 0}>
-                                            <div><span>Discount</span><span>-{formatCents(o().discountCents, o().currency,)}</span></div>
-                                        </Show>
-                                        <div class="shop-order__totals-grand">
-                                            <span>Total</span><span>{formatCents(o().totalCents, o().currency,)}</span>
-                                        </div>
-                                    </div>
+                                    <OrderTotals order={o()} shipping={shopCfg()?.settings?.shipping} variant="admin" />
 
                                     <div class="shop-order__addresses">
                                         <AddressBlock title="Shipping" address={o().shippingAddress} />
@@ -242,8 +286,15 @@ const ShopOrderDetailInner: Component = () => {
                                         <h3>Manage</h3>
                                         <div class="admin-form-row">
                                             <FormField label="Status">
-                                                <select value={status()} onChange={(e,) => setStatus(e.currentTarget.value as ShopOrderStatus,)}>
+                                                <select
+                                                    value={status()}
+                                                    disabled={o().status === 'refunded'}
+                                                    onChange={(e,) => setStatus(e.currentTarget.value as ShopOrderStatus,)}
+                                                >
                                                     <For each={ORDER_STATUSES}>{(s,) => <option value={s}>{s}</option>}</For>
+                                                    <Show when={o().status === 'refunded'}>
+                                                        <option value="refunded">refunded</option>
+                                                    </Show>
                                                 </select>
                                             </FormField>
                                             <FormField label="Fulfillment">
@@ -308,16 +359,94 @@ const ShopOrderDetailInner: Component = () => {
                                     <div class="shop-order__panel">
                                         <h3>Actions</h3>
                                         <div class="shop-order__actions">
-                                            <button class="ui-button ui-button--secondary ui-button--sm" onClick={resendReceipt}>Resend receipt</button>
-                                            <button class="ui-button ui-button--danger ui-button--sm" onClick={refund} disabled={o().status === 'refunded'}>
+                                            <button class="ui-button ui-button--secondary ui-button--sm" onClick={resendReceipt} disabled={resending()}>
+                                                {resending() ? 'Sending…' : 'Resend receipt'}
+                                            </button>
+                                            <button
+                                                class="ui-button ui-button--danger ui-button--sm"
+                                                onClick={() => setRefundOpen(true,)}
+                                                disabled={busy() || o().status === 'refunded'}
+                                            >
                                                 Refund
                                             </button>
                                         </div>
                                     </div>
+
+                                    <Show when={(fulfilments() ?? []).length}>
+                                        <div class="shop-order__panel shop-order__fulfilments">
+                                            <h3>Suppliers</h3>
+                                            <For each={fulfilments()}>
+                                                {(f,) => (
+                                                    <div class="shop-order__fulfilment">
+                                                        <div class="shop-order__fulfilment-head">
+                                                            <strong>{f.provider}</strong>
+                                                            <span class={`badge ${getStatusBadgeClass(f.status === 'failed' || f.status === 'cancelled' ? 'failed' : f.status,)}`}>
+                                                                {FULFILMENT_LABELS[f.status] ?? f.status}
+                                                            </span>
+                                                        </div>
+                                                        <Show when={f.externalOrderId}>
+                                                            <p class="form-help-muted">
+                                                                Supplier order{' '}
+                                                                <Show when={f.externalUrl} fallback={<code>{f.externalOrderId}</code>}>
+                                                                    <a href={f.externalUrl!} target="_blank" rel="noopener" class="table-link">
+                                                                        <code>{f.externalOrderId}</code>
+                                                                    </a>
+                                                                </Show>
+                                                                <Show when={f.externalStatus}> · {f.externalStatus}</Show>
+                                                            </p>
+                                                        </Show>
+                                                        <Show when={f.lastError}>
+                                                            <p class="shop-order__fulfilment-error">{f.lastError}</p>
+                                                        </Show>
+                                                        <p class="form-help-muted">
+                                                            {f.attempts} attempt{f.attempts === 1 ? '' : 's'}
+                                                            <Show when={f.submittedAt}> · sent {formatDate(f.submittedAt!,)}</Show>
+                                                            <Show when={f.lastSyncedAt}> · synced {formatDate(f.lastSyncedAt!,)}</Show>
+                                                        </p>
+                                                        <div class="shop-order__actions">
+                                                            <Show when={!f.externalOrderId}>
+                                                                <button
+                                                                    type="button"
+                                                                    class="ui-button ui-button--secondary ui-button--sm"
+                                                                    disabled={supplierBusy() !== null}
+                                                                    onClick={() => void supplierAction(f.provider, 'retry',)}
+                                                                >
+                                                                    {supplierBusy() === `${f.provider}:retry` ? 'Sending…' : 'Retry submission'}
+                                                                </button>
+                                                            </Show>
+                                                            <Show when={f.externalOrderId}>
+                                                                <button
+                                                                    type="button"
+                                                                    class="ui-button ui-button--secondary ui-button--sm"
+                                                                    disabled={supplierBusy() !== null}
+                                                                    onClick={() => void supplierAction(f.provider, 'refresh',)}
+                                                                >
+                                                                    {supplierBusy() === `${f.provider}:refresh` ? 'Refreshing…' : 'Refresh from supplier'}
+                                                                </button>
+                                                            </Show>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </For>
+                                        </div>
+                                    </Show>
                                 </aside>
                             </div>
+
+                            <ConfirmModal
+                                open={refundOpen()}
+                                title="Refund this order?"
+                                message={`Refund the full amount (${formatCents(o().totalCents, o().currency,)}) to the customer's card through Stripe? This cannot be undone.`}
+                                confirmLabel="Refund"
+                                busyLabel="Refunding…"
+                                loading={busy()}
+                                danger
+                                onConfirm={() => void confirmRefund()}
+                                onCancel={() => setRefundOpen(false,)}
+                            />
                         </>
                 )}
+            </Show>
             </Show>
         </div>
     );

@@ -89,6 +89,21 @@ simple/flat-rate/digital store; build them if your model needs them:
 - Multi-currency
 - Built-in fraud scoring beyond Stripe Radar
 
+## Order privacy, refunds and permissions
+
+- **Order numbers are not credentials.** The confirmation page reached by the
+  number alone shows status, items, totals and tracking — not the buyer's name,
+  email or digital downloads. Those need the order's **access key** (`?k=` on
+  the link the buyer is sent to after checkout and in the confirmation email)
+  or a signed-in owner. Addresses are admin-only.
+- **Refunds** go through the shop's own Stripe keys (Shop → Payments), with an
+  idempotency key, and need the `shop.orders:refund` permission (admin by
+  default). Use the order's **Refund** button; an order already refunded in
+  Stripe still flips to refunded.
+- Settings → Permissions now really gates the shop: `shop:read`, `shop:write`,
+  `shop.orders:read|write|refund`; the new-merchandise announce needs
+  `mailing_lists:send`. Defaults keep today's access.
+
 ## Shopify plugin note
 
 The optional `shopify` plugin OVERRIDES this built-in shop when **enabled *and*

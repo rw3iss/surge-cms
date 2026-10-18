@@ -1,4 +1,4 @@
-import { formatCurrency, } from '@sitesurge/types';
+import { formatCurrency, shippingBreakdown, } from '@sitesurge/types';
 
 /** Format a cents amount as currency (defaults USD). Thin re-export so shop
  *  pages import money formatting from one place. */
@@ -28,22 +28,15 @@ export interface ShipBreakdown {
 
 /**
  * Split an authoritative shipping total into a first-item line + an
- * additional-items line for display, when the shop's additional-item rate is
- * in use. `firstItemCents` absorbs any remainder so the two lines always sum
- * back to `shippingCents` (the server total stays authoritative). Returns null
- * when the tier isn't active, shipping is free/zero, or there's ≤1 shippable
- * unit (nothing to break apart).
+ * additional-items line for display. The shared `shippingBreakdown`
+ * (`@sitesurge/types`, also behind `orderTotalsLines`) is the one rule.
  */
 export function shipBreakdown(
     shippingCents: number,
     shippableUnits: number,
     shipping: { useAdditionalItemRate?: boolean; additionalItemCents?: number; } | undefined,
 ): ShipBreakdown | null {
-    if (!shipping?.useAdditionalItemRate || shippingCents <= 0 || shippableUnits <= 1) return null;
-    const additionalItemCents = shipping.additionalItemCents ?? 0;
-    const additionalUnits = shippableUnits - 1;
-    const firstItemCents = Math.max(0, shippingCents - additionalItemCents * additionalUnits,);
-    return { firstItemCents, additionalUnits, additionalItemCents, };
+    return shippingBreakdown(shippingCents, shippableUnits, shipping,);
 }
 
 /** Build a 5-slot star fill array ('full' | 'half' | 'empty') from an avg. */

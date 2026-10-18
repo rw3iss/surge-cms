@@ -11,19 +11,30 @@ const h = vi.hoisted(() => ({
     shared: new Set<string>(),
     removed: [] as string[],
     blockMedia: [] as string[],
+    locked: 0,
 }),);
 
-vi.mock('../db', () => ({
-    query: vi.fn(async (sql: string, params: unknown[] = [],) => {
+const dbQuery = vi.hoisted(() => vi.fn(async (sql: string, params: unknown[] = [],) => {
         if (sql.includes('SELECT id, post_type')) return { rows: h.post ? [h.post,] : [], };
         if (sql.startsWith('UPDATE posts SET type_settings')) { h.written.push(JSON.parse(params[1] as string,),); return { rows: [], }; }
         if (sql.includes('FROM media WHERE id = ANY')) return { rows: [], };
         if (sql.includes('SELECT media_id FROM live_recordings')) return { rows: [], };
         if (sql.includes("type = 'video'")) return { rows: h.blockMedia.map((m,) => ({ media_id: m, })), };
         if (sql.includes("status = 'recording'")) return { rows: [], };
-        if (sql.includes('AS n')) return { rows: [{ n: h.shared.has(params[0] as string,) ? 1 : 0, },], };
         return { rows: [], };
-    },),
+    },),);
+vi.mock('../db', () => ({
+    query: dbQuery,
+    // The row-locked transaction runs on the same fake.
+    transaction: vi.fn(async (fn: (c: unknown,) => unknown,) => { h.locked += 1; return fn({ query: dbQuery, },); },),
+}),);
+// The shared "in use" scan: `shared` ids are used by a gallery item; this
+// post's own usage is always present (and must be ignored).
+vi.mock('./mediaUsage', () => ({
+    findMediaUsage: vi.fn(async (ids: string[],) => Object.fromEntries(ids.map((id,) => [id, [
+        { kind: 'post', id: POST, label: 'this post', adminUrl: null, field: 'Live recording', },
+        ...(h.shared.has(id,) ? [{ kind: 'gallery_item', id: 'g1', label: 'Gallery', adminUrl: null, field: 'Media', },] : []),
+    ],]),)),
 }),);
 vi.mock('./media', () => ({ remove: vi.fn(async (id: string,) => { h.removed.push(id,); },), }),);
 vi.mock('./audit', () => ({ logAudit: vi.fn(), }),);
@@ -38,6 +49,7 @@ beforeEach(() => {
     h.removed = [];
     h.shared = new Set();
     h.blockMedia = [];
+    h.locked = 0;
     h.post = {
         id: POST, post_type: 'live', live_ended_at: '2026-10-09T00:00:00Z',
         type_settings: { recordingMediaId: B, recordingVersions: [{ mediaId: A, recordedAt: 'x', }, { mediaId: B, recordedAt: 'y', },], },
@@ -68,5 +80,19 @@ describe('live replays', () => {
         const r = await purgePostMedia(POST, ctx,);
         expect(r.removed.sort(),).toEqual([B, C,].sort(),);
         expect(r.kept,).toEqual([A,],);
+    },);
+
+    it('deleting a version used elsewhere (e.g. the Gallery) only removes it from the post (S6)', async () => {
+        h.shared.add(B,);
+        await deleteVersion(POST, B, ctx,);
+        expect(h.removed,).toEqual([],);
+        expect(h.written[0],).toMatchObject({ recordingVersions: [{ mediaId: A, },], },);
+    },);
+
+    it('updates the version list inside a row-locked transaction, before removing files (S7)', async () => {
+        await deleteVersion(POST, A, ctx,);
+        expect(h.locked,).toBe(1,);
+        const forUpdate = dbQuery.mock.calls.some(([sql,],) => String(sql,).includes('FOR UPDATE',));
+        expect(forUpdate,).toBe(true,);
     },);
 },);

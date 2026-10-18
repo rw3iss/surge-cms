@@ -149,7 +149,7 @@ export async function kickJob(jobId: string,): Promise<void> {
                 },);
                 const unsubscribeUrl = String(ctx.unsubscribe_url ?? '',);
                 const subject = await resolveMailTemplate(job.subject, ctx as unknown as Record<string, unknown>,);
-                const html = await resolveMailTemplate(job.renderedHtmlTemplate, ctx as unknown as Record<string, unknown>,);
+                const html = await resolveMailTemplate(job.renderedHtmlTemplate, ctx as unknown as Record<string, unknown>, { html: true, },);
 
                 const headers: Record<string, string> = { 'X-Mail-Job-Id': jobId, };
                 if (unsubscribeUrl) {

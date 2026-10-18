@@ -13,6 +13,7 @@
 import type { EntityFieldDef, EntityFieldOption, EntityTypeDef, } from '@sitesurge/types';
 import { Component, createResource, For, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
+import './EntityFilterBar.scss';
 
 export interface EntityFilterBarProps {
     typeDef: EntityTypeDef | null | undefined;

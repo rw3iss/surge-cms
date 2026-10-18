@@ -22,6 +22,7 @@
  * back by {@link SEND_CUSTOMER_SHIPPING_EMAILS_ON_SYNC} (off): the run lists
  * what it WOULD send and logs it, nothing goes to customers.
  */
+import { AppError, } from '../../core/errors';
 import type {
     ShopProviderCustomerEmail,
     ShopProviderOrderReconcileItem,
@@ -203,7 +204,14 @@ export interface OrderMatch {
     via: ShopProviderOrderReconcileItem['matchedBy'];
     /** Our order is already linked to a DIFFERENT Printify order. */
     conflict: boolean;
+    /** A manual / sample Printify order that only NAMES our order (label or
+     *  external id): not linked automatically — an operator re-creating a
+     *  failed order by hand types our number, and a typo would link the wrong one. */
+    unconfirmed?: boolean;
 }
+
+/** Printify order types an operator creates by hand in the dashboard. */
+const HAND_MADE_TYPES = new Set(['manual', 'sample',],);
 
 /** Find which of our orders a Printify order belongs to; null = not ours. */
 export function matchPrintifyOrder(o: PrintifyApiOrder, idx: OrderIndex,): OrderMatch | null {
@@ -221,7 +229,9 @@ export function matchPrintifyOrder(o: PrintifyApiOrder, idx: OrderIndex,): Order
         if (!key) continue;
         const ref = idx.byOrderNumber.get(key,);
         if (ref) {
-            return { ref, via, conflict: !!ref.externalOrderId && ref.externalOrderId !== String(o.id,), };
+            const conflict = !!ref.externalOrderId && ref.externalOrderId !== String(o.id,);
+            const handMade = HAND_MADE_TYPES.has(String(o.metadata?.order_type ?? '',).toLowerCase(),);
+            return { ref, via, conflict, ...(handMade ? { unconfirmed: true, } : {}), };
         }
     }
     return null;
@@ -316,6 +326,13 @@ export async function reconcilePrintifyOrders(
             );
             continue;
         }
+        if (m.unconfirmed) {
+            result.errors.push(
+                `${m.ref.orderNumber}: Printify ${o.metadata?.order_type} order ${o.id} is labelled with this order number — `
+                    + 'not linked automatically. If it is the same order, enter its tracking on the order by hand.',
+            );
+            continue;
+        }
         result.matched++;
         try {
             const state = mapPrintifyOrder(o,);
@@ -398,25 +415,63 @@ async function handleBuyerEmail(
     result.customerEmailsSent++;
 }
 
-/** Orders reach back this far when the operator presses "Sync from Printify". */
-const MANUAL_RECONCILE_DAYS = 365;
+/**
+ * Orders reach back this far when the operator presses "Sync from Printify".
+ * Capped so the request finishes inside the proxy timeout on a busy store;
+ * the full year runs in the background ({@link startFullOrderResync}).
+ */
+export const MANUAL_RECONCILE_DAYS = 90;
+/** "Full resync" reaches back this far. */
+export const FULL_RECONCILE_DAYS = 365;
+
+/** Thrown when another sync holds the lock — the route answers 409. */
+export class PrintifySyncBusyError extends AppError {
+    constructor() {
+        super(409, 'SYNC_RUNNING', 'A Printify sync is already running. Try again in a minute.',);
+    }
+}
 
 /**
  * "Sync from Printify": the catalogue, then the orders. The order half runs even
- * when the product half fails (and vice versa) — they are independent.
+ * when the product half fails (and vice versa) — they are independent. Holds
+ * the Printify sync lock, so it never overlaps the cron.
  */
 export async function syncProductsAndOrders(): Promise<
     import('./sync').PrintifySyncResult & { orders?: ShopProviderOrderReconcileResult; }
 > {
-    const { syncProducts, } = await import('./sync.js');
+    const { withPrintifySyncLock, } = await import('./syncLock.js');
+    const r = await withPrintifySyncLock(async () => {
+        const { syncProducts, } = await import('./sync.js');
+        const { getPrintifyOrderConfig, } = await import('./config.js');
+        const products = await syncProducts();
+        const cfg = await getPrintifyOrderConfig();
+        if (!cfg) return products;
+        try {
+            const orders = await reconcilePrintifyOrders(cfg, { sinceDays: MANUAL_RECONCILE_DAYS, trigger: 'manual', },);
+            return { ...products, orders, };
+        } catch (err) {
+            return { ...products, errors: [...products.errors, `Orders: ${(err as Error).message}`,], };
+        }
+    },);
+    if (!r.ran) throw new PrintifySyncBusyError();
+    return r.value;
+}
+
+/**
+ * Reconcile a full year of orders in the BACKGROUND (it can take minutes on a
+ * busy store — longer than any request may stay open). Answers at once;
+ * results land in the log and in the next status read.
+ */
+export async function startFullOrderResync(): Promise<{ started: true; sinceDays: number; }> {
     const { getPrintifyOrderConfig, } = await import('./config.js');
-    const products = await syncProducts();
     const cfg = await getPrintifyOrderConfig();
-    if (!cfg) return products;
-    try {
-        const orders = await reconcilePrintifyOrders(cfg, { sinceDays: MANUAL_RECONCILE_DAYS, trigger: 'manual', },);
-        return { ...products, orders, };
-    } catch (err) {
-        return { ...products, errors: [...products.errors, `Orders: ${(err as Error).message}`,], };
-    }
+    if (!cfg) throw new AppError(400, 'NOT_CONFIGURED', 'Printify is not configured for orders.',);
+    const { withPrintifySyncLock, } = await import('./syncLock.js');
+    // Probe the lock first so a busy sync is a 409, not a silent no-op.
+    const probe = await withPrintifySyncLock(async () => true,);
+    if (!probe.ran) throw new PrintifySyncBusyError();
+    void withPrintifySyncLock(() => reconcilePrintifyOrders(cfg, { sinceDays: FULL_RECONCILE_DAYS, trigger: 'manual', },),)
+        .then((r,) => { if (!r.ran) logger.info('Printify full order resync skipped — another sync started first',); },)
+        .catch((err,) => logger.error(`Printify full order resync failed: ${(err as Error).message}`,));
+    return { started: true, sinceDays: FULL_RECONCILE_DAYS, };
 }

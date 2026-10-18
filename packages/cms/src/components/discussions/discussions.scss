@@ -1,3 +1,5 @@
+@use '../../styles/variables' as *;
+
 // Discussions (comments + forum posts): author card, comment, composer,
 // section. Public-site tokens with neutral fallbacks, so the same components
 // render inside the admin too.
@@ -131,6 +133,7 @@
     }
 
     &__more { margin-top: 1rem; }
+    &__fresh { margin: 0.75rem 0; }
 }
 
 // ─── Composer ───
@@ -243,7 +246,7 @@
     &__error {
         margin: 0;
         font-size: 0.85rem;
-        color: #b91c1c;
+        color: var(--site-error, #{$error-color});
     }
 
     &__notice {
@@ -278,6 +281,12 @@
 
     &--pending,
     &--hidden { opacity: 0.75; }
+
+    // A `#comment-<id>` deep link's target, briefly highlighted.
+    &--target {
+        background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 10%, transparent);
+        transition: background-color 0.6s ease;
+    }
 
     &__head {
         display: flex;
@@ -425,4 +434,96 @@
         padding: 0.35rem 0.85rem;
         font-size: 0.85rem;
     }
+}
+
+// ─── Confirm / report dialog (DiscussionDialog) ───
+.discussion-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.discussion-dialog {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: min(28rem, 100%);
+    padding: 1.25rem;
+    border-radius: var(--site-radius, 8px);
+    background: var(--site-bg, #fff);
+    color: var(--site-text, #1a1a1a);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+
+    &__title { margin: 0; font-size: 1.15rem; }
+    &__message { margin: 0; color: var(--site-text-muted, #6b7280); }
+    &__label { font-size: 0.85rem; font-weight: 600; }
+
+    &__reason {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid var(--site-border, #e5e7eb);
+        border-radius: var(--site-radius, 6px);
+        font: inherit;
+        resize: vertical;
+    }
+
+    &__count {
+        align-self: flex-end;
+        font-size: 0.75rem;
+        color: var(--site-text-muted, #6b7280);
+    }
+
+    &__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+    }
+
+    // The Portal sits outside `.layout`, where the public `.btn` lives.
+    &__btn {
+        padding: 0.5rem 1rem;
+        border: 1px solid var(--site-border, #e5e7eb);
+        border-radius: var(--site-button-radius, var(--site-radius, 6px));
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+
+        &:disabled { opacity: 0.55; cursor: not-allowed; }
+        &:focus-visible { outline: 2px solid var(--site-primary, #{$primary-color}); outline-offset: 2px; }
+
+        &--primary {
+            border-color: var(--site-primary, #{$primary-color});
+            background: var(--site-primary, #{$primary-color});
+            color: var(--site-button-text, #fff);
+        }
+
+        &--danger {
+            border-color: var(--site-error, #{$error-color});
+            background: var(--site-error, #{$error-color});
+            color: #fff;
+        }
+    }
+}
+
+// "Show N earlier replies" under a long thread (CommentThread).
+.comment-thread__more {
+    margin: 0.25rem 0 0.75rem 2rem;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--site-primary, #{$primary-color});
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:disabled { opacity: 0.6; cursor: default; }
+    &:hover:not(:disabled) { text-decoration: underline; }
 }

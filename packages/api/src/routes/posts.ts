@@ -20,7 +20,7 @@ import * as liveRooms from '../services/liveRooms';
 import * as liveShows from '../services/liveShows';
 import * as liveRecordings from '../services/liveRecordings';
 import type { LiveModerateBody, PostLiveRecordingPartUrlBody, PostLiveRecordingStartBody, } from '@sitesurge/types';
-import { LIVE_SILENCE_MIN_MINUTES, } from '@sitesurge/types';
+import { LIVE_BAN_MAX_MINUTES, LIVE_SILENCE_MIN_MINUTES, } from '@sitesurge/types';
 
 // ─── Schemas ──────────────────────────────────────────────────────
 
@@ -102,7 +102,8 @@ const liveTestBody = z.object({ provider: z.string().min(1,).max(32,), },);
 const liveModerateBody = z.object({
     key: z.string().min(3,).max(90,),
     action: z.enum(['mute', 'unmute', 'silence', 'unsilence', 'kick', 'ban', 'unban',],),
-    minutes: z.number().int().min(LIVE_SILENCE_MIN_MINUTES,).max(7 * 24 * 60,).optional(),
+    // silence: >= 5 min, clamped to 7 days by the service; ban: up to a year (omit = permanent).
+    minutes: z.number().int().min(LIVE_SILENCE_MIN_MINUTES,).max(LIVE_BAN_MAX_MINUTES,).optional(),
     reason: z.string().max(500,).optional(),
 },) satisfies z.ZodType<LiveModerateBody>;
 
@@ -351,7 +352,29 @@ export const postsRoutes = [
         method: 'post', path: '/:id/live/moderate', auth: 'staff',
         summary: 'Mute / silence (>= 5 min) / kick a viewer from this show, or ban / unban them from every live show.',
         input: { params: idParams, body: liveModerateBody, },
-        handler: ({ params, body, user, },) => liveRooms.moderate(params.id, body, user,),
+        handler: ({ params, body, user, audit, },) => liveRooms.moderate(params.id, body, user, audit(),),
+    },),
+
+    defineRoute({
+        method: 'get', path: '/:id/live/chat', auth: 'optional',
+        summary: 'The saved chat of an ENDED live show, oldest first (same view gate as the show; deleted lines left out).',
+        input: { params: idParams, },
+        handler: ({ params, user, },) => liveRooms.replayChat(params.id, user,),
+    },),
+
+    defineRoute({
+        method: 'get', path: '/:id/live/chat/transcript', auth: 'staff', raw: true,
+        summary: 'Download the show\'s chat transcript (text; deleted lines marked). Needs `posts.live:host`.',
+        input: { params: idParams, },
+        handler: async ({ params, user, res, },) => {
+            await requireHost(user,);
+            const t = await liveRooms.transcript(params.id,);
+            res.set({
+                'Content-Type': 'text/plain; charset=utf-8',
+                'Content-Disposition': `attachment; filename="${t.filename}"`,
+                'Cache-Control': 'no-store',
+            },).send(t.text,);
+        },
     },),
 
     defineRoute({

@@ -116,3 +116,19 @@ describe('fileLink (direct link)', () => {
         expect(r,).toEqual({ kind: 'redirect', url: 'signed', cacheControl: 'private, no-store', },);
     },);
 },);
+
+describe('fileLinkErrorResponse (S4)', () => {
+    it('denied → 403 CONTENT_LOCKED with the reason', () => {
+        const r = play.fileLinkErrorResponse({ kind: 'denied', url: '/login', reason: 'signin', },);
+        expect(r.status,).toBe(403,);
+        expect(r.body.error.code,).toBe('CONTENT_LOCKED',);
+        expect(r.body.error.details,).toEqual({ reason: 'signin', },);
+    });
+    it('watch (still encoding) → 409 VIDEO_NOT_READY, never a paywall message', () => {
+        const r = play.fileLinkErrorResponse({ kind: 'watch', url: '/watch/x', },);
+        expect(r.status,).toBe(409,);
+        expect(r.body.error.code,).toBe('VIDEO_NOT_READY',);
+        expect(r.body.error.message,).not.toMatch(/subscriber/i,);
+        expect(r.headers['Retry-After'],).toBeDefined();
+    });
+});

@@ -88,6 +88,8 @@ export class EventsModule extends ModuleBase {
     register(id: string, body: {
         email: string; name?: string; phone?: string;
         occurrenceDate?: string; fields?: Record<string, unknown>;
+        /** Honeypot — leave empty. */
+        website?: string;
     },): Promise<{ registration: unknown; }> {
         return this.mutate('POST', '/events/:id/register', { params: { id, }, body, },);
     }
@@ -124,7 +126,24 @@ export class EventsModule extends ModuleBase {
         return this.mutate<EventsSettings>('PUT', '/events/settings', { body, },);
     }
 
-    subscribe(body: { email: string; eventId?: string; notifyEmail?: boolean; notifyPush?: boolean; },) {
+    /** POST /events/subscribe — anonymous subscriptions are double opt-in
+     *  (`pendingConfirmation: true` until the emailed link is clicked). */
+    subscribe(body: { email: string; eventId?: string; notifyEmail?: boolean; notifyPush?: boolean; website?: string; },): Promise<{
+        subscriber: unknown; pendingConfirmation?: boolean;
+    }> {
         return this.mutate('POST', '/events/subscribe', { body, },);
+    }
+
+    /** PUT /events/tickets/:code/check-in (staff) — check a ticket in, or undo it. */
+    checkIn(code: string, checkedIn: boolean,): Promise<{ code: string; status: string; checkedInAt: string | null; }> {
+        return this.mutate('PUT', '/events/tickets/:code/check-in', { params: { code, }, body: { checkedIn, }, },);
+    }
+
+    /** GET /events/:id/registrations/export — URL (CSV, or `print` for a door
+     *  list); opened by navigation so the session cookie authenticates it. */
+    registrationsExportUrl(id: string, occurrenceDate: string, format: 'csv' | 'print' = 'csv', query: Record<string, string | undefined> = {},): string {
+        const qs = new URLSearchParams({ occurrenceDate, format, },);
+        for (const [k, v,] of Object.entries(query,)) if (v) qs.set(k, v,);
+        return `${this.core.config.apiBase}/events/${encodeURIComponent(id,)}/registrations/export?${qs.toString()}`;
     }
 }

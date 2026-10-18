@@ -12,10 +12,12 @@
  */
 import NotFoundPage from './NotFound';
 import type { MediaPlayback, } from '@sitesurge/types';
-import { Title, } from '@solidjs/meta';
+import { NotFoundError, } from '@sitesurge/client';
+import { Meta, Title, } from '@solidjs/meta';
 import { useNavigate, useParams, useSearchParams, } from '@solidjs/router';
 import { Component, createEffect, createSignal, on, onCleanup, Show, } from 'solid-js';
 import MediaVideo from '../components/blocks/media/MediaVideo';
+import { Spinner, } from '../components/ui/Spinner';
 import { cms, } from '../services/cmsClient';
 import { useAuth, } from '../stores/auth';
 import { handleAccessDenied, } from '../utils/accessDenied';
@@ -30,14 +32,18 @@ const WatchPage: Component = () => {
     const auth = useAuth();
     const [pb, setPb,] = createSignal<MediaPlayback | null>(null,);
     const [missing, setMissing,] = createSignal(false,);
+    /** Any failure other than "no such video" (network, 500): an error + Retry, not the 404 page. */
+    const [failed, setFailed,] = createSignal<string | null>(null,);
+    const [attempt, setAttempt,] = createSignal(0,);
 
     // Re-read when the viewer changes (playback is role-shaped); wait for the session check first.
-    createEffect(on(() => [params.id, auth.isLoading, auth.user?.id ?? null,] as const, ([id, loading,],) => {
+    createEffect(on(() => [params.id, auth.isLoading, auth.user?.id ?? null, attempt(),] as const, ([id, loading,],) => {
         if (loading) return;
         let alive = true;
         let timer: ReturnType<typeof setTimeout> | undefined;
         setPb(null,);
         setMissing(false,);
+        setFailed(null,);
         const load = async () => {
             try {
                 const p = await cms.media.playback(id,);
@@ -49,8 +55,10 @@ const WatchPage: Component = () => {
                 }
                 setPb(p,);
                 if (!p.src && !p.teaserSrc && !p.fileSrc && p.status === 'processing') timer = setTimeout(load, POLL_MS,);
-            } catch {
-                if (alive) setMissing(true,);
+            } catch (e) {
+                if (!alive) return;
+                if (e instanceof NotFoundError) setMissing(true,);
+                else setFailed((e as Error)?.message || 'The video could not be loaded.',);
             }
         };
         void load();
@@ -63,15 +71,36 @@ const WatchPage: Component = () => {
     return (
         <div class="watch-page page-wrapper">
             <Title>{pb()?.title || 'Video'}</Title>
+            {/* A private video's watch page is not a useful search result. */}
+            <Show when={pb()?.accessLevel === 'private'}>
+                <Meta name="robots" content="noindex" />
+            </Show>
             <Show
                 when={!missing()}
                 fallback={
                     <NotFoundPage title="Video not found" message="This video doesn't exist, or it has been removed." link={{ href: "/posts", label: "Browse posts", }} />
                 }
             >
-                <Show when={pb()} fallback={<div class="watch-page__loading" />}>
-                    <h1 class="watch-page__title">{pb()!.title}</h1>
-                    <MediaVideo mediaId={params.id} playback={pb()!} showQualityMenu />
+                <Show
+                    when={!failed()}
+                    fallback={
+                        <div class="watch-page__error" role="alert">
+                            <p>Couldn't load this video. {failed()}</p>
+                            <button type="button" class="btn" onClick={() => setAttempt((n,) => n + 1,)}>Retry</button>
+                        </div>
+                    }
+                >
+                    <Show
+                        when={pb()}
+                        fallback={
+                            <div class="watch-page__loading" aria-busy="true" aria-label="Loading video">
+                                <Spinner />
+                            </div>
+                        }
+                    >
+                        <h1 class="watch-page__title">{pb()!.title}</h1>
+                        <MediaVideo mediaId={params.id} playback={pb()!} showQualityMenu />
+                    </Show>
                 </Show>
             </Show>
         </div>

@@ -27,3 +27,16 @@ export async function saveCardForLater(m: MountedCard,): Promise<string> {
     if (!id) throw new Error('Your card could not be saved.',);
     return id;
 }
+
+/** Check + tokenise the card FIRST (a typo or a rejected card shows here and creates nothing in Stripe) → the payment method id. */
+export async function tokenizeCard(m: MountedCard,): Promise<string> {
+    const pm = await m.stripe.createPaymentMethod({ type: 'card', card: m.card, },);
+    if (pm.error) throw new Error(pm.error.message || 'Check your card details.',);
+    return pm.paymentMethod.id;
+}
+
+/** Pay the first invoice of a new subscription with a tokenised card. */
+export async function payNewSubscription(m: MountedCard, clientSecret: string, paymentMethodId: string,): Promise<void> {
+    const r = await m.stripe.confirmCardPayment(clientSecret, { payment_method: paymentMethodId, },);
+    if (r.error) throw new Error(r.error.message || 'Your card was declined.',);
+}

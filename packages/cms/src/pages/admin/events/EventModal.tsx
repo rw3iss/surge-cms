@@ -144,7 +144,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
     const ticketsState = () => ({
         registrationEnabled: registrationEnabled(), registrationFields: registrationFields(), showRegistrantCount: showRegistrantCount(),
         ticketingEnabled: ticketingEnabled(),
-        tiers: tiers().map((t,) => ({ name: t.name ?? '', priceCents: t.priceCents ?? 0, quantityAvailable: t.quantityAvailable ?? null, requiredTierId: t.requiredTierId ?? null, })),
+        tiers: tiers().map((t,) => ({ name: t.name ?? '', priceCents: t.priceCents ?? 0, quantityAvailable: t.quantityAvailable ?? null, maxPerOrder: t.maxPerOrder ?? null, requiredTierId: t.requiredTierId ?? null, })),
     });
     const [baseGeneral, setBaseGeneral,] = createSignal<unknown>(null,);
     const [baseTickets, setBaseTickets,] = createSignal<unknown>(null,);
@@ -219,6 +219,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
             priceCents: 0,
             currency: props.defaultCurrency ?? 'USD',
             quantityAvailable: null,
+            maxPerOrder: null,
             requiredTierId: null,
         },]);
     const updateTier = (i: number, patch: Partial<EventTicketTier>,) =>
@@ -287,6 +288,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
                         priceCents: Number(t.priceCents ?? 0,),
                         currency: t.currency || props.defaultCurrency || 'USD',
                         quantityAvailable: t.quantityAvailable ?? null,
+                        maxPerOrder: t.maxPerOrder ?? null,
                         position: i,
                         requiredTierId: t.requiredTierId ?? null,
                     })),
@@ -525,7 +527,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
                             <Show when={registrationEnabled() && ticketingEnabled()}>
                                 <div class="event-modal__tiers">
                                     <div class="event-modal__tier event-modal__tier--head" aria-hidden="true">
-                                        <span>Ticket type</span><span>Price</span><span>Quantity</span><span>Requires membership</span><span />
+                                        <span>Ticket type</span><span>Price</span><span>Quantity</span><span>Per person</span><span>Requires membership</span><span />
                                     </div>
                                     {/*
                                       * <Index> (keyed by POSITION), not <For>: updateTier replaces the
@@ -546,6 +548,11 @@ const EventModal: Component<EventModalProps> = (props,) => {
                                                     value={tier().quantityAvailable ?? ''}
                                                     onChange={(e,) => updateTier(i, { quantityAvailable: e.currentTarget.value === '' ? null : Number(e.currentTarget.value,), },)}
                                                 />
+                                                <input
+                                                    type="number" min="1" placeholder="No limit" aria-label="Most per person"
+                                                    value={tier().maxPerOrder ?? ''}
+                                                    onChange={(e,) => updateTier(i, { maxPerOrder: e.currentTarget.value === '' ? null : Math.max(1, Math.floor(Number(e.currentTarget.value,),),), },)}
+                                                />
                                                 <select
                                                     aria-label="Requires membership"
                                                     value={tier().requiredTierId ?? ''}
@@ -562,6 +569,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
                                         <button type="button" class="ui-button ui-button--sm ui-button--secondary" onClick={addTier}>+ Add ticket type</button>
                                         <span class="form-help-muted">
                                             Empty quantity = unlimited. A free type with a quantity runs a free event with a capacity.
+                                            Per person caps how many of a type one email address may hold for a date.
                                             A required membership limits who can buy that type.
                                         </span>
                                     </div>

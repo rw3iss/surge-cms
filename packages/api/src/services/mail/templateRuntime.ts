@@ -130,14 +130,21 @@ function buildMailRuntime(context: Rec,): TemplateRuntime {
  * Resolve `{{ … }}` in a mail string (rendered HTML, subject, or preheader) to
  * a plain string using the full engine + the supplied per-recipient variable
  * context. Fast-paths strings with no template syntax. Never throws.
+ *
+ * `opts.html` = the string is an HTML BODY: interpolated values are then
+ * HTML-escaped unless they come from a trusted rich field (evaluator.ts), so a
+ * member-written value cannot inject markup into the email. Without it the
+ * output is raw — right for a subject / preheader, which are plain text.
+ * (Raw is the default so a caller that predates escaping keeps its output.)
  */
 export async function resolveMailTemplate(
     src: string | null | undefined,
     context: Record<string, unknown>,
+    opts: { html?: boolean; } = {},
 ): Promise<string> {
     if (!src || !hasTemplateSyntax(src,)) return src ?? '';
     try {
-        const rt = buildMailRuntime(context,);
+        const rt = { ...buildMailRuntime(context,), raw: !opts.html, };
         // `{{gallery()}}` items default to the site's border radius — read only when one is used.
         const siteRadius = /\bgallery\s*\(/.test(src,) ? await siteBorderRadius() : undefined;
         return await renderTemplateToString(src, rt, (kind, data, options,) => entityToMailHtml(kind, data as Rec | null, options, siteRadius,),);

@@ -36,6 +36,7 @@ import { chatLimiter, reactionLimiter, } from './rateLimit';
 import { applyHostCommand, effectiveStatus, loadLivePost, toState, type LivePostRow, } from './state';
 import * as mod from './moderation';
 import * as store from './store';
+import * as chatLog from './chatLog';
 import { verifyTicket, } from './tickets';
 
 export const CLOSE = { badRequest: 4400, unauthorized: 4401, forbidden: 4403, notFound: 4404, ended: 4410, } as const;
@@ -127,11 +128,19 @@ async function historyWithReactions(postId: string,): Promise<LiveChatMessage[]>
     },);
 }
 
-/** Refusal when the sender is muted/silenced in this show (staff exempt). */
-async function moderationBlock(conn: Conn, userId: string | null, staff: boolean, what: 'chat' | 'react',): Promise<mod.ModRefusal> {
+/**
+ * Refusal when the sender is banned, kicked, muted or silenced (staff exempt).
+ * Checks EVERY key the command answers to — the socket's AND the ticket's
+ * user — since commands are authorised by their ticket, not the socket.
+ */
+export async function moderationBlock(conn: Pick<Conn, 'key' | 'postId'>, userId: string | null, staff: boolean, what: 'chat' | 'react',): Promise<mod.ModRefusal> {
     if (staff) return null;
-    const entries = await Promise.all(mod.keysFor(conn.key, userId,).map((k,) => mod.getMod(conn.postId, k,)),);
-    return mod.moderationRefusal(entries, what,);
+    const keys = mod.keysFor(conn.key, userId,);
+    const [entries, bannedFlags,] = await Promise.all([
+        Promise.all(keys.map((k,) => mod.getMod(conn.postId, k,)),),
+        Promise.all(keys.map((k,) => mod.isBanned(k, null,)),),
+    ],);
+    return mod.moderationRefusal(entries, what, Date.now(), bannedFlags.some(Boolean,),);
 }
 
 /** Recount viewers (debounced per room) and tell every process's sockets. */
@@ -201,6 +210,7 @@ async function handleCommand(conn: Conn, raw: string,): Promise<void> {
                 ...(replyTo ? { replyTo, } : {}),
             };
             await store.pushHistory(conn.postId, message,);
+            chatLog.logChatMessage(conn.postId, message,);
             await broadcast(conn.postId, { type: 'chat', message, },);
             return;
         }
@@ -224,6 +234,7 @@ async function handleCommand(conn: Conn, raw: string,): Promise<void> {
         }
         case 'delete_message': {
             await store.deleteHistory(conn.postId, cmd.id,);
+            chatLog.logChatDeletion(conn.postId, cmd.id, identity.userId,);
             await broadcast(conn.postId, { type: 'chat_deleted', id: cmd.id, },);
             return;
         }
@@ -393,5 +404,6 @@ export async function shutdownLiveRooms(): Promise<void> {
     if (heartbeat) clearInterval(heartbeat,);
     heartbeat = null;
     for (const room of rooms.values()) for (const c of room) try { c.ws.close(1001, 'shutdown',); } catch { /* gone */ }
+    await chatLog.flushChatLog();
     await store.shutdownStore();
 }

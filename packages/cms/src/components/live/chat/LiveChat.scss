@@ -1,3 +1,5 @@
+@use '../../../styles/variables' as *;
+
 // Live chat panel (LiveChat.tsx) — shared by the public live show and the
 // admin live console. Variant modifiers only set the --lc-* tokens: the public
 // variant reads the site theme, the host variant the admin shell.
@@ -22,8 +24,8 @@
         --lc-text: var(--admin-text, #1f2937);
         --lc-muted: var(--admin-text-muted, #6b7280);
         --lc-border: var(--admin-border, #e5e7eb);
-        --lc-bg: #fff;
-        --lc-accent: #e63946;
+        --lc-bg: var(--admin-panel-bg, #{$background});
+        --lc-accent: var(--site-primary, #{$primary-color});
         --lc-radius: 8px;
 
         font-family: var(--admin-font-body, inherit);

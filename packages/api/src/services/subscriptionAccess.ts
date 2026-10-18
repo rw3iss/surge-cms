@@ -17,6 +17,8 @@ import { isStaffRole, type MemberAccessState, } from '@sitesurge/types';
 import { ValidationError, } from '../core/errors';
 import { query, } from '../db';
 import { getUsersSettings, } from './settings';
+// Static: membership/state has no dependency back on this module (the old dynamic import dodged a cycle).
+import { approvedOfferFor, lastFailedAttempt, pendingApplicationFor, } from './membership/state';
 
 export interface SubscriptionPolicy {
     required: boolean;
@@ -39,7 +41,7 @@ export async function getPolicy(): Promise<SubscriptionPolicy> {
         const r = await query<{ rank: number; }>(
             s.minimumTierId
                 ? `SELECT sort_order AS rank FROM subscription_plans WHERE id = $1`
-                : `SELECT MIN(sort_order) AS rank FROM subscription_plans WHERE is_free = false AND is_active IS NOT FALSE AND stripe_price_id IS NOT NULL`,
+                : `SELECT MIN(sort_order) AS rank FROM subscription_plans WHERE is_free = false AND dev_only = false AND is_active IS NOT FALSE AND stripe_price_id IS NOT NULL`,
             s.minimumTierId ? [s.minimumTierId,] : [],
         );
         minimumRank = Math.max(1, Number(r.rows[0]?.rank ?? 1,),);
@@ -47,11 +49,17 @@ export async function getPolicy(): Promise<SubscriptionPolicy> {
     return { required, minimumRank, minimumTierId: s.minimumTierId ?? null, requireEmailVerification: s.requireEmailVerification, };
 }
 
-/** Does the user hold an active paid subscription at `minimumRank` or above? */
+/**
+ * Does the user hold an active paid subscription at `minimumRank` or above?
+ * A "Dev only" level qualifies whatever its rank — it is exempt from the
+ * minimum when offered and bought (membership.offered/targetTier), so a
+ * developer who bought one must not then be walled.
+ */
 export async function hasQualifyingSubscription(userId: string, minimumRank: number,): Promise<boolean> {
     const r = await query(
         `SELECT 1 FROM subscriptions s JOIN subscription_plans p ON p.id = s.plan_id
-          WHERE s.user_id = $1 AND s.status = ANY($2) AND p.is_free = false AND p.sort_order >= $3 LIMIT 1`,
+          WHERE s.user_id = $1 AND s.status = ANY($2) AND p.is_free = false
+            AND (p.sort_order >= $3 OR p.dev_only = true) LIMIT 1`,
         [userId, ENTITLED, minimumRank,],
     );
     return r.rows.length > 0;
@@ -64,7 +72,6 @@ export async function accessState(user: { id: string; role?: string | null; emai
     };
     if (!user?.id) return base;
     // A pending application is reported in every mode (UI: "waiting for approval").
-    const { approvedOfferFor, lastFailedAttempt, pendingApplicationFor, } = await import('./membership.js');
     [base.pendingApplication, base.approvedOffer,] = await Promise.all([pendingApplicationFor(user.id,), approvedOfferFor(user.id,),],);
     if (!policy.required || isStaffRole(user.role ?? undefined,)) return base;
     // Roles allowed in WITHOUT a membership (Users → Settings), by the primary

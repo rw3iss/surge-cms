@@ -1,4 +1,5 @@
 import { A, } from '@solidjs/router';
+import Checkbox from '../../../components/ui/Checkbox';
 import { Component, createSignal, For, Show, } from 'solid-js';
 import { createSafeResource, } from '../../../hooks/createSafeResource';
 import type { ShopCollection, ShopCollectionCreateBody, ShopProduct, } from '@sitesurge/types';
@@ -210,20 +211,23 @@ const ShopCollectionsInner: Component = () => {
                                     >
                                         <For each={filteredProducts()}>
                                             {(p,) => (
-                                                <label class="shop-product-editor__check">
-                                                    <input
-                                                        type="checkbox"
+                                                <div class="shop-product-editor__check">
+                                                    <Checkbox
                                                         checked={draft()!.productIds.includes(p.id,)}
                                                         onChange={() => toggleProduct(p.id,)}
+                                                        label={
+                                                            <>
+                                                                <Show
+                                                                    when={p.primaryImageUrl}
+                                                                    fallback={<span class="shop-product-editor__thumb shop-product-editor__thumb--empty" aria-hidden="true" />}
+                                                                >
+                                                                    <img class="shop-product-editor__thumb" src={p.primaryImageUrl!} alt="" loading="lazy" />
+                                                                </Show>
+                                                                <span class="shop-product-editor__check-title">{p.title}</span>
+                                                            </>
+                                                        }
                                                     />
-                                                    <Show
-                                                        when={p.primaryImageUrl}
-                                                        fallback={<span class="shop-product-editor__thumb shop-product-editor__thumb--empty" aria-hidden="true" />}
-                                                    >
-                                                        <img class="shop-product-editor__thumb" src={p.primaryImageUrl!} alt="" loading="lazy" />
-                                                    </Show>
-                                                    <span class="shop-product-editor__check-title">{p.title}</span>
-                                                </label>
+                                                </div>
                                             )}
                                         </For>
                                         <Show when={!filteredProducts().length}>

@@ -186,7 +186,7 @@ export async function notifyUser(ref: { userId?: string | null; email?: string |
             name: user.display_name || fullName || base.name || contact.name,
             email: user.email,
             phone: contact.phone,
-            roles: [user.role, ...(user.extra_roles ?? []).filter((r,) => r !== user!.role),],
+            roles: await roleLabels([user.role, ...(user.extra_roles ?? []).filter((r,) => r !== user!.role),],),
             membership: await membershipOf(user.id,),
             joined: formatDay(user.created_at,) || null,
             adminUrl: `/admin/users/${user.id}`,
@@ -194,6 +194,18 @@ export async function notifyUser(ref: { userId?: string | null; email?: string |
     } catch (err) {
         logger.warn('notifyUser lookup failed', { error: (err as Error).message, },);
         return base;
+    }
+}
+
+/** Role keys → their labels ("subscriber" → "Subscriber"); an unknown key stays as it is. */
+async function roleLabels(keys: string[],): Promise<string[]> {
+    if (!keys.length) return keys;
+    try {
+        const r = await query<{ key: string; label: string; }>(`SELECT key, label FROM roles WHERE key = ANY($1)`, [keys,],);
+        const by = new Map(r.rows.map((x,) => [x.key, x.label,]),);
+        return keys.map((k,) => by.get(k,) || k,);
+    } catch {
+        return keys;
     }
 }
 

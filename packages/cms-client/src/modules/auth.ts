@@ -109,6 +109,13 @@ export class AuthModule extends ModuleBase implements AuthRuntime {
         return this.mutate<{ sent: boolean; }>('POST', '/auth/resend-verification', {},);
     }
 
+    /** POST /auth/resend-verification-by-email — for a login refused with
+     *  `EMAIL_NOT_VERIFIED` (no session yet). Always answers the same, so it
+     *  never reveals whether an account exists. */
+    resendVerificationByEmail(email: string,): Promise<{ message: string; }> {
+        return this.mutate<{ message: string; }>('POST', '/auth/resend-verification-by-email', { body: { email, }, },);
+    }
+
     me(): Promise<AuthMeResponse> {
         return this.get<AuthMeResponse>('/auth/me', { options: { cache: false, }, },);
     }

@@ -9,7 +9,7 @@
  */
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import { useToast, } from '../../../components/common/toast';
-import type { ContentBlockTemplate, EntityRecord, EntityTypeDef, TemplateListRender, TemplateSlot, } from '@sitesurge/types';
+import type { ContentBlockTemplate, EntityRecord, EntityTypeDef, TemplateListRender, TemplateSlot, TemplateUsage, } from '@sitesurge/types';
 import { rendersOnce, templateDataOf, templateListRenderOf, } from '@sitesurge/types';
 import { Component, createEffect, createMemo, createResource, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
 import { createStore, reconcile, unwrap, } from 'solid-js/store';
@@ -27,6 +27,8 @@ import { setTemplateInfo, setTemplateSlots, } from '../../../stores/templateSlot
 import { slotIdError, } from '../../../utils/templateSlots';
 import './EntitiesList.scss';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
+import ConfirmModal from '../../../components/admin/common/ConfirmModal';
+import { useAutoSave, } from '../../../hooks/useAutoSave';
 
 /** Fallback sample-record count for a `list` template with no `maxRecords` set —
  *  how many records to load into the editor preview. Static for now. */
@@ -118,6 +120,55 @@ const TemplateEditor: Component = () => {
      *  editing a row never remounts it (see TemplateSlotsEditor). */
     const [slots, setSlots,] = createStore<TemplateSlot[]>([],);
 
+    // ── Draft persistence (parity with pages / posts / mail templates) ──
+    // Unsaved edits live in localStorage (`rw-draft:cbt-draft-<type>-<id>`) and
+    // come back on open when NEWER than the saved template; Revert drops them.
+    const formState = () => ({
+        name: name(), description: description(), mode: mode(), maxRecords: maxRecords(), listRender: listRender(),
+        sampleRecordIds: sampleRecordIds(), script: script(), scriptEnabled: scriptEnabled(),
+        slots: slots.map((sl,) => ({ ...sl, })), blocks: blocks(),
+    });
+    type FormState = ReturnType<typeof formState>;
+    const [savedJson, setSavedJson,] = createSignal<string | null>(null,);
+    const [ready, setReady,] = createSignal(false,);
+    const isDirty = createMemo(() => savedJson() !== null && JSON.stringify(formState(),) !== savedJson());
+    const captureSaved = () => setSavedJson(JSON.stringify(formState(),),);
+    const autoSave = useAutoSave<FormState>({
+        get key() {
+            return `cbt-draft-${params.type ?? 'component'}-${params.id || 'new'}`;
+        },
+        state: formState,
+        enabled: () => ready() && isDirty(),
+    },);
+    createEffect(() => {
+        if (ready() && !isDirty() && autoSave.hasDraft()) autoSave.clear();
+    },);
+    const applyState = (st: FormState,) => {
+        setName(st.name,);
+        setDescription(st.description,);
+        setMode(st.mode,);
+        setMaxRecords(st.maxRecords,);
+        setListRender(st.listRender,);
+        setSampleRecordIds(st.sampleRecordIds,);
+        setScript(st.script,);
+        setScriptEnabled(st.scriptEnabled,);
+        setSlots(reconcile(structuredClone(st.slots,),),);
+        setBlocks(structuredClone(st.blocks,),);
+    };
+    const [showRevert, setShowRevert,] = createSignal(false,);
+    const handleRevert = () => {
+        setShowRevert(false,);
+        autoSave.clear();
+        const base = savedJson();
+        if (base) applyState(JSON.parse(base,) as FormState,);
+        toast.info('Reverted to the last saved version.',);
+    };
+    /** Where this template is used (from the staff list read). Null = unknown. */
+    const [usageList, setUsageList,] = createSignal<TemplateUsage[] | null>(null,);
+    const [showDelete, setShowDelete,] = createSignal(false,);
+    const [deleteConfirmText, setDeleteConfirmText,] = createSignal('',);
+    const [deleting, setDeleting,] = createSignal(false,);
+
     // Publish the slots so block panels inside this template (Gallery, Posts)
     // can offer a "Slot" source. Spreading each row tracks every field.
     createEffect(() => setTemplateSlots(slots.map((s,) => ({ ...s, })),),);
@@ -187,7 +238,23 @@ const TemplateEditor: Component = () => {
                 setEntityDef(await cms.entityTypes.getOne(params.type!,),);
             } catch { /* ignore */ }
         }
-        if (isNew()) return;
+        if (isNew()) {
+            captureSaved();
+            const stored = autoSave.getDraft();
+            if (stored) {
+                applyState(stored.data,);
+                toast.info('Restored your unsaved draft. Use Revert to discard it.',);
+            }
+            setReady(true,);
+            return;
+        }
+        // Where it is used (best-effort; the list read carries `usages`).
+        void (async () => {
+            try {
+                const list = isGlobal() ? await cms.components.list() : await cms.contentBlockTemplates.list(params.type!,);
+                setUsageList(((list as ContentBlockTemplate[]).find((t,) => t.id === params.id,)?.usages) ?? null,);
+            } catch { /* unknown — the delete confirm says so */ }
+        })();
         try {
             const d = await api.getOne(params.id,);
             setName(d.name,);
@@ -204,7 +271,26 @@ const TemplateEditor: Component = () => {
             setBlocks(loaded,);
             // Whatever the server just gave us IS the saved state.
             setSavedBlocks(structuredClone(loaded,),);
+            captureSaved();
+            // A draft NEWER than the saved template comes back (Revert drops it);
+            // an older one means someone saved since — discard it.
+            const stored = autoSave.getDraft();
+            if (stored && stored.timestamp > Date.parse(d.updatedAt,)) {
+                applyState(stored.data,);
+                toast.info('Restored your unsaved draft of this template. Use Revert to discard it.',);
+            } else if (stored) autoSave.clear();
         } catch { /* ignore */ }
+        setReady(true,);
+    },);
+    // Keep the draft on tab hide / every 10 s while dirty.
+    const flushDraft = () => { if (ready() && isDirty()) autoSave.flush(); };
+    const draftTimer = setInterval(flushDraft, 10_000,);
+    const onHidden = () => { if (document.visibilityState === 'hidden') flushDraft(); };
+    document.addEventListener('visibilitychange', onHidden,);
+    onCleanup(() => {
+        clearInterval(draftTimer,);
+        document.removeEventListener('visibilitychange', onHidden,);
+        flushDraft();
     },);
 
     const handleSave = async (): Promise<void> => {
@@ -236,20 +322,25 @@ const TemplateEditor: Component = () => {
                 // must not carry them or a non-admin editor would 403.
                 ...(isGlobal() ? { script: script() || null, scriptEnabled: scriptEnabled(), } : {}),
             };
+            // Meta AND blocks in ONE request — the server applies them in one
+            // transaction, so a failed block write can't leave new slots /
+            // listRender beside the old blocks (or an empty new template).
+            const body = { ...meta, blocks: editorToBackend(blocks(),), };
+            autoSave.cancel();
             if (isNew()) {
-                const created = await api.create(meta,) as ContentBlockTemplate;
-                if (blocks().length > 0) {
-                    await api.saveBlocks(created.id, editorToBackend(blocks(),),);
-                }
+                const created = await api.create(body,) as ContentBlockTemplate;
                 setSavedBlocks(structuredClone(blocks(),),);
+                autoSave.clear();
+                captureSaved();
                 toast.success(isGlobal() ? 'Component created.' : 'Template created.',);
                 navigate(itemHref(created.id,),);
             } else {
-                await api.update(params.id, meta,);
-                await api.saveBlocks(params.id, editorToBackend(blocks(),),);
+                await api.update(params.id, body,);
                 // Snapshot AFTER the write succeeds, so a failed save leaves
                 // the blocks correctly marked dirty.
                 setSavedBlocks(structuredClone(blocks(),),);
+                captureSaved();
+                autoSave.clear();
                 toast.success(isGlobal() ? 'Component saved.' : 'Template saved.',);
                 // `/client.js` serves the SAVED script, so a save is the only
                 // moment a re-mount can pick up new code.
@@ -264,11 +355,39 @@ const TemplateEditor: Component = () => {
         }
     };
 
-    const handleDelete = async (): Promise<void> => {
-        if (!confirm('Delete this template? This cannot be undone.',)) return;
-        await api.remove(params.id,);
-        navigate(listHref(),);
+    /** Opens the confirm (type-to-confirm when the template is in use). */
+    const handleDelete = (): void => {
+        setDeleteConfirmText('',);
+        setShowDelete(true,);
     };
+    const inUse = () => (usageList()?.length ?? 0) > 0;
+    const deleteAllowed = () => !inUse() || deleteConfirmText().trim() === name().trim();
+    const confirmDelete = async (): Promise<void> => {
+        if (!deleteAllowed()) return;
+        setDeleting(true,);
+        try {
+            await api.remove(params.id,);
+            autoSave.clear();
+            setShowDelete(false,);
+            toast.success(isGlobal() ? 'Component deleted.' : 'Template deleted.',);
+            navigate(listHref(),);
+        } catch (e) {
+            toast.error(`Could not delete: ${e instanceof Error ? e.message : 'unknown error'}`,);
+        } finally {
+            setDeleting(false,);
+        }
+    };
+    /** Editor link for a use; null for another template (its type is not known here). */
+    const usageHref = (u: TemplateUsage,): string | null => {
+        switch (u.kind) {
+            case 'page': return `/admin/pages/${u.id}`;
+            case 'post': return `/admin/posts/${u.id}`;
+            case 'mail_template': return `/admin/mail-templates/${u.id}`;
+            default: return null;
+        }
+    };
+    const usageKind = (k: TemplateUsage['kind'],): string =>
+        ({ page: 'Page', post: 'Post', mail_template: 'Email template', template: 'Template', } as const)[k];
 
     const singularVar = () => entityDef()?.singularVar ?? params.type ?? '';
     const pluralVar = () => entityDef()?.pluralVar ?? `${params.type ?? ''}s`;
@@ -383,8 +502,14 @@ const TemplateEditor: Component = () => {
                         : name() || '…'}
                 </h1>
                 <div class="admin-header__actions">
+                    <Show when={isDirty() || autoSave.hasDraft()}>
+                        <span class="form-help-muted template-editor__dirty">Unsaved changes</span>
+                        <button type="button" class="ui-button ui-button--ghost" onClick={() => setShowRevert(true,)}>Revert</button>
+                    </Show>
                     <Show when={!isNew()}>
-                        <button type="button" class="ui-button ui-button--danger" onClick={handleDelete}>Delete</button>
+                        <button type="button" class="ui-button ui-button--danger" onClick={handleDelete}>
+                            Delete{usageList() ? ` (used in ${usageList()!.length})` : ''}
+                        </button>
                     </Show>
                     <button type="button" class="ui-button ui-button--primary" onClick={handleSave} disabled={saving()}>
                         {saving() ? 'Saving…' : 'Save'}
@@ -393,6 +518,64 @@ const TemplateEditor: Component = () => {
             </div>
 
             <Show when={error()}><div class="alert alert--error">{error()}</div></Show>
+
+            <ConfirmModal
+                open={showRevert()}
+                title="Revert changes"
+                message="Discard every unsaved change and go back to the last saved version?"
+                confirmLabel="Revert"
+                danger
+                onConfirm={handleRevert}
+                onCancel={() => setShowRevert(false,)}
+            />
+            <ConfirmModal
+                open={showDelete()}
+                title={isGlobal() ? 'Delete component' : 'Delete template'}
+                confirmLabel="Delete"
+                busyLabel="Deleting…"
+                loading={deleting()}
+                confirmDisabled={!deleteAllowed()}
+                danger
+                onConfirm={() => void confirmDelete()}
+                onCancel={() => setShowDelete(false,)}
+            >
+                <Show
+                    when={inUse()}
+                    fallback={
+                        <p class="confirm-modal__message">
+                            {usageList() === null
+                                ? 'This cannot be undone. Its uses could not be checked — anything that references it will render nothing.'
+                                : 'It is not used anywhere. This cannot be undone.'}
+                        </p>
+                    }
+                >
+                    <p class="confirm-modal__message">
+                        It is used in {usageList()!.length} place{usageList()!.length === 1 ? '' : 's'}. Every one of them
+                        will render NOTHING where it was:
+                    </p>
+                    <ul class="template-editor__usages">
+                        <For each={usageList()!}>
+                            {(u,) => (
+                                <li>
+                                    {usageKind(u.kind,)}:{' '}
+                                    <Show when={usageHref(u,)} fallback={u.title}>
+                                        {(href,) => <A href={href()} target="_blank">{u.title}</A>}
+                                    </Show>
+                                    {u.blocks > 1 ? ` (${u.blocks} blocks)` : ''}
+                                </li>
+                            )}
+                        </For>
+                    </ul>
+                    <FormField label={`Type "${name()}" to confirm`}>
+                        <input
+                            type="text"
+                            value={deleteConfirmText()}
+                            // Search-as-you-type style: the confirm button reacts per keystroke.
+                            onInput={(e,) => setDeleteConfirmText(e.currentTarget.value,)}
+                        />
+                    </FormField>
+                </Show>
+            </ConfirmModal>
 
             <section class="admin-section template-settings">
                 <header class="admin-section__header"><h2>Settings</h2></header>

@@ -5,6 +5,7 @@ import { BlockStyleService, } from '../../../services/blockStyles';
 import { styleDraft, } from '../../../stores/blockStyleDraft';
 import { templatePreviewContext, } from '../../../stores/templatePreviewContext';
 import type { BlockData, } from './ContentBlock';
+import { isBlockConfigured, } from '../../../config/blockTypes';
 
 /** Fixed timestamps: a new Date per render would change the block for nothing. */
 const PREVIEW_EPOCH = new Date(0,);
@@ -98,57 +99,8 @@ const BlockPreview: Component<BlockPreviewProps> = (props,) => {
     const [rendered, setRendered,] = createStore(buildBlock(),);
     createComputed(() => setRendered(reconcile(buildBlock(), { merge: true, },),),);
 
-    const isEmpty = () => {
-        // Spacer blocks are never "empty" — they render at their height
-        if (props.block.type === 'spacer') return false;
-        // Post-list is also never "empty" — it always queries posts,
-        // even with default settings. Showing the picker placeholder
-        // here would be misleading.
-        if (props.block.type === 'post_list') return false;
-        const d = props.block.data || {};
-        // A `template` block is empty only until a Component is chosen; once it
-        // is, render the component itself. Without this it fell through to the
-        // generic check below — which knows nothing about `templateId` — and
-        // showed the "template / Click edit to configure" placeholder even for
-        // a fully configured block.
-        if (props.block.type === 'template') return !d.templateId;
-        // Same for `entity`: its configuration lives under `data.entity`
-        // ({ entityType, templateId, binding }), so the generic check below —
-        // which looks for `content` / `url` / `postId` / … — never matched and
-        // a fully configured block showed "Entity / Click edit to configure"
-        // forever. Once a template is chosen there is something real to draw,
-        // so hand it to the renderer that already draws it on the public site.
-        if (props.block.type === 'entity') {
-            return !(d.entity as { templateId?: string; } | undefined)?.templateId;
-        }
-        // A `social` block in AUTO-FEED mode has no pinned `items` and stores
-        // its provider under `provider` — not the `platform`/`socialPlatform`
-        // the generic check looks for — so a working feed block showed
-        // "Click edit to configure" instead of its posts. Configured means a
-        // provider is chosen; the feed supplies the rest.
-        if (props.block.type === 'social') return !d.provider && !d.platform && !d.socialPlatform;
-        // `gallery` keeps its config flat (`source`, `query`, `itemIds`, layout…),
-        // none of which the generic check knows — so a configured gallery showed
-        // the placeholder instead of its items. A live query always has something
-        // to draw; "selected items" needs at least one. Then the SAME renderer as
-        // the site runs the query with every layout/style setting applied.
-        if (props.block.type === 'gallery') {
-            return d.source === 'items' && !(Array.isArray(d.itemIds,) && d.itemIds.length > 0);
-        }
-        // Hero is "empty" only when none of its visual fields are set —
-        // title or subtitle alone is enough to render meaningfully.
-        if (props.block.type === 'hero') {
-            return !d.title && !d.subtitle && !d.content && !d.backgroundImage;
-        }
-        return !d.content && !d.url && !d.postId && !d.postUrl &&
-            !d.socialPlatform && !d.platform && !d.campaignId &&
-            !d.formId && !d.slug && !d.galleryId &&
-            !(d.items && d.items.length > 0) &&
-            // Multi-image blocks store their images in `images[]` (the legacy
-            // single-image `url` is handled above) — treat a block with any
-            // image as non-empty so its preview renders instead of the hint.
-            !(Array.isArray(d.images,) && d.images.some((img: { url?: string; },) => img && img.url));
-    };
+    // One arm per block type in config/blockTypes.ts (`BLOCK_CONFIGURED`).
+    const isEmpty = () => !isBlockConfigured(props.block.type, props.block.data,);
 
     return (
         <div ref={guardRef} style={{ display: 'contents', }}>

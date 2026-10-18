@@ -15,11 +15,13 @@ import { useReplySummaries, } from '../../components/admin/reply/useReplySummari
 import ReviewApplicationModal from '../../components/admin/applications/ReviewApplicationModal';
 import { approvalBadge, } from '../../components/admin/applications/applicationStatus';
 import '../../components/admin/applications/applications.scss';
+import './Users.scss';
 import { useToast, } from '../../components/common/toast';
 import ConfirmModal from '../../components/admin/common/ConfirmModal';
 import InviteUserModal from '../../components/admin/users/InviteUserModal';
 import InvitesPanel from '../../components/admin/users/InvitesPanel';
-import { roleLabel, } from '../../components/admin/users/assignableRoles';
+import { primaryRoleOptions, roleLabel, } from '../../components/admin/users/assignableRoles';
+import { useAuth, } from '../../stores/auth';
 
 const AdminUsers: Component = () => {
     const navigate = useNavigate();
@@ -36,6 +38,9 @@ const AdminUsers: Component = () => {
     const sortOrder = () => currentSort().endsWith('_asc',) ? 'asc' : 'desc';
 
     const [roles,] = createResource(() => cms.roles.list().catch(() => [],),);
+    const auth = useAuth();
+    /** Main-role choices: built-in + custom roles; sysadmin only for a sysadmin. */
+    const roleOptions = () => primaryRoleOptions(roles(), auth.user?.role,);
     // Account invites: the modal, and the collapsible list (refreshKey reloads it).
     const [inviteOpen, setInviteOpen,] = createSignal(false,);
     // `?invites=1` (notification-email deep link) opens the invites list.
@@ -52,6 +57,7 @@ const AdminUsers: Component = () => {
             status: searchParams.status,
             subscription: searchParams.subscription,
             approval: searchParams.approval as 'pending' | 'approved' | 'rejected' | undefined,
+            verified: searchParams.verified as 'verified' | 'unverified' | undefined,
             sortBy: sortBy(),
             sortOrder: sortOrder(),
         }),
@@ -102,6 +108,7 @@ const AdminUsers: Component = () => {
         searchParams.status;
         searchParams.subscription;
         searchParams.approval;
+        searchParams.verified;
         searchParams.sort;
         list.resetPage();
         setSelected(new Set<string>(),);
@@ -246,7 +253,7 @@ const AdminUsers: Component = () => {
             </div>
 
             <Show when={showForm()}>
-                <div class="admin-form" style={{ 'margin-bottom': '24px', }}>
+                <div class="admin-form users-add-form">
                     <div class="form-section">
                         <h2>Add New User</h2>
                         <Show when={formError()}>
@@ -267,10 +274,11 @@ const AdminUsers: Component = () => {
                                 </FormField>
                                 <FormField label="Role">
                                     <select value={formRole()} onChange={(e,) => setFormRole(e.currentTarget.value,)}>
-                                        <option value="member">Member</option>
-                                        <option value="editor">Editor</option>
-                                        <option value="admin">Admin</option>
-                                        <option value="sysadmin">System Admin</option>
+                                        <Show when={roleOptions().length} fallback={<option value="member">Member</option>}>
+                                            <For each={roleOptions()}>
+                                                {(r,) => <option value={r.key} selected={formRole() === r.key}>{r.label}</option>}
+                                            </For>
+                                        </Show>
                                     </select>
                                 </FormField>
                             </div>
@@ -335,8 +343,16 @@ const AdminUsers: Component = () => {
                         {([v, label,],) => <option value={v} selected={searchParams.approval === v}>{label}</option>}
                     </For>
                 </select>
+                <select
+                    class="admin-filter-bar__select"
+                    onChange={(e,) => setSearchParams({ verified: e.currentTarget.value || undefined, },)}
+                >
+                    <option value="" selected={!searchParams.verified}>Any email status</option>
+                    <option value="unverified" selected={searchParams.verified === 'unverified'}>Email not verified</option>
+                    <option value="verified" selected={searchParams.verified === 'verified'}>Email verified</option>
+                </select>
                 {/* Every user matching the current search, filters and sort. */}
-                <div style={{ 'margin-left': 'auto', }}>
+                <div class="users-filter-export">
                     <ExportMenu
                         url={(format, query,) => cms.exports.usersUrl(format, query,)}
                         query={() => ({
@@ -400,14 +416,25 @@ const AdminUsers: Component = () => {
                 }}
                 pagination={{ page: list.page(), totalPages: list.totalPages(), total: list.total(), limit: list.limit(), onPageChange: list.setPage, }}
                 columns={[
-                    { header: 'Email', sortField: 'email', cell: (user: any,) => user.email, },
+                    {
+                        header: 'Email',
+                        sortField: 'email',
+                        cell: (user: any,) => (
+                            <>
+                                {user.email}
+                                <Show when={user.emailVerified === false}>
+                                    {' '}<span class="badge badge--warning" title="This account has not confirmed its email address yet">Unverified</span>
+                                </Show>
+                            </>
+                        ),
+                    },
                     { header: 'Name', sortField: 'display_name', cell: (user: any,) => user.displayName || '—', },
                     {
                         header: 'Role',
                         sortField: 'role',
                         cell: (user: any,) => (
                             <>
-                                <span class={`badge ${roleBadge(user.role,)}`}>{user.role}</span>
+                                <span class={`badge ${roleBadge(user.role,)}`}>{roleLabel(roles(), user.role,)}</span>
                                 {/* Additional roles (kept when the membership changes). */}
                                 <For each={(user.extraRoles ?? []) as string[]}>
                                     {(r,) => <span class="badge badge--info users-extra-role" title="Additional role">+ {roleLabel(roles(), r,)}</span>}
@@ -505,8 +532,8 @@ const AdminUsers: Component = () => {
                         <Show when={action() === 'role'}>
                             <FormField label="New role">
                                 <select value={bulkRole()} onChange={(e,) => setBulkRole(e.currentTarget.value,)}>
-                                    <For each={(roles() ?? []).filter((r,) => r.key !== 'anonymous',)}>
-                                        {(r,) => <option value={r.key}>{r.label}</option>}
+                                    <For each={roleOptions()}>
+                                        {(r,) => <option value={r.key} selected={bulkRole() === r.key}>{r.label}</option>}
                                     </For>
                                 </select>
                             </FormField>

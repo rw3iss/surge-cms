@@ -240,7 +240,7 @@ export async function renderForRecipient(
         opts.subject ?? tpl.subject ?? '',
         tpl.preheader ?? undefined,
     );
-    const html = await resolveMailTemplate(result.html, opts.context,);
+    const html = await resolveMailTemplate(result.html, opts.context, { html: true, },);
     return {
         html: absolutiseUrls(html, renderCtx.siteUrl,),
         subject: await resolveMailTemplate(result.subject, opts.context,),
@@ -286,7 +286,7 @@ export async function preview(input: PreviewInput,) {
     // show a relative (dead-in-an-inbox) link where the sent mail has a working
     // one. Resolve templates FIRST: an href may be a `{{ }}` token, which is
     // deliberately left alone by the absolutiser.
-    const resolvedHtml = await resolveMailTemplate(result.html, ctx,);
+    const resolvedHtml = await resolveMailTemplate(result.html, ctx, { html: true, },);
 
     return {
         html: absolutiseUrls(resolvedHtml, renderCtx.siteUrl,),

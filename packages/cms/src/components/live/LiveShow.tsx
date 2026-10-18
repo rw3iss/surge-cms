@@ -291,6 +291,13 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
         conn.send(cmd,);
     };
 
+    // Replay chat: the saved chat of an ended show, read-only beside the replay.
+    const [replayChat, setReplayChat,] = createSignal<LiveChatMessage[]>([],);
+    createEffect(on(ended, (isEnded,) => {
+        if (!isEnded) return;
+        void cms.posts.liveChat(props.post.id,).then(setReplayChat,).catch(() => setReplayChat([],),);
+    },),);
+
     const react = (emoji: string,) => {
         if (!reactionsOn() || !conn) return;
         conn.send({ type: 'react', emoji, },);
@@ -300,7 +307,7 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
         <Show
             when={!ended()}
             fallback={
-                <section class="live-show live-show--ended">
+                <section class="live-show live-show--ended" classList={{ 'live-show--with-chat': replayChat().length > 0, }}>
                     <Show
                         when={replayId()}
                         fallback={
@@ -328,6 +335,18 @@ const LiveShow: Component<LiveShowProps> = (props,) => {
                                 <MediaVideo mediaId={mediaId()} showVariantSwitch />
                             </div>
                         )}
+                    </Show>
+                    <Show when={replayChat().length > 0}>
+                        <LiveChat
+                            variant="public"
+                            class="live-show__chat"
+                            title="Chat from the show"
+                            messages={replayChat()}
+                            me={null}
+                            signedIn={auth.isAuthenticated}
+                            block={{ kind: 'text', text: 'The show has ended — chat is read-only.', }}
+                            send={() => {}}
+                        />
                     </Show>
                 </section>
             }

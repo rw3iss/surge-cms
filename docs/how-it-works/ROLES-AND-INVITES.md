@@ -43,12 +43,15 @@ Users → **Invite**: email, optional name, roles (default Ambassador).
   the `user_role_added` email tells them.
 - Otherwise → an invite (`user_invites`) with a random token (only its SHA-256 is
   stored), valid **3 days**, and the `user_invite` email with `/invite/<token>`.
-  Resend makes a new link (the old one stops working); Revoke cancels it. One
-  live invite per address.
+  Resend makes a new link (the old one stops working); Revoke cancels it — a
+  revoked invite cannot be resent (send a new invite). One live invite per address.
 - `/invite/<token>`: the person sets name, email and password → the account is
   created through the normal member sign-up (handle, contact, notifications),
   the roles are added, they are signed in. The invited address counts as
   verified; a different address goes through normal email verification.
+  Accepting CLAIMS the invite first (one conditional UPDATE), so a double-submit
+  cannot create two accounts with the roles; if the account cannot be created
+  (e.g. the email is taken) the invite is given back.
 
 Both emails are editable in Users → Settings → Email templates
 ("Account invite", "Role added"). Permission: `users:invite` (admins).
@@ -58,3 +61,27 @@ API: `GET/POST /users/invites`, `POST /users/invites/:id/resend`,
 `POST /auth/invites/:token/accept`; `PUT /users/:id { extraRoles }`.
 SDK: `cms.users.invites / invite / resendInvite / revokeInvite`,
 `cms.auth.invite / acceptInvite`.
+
+## The developer role and Dev only levels
+
+The `developer` role (seeded as a member-level role) is the default holder — with admins and
+sysadmins — of the permission **`memberships:dev_levels`**, which shows and sells membership
+levels marked **Dev only**. Give it as an additional role to let someone test such levels;
+grant the permission to any other role (Settings → Permissions) instead if you prefer. Details
+and the rank / minimum rules: `MEMBERSHIP-APPLICATIONS.md` → "Dev only levels".
+
+## Who may manage whom (Users admin)
+
+One rule set for single-user actions and bulk (`users.assertCanManage`):
+
+| Action | Rule |
+|---|---|
+| Grant `sysadmin` (create, edit, bulk role) | Only a sysadmin. |
+| Edit / set password / ban / unban / delete a sysadmin | Only a sysadmin. |
+| Change your own role, ban or delete yourself | Refused. |
+| An admin-scope API key | Acts as an admin (never a sysadmin). |
+
+On top of the `admin` route tier, each action has a permission (default admin + sysadmin):
+`users:read`, `users:write`, `users:delete`, `users.password:set`, `users:ban`, `users:bulk`
+(bulk also checks the action's own permission), `users:verify` (resend a verification link /
+mark an email verified from the user page).

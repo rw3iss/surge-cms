@@ -26,8 +26,12 @@ export interface StorageProvider {
     /** Delete a file by its stored filename. */
     delete(filename: string,): Promise<void>;
 
-    /** Delete a thumbnail by its stored filename. */
-    deleteThumbnail(filename: string,): Promise<void>;
+    /**
+     * Delete a thumbnail by its stored filename. Pass the row's
+     * `thumbnail_url` too: rebuilt thumbnails (`thumb_v3_<stem>.<png|jpg>`)
+     * live under a key the filename alone cannot derive.
+     */
+    deleteThumbnail(filename: string, thumbnailUrl?: string | null,): Promise<void>;
 
     /** Get the public URL for a stored file. */
     getUrl(filename: string,): string;

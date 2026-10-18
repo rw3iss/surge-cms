@@ -1,0 +1,351 @@
+// EntitySearchSelectModal — component-scoped styles (moved out of pages/admin/entities/EntitiesList.scss
+// so the component no longer depends on a PAGE stylesheet; ADMIN_STYLES.md →
+// "Where to put a new admin style"). Tokens are auto-injected via `additionalData`.
+
+// ─── Entity search/select modal ──────────────────────────────────────
+.entity-search-modal {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    min-height: 320px;
+    padding: $spacing-lg;
+    font-family: var(--admin-font-body, inherit);
+    color: var(--admin-page-text, #{$text-color});
+
+    // Inputs + selects: the canonical admin field look, so the modal matches the
+    // rest of the admin instead of raw browser controls.
+    input[type='text'],
+    input[type='search'],
+    input[type='number'],
+    select {
+        @include admin-input;
+    }
+    select { @include admin-select-arrow; }
+
+    &__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-md;
+
+        h2 {
+            margin: 0;
+            font-size: $font-size-lg;
+            font-weight: 700;
+            color: var(--admin-page-text, #{$text-color});
+        }
+    }
+
+    &__toolbar {
+        display: flex;
+        gap: $spacing-sm;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    &__toolbar input[type='search'] { flex: 1 1 220px; }
+
+    // "Sort" label + its field dropdown, sharing the Limit label's look so the
+    // toolbar reads as one row of controls.
+    &__sort {
+        display: inline-flex;
+        align-items: center;
+        gap: $spacing-xs;
+        font-size: $font-size-xs;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--admin-text-muted, #{$text-light});
+        white-space: nowrap;
+
+        // Long field labels ("Published at") need room, but not the whole row —
+        // the search box keeps the slack.
+        select { max-width: 11rem; }
+    }
+
+    // Direction toggle. Stretches to the row's height rather than pinning one,
+    // so it stays level with the dropdown beside it whatever the field metrics
+    // work out to.
+    &__sort-dir {
+        flex: 0 0 auto;
+        align-self: stretch;
+        width: 32px;
+        min-height: 32px;
+        padding: 0;
+        border: 1px solid var(--admin-border, #{$border-color});
+        border-radius: $border-radius-sm;
+        background: none;
+        color: var(--admin-text, #{$text-color});
+        font-size: 15px;
+        line-height: 1;
+        cursor: pointer;
+
+        &:hover {
+            border-color: var(--site-primary, #{$primary-color});
+            color: var(--site-primary, #{$primary-color});
+        }
+    }
+
+    // "Limit" label + its (narrow) number field.
+    &__limit {
+        display: inline-flex;
+        align-items: center;
+        gap: $spacing-xs;
+        font-size: $font-size-xs;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--admin-text-muted, #{$text-light});
+        white-space: nowrap;
+
+        input { width: 72px; }
+    }
+
+    &__body {
+        overflow: auto;
+        max-height: 50vh;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-md;
+
+        // Comfortable, readable table cells inside the modal.
+        .admin-table {
+            th, td { padding: $spacing-sm $spacing-md; }
+            td {
+                font-size: $font-size-sm;
+                vertical-align: top;
+            }
+        }
+    }
+
+    &__footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-md;
+        border-top: 1px solid $border-color;
+        padding-top: $spacing-md;
+    }
+
+    &__selected-count {
+        font-size: $font-size-sm;
+        color: $text-light;
+    }
+
+    &__query {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: $spacing-sm $spacing-md;
+        align-items: center;
+    }
+
+    tr.is-selected {
+        background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 12%, transparent);
+    }
+}
+
+
+// Filter criteria: one property / operator / value row per line, combining
+// with AND. The rows are repeatable, so they need to stay compact.
+.entity-search-modal__clauses {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+}
+
+.entity-search-modal__query {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    flex-wrap: wrap;
+
+    // The value input takes the slack; the two selects stay their own size.
+    .entity-value-input { flex: 1 1 12rem; }
+    select { flex: 0 0 auto; }
+}
+
+// The operator is the narrowest thing in the row — it holds a symbol and a
+// word or two, and the space is better spent on the property and the value.
+.entity-search-modal__op {
+    max-width: 9.5rem;
+}
+
+.entity-search-modal__clause-remove {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid var(--admin-border, #{$border-color});
+    border-radius: $border-radius-sm;
+    background: none;
+    color: var(--admin-text-muted, #{$text-light});
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover {
+        border-color: var(--admin-danger, #{$error-color});
+        color: var(--admin-danger, #{$error-color});
+    }
+}
+
+// The search/query modal: wider and a little taller than the lg preset.
+.modal-shell.entity-search-modal-shell {
+    max-width: min(1180px, 94vw);
+    max-height: 92vh;
+
+    .entity-search-modal { min-height: 480px; }
+}
+
+// Help line under a clause on a query-only property (e.g. how subscription ranks compare).
+.entity-search-modal__clause-hint {
+    flex: 1 0 100%;
+    color: var(--admin-text-muted, #{$text-light});
+    font-size: $font-size-xs;
+}
+
+// "Set data…" mode: the checkbox column, the selected-records chips, and the
+// line saying whether a selection or a live query will be saved.
+.entity-search-modal__check-col {
+    width: 40px;
+    text-align: center;
+}
+
+.entity-search-modal__selected {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-xs;
+}
+
+.entity-search-modal__selected-label {
+    font-size: $font-size-xs;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--admin-text-muted, #{$text-light});
+}
+
+.entity-search-modal__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 16rem;
+    padding: 2px 4px 2px 8px;
+    border: 1px solid var(--admin-border, #{$border-color});
+    border-radius: 999px;
+    background: var(--admin-bg-subtle, #{$background-dark});
+    font-size: $font-size-xs;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    button {
+        flex: 0 0 auto;
+        width: 18px;
+        height: 18px;
+        padding: 0;
+        border: none;
+        border-radius: 50%;
+        background: none;
+        color: var(--admin-text-muted, #{$text-light});
+        line-height: 1;
+        cursor: pointer;
+
+        &:hover { color: var(--admin-danger, #{$error-color}); }
+    }
+}
+
+.entity-search-modal__save-line {
+    margin: 0;
+    padding: $spacing-xs $spacing-sm;
+    border-left: 3px solid var(--site-primary, #{$primary-color});
+    background: var(--admin-bg-subtle, #{$background-dark});
+    font-size: $font-size-sm;
+    color: var(--admin-text, #{$text-color});
+
+    &--query { border-left-color: var(--admin-text-muted, #{$text-light}); }
+}
+
+// "Clear" (after Limit): resets search, filters and sort.
+.entity-search-modal__clear-all {
+    background: none;
+    border: 0;
+    padding: 0 $spacing-xs;
+    color: var(--admin-text-muted);
+    font-size: $font-size-sm;
+    text-decoration: underline;
+    cursor: pointer;
+    white-space: nowrap;
+
+    &:hover { color: var(--admin-text); }
+}
+
+// ── Results table: stays on screen while a new page / sort / filter loads ──
+.entity-search-modal__table {
+    transition: opacity 0.15s ease;
+
+    &.is-loading {
+        opacity: 0.55;
+    }
+}
+
+// "Set data…" mode: the whole row toggles selection.
+.entity-search-modal__row--pickable {
+    cursor: pointer;
+
+    &:focus-visible {
+        outline: 2px solid $primary-color;
+        outline-offset: -2px;
+    }
+}
+
+.entity-search-modal__thumb-col {
+    width: 48px;
+
+    img {
+        display: block;
+        width: 40px;
+        height: 40px;
+        object-fit: cover;
+        border-radius: $border-radius-sm;
+        background: var(--admin-bg-subtle, #{$background-dark});
+    }
+}
+
+.entity-search-modal__action-col {
+    width: 90px;
+}
+
+.entity-search-modal__clause-hint--warning {
+    color: color.adjust($warning-color, $lightness: -20%);
+}
+
+// Footer: spinner + pager + actions.
+.entity-search-modal__footer-actions {
+    display: flex;
+    gap: $spacing-sm;
+    align-items: center;
+}
+
+.entity-search-modal__pager {
+    display: flex;
+    gap: $spacing-xs;
+    align-items: center;
+}
+
+.entity-search-modal__page {
+    padding: 0 $spacing-xs;
+}
+
+.entity-search-modal__spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid $border-color;
+    border-top-color: $primary-color;
+    border-radius: 50%;
+    animation: entity-search-spin 0.7s linear infinite;
+}
+
+@keyframes entity-search-spin {
+    to { transform: rotate(360deg); }
+}

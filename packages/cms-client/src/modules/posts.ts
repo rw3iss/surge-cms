@@ -5,7 +5,7 @@ import type {
     PostBySlugQuery, PostBySlugResponse, PostByIdResponse, PostCreateBody,
     PostCreateResponse, PostUpdateBody, PostUpdateResponse, PostDeleteResponse,
     PostBulkBody, PostBulkResponse, PostRevisionListResponse, PostRevisionResponse,
-    PostRevisionRestoreResponse, PostReorderBlocksBody, PostReorderBlocksResponse, LiveBan, LiveModerateBody, LiveModerationState, LiveViewer,
+    PostRevisionRestoreResponse, PostReorderBlocksBody, PostReorderBlocksResponse, LiveBan, LiveChatMessage, LiveModerateBody, LiveModerationState, LiveViewer,
 } from '@sitesurge/types';
 import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
@@ -58,6 +58,16 @@ export class PostsModule extends ModuleBase {
     /** POST /posts/:id/live/moderate — mute / silence / kick / ban a viewer by key (staff). */
     liveModerate(id: string, body: LiveModerateBody,): Promise<{ ok: true; state: LiveModerationState; }> {
         return this.mutate<{ ok: true; state: LiveModerationState; }>('POST', '/posts/:id/live/moderate', { params: { id, }, body, },);
+    }
+
+    /** GET /posts/:id/live/chat — the saved chat of an ended show (for the replay). */
+    liveChat(id: string,): Promise<LiveChatMessage[]> {
+        return this.get<LiveChatMessage[]>('/posts/:id/live/chat', { params: { id, }, options: { cache: false, }, },);
+    }
+
+    /** URL of the chat transcript download (staff; open by navigation so the session cookie authenticates). */
+    liveChatTranscriptUrl(id: string,): string {
+        return `${this.core.config.apiBase}/posts/${encodeURIComponent(id,)}/live/chat/transcript`;
     }
 
     /** GET /posts/live/bans — viewers banned from every live show (staff). Unban with `liveModerate(id, { key, action: 'unban' })`. */

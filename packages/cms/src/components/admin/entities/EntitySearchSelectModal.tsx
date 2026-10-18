@@ -23,7 +23,7 @@ import type {
     EntityTypeDef,
     SlotBinding,
 } from '@sitesurge/types';
-import { Component, createEffect, createSignal, For, onMount, Show, } from 'solid-js';
+import { batch, Component, createEffect, createSignal, For, onMount, Show, untrack, } from 'solid-js';
 import { createStore, produce, } from 'solid-js/store';
 import { cms, } from '../../../services/cmsClient';
 import ModalShell from '../common/ModalShell';
@@ -32,8 +32,8 @@ import EntityValueInput from './EntityValueInput';
 import { loadRecordRefs, } from './loadRecordRefs';
 import Checkbox from '../../ui/Checkbox';
 import { humaniseKey, } from '../../../utils/humaniseKey';
-import { bindingFromPick, bindingRefs, recordLabel, saveLineText, toggleRef, } from '../../../utils/dataBinding';
-import '../../../pages/admin/entities/EntitiesList.scss';
+import { bindingFromPick, bindingRefs, orderSelection, recordLabel, saveLineText, toggleRef, } from '../../../utils/dataBinding';
+import './EntitySearchSelectModal.scss';
 
 interface BaseProps {
     entityType: string;
@@ -159,6 +159,8 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
     const defaultLimit = () => Math.min(20, maxRecords() ?? 20,);
 
     const [search, setSearch,] = createSignal(seed.search ?? '',);
+    /** The search term the FETCH uses — set from the debounce timer, not per keystroke. */
+    const [debouncedSearch, setDebouncedSearch,] = createSignal(seed.search ?? '',);
     const [sortBy, setSortBy,] = createSignal<string>(seed.sortBy ?? '',);
     const [sortOrder, setSortOrder,] = createSignal<'asc' | 'desc'>(seed.sortOrder ?? 'desc',);
     const [page, setPage,] = createSignal(1,);
@@ -223,6 +225,21 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
         patchClause(i, { value, },);
         setPage(1,);
     };
+
+    /** A record's picture, when its type has one: featured image (posts),
+     *  the first media item (products), or its own media (gallery items). */
+    const thumbOf = (rec: EntityRecord,): string | undefined => {
+        const r = rec as Record<string, any>;
+        const fm = r.featuredMedia as { thumbnailUrl?: string; path?: string; } | undefined;
+        const media = Array.isArray(r.media,) ? r.media[0] : r.media;
+        const candidates = [
+            fm?.thumbnailUrl, fm?.path, typeof r.featuredImage === 'string' ? r.featuredImage : undefined,
+            media?.thumbnailUrl, media?.url, typeof r.thumbnailUrl === 'string' ? r.thumbnailUrl : undefined,
+        ];
+        return candidates.find((c,): c is string => typeof c === 'string' && c.length > 0,);
+    };
+    /** Show the picture column only when at least one row on this page has one. */
+    const hasThumbs = () => items().some((r,) => Boolean(thumbOf(r,),),);
 
     /** Column-backed, non-blocks fields, capped for width, PLUS the standard
      *  columns the type carries (status / slug) — which aren't schema fields but
@@ -396,7 +413,11 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
      */
     let fetchSeq = 0;
 
-    const fetchRecords = async () => {
+    // `untrack`: the body reads page/sort/filter/search BEFORE its first await,
+    // and inside the refetch effect Solid would track every one of them — so a
+    // keystroke in the search box re-ran the effect at once, bypassing the
+    // debounce (8 requests for "concert"). The effect lists its deps itself.
+    const fetchRecords = () => untrack(async () => {
         const seq = ++fetchSeq;
         setLoading(true,);
         setError(null,);
@@ -404,7 +425,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
             const query: EntityQuery = {
                 page: page(),
                 limit: PAGE_LIMIT,
-                ...(search() ? { search: search(), } : {}),
+                ...(debouncedSearch() ? { search: debouncedSearch(), } : {}),
                 ...sortParams(),
             };
             const filter = showFilters() ? buildFilter() : undefined;
@@ -439,7 +460,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
         // Superseded requests leave `loading` alone — the newer one owns it and
         // will clear it when IT finishes.
         if (seq === fetchSeq) setLoading(false,);
-    };
+    },);
 
     onMount(async () => {
         try {
@@ -470,16 +491,21 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
         // so committing any field/op/value refetches — and an edit that doesn't
         // change the resulting filter (a half-typed row) doesn't.
         JSON.stringify(buildFilter() ?? null,);
+        // The DEBOUNCED term, never the raw input: typing re-runs nothing until
+        // the timer below settles.
+        debouncedSearch();
         void fetchRecords();
     },);
 
     const onSearchInput = (value: string,) => {
         setSearch(value,);
         clearTimeout(searchTimer,);
-        searchTimer = setTimeout(() => {
+        // Page 1 and the new term land together (one fetch), so a search can
+        // no longer run against page 3 of the previous term.
+        searchTimer = setTimeout(() => batch(() => {
             setPage(1,);
-            void fetchRecords();
-        }, 300,);
+            setDebouncedSearch(value,);
+        },), 300,);
     };
 
     /** The ref a row is selected under: its id, or the slug an older binding saved. */
@@ -508,6 +534,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
     const clearAll = () => {
         clearTimeout(searchTimer,);
         setSearch('',);
+        setDebouncedSearch('',);
         setClauses([blankClause(),],);
         setSortBy('',);
         setSortOrder('desc',);
@@ -520,31 +547,9 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
      * block shows matches what the list showed. With no sort chosen (the
      * default) the pick order is kept. Records not loaded keep their place at the end.
      */
-    const orderedSelection = (): string[] => {
-        const refs = selected();
-        if (!sortBy() && sortOrder() === 'desc') return refs;
-        const field = sortBy() || 'createdAt';
-        const dir = sortOrder() === 'asc' ? 1 : -1;
-        const val = (ref: string,) => (known()[ref] as Record<string, unknown> | undefined)?.[field];
-        const rankOf = (ref: string,) => {
-            const id = (known()[ref] as { id?: unknown; } | undefined)?.id;
-            return serverRank.get(String(id ?? ref,),);
-        };
-        return [...refs,].sort((a, b,) => {
-            // First: the position the list SHOWED (the server's sort).
-            const ra = rankOf(a,), rb = rankOf(b,);
-            if (ra !== undefined && rb !== undefined) return ra - rb;
-            if (ra !== undefined) return -1;
-            if (rb !== undefined) return 1;
-            // Not on any page loaded under this sort: compare the field here.
-            const va = val(a,), vb = val(b,);
-            if (va == null && vb == null) return 0;
-            if (va == null) return 1;
-            if (vb == null) return -1;
-            if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
-            return String(va,).localeCompare(String(vb,), undefined, { numeric: true, sensitivity: 'base', },) * dir;
-        },);
-    };
+    const orderedSelection = (): string[] => orderSelection({
+        refs: selected(), sortBy: sortBy(), sortOrder: sortOrder(), known: known(), serverRank,
+    },);
 
     const saveLine = () => saveLineText(selected().length, buildQuery(), allowQuery(),);
 
@@ -677,6 +682,13 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                                     <Show when={typeDef()?.virtualFilters?.find((v,) => v.key === c.field,)?.description}>
                                         {(d,) => <small class="entity-search-modal__clause-hint">{d()}</small>}
                                     </Show>
+                                    {/* The filter is keyed by field: a later row on the same
+                                        property replaces the earlier one. Say so. */}
+                                    <Show when={c.field && clauses.slice(0, i(),).some((o,) => o.field === c.field && o.value !== '')}>
+                                        <small class="entity-search-modal__clause-hint entity-search-modal__clause-hint--warning">
+                                            Overrides the row above (one condition per property).
+                                        </small>
+                                    </Show>
                                     {/* Every row has ×: on the only row it clears the row
                                         (removeClause never drops the last one). */}
                                     <button
@@ -724,19 +736,27 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                     <Show when={error()}>
                         <div class="alert alert--error">{error()}</div>
                     </Show>
+                    {/* The last rows STAY on screen while a page / sort / filter
+                        change loads (dimmed, aria-busy) — swapping the table for
+                        "Loading…" made the modal jump and lost the scroll. */}
                     <Show
-                        when={!loading()}
-                        fallback={<div class="empty-state empty-state--plain">Loading…</div>}
+                        when={items().length}
+                        fallback={
+                            <div class="empty-state empty-state--plain">{loading() ? 'Loading…' : 'No records found.'}</div>
+                        }
                     >
-                        <Show
-                            when={items().length}
-                            fallback={<div class="empty-state empty-state--plain">No records found.</div>}
-                        >
-                            <table class="admin-table">
+                            <table
+                                class="admin-table entity-search-modal__table"
+                                classList={{ 'is-loading': loading(), }}
+                                aria-busy={loading()}
+                            >
                                 <thead>
                                     <tr>
                                         <Show when={props.mode === 'data'}>
                                             <th class="entity-search-modal__check-col" aria-label="Selected" />
+                                        </Show>
+                                        <Show when={hasThumbs()}>
+                                            <th class="entity-search-modal__thumb-col" aria-label="Image" />
                                         </Show>
                                         <For each={columns()}>
                                             {(col,) => (
@@ -749,14 +769,35 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                                             )}
                                         </For>
                                         <Show when={props.mode === 'single'}>
-                                            <th style={{ width: '90px', }} />
+                                            <th class="entity-search-modal__action-col" />
                                         </Show>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <For each={items()}>
                                         {(rec,) => (
-                                            <tr class={isSelected(rec,) ? 'is-selected' : ''}>
+                                            <tr
+                                                class={isSelected(rec,) ? 'is-selected' : ''}
+                                                classList={{ 'entity-search-modal__row--pickable': props.mode === 'data', }}
+                                                // The WHOLE row toggles in "Set data…" mode
+                                                // (and Space / Enter when focused), not only the
+                                                // 20px checkbox.
+                                                tabIndex={props.mode === 'data' ? 0 : undefined}
+                                                aria-selected={props.mode === 'data' ? isSelected(rec,) : undefined}
+                                                onClick={(e,) => {
+                                                    if (props.mode !== 'data') return;
+                                                    if ((e.target as HTMLElement).closest('input, button, a, label',)) return;
+                                                    if (!isSelected(rec,) && atMax()) return;
+                                                    toggleSelect(rec,);
+                                                }}
+                                                onKeyDown={(e,) => {
+                                                    if (props.mode !== 'data' || (e.key !== ' ' && e.key !== 'Enter')) return;
+                                                    if (e.target !== e.currentTarget) return;
+                                                    e.preventDefault();
+                                                    if (!isSelected(rec,) && atMax()) return;
+                                                    toggleSelect(rec,);
+                                                }}
+                                            >
                                                 <Show when={props.mode === 'data'}>
                                                     <td class="entity-search-modal__check-col">
                                                         <Checkbox
@@ -764,6 +805,13 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                                                             disabled={!isSelected(rec,) && atMax()}
                                                             onChange={() => toggleSelect(rec,)}
                                                         />
+                                                    </td>
+                                                </Show>
+                                                <Show when={hasThumbs()}>
+                                                    <td class="entity-search-modal__thumb-col">
+                                                        <Show when={thumbOf(rec,)}>
+                                                            {(src,) => <img src={src()} alt="" loading="lazy" />}
+                                                        </Show>
                                                     </td>
                                                 </Show>
                                                 <For each={columns()}>
@@ -785,7 +833,6 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                                     </For>
                                 </tbody>
                             </table>
-                        </Show>
                     </Show>
                 </div>
 
@@ -804,8 +851,11 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                         {total()} match{total() === 1 ? '' : 'es'}
                         <Show when={atMax()}>{` · ${maxRecords()} max selected`}</Show>
                     </span>
-                    <div style={{ display: 'flex', gap: '8px', 'align-items': 'center', }}>
-                        <div style={{ display: 'flex', gap: '4px', }}>
+                    <div class="entity-search-modal__footer-actions">
+                        <Show when={loading()}>
+                            <span class="entity-search-modal__spinner" role="status" aria-label="Loading" />
+                        </Show>
+                        <div class="entity-search-modal__pager">
                             <button
                                 type="button"
                                 class="ui-button ui-button--sm ui-button--ghost"
@@ -814,7 +864,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                             >
                                 ‹
                             </button>
-                            <span class="form-help-muted" style={{ padding: '0 6px', }}>
+                            <span class="form-help-muted entity-search-modal__page">
                                 {page()} / {totalPages()}
                             </span>
                             <button

@@ -115,7 +115,11 @@ const SubscribePage: Component = () => {
             <Show when={pending()}>
                 <div class="subscribe-page__required subscribe-page__pending" role="status">
                     Your application for <strong>{pending()!.tierName}</strong> is waiting for approval. We will email you when it is reviewed —
-                    {pending()!.noCard ? ' nothing is charged until you choose your billing after approval.' : ' your card will not be charged until then.'}
+                    {pending()!.noCard
+                        ? ' nothing is charged until you choose your billing after approval.'
+                        : pending()!.hasCard
+                        ? ' your card will not be charged until then.'
+                        : <> but first <A href="/profile?tab=membership">add your card to finish your application</A> (it is not charged unless you are approved).</>}
                 </div>
             </Show>
             <Show when={offer()}>

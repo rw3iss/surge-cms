@@ -12,7 +12,7 @@
  */
 import PDFDocument from 'pdfkit';
 import type { ShopAddress, ShopOrderDetail, ShopSettings, } from '@sitesurge/types';
-import { resolveOrderShipments, shipmentText, } from '@sitesurge/types';
+import { orderTotalsLines, resolveOrderShipments, shipmentText, } from '@sitesurge/types';
 
 /** Page geometry, in PDF points (72 per inch). */
 const MARGIN = 50;
@@ -177,18 +177,15 @@ export function renderOrderReceipt(
         y += bold ? 20 : 16;
     };
 
-    totalRow('Subtotal', money(order.subtotalCents, currency,),);
-    totalRow(
-        order.shippingMethod ? `Shipping (${order.shippingMethod})` : 'Shipping',
-        money(order.shippingCents, currency,),
-    );
-    if (order.discountCents) totalRow('Discount', `-${money(order.discountCents, currency,)}`,);
-    totalRow('Tax', money(order.taxCents, currency,),);
+    // The shared rows (`orderTotalsLines`) — the same lines every surface prints.
+    const lines = orderTotalsLines(order,);
+    for (const l of lines.filter((x,) => !x.grand,)) totalRow(l.label, l.value,);
 
     doc.moveTo(COL_UNIT - 60, y - 4,).lineTo(MARGIN + CONTENT_WIDTH, y - 4,)
         .strokeColor(RULE,).stroke();
     y += 6;
-    totalRow('Total', money(order.totalCents, currency,), true,);
+    const grand = lines.find((x,) => x.grand,)!;
+    totalRow(grand.label, grand.value, true,);
 
     // ── Footer ──
     y += 16;

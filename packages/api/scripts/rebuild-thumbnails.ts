@@ -6,8 +6,10 @@
  *
  * Each new thumbnail goes to a NEW key (`uploads/thumb_v3_<file>`) and the row
  * points at it: uploads are served `immutable`, so overwriting the old key would
- * keep the old version in CDN + browser caches for a year. Old objects stay
- * (cheap; a deleted media item still purges by its own row).
+ * keep the old version in CDN + browser caches for a year. The old objects
+ * stay behind (deleting a media item now removes the key its row points at,
+ * plus the legacy `thumb_` / `thumb_v2_` keys). `updated_at` is left alone so
+ * the library's "Recently updated" sort is not reshuffled by maintenance.
  *
  *   tsx scripts/rebuild-thumbnails.ts            # dry run
  *   tsx scripts/rebuild-thumbnails.ts --apply    # do it
@@ -22,6 +24,18 @@ import { IMMUTABLE_CACHE, isObjectStore, resolveStorageProvider, } from '../src/
 
 const APPLY = process.argv.includes('--apply',);
 const PREFIX = 'thumb_v3_';
+
+/**
+ * Absolute URL of a stored media URL. A relative one (`/uploads/…`, local
+ * storage) needs SITE_URL — there is no safe default host, since a guess
+ * (another install's domain) would read the WRONG site's files.
+ */
+function sourceUrl(url: string,): URL {
+    if (/^https?:\/\//i.test(url,)) return new URL(url,);
+    const site = process.env.SITE_URL;
+    if (!site) throw new Error(`SITE_URL is not set; cannot fetch the relative URL ${url}`,);
+    return new URL(url, site,);
+}
 
 async function main(): Promise<void> {
     const store = await resolveStorageProvider();
@@ -41,7 +55,7 @@ async function main(): Promise<void> {
     let done = 0, failed = 0;
     for (const r of rows) {
         try {
-            const res = await fetch(new URL(r.url, process.env.SITE_URL || 'https://surgemedia.us',),);
+            const res = await fetch(sourceUrl(r.url,),);
             if (!res.ok) { console.log(`skip ${r.filename}: HTTP ${res.status}`,); failed++; continue; }
             const src = path.join(tmp, `src_${r.filename}`,);
             await fs.writeFile(src, Buffer.from(await res.arrayBuffer(),),);
@@ -50,7 +64,7 @@ async function main(): Promise<void> {
             const base = r.filename.replace(/\.[^.]+$/, '',);
             const key = `uploads/${PREFIX}${base}.${mime === 'image/png' ? 'png' : 'jpg'}`;
             await store.putFile(key, out, { contentType: mime, cacheControl: IMMUTABLE_CACHE, },);
-            await query(`UPDATE media SET thumbnail_url = $2, updated_at = NOW() WHERE id = $1`, [r.id, store.publicUrl(key,),],);
+            await query(`UPDATE media SET thumbnail_url = $2 WHERE id = $1`, [r.id, store.publicUrl(key,),],);
             await fs.rm(src, { force: true, },);
             await fs.rm(out, { force: true, },);
             done++;

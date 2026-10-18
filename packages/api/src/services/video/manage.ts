@@ -4,7 +4,7 @@
  * here is available to any caller (routes, SDK, MCP, a future "Videos" page)
  * through the same functions.
  */
-import type { MediaAccessLevel, MediaVideoInfo, VideoJobKind, } from '@sitesurge/types';
+import type { MediaAccessLevel, MediaVideoInfo, MediaVideoShareLink, MediaVideoSharesResponse, VideoJobKind, } from '@sitesurge/types';
 import { query, } from '../../db';
 import { NotFoundError, ValidationError, } from '../../core/errors';
 import { logger, } from '../../utils/logger';
@@ -16,7 +16,7 @@ import { isObjectStore, resolveStorageProvider, } from '../storage';
 import { mediaHead, } from './playback';
 import { createKey, retireUnusedKeys, } from './keys';
 import { fileUrl, masterUrl, mediaVideoRoot, teaserMasterUrl, } from './paths';
-import { createShareToken, } from './share';
+import { bumpShareEpoch, createShareToken, shareEpoch, } from './share';
 
 export async function info(id: string,): Promise<MediaVideoInfo> {
     const m = await mediaHead(id,);
@@ -94,10 +94,12 @@ export async function reencode(id: string, kind: VideoJobKind, ctx: AuditContext
 }
 
 async function setMediaStatus(id: string, status: 'processing' | 'ready', onlyIfNotReady: boolean,): Promise<void> {
-    await query(
-        `UPDATE media SET status = $2, updated_at = NOW() WHERE id = $1 ${onlyIfNotReady ? `AND status <> 'ready'` : ''}`,
+    const r = await query(
+        `UPDATE media SET status = $2, updated_at = NOW() WHERE id = $1 AND status <> $2 ${onlyIfNotReady ? `AND status <> 'ready'` : ''}`,
         [id, status,],
     );
+    // Public gallery reads need status = ready: a change shows / hides the item.
+    if ((r.rowCount ?? 0) > 0) await cache.invalidateGalleryCache();
 }
 
 export interface VideoPatch {
@@ -124,6 +126,8 @@ export async function update(id: string, patch: VideoPatch, ctx: AuditContext,):
     if (patch.accessLevel && patch.accessLevel !== m.accessLevel) {
         await query(`UPDATE media SET access_level = $2, updated_at = NOW() WHERE id = $1`, [id, patch.accessLevel,],);
         repackage = video.encrypted !== (patch.accessLevel === 'private');
+        // Links shared under the old access level stop working (S6).
+        await bumpShareEpoch(id,);
     }
     const teaserChanged = (patch.teaserEnabled !== undefined && patch.teaserEnabled !== video.teaserEnabled)
         || (patch.teaserStartMs !== undefined && patch.teaserStartMs !== video.teaserStartMs)
@@ -155,9 +159,56 @@ export async function update(id: string, patch: VideoPatch, ctx: AuditContext,):
 /** A time-limited link to the plain file that skips the access check. */
 export async function share(id: string, days: number, ctx: AuditContext,): Promise<{ url: string; expiresAt: string; }> {
     await mediaHead(id,);
-    const { token, expiresAt, } = createShareToken(id, days,);
-    await audit(ctx, id, 'video_share', { expiresAt, },);
+    const epoch = await shareEpoch(id,);
+    const { token, expiresAt, } = createShareToken(id, days, epoch,);
+    await audit(ctx, id, 'video_share', { expiresAt, days, epoch, },);
     return { url: `${fileUrl(id,)}?t=${token}`, expiresAt, };
+}
+
+/** Revoke every share link issued for this video so far (S6). */
+export async function revokeShares(id: string, ctx: AuditContext,): Promise<{ revoked: true; }> {
+    await mediaHead(id,);
+    await bumpShareEpoch(id,);
+    await audit(ctx, id, 'video_share_revoke', { epoch: (await shareEpoch(id,)), },);
+    return { revoked: true, };
+}
+
+/**
+ * The share links issued for a video (F5), read from the audit log — the
+ * tokens are stateless and never stored. A link is revoked when it was signed
+ * for an older epoch than the video's current one.
+ */
+export async function shares(id: string,): Promise<MediaVideoSharesResponse> {
+    await mediaHead(id,);
+    const epoch = await shareEpoch(id,);
+    const r = await query<{ action: string; created_at: Date; new_values: Record<string, unknown> | null; user_id: string | null; display_name: string | null; }>(
+        `SELECT al.action, al.created_at, al.new_values, al.user_id, u.display_name
+           FROM audit_log al LEFT JOIN users u ON u.id = al.user_id
+          WHERE al.entity_type = 'media_video' AND al.entity_id = $1 AND al.action IN ('video_share', 'video_share_revoke')
+          ORDER BY al.created_at DESC LIMIT 100`,
+        [id,],
+    );
+    const now = Date.now();
+    let lastRevokedAt: string | null = null;
+    const links: MediaVideoShareLink[] = [];
+    for (const row of r.rows) {
+        if (row.action === 'video_share_revoke') {
+            lastRevokedAt ??= new Date(row.created_at,).toISOString();
+            continue;
+        }
+        if (links.length >= 50) continue;
+        const v = row.new_values ?? {};
+        const expiresAt = typeof v.expiresAt === 'string' ? v.expiresAt : null;
+        links.push({
+            createdAt: new Date(row.created_at,).toISOString(),
+            createdBy: row.user_id ? { id: row.user_id, name: row.display_name || 'Unknown', } : null,
+            expiresAt,
+            days: typeof v.days === 'number' ? v.days : null,
+            revoked: (Number(v.epoch ?? 0,) || 0) !== epoch,
+            expired: expiresAt ? Date.parse(expiresAt,) < now : false,
+        },);
+    }
+    return { links, lastRevokedAt, };
 }
 
 /** New shared key; every private video still on an older key is re-packaged. */

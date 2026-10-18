@@ -7,12 +7,14 @@
  * from the request. This mirrors how the shop already re-validates real
  * variants — a tampered cart must not be able to change what someone pays.
  */
+import { randomInt, } from 'node:crypto';
 import type { EventTicketCartLine, } from '@sitesurge/types';
 import { ValidationError, } from '../../core/errors';
 import { transaction, } from '../../db';
 import * as repo from '../../repositories/events.repo';
 import { logger, } from '../../utils/logger';
 import { assertCanBuyTier, assertCanRegister, } from './access';
+import { assertBookableOccurrence, } from './bookable';
 import type { LevelViewer, } from '../access/level';
 
 export interface ResolvedTicketLine {
@@ -42,10 +44,16 @@ export async function resolveTicketLines(
      * rule and each ticket type's required tier. Omitted by the post-payment
      * fulfilment, which re-resolves lines the checkout already checked.
      */
-    opts: { viewer?: LevelViewer; } = {},
+    opts: { viewer?: LevelViewer; buyerEmail?: string | null; } = {},
 ): Promise<{ lines: ResolvedTicketLine[]; totalCents: number; }> {
     const enforce = 'viewer' in opts;
     const resolved: ResolvedTicketLine[] = [];
+    // Quantity of each (tier, date) asked for in THIS request, for the per-buyer cap.
+    const asked = new Map<string, number>();
+    for (const l of lines) {
+        const k = `${l.tierId}|${l.occurrenceDate}`;
+        asked.set(k, (asked.get(k,) ?? 0) + (l.quantity || 0),);
+    }
 
     for (const line of lines) {
         if (!line.quantity || line.quantity < 1) {
@@ -68,6 +76,24 @@ export async function resolveTicketLines(
         if (enforce) {
             await assertCanRegister(event, opts.viewer,);
             await assertCanBuyTier(tier, opts.viewer,);
+            // Not on the post-payment path: money has been taken by then, and a
+            // refusal there would only lose the tickets (logged for a refund).
+            await assertBookableOccurrence(event, line.occurrenceDate,);
+            // Per-buyer cap: one address cannot claim a whole (free) allocation.
+            if (tier.maxPerOrder) {
+                const held = opts.buyerEmail
+                    ? await repo.countHeldByEmail(tier.id, line.occurrenceDate, opts.buyerEmail,)
+                    : 0;
+                const want = asked.get(`${tier.id}|${line.occurrenceDate}`,) ?? line.quantity;
+                if (held + want > tier.maxPerOrder) {
+                    const left = Math.max(0, tier.maxPerOrder - held,);
+                    throw new ValidationError(
+                        left === 0
+                            ? `You already have the most "${tier.name}" tickets allowed for this date (${tier.maxPerOrder}).`
+                            : `"${tier.name}" is limited to ${tier.maxPerOrder} per person — you can add ${left} more.`,
+                    );
+                }
+            }
         }
 
         // Inventory is per OCCURRENCE: week 3 of a series has its own capacity.
@@ -103,15 +129,19 @@ export async function resolveTicketLines(
 }
 
 /** Short, human-quotable code for a ticket. Ambiguous characters (0/O, 1/I)
- *  are excluded so a code read down a phone line survives. */
-function ticketCode(): string {
+ *  are excluded so a code read down a phone line survives. The code IS the
+ *  credential for `/tickets/:code`, so it comes from the CSPRNG — 32^10 ≈ 2^50. */
+export function ticketCode(): string {
     const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let out = '';
     for (let i = 0; i < 10; i += 1) {
-        out += alphabet[Math.floor(Math.random() * alphabet.length,)];
+        out += alphabet[randomInt(alphabet.length,)];
     }
     return `${out.slice(0, 5,)}-${out.slice(5,)}`;
 }
+
+/** How many fresh codes to try before giving up on a (vanishingly rare) clash. */
+const CODE_ATTEMPTS = 3;
 
 /**
  * Issue tickets for resolved lines against a registration.
@@ -160,25 +190,33 @@ export async function issueTickets(
             for (let i = 0; i < line.quantity; i += 1) {
                 // price_cents_paid is captured now: a later tier price change must
                 // not rewrite history on an issued ticket.
-                const res = await client.query<{ code: string; }>(
-                    `INSERT INTO event_tickets
-                    (registration_id, tier_id, event_id, occurrence_date, code,
-                     price_cents_paid, currency, order_id)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-                 RETURNING code`,
-                    [
-                        registrationId,
-                        line.tierId,
-                        line.eventId,
-                        line.occurrenceDate,
-                        ticketCode(),
-                        line.priceCents,
-                        line.currency,
-                        opts.orderId ?? null,
-                    ],
-                );
+                // ON CONFLICT DO NOTHING instead of catching 23505: a failed
+                // INSERT would abort the whole transaction (every ticket in it).
+                let code: string | undefined;
+                for (let attempt = 0; attempt < CODE_ATTEMPTS && !code; attempt += 1) {
+                    const res = await client.query<{ code: string; }>(
+                        `INSERT INTO event_tickets
+                        (registration_id, tier_id, event_id, occurrence_date, code,
+                         price_cents_paid, currency, order_id)
+                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+                     ON CONFLICT (code) DO NOTHING
+                     RETURNING code`,
+                        [
+                            registrationId,
+                            line.tierId,
+                            line.eventId,
+                            line.occurrenceDate,
+                            ticketCode(),
+                            line.priceCents,
+                            line.currency,
+                            opts.orderId ?? null,
+                        ],
+                    );
+                    code = res.rows[0]?.code;
+                }
+                if (!code) throw new Error('Could not allocate a unique ticket code',);
                 out.push({
-                    code: res.rows[0].code,
+                    code,
                     tierName: line.tierName,
                     priceCents: line.priceCents,
                     currency: line.currency,

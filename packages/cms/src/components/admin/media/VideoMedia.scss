@@ -288,3 +288,12 @@
   &:hover:not(:disabled), &:focus-visible { background: $error-color; outline: none; }
   &:disabled { opacity: 0.6; cursor: wait; }
 }
+
+// Share links list (VideoShareLinks.tsx).
+.video-share-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  &__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+}

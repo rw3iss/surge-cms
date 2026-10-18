@@ -38,6 +38,15 @@ export interface TemplateSlot {
 
 /** A saved content-block template (metadata; the blocks live in
  *  `content_block_template_blocks`, see `ContentBlockTemplateBlock`). */
+/** One place a template / component is referenced (a page, post, mail template or another template). */
+export interface TemplateUsage {
+    kind: 'page' | 'post' | 'mail_template' | 'template';
+    id: string;
+    title: string;
+    /** How many blocks in that item reference it. */
+    blocks: number;
+}
+
 export interface ContentBlockTemplate {
     id: string;
     name: string;
@@ -77,6 +86,16 @@ export interface ContentBlockTemplate {
     /** Lets an operator switch off a misbehaving component's JS without
      *  deleting the code they're still working on. */
     scriptEnabled?: boolean;
+    /** Read responses only: the bound entity type's template variable names
+     *  (`EntityTypeDef.singularVar` / `pluralVar`), so the public site binds
+     *  the SAME names the template editor preview and email do. Absent on a
+     *  global component or an unknown type. */
+    singularVar?: string;
+    pluralVar?: string;
+    /** Staff reads only: where this template / component is used. */
+    usages?: TemplateUsage[];
+    /** Staff list reads only: how many pages/posts/emails/templates use it. */
+    usageCount?: number;
     createdAt: string;
     updatedAt: string;
 }

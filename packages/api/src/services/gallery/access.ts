@@ -48,13 +48,21 @@ export function itemGateSql(grants: ViewerGrants, floorSql: string, params: unkn
         + ` ELSE ${floorSql} END)`;
 }
 
-/** A collection is visible when its rule is not active or the viewer passes it. */
-export function collectionGateSql(grants: ViewerGrants, params: unknown[], alias = 'gc',): string {
+/**
+ * A collection is visible when the viewer passes its rule, or — when the rule
+ * is not active — when the viewer passes the gallery floor (`floorSql`, e.g.
+ * `$1 <= $2`). Without the floor, a members-only gallery listed every
+ * collection's name / description to anonymous callers. An active rule
+ * REPLACES the floor, exactly as it does for items. Omit `floorSql` for the
+ * old "inactive OR passed" check.
+ */
+export function collectionGateSql(grants: ViewerGrants, params: unknown[], alias = 'gc', floorSql?: string,): string {
     if (grants.staff) return 'TRUE';
     params.push(grants.roles,);
     const roles = `$${params.length}`;
     params.push(grants.tierIds,);
     const tiers = `$${params.length}`;
+    if (floorSql) return `(CASE WHEN ${ruleActiveSql(alias,)} THEN ${rulePassSql(alias, roles, tiers,)} ELSE ${floorSql} END)`;
     return `(NOT ${ruleActiveSql(alias,)} OR ${rulePassSql(alias, roles, tiers,)})`;
 }
 
@@ -74,8 +82,10 @@ export function itemPasses(
     return floorPasses;
 }
 
-export function collectionVisible(rule: GalleryAccessRule, grants: ViewerGrants,): boolean {
-    return !isGalleryAccessRuleActive(rule,) || passesRule(rule, grants,);
+/** JS mirror of `collectionGateSql`. `floorPasses` = the viewer passes the gallery floor (default true). */
+export function collectionVisible(rule: GalleryAccessRule, grants: ViewerGrants, floorPasses = true,): boolean {
+    if (grants.staff) return true;
+    return isGalleryAccessRuleActive(rule,) ? passesRule(rule, grants,) : floorPasses;
 }
 
 /** Validate + normalise an incoming rule. */

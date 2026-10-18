@@ -133,6 +133,10 @@ export interface TemplateRuntime {
     /** Optional warning sink (defaults to console.warn) for unresolved refs /
      *  parse errors — helps editors debug their syntax. */
     warn?: (message: string) => void;
+    /** Emit values UNESCAPED. For plain-text targets only (an email subject or
+     *  preheader, a header) — HTML output must leave this unset, so member-
+     *  written text is escaped (see evaluator.ts). */
+    raw?: boolean;
 }
 
 export class TemplateParseError extends Error {}

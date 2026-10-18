@@ -7,6 +7,7 @@
  */
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
+import ConfirmModal from '../common/ConfirmModal';
 import Toggle from '../common/Toggle';
 import { FormField, } from '../forms';
 
@@ -64,14 +65,21 @@ const ApiKeysPanel: Component = () => {
         }
     };
 
-    const handleRevoke = async (key: ApiKeyRow,) => {
+    const [revoking, setRevoking,] = createSignal<ApiKeyRow | null>(null,);
+    const [revokeBusy, setRevokeBusy,] = createSignal(false,);
+    const confirmRevoke = async () => {
+        const key = revoking();
+        if (!key) return;
         setError(null,);
-        if (!confirm(`Revoke "${key.name}"? Clients using it will stop working immediately.`,)) return;
+        setRevokeBusy(true,);
         try {
             await cms.apiKeys.revoke(key.id,);
             void refetch();
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to revoke key',);
+        } finally {
+            setRevokeBusy(false,);
+            setRevoking(null,);
         }
     };
 
@@ -91,8 +99,8 @@ const ApiKeysPanel: Component = () => {
                 <Show when={createdKey()}>
                     <div class="alert alert--success">
                         <strong>Copy this key now — it will not be shown again.</strong>
-                        <div class="u-flex-row" style={{ 'margin-top': '8px', }}>
-                            <code style={{ 'word-break': 'break-all', flex: '1', }}>{createdKey()}</code>
+                        <div class="u-flex-row api-key__created">
+                            <code class="api-key__created-value">{createdKey()}</code>
                             <button
                                 type="button"
                                 class="ui-button ui-button--secondary ui-button--sm"
@@ -124,7 +132,7 @@ const ApiKeysPanel: Component = () => {
 
                     <div class="form-group">
                         <label>Scopes</label>
-                        <div class="u-flex-col" style={{ gap: '6px', 'margin-bottom': '8px', }}>
+                        <div class="u-flex-col api-key__scopes">
                             <For each={SCOPES}>
                                 {(s,) => (
                                     <div class="checkbox-label">
@@ -193,7 +201,7 @@ const ApiKeysPanel: Component = () => {
                                                 <Show when={!k.revokedAt}>
                                                     <button
                                                         class="ui-button ui-button--danger ui-button--sm"
-                                                        onClick={() => handleRevoke(k,)}
+                                                        onClick={() => setRevoking(k,)}
                                                     >
                                                         Revoke
                                                     </button>
@@ -207,6 +215,17 @@ const ApiKeysPanel: Component = () => {
                     </div>
                 </Show>
             </section>
+            <ConfirmModal
+                open={revoking() !== null}
+                title="Revoke API key?"
+                message={`Revoke "${revoking()?.name ?? ''}"? Clients using it will stop working immediately.`}
+                confirmLabel="Revoke"
+                busyLabel="Revoking…"
+                loading={revokeBusy()}
+                danger
+                onConfirm={() => void confirmRevoke()}
+                onCancel={() => setRevoking(null,)}
+            />
         </div>
     );
 };

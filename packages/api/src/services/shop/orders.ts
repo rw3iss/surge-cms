@@ -8,7 +8,8 @@
  * user_id OR customer_email.
  */
 import type { ShopOrder, } from '@sitesurge/types';
-import Stripe from 'stripe';
+import { getStripeClient, } from '../payment/stripe';
+import { accessKeyMatches, } from './orderNumber';
 import { config, } from '../../config';
 import { ForbiddenError, NotFoundError, ValidationError, } from '../../core/errors';
 import { logAudit, } from '../audit';
@@ -33,6 +34,11 @@ export interface OrderCaller {
 
 export interface OrderListParams {
     status?: string;
+    /** Admin-only filters (ignored for an owner's own list). */
+    search?: string;
+    attention?: boolean;
+    from?: string;
+    to?: string;
 }
 
 /** List orders. Admin → all; user → own (user_id OR email). Never cached. */
@@ -45,7 +51,12 @@ export async function list(
     const limit = pagination.limit ?? 20;
 
     const filters: repo.OrderListFilters = { status: params.status, };
-    if (!caller.isAdmin) {
+    if (caller.isAdmin) {
+        filters.search = params.search;
+        filters.attention = params.attention;
+        filters.from = params.from;
+        filters.to = params.to;
+    } else {
         filters.userId = caller.userId ?? undefined;
         filters.email = caller.email ?? undefined;
         // A user with neither id nor email can't own anything.
@@ -64,7 +75,7 @@ export async function list(
 function assertOwnership(order: repo.OrderDetail, caller: OrderCaller,): void {
     if (caller.isAdmin) return;
     const ownByUser = caller.userId && order.userId === caller.userId;
-    const ownByEmail = caller.email && order.customerEmail === caller.email;
+    const ownByEmail = caller.email && order.customerEmail?.toLowerCase() === caller.email.toLowerCase();
     if (!ownByUser && !ownByEmail) throw new NotFoundError('Order',);
 }
 
@@ -75,16 +86,40 @@ export async function get(id: string, caller: OrderCaller,): Promise<repo.OrderD
     return attachShipments(order,);
 }
 
-/** Public confirmation view by order number. Anonymous callers get a
- *  limited projection (no addresses / stripe ids); admins get everything. */
-export async function getByNumber(orderNumber: string, isAdmin: boolean,): Promise<repo.OrderDetail | null> {
+/** Who is reading an order by number. */
+export interface OrderNumberCaller extends OrderCaller {
+    /** The `?k=` confirmation secret from the post-checkout link / email. */
+    accessKey?: string | null;
+}
+
+/**
+ * Public confirmation view by order number. What a caller sees depends on what
+ * they can prove:
+ *   - admin → everything;
+ *   - the owner (signed in) or anyone holding the order's access key → the
+ *     buyer's name / email and the digital download tokens, still no
+ *     addresses or Stripe ids;
+ *   - anyone else (the number alone — it is in subjects, receipts and
+ *     screenshots) → status, items, totals and tracking only.
+ */
+export async function getByNumber(
+    orderNumber: string,
+    caller: OrderNumberCaller | boolean,
+): Promise<repo.OrderDetail | null> {
+    const c: OrderNumberCaller = typeof caller === 'boolean' ? { isAdmin: caller, } : caller;
     const found = await repo.findOrderByNumber(orderNumber,);
     if (!found) return null;
     const order = await attachShipments(found,);
-    if (isAdmin) return order;
+    if (c.isAdmin) return order;
+
+    const stored = (order as { accessKey?: string | null; }).accessKey ?? null;
+    const ownByUser = Boolean(c.userId && order.userId === c.userId,);
+    const ownByEmail = Boolean(c.email && order.customerEmail?.toLowerCase() === c.email.toLowerCase(),);
+    const trusted = ownByUser || ownByEmail || accessKeyMatches(stored, c.accessKey,);
+
     // Limited public projection for the confirmation page (tracking stays —
     // the buyer needs it, and it reveals no address).
-    return {
+    const base = {
         ...order,
         userId: null,
         shippingAddress: null,
@@ -92,6 +127,14 @@ export async function getByNumber(orderNumber: string, isAdmin: boolean,): Promi
         stripePaymentIntentId: null,
         stripeChargeId: null,
         notes: null,
+    };
+    if (trusted) return { ...base, accessKey: stored, };
+    return {
+        ...base,
+        accessKey: null,
+        customerEmail: '',
+        customerName: null,
+        items: order.items.map((i,) => ({ ...i, downloadToken: null, })),
     };
 }
 
@@ -113,14 +156,37 @@ export interface OrderUpdatePatch {
 /** Issue a Stripe refund for an order. Wrapped by the caller in try/catch —
  *  succeeds silently when no payment intent is on the order. */
 async function refundOrder(order: repo.OrderDetail,): Promise<void> {
-    if (!config.stripe.secretKey) {
+    // The SHOP context's keys (Settings → Shop → Payment credentials), with the
+    // env fallback — the env key alone refunded against the wrong account (or
+    // none) for a shop on its own Stripe account.
+    const stripe = getStripeClient('shop',);
+    if (!stripe) {
         throw new ValidationError('Stripe is not configured — cannot refund',);
     }
     if (!order.stripePaymentIntentId) {
         throw new ValidationError('Order has no payment to refund',);
     }
-    const stripe = new Stripe(config.stripe.secretKey,);
-    await stripe.refunds.create({ payment_intent: order.stripePaymentIntentId, },);
+    try {
+        await stripe.refunds.create(
+            { payment_intent: order.stripePaymentIntentId, },
+            // A retried Save (or a double click) must not refund twice.
+            { idempotencyKey: `refund:${order.id}`, },
+        );
+    } catch (err) {
+        // Refunded in Stripe already (by hand, or by an earlier attempt): the
+        // money is back with the buyer, so the status should still flip.
+        if (isAlreadyRefunded(err,)) {
+            logger.info('Order already refunded in Stripe — marking refunded', { orderId: order.id, },);
+            return;
+        }
+        throw err;
+    }
+}
+
+/** Stripe's "this charge has been refunded already" error. */
+export function isAlreadyRefunded(err: unknown,): boolean {
+    const e = err as { code?: string; raw?: { code?: string; }; } | null;
+    return e?.code === 'charge_already_refunded' || e?.raw?.code === 'charge_already_refunded';
 }
 
 const blankToNull = (v: string | null | undefined,): string | null | undefined =>

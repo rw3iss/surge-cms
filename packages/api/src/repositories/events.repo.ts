@@ -194,18 +194,22 @@ export async function upsertSubscriber(input: {
     notifyEmail: boolean;
     notifyPush: boolean;
     unsubscribeToken: string;
-},): Promise<EventSubscriber> {
+    /** Confirmed now (a signed-in subscriber). False = awaits the opt-in link. */
+    confirmed?: boolean;
+},): Promise<EventSubscriber & { confirmedAt: string | null; }> {
     // The unique index is on (COALESCE(event_id, zero-uuid), LOWER(email)), so
     // the conflict target must be written the same way.
     const res = await query(
         `INSERT INTO event_subscribers
-            (event_id, user_id, email, notify_email, notify_push, unsubscribe_token)
-         VALUES ($1,$2,$3,$4,$5,$6)
+            (event_id, user_id, email, notify_email, notify_push, unsubscribe_token, confirmed_at)
+         VALUES ($1,$2,$3,$4,$5,$6, CASE WHEN $7::boolean THEN NOW() END)
          ON CONFLICT (COALESCE(event_id, '00000000-0000-0000-0000-000000000000'::uuid), LOWER(email))
          DO UPDATE SET notify_email = EXCLUDED.notify_email,
                        notify_push  = EXCLUDED.notify_push,
-                       user_id      = COALESCE(EXCLUDED.user_id, event_subscribers.user_id)
-         RETURNING ${SUB_SELECT}`,
+                       user_id      = COALESCE(EXCLUDED.user_id, event_subscribers.user_id),
+                       -- Once confirmed, always confirmed; a signed-in re-subscribe confirms.
+                       confirmed_at = COALESCE(event_subscribers.confirmed_at, EXCLUDED.confirmed_at)
+         RETURNING ${SUB_SELECT}, confirmed_at`,
         [
             input.eventId ?? null,
             input.userId ?? null,
@@ -213,9 +217,19 @@ export async function upsertSubscriber(input: {
             input.notifyEmail,
             input.notifyPush,
             input.unsubscribeToken,
+            input.confirmed === true,
         ],
     );
-    return mapRow<EventSubscriber>(res.rows[0],);
+    return mapRow<EventSubscriber & { confirmedAt: string | null; }>(res.rows[0],);
+}
+
+/** Mark a subscription confirmed (the opt-in link). False when it is gone. */
+export async function confirmSubscriber(id: string,): Promise<boolean> {
+    const res = await query(
+        `UPDATE event_subscribers SET confirmed_at = COALESCE(confirmed_at, NOW()) WHERE id = $1`,
+        [id,],
+    );
+    return (res.rowCount ?? 0) > 0;
 }
 
 /**
@@ -227,7 +241,8 @@ export async function findRecipientsForEvent(eventId: string,): Promise<EventSub
     const res = await query(
         `SELECT DISTINCT ON (LOWER(email)) ${SUB_SELECT}
            FROM event_subscribers
-          WHERE event_id = $1 OR event_id IS NULL
+          WHERE (event_id = $1 OR event_id IS NULL)
+            AND confirmed_at IS NOT NULL
           ORDER BY LOWER(email), event_id NULLS LAST`,
         [eventId,],
     );
@@ -394,7 +409,7 @@ export async function deleteOverride(eventId: string, occurrenceDate: string,): 
 
 // ─── Ticket tiers ─────────────────────────────────────────────────
 
-const TIER_SELECT = `id, event_id, name, price_cents, currency, quantity_available, position, required_tier_id`;
+const TIER_SELECT = `id, event_id, name, price_cents, currency, quantity_available, position, required_tier_id, max_per_order`;
 
 export async function findTiers(eventId: string,): Promise<EventTicketTier[]> {
     const res = await query(
@@ -421,6 +436,7 @@ export async function replaceTiers(
     tiers: Array<{
         id?: string; name: string; priceCents: number; currency: string;
         quantityAvailable: number | null; position: number; requiredTierId?: string | null;
+        maxPerOrder?: number | null;
     }>,
 ): Promise<EventTicketTier[]> {
     const keptIds = tiers.map((t,) => t.id).filter(Boolean,) as string[];
@@ -436,20 +452,35 @@ export async function replaceTiers(
             await query(
                 `UPDATE event_ticket_tiers
                     SET name = $1, price_cents = $2, currency = $3,
-                        quantity_available = $4, position = $5, required_tier_id = $8, updated_at = NOW()
+                        quantity_available = $4, position = $5, required_tier_id = $8, max_per_order = $9, updated_at = NOW()
                   WHERE id = $6 AND event_id = $7`,
-                [t.name, t.priceCents, t.currency, t.quantityAvailable, i, t.id, eventId, t.requiredTierId ?? null,],
+                [t.name, t.priceCents, t.currency, t.quantityAvailable, i, t.id, eventId, t.requiredTierId ?? null, t.maxPerOrder ?? null,],
             );
         } else {
             await query(
                 `INSERT INTO event_ticket_tiers
-                    (event_id, name, price_cents, currency, quantity_available, position, required_tier_id)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-                [eventId, t.name, t.priceCents, t.currency, t.quantityAvailable, i, t.requiredTierId ?? null,],
+                    (event_id, name, price_cents, currency, quantity_available, position, required_tier_id, max_per_order)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+                [eventId, t.name, t.priceCents, t.currency, t.quantityAvailable, i, t.requiredTierId ?? null, t.maxPerOrder ?? null,],
             );
         }
     }
     return findTiers(eventId,);
+}
+
+/** Valid tickets of one tier for one date already held by an email address
+ *  (the per-buyer cap). Matched case-insensitively. */
+export async function countHeldByEmail(tierId: string, occurrenceDate: string, email: string,): Promise<number> {
+    const res = await query<{ n: number; }>(
+        `SELECT COUNT(*)::int AS n
+           FROM event_tickets t
+           JOIN event_registrations r ON r.id = t.registration_id
+          WHERE t.tier_id = $1 AND t.occurrence_date = $2
+            AND lower(r.email) = lower($3)
+            AND t.status IN ('valid', 'checked_in')`,
+        [tierId, occurrenceDate, email,],
+    );
+    return Number(res.rows[0]?.n ?? 0,);
 }
 
 /** Tickets already issued per tier for one occurrence. Refunded/cancelled do

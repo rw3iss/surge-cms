@@ -265,3 +265,55 @@ export function createBlockDefaultData(type: BlockType,): Record<string, unknown
     }
     return base;
 }
+
+type BlockData = Record<string, any>;
+
+/** The generic "has content" check most simple block types use. */
+function hasGenericContent(d: BlockData,): boolean {
+    return Boolean(
+        d.content || d.url || d.postId || d.postUrl || d.socialPlatform || d.platform || d.campaignId
+            || d.formId || d.slug || d.galleryId || (d.items && d.items.length > 0)
+            // Multi-image blocks store their images in `images[]`.
+            || (Array.isArray(d.images,) && d.images.some((img: { url?: string; },) => img && img.url)),
+    );
+}
+
+/**
+ * Is a block configured enough to render its real preview (otherwise the
+ * editor shows "Click edit to configure")? One arm per type — a
+ * `Record<BlockType, …>`, so a new type fails to compile until it says.
+ * This replaces a growing chain of special cases in BlockPreview, each added
+ * after a configured block was stuck on the placeholder.
+ */
+export const BLOCK_CONFIGURED: Record<BlockType, (d: BlockData,) => boolean> = {
+    // Always render: a spacer has its height; a post list always queries.
+    spacer: () => true,
+    post_list: () => true,
+    // Configured once a component / template is chosen.
+    template: (d,) => Boolean(d.templateId,),
+    entity: (d,) => Boolean((d.entity as { templateId?: string; } | undefined)?.templateId,),
+    // Auto-feed mode keeps its provider under `provider`.
+    social: (d,) => Boolean(d.provider || d.platform || d.socialPlatform,),
+    // A live query always has something to draw; "selected items" needs one.
+    gallery: (d,) => !(d.source === 'items' && !(Array.isArray(d.itemIds,) && d.itemIds.length > 0)),
+    hero: (d,) => Boolean(d.title || d.subtitle || d.content || d.backgroundImage,),
+    rich_text: hasGenericContent,
+    text: hasGenericContent,
+    post: hasGenericContent,
+    form: hasGenericContent,
+    image: hasGenericContent,
+    video: (d,) => hasGenericContent(d,) || Boolean(d.mediaId,),
+    campaign: hasGenericContent,
+    event: (d,) => hasGenericContent(d,) || Boolean(d.eventId,),
+    html: hasGenericContent,
+    document: hasGenericContent,
+    url_link: hasGenericContent,
+    carousel: hasGenericContent,
+    group: hasGenericContent,
+    group_item: hasGenericContent,
+};
+
+export function isBlockConfigured(type: string, data: BlockData | null | undefined,): boolean {
+    const check = BLOCK_CONFIGURED[type as BlockType];
+    return check ? check(data ?? {},) : hasGenericContent(data ?? {},);
+}

@@ -12,6 +12,7 @@ import Toggle from '../common/Toggle';
 import { FormField, } from '../forms';
 import AccessRuleEditor from './AccessRuleEditor';
 import CommitInput from './CommitInput';
+import CopyButton, { absoluteUrl, } from './CopyButton';
 import { copyAccess, } from './galleryDraft';
 
 export interface CollectionPanelProps {
@@ -63,10 +64,16 @@ export default function CollectionPanel(props: CollectionPanelProps,) {
                 <button type="button" class="gallery-panel__close" aria-label="Close options" onClick={props.onClose}>&times;</button>
             </div>
 
+            {/* Collection changes save at once (C5) — unlike item edits and moves, which wait for Publish. */}
+            <p class="form-help-muted gallery-panel__saved">Collection changes are saved immediately.</p>
             <p class="gallery-panel__comments">
                 {props.itemCount} item{props.itemCount === 1 ? '' : 's'} ·{' '}
                 <a href={props.collection.url} target="_blank" rel="noopener">View public page ↗</a>
             </p>
+            <div class="gallery-panel__links">
+                <CopyButton label="Copy page link" text={() => absoluteUrl(props.collection.url,)} />
+                <CopyButton label="Copy template" text={() => `{{gallery(collection='${props.collection.id}')}}`} />
+            </div>
             <Show when={!props.isOpen}>
                 <div class="gallery-panel__links">
                     <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={props.onOpen}>Open collection</button>

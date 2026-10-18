@@ -18,7 +18,7 @@ import { resolveStorageProvider, isObjectStore, } from '../storage';
 import { canWatchFull, type Viewer, } from './access';
 import { keyBytes, } from './keys';
 import { deniedLoginUrl, downloadUrl, masterUrl, teaserMasterUrl, watchUrl, } from './paths';
-import { verifyShareToken, } from './share';
+import { shareEpoch, verifyShareToken, } from './share';
 import { getVideoSettings, } from './settings';
 
 interface MediaHead {
@@ -226,6 +226,27 @@ export type FileLink =
     | { kind: 'denied'; url: string; reason: 'signin' | 'forbidden'; };
 
 /**
+ * The JSON answer a NON-browser client gets for a link that is not a redirect.
+ * `denied` is a paywall (403 CONTENT_LOCKED + why); `watch` means the viewer may
+ * watch but nothing is encoded yet — a 409 VIDEO_NOT_READY with Retry-After, so
+ * a subscriber's `<video src>` / SDK call is not told it was refused.
+ */
+export function fileLinkErrorResponse(link: Exclude<FileLink, { kind: 'redirect'; }>,): {
+    status: number; headers: Record<string, string>; body: { success: false; error: { code: string; message: string; details?: unknown; }; };
+} {
+    if (link.kind === 'denied') {
+        return {
+            status: 403, headers: {},
+            body: { success: false, error: { code: 'CONTENT_LOCKED', message: 'This video is for subscribers.', details: { reason: link.reason, }, }, },
+        };
+    }
+    return {
+        status: 409, headers: { 'Retry-After': '60', },
+        body: { success: false, error: { code: 'VIDEO_NOT_READY', message: 'This video is still processing.', }, },
+    };
+}
+
+/**
  * The direct link (`/video/:id/file`): a PLAIN video file, not a playlist.
  *
  *   quality  — omitted/`auto`/`highest` → the highest encoded MP4 (H.264,
@@ -247,7 +268,8 @@ export async function fileLink(
     viewer: Viewer | null | undefined,
 ): Promise<FileLink> {
     const m = await mediaHead(id,);
-    const allowed = verifyShareToken(id, opts.token,) || await canWatchFull(m.accessLevel, viewer,);
+    const allowed = (opts.token ? verifyShareToken(id, opts.token, await shareEpoch(id,),) : false)
+        || await canWatchFull(m.accessLevel, viewer,);
     if (!allowed) {
         const reason = viewer?.id ? 'forbidden' : 'signin';
         return { kind: 'denied', url: deniedLoginUrl(id, reason === 'forbidden',), reason, };

@@ -35,6 +35,16 @@ export class UsersModule extends ModuleBase {
         return this.mutate<{ ok: true; }>('DELETE', '/users/invites/:inviteId', { params: { inviteId: id, }, },);
     }
 
+    /** POST /users/:id/verification/resend — a fresh verification link (`sent:false` when already verified). */
+    resendVerification(id: string,): Promise<{ sent: boolean; }> {
+        return this.mutate<{ sent: boolean; }>('POST', '/users/:id/verification/resend', { params: { id, }, },);
+    }
+
+    /** POST /users/:id/verification/verify — mark the email verified by hand (audited). */
+    markEmailVerified(id: string,): Promise<UserByIdResponse['user']> {
+        return this.mutate<UserByIdResponse['user']>('POST', '/users/:id/verification/verify', { params: { id, }, invalidates: ['users',], },);
+    }
+
     /** POST /users/bulk — one action on many users (skips you, and sysadmins unless you are one). */
     bulk(body: { ids: string[]; action: 'delete' | 'ban' | 'unban' | 'activate' | 'deactivate' | 'role'; value?: string; },): Promise<{ done: number; skipped: Array<{ id: string; reason: string; }>; }> {
         return this.mutate<{ done: number; skipped: Array<{ id: string; reason: string; }>; }>('POST', '/users/bulk', { body, invalidates: ['users',], },);
@@ -107,7 +117,8 @@ export class UsersModule extends ModuleBase {
     }
 
     /** PUT /users/:id/subscription — put the user on a tier by hand (null / free ends a manual one). */
-    assignSubscription(id: string, tierId: string | null,): Promise<UserSubscriptionInfo> {
-        return this.mutate<UserSubscriptionInfo>('PUT', '/users/:id/subscription', { params: { id, }, body: { tierId, }, invalidates: ['users', 'subscriptionTiers',], },);
+    /** `endsAt` (ISO): the hand-assigned membership ends then (a daily sweep moves the user off it); omitted/null = no end. */
+    assignSubscription(id: string, tierId: string | null, endsAt?: string | null,): Promise<UserSubscriptionInfo> {
+        return this.mutate<UserSubscriptionInfo>('PUT', '/users/:id/subscription', { params: { id, }, body: { tierId, ...(endsAt !== undefined ? { endsAt, } : {}), }, invalidates: ['users', 'subscriptionTiers',], },);
     }
 }

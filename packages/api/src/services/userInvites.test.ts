@@ -13,7 +13,7 @@ vi.mock('./users', () => ({ addExtraRoles: (...a: unknown[]) => addExtra(...a), 
 const register = vi.fn(async () => ({ userId: 'new-user', email: 'amb@x.co', verificationRequired: false, }),);
 vi.mock('./auth.js', () => ({ registerMember: (...a: unknown[]) => register(...a), }),);
 
-import { accept, invite, } from './userInvites';
+import { accept, invite, resend, } from './userInvites';
 
 const ctx = { userId: 'admin', } as never;
 function db(map: Array<[string, unknown[]]>,) {
@@ -56,14 +56,14 @@ describe('accept', () => {
     const row = (extra: object,) => ({ id: 'i1', email: 'amb@x.co', roles: ['ambassador',], expires_at: new Date(Date.now() + 86400_000,), accepted_at: null, revoked_at: null, ...extra, });
 
     it('creates the account with the roles; the invited address counts as verified', async () => {
-        db([['FROM user_invites WHERE token_hash', [row({},),],],],);
+        db([['FROM user_invites WHERE token_hash', [row({},),],], ['SET accepted_at = NOW()', [row({},),],],],);
         await accept('t'.repeat(30,), { name: 'Amb', email: 'AMB@x.co', password: 'password1', }, {},);
         expect(register.mock.calls[0][2],).toEqual({ verified: true, extraRoles: ['ambassador',], },);
         expect(q.mock.calls.some(([s,],) => String(s,).includes('SET accepted_at = NOW()',),),).toBe(true,);
     },);
 
     it('a different address is not pre-verified', async () => {
-        db([['FROM user_invites WHERE token_hash', [row({},),],],],);
+        db([['FROM user_invites WHERE token_hash', [row({},),],], ['SET accepted_at = NOW()', [row({},),],],],);
         await accept('t'.repeat(30,), { name: 'Amb', email: 'other@x.co', password: 'password1', }, {},);
         expect((register.mock.calls[0][2] as { verified: boolean; }).verified,).toBe(false,);
     },);
@@ -74,5 +74,26 @@ describe('accept', () => {
         db([['FROM user_invites WHERE token_hash', [row({ accepted_at: new Date(), },),],],],);
         await expect(accept('t'.repeat(30,), { name: 'a', email: 'amb@x.co', password: 'password1', }, {},),).rejects.toThrow(/already used/,);
         expect(register,).not.toHaveBeenCalled();
+    },);
+    it('a second accept that loses the claim creates no account (atomic)', async () => {
+        // liveInvite still sees it unused, but the conditional claim UPDATE returns nothing.
+        db([['FROM user_invites WHERE token_hash', [row({},),],],],);
+        await expect(accept('t'.repeat(30,), { name: 'a', email: 'other@x.co', password: 'password1', }, {},),).rejects.toThrow(/already used/,);
+        expect(register,).not.toHaveBeenCalled();
+    },);
+
+    it('gives the invite back when the account cannot be created', async () => {
+        db([['FROM user_invites WHERE token_hash', [row({},),],], ['SET accepted_at = NOW()', [row({},),],],],);
+        register.mockRejectedValueOnce(new Error('An account with this email already exists.',),);
+        await expect(accept('t'.repeat(30,), { name: 'a', email: 'amb@x.co', password: 'password1', }, {},),).rejects.toThrow(/already exists/,);
+        expect(q.mock.calls.some(([s,],) => String(s,).includes('SET accepted_at = NULL',),),).toBe(true,);
+    },);
+},);
+
+describe('resend', () => {
+    it('refuses a revoked invite instead of un-revoking it', async () => {
+        db([['FROM user_invites WHERE id', [{ id: 'i1', email: 'a@x.co', roles: [], revoked_at: new Date(), },],],],);
+        await expect(resend('i1', ctx,),).rejects.toThrow(/revoked/,);
+        expect(mail,).not.toHaveBeenCalled();
     },);
 },);

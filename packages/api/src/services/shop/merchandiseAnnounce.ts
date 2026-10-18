@@ -283,16 +283,63 @@ export function resolveAnnouncementBody(
     };
 }
 
+/** A manual re-announce of the same products within this window is a double send. */
+const REANNOUNCE_GAP_MINUTES = 10;
+
+/**
+ * Atomically claim products for an announcement, returning the claimed ids and
+ * each one's previous stamp (so a failed send can put them back).
+ *
+ * One statement with row locks: two overlapping calls (double click, two
+ * admins, the hourly cron racing a manual send) cannot both claim a product.
+ * The cron (`manual: false`) only takes never-announced products; a manual
+ * send may re-announce older ones, but not anything stamped in the last
+ * {@link REANNOUNCE_GAP_MINUTES} minutes.
+ */
+export async function claimForAnnouncement(
+    ids: string[],
+    manual: boolean,
+): Promise<Array<{ id: string; prev: Date | null; }>> {
+    if (!ids.length) return [];
+    const r = await query<{ id: string; prev: Date | null; }>(
+        `WITH prev AS (
+             SELECT id, merch_announced_at FROM shop_products WHERE id = ANY($1::uuid[]) FOR UPDATE
+         )
+         UPDATE shop_products p SET merch_announced_at = NOW()
+           FROM prev
+          WHERE p.id = prev.id
+            AND (prev.merch_announced_at IS NULL
+                 OR ($2::boolean AND prev.merch_announced_at < NOW() - make_interval(mins => $3::int)))
+         RETURNING p.id, prev.merch_announced_at AS prev`,
+        [ids, manual, REANNOUNCE_GAP_MINUTES,],
+    );
+    return r.rows;
+}
+
+/** Undo a claim after a failed send, so the products stay pending. */
+async function releaseClaim(claimed: Array<{ id: string; prev: Date | null; }>,): Promise<void> {
+    if (!claimed.length) return;
+    await query(
+        `UPDATE shop_products p SET merch_announced_at = x.prev
+           FROM unnest($1::uuid[], $2::timestamptz[]) AS x(id, prev)
+          WHERE p.id = x.id`,
+        [claimed.map((c,) => c.id), claimed.map((c,) => c.prev),],
+    );
+}
+
 /**
  * Send an announcement for the given products and stamp them announced.
  *
- * The stamp lands only AFTER the job is created, so a failure leaves the
- * products pending and the batch can be retried.
+ * The products are CLAIMED (stamped) first, in one statement, so a concurrent
+ * call cannot mail the same products again; a failed send releases the claim
+ * and leaves them pending for a retry.
  */
 export async function announce(
     input: { productIds: string[]; subject?: string; intro?: string; },
     ctx: AuditContext,
+    opts: { manual?: boolean; } = {},
 ): Promise<AnnounceResult> {
+    const manual = opts.manual !== false;
     const cfg = await getPurposeConfig('shop_new_merchandise',);
     // Disabled means disabled. A manual click is deliberate, but so is turning
     // the email off — sending anyway would make the switch a lie, and the
@@ -310,32 +357,43 @@ export async function announce(
         throw new ValidationError('No mailing list is assigned for new-merchandise announcements.',);
     }
 
-    const products = await listByIds(input.productIds,);
-    if (products.length === 0) {
+    const live = await listByIds(input.productIds,);
+    if (live.length === 0) {
         throw new ValidationError('None of the selected products are live.',);
+    }
+
+    const claimed = await claimForAnnouncement(live.map((p,) => p.id), manual,);
+    const claimedIds = new Set(claimed.map((c,) => c.id),);
+    const products = live.filter((p,) => claimedIds.has(p.id,));
+    if (products.length === 0) {
+        throw new ValidationError('These products were just announced — this would send the same email twice.',);
     }
 
     const subject = input.subject?.trim()
         || cfg.subject
         || 'New arrivals';
 
-    const body = resolveAnnouncementBody(products, {
-        currency: settings.currency || 'USD',
-        intro: input.intro,
-        customBlocks: cfg.blocks,
-    },);
+    let result: Awaited<ReturnType<typeof mailSend.send>>;
+    let body: ReturnType<typeof resolveAnnouncementBody>;
+    try {
+        body = resolveAnnouncementBody(products, {
+            currency: settings.currency || 'USD',
+            intro: input.intro,
+            customBlocks: cfg.blocks,
+        },);
+        result = await mailSend.send({
+            listId,
+            subject,
+            blocks: body.blocks,
+            context: body.context,
+        }, ctx,);
+    } catch (err) {
+        await releaseClaim(claimed,).catch((e,) =>
+            logger.error('Could not release merchandise claim after a failed send', { error: (e as Error).message, },)
+        );
+        throw err;
+    }
 
-    const result = await mailSend.send({
-        listId,
-        subject,
-        blocks: body.blocks,
-        context: body.context,
-    }, ctx,);
-
-    await query(
-        `UPDATE shop_products SET merch_announced_at = NOW() WHERE id = ANY($1)`,
-        [products.map((p,) => p.id),],
-    );
     logger.info('New-merchandise announcement queued', {
         jobId: result.jobId,
         products: products.length,
@@ -376,6 +434,7 @@ export async function runAutoAnnounce(): Promise<void> {
             // No operator behind a cron run; the user agent is what makes the
             // audit row legible as "this was the scheduler, not a person".
             { userId: '', ipAddress: '', userAgent: 'cron:merchandise-announce', },
+            { manual: false, },
         );
     } catch (err) {
         // A cron must never throw into the scheduler.

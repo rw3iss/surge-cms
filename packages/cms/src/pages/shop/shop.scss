@@ -783,6 +783,11 @@
         font-size: $font-size-sm;
     }
 
+    &__download-hint {
+        font-size: $font-size-sm;
+        color: var(--site-text-muted, #6b7280);
+    }
+
     // Order-confirmation summary: shipping address (left) + totals (right).
     &__summary-row {
         display: flex;

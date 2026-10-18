@@ -33,6 +33,12 @@ export interface CommentTarget {
     writePermission: string;
     /** null = no such item, or it is not visible to this viewer at all. */
     access(targetId: string, viewer: Viewer,): Promise<TargetAccess | null>;
+    /**
+     * Optional batch form of `access` (one query for many items). Lists —
+     * discovery, member pages — use it when present (`readable.ts`); a missing
+     * id in the map means null.
+     */
+    accessMany?(targetIds: string[], viewer: Viewer,): Promise<Map<string, TargetAccess | null>>;
     /** Titles + URLs for comments shown away from their item (profile, moderation). */
     summaries(ids: string[],): Promise<Map<string, { title: string; url: string; }>>;
     /** Which activity counter a visible comment here feeds. */

@@ -42,15 +42,27 @@ export function viewerKey(userId: string | null, anonId: string | null, connId: 
     return `a:${anonId && ANON_RE.test(anonId,) ? anonId : `c-${connId}`}`;
 }
 
+/** `u:<uuid>` (a user — its id goes into a uuid column) or `a:<guest id>`. */
+export function isValidViewerKey(key: string,): boolean {
+    return /^u:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key,) || /^a:[A-Za-z0-9_-]{1,80}$/.test(key,);
+}
+
 export function guestName(key: string,): string {
     return `Guest ${key.slice(-4,).toUpperCase()}`;
 }
 
-/** The client IP behind Cloudflare/nginx, hashed (never stored raw). */
+/**
+ * The client IP, hashed (never stored raw). Reads ONLY `X-Real-IP` — the
+ * header our nginx writes from `$remote_addr`, which the Cloudflare real-IP
+ * config makes trustworthy — then the socket. `CF-Connecting-IP` and
+ * `X-Forwarded-For` are client-settable on a request that reaches the origin
+ * directly, so trusting them would let a guest dodge an IP ban (or frame
+ * another address).
+ */
 export function ipHashOf(req: IncomingMessage,): string | null {
     const h = req.headers;
     const first = (v: string | string[] | undefined,) => (Array.isArray(v,) ? v[0] : v)?.split(',',)[0]?.trim();
-    const ip = first(h['cf-connecting-ip'],) || first(h['x-real-ip'],) || first(h['x-forwarded-for'],) || req.socket.remoteAddress;
+    const ip = first(h['x-real-ip'],) || req.socket.remoteAddress;
     if (!ip) return null;
     return createHash('sha256',).update(`live-ip:${config.jwt.secret}:${ip}`,).digest('hex',).slice(0, 32,);
 }
@@ -80,15 +92,21 @@ export async function dropPresence(postId: string, connId: string,): Promise<voi
     try { await getRedis().hdel(K.presence(postId,), connId,); } catch { /* ignore */ }
 }
 
-/** Re-stamp this process's entries (heartbeat). */
+/** Re-stamp this process's entries (heartbeat) — ONE pipeline for every room. */
 export async function refreshPresence(): Promise<void> {
     const now = Date.now();
+    if (localPresence.size === 0) return;
+    let pipe: ReturnType<ReturnType<typeof getRedis>['multi']> | null = null;
+    try { pipe = getRedis().multi(); } catch { /* local copy stands in */ }
     for (const [postId, m,] of localPresence) {
+        const fields: Record<string, string> = {};
         for (const e of m.values()) {
             e.at = now;
-            await putPresence(postId, e,);
+            fields[e.connId] = JSON.stringify(e,);
         }
+        if (pipe && Object.keys(fields,).length) pipe.hset(K.presence(postId,), fields,).expire(K.presence(postId,), 3600,);
     }
+    try { await pipe?.exec(); } catch { /* local copy stands in */ }
 }
 
 export async function presence(postId: string,): Promise<PresenceEntry[]> {
@@ -167,12 +185,18 @@ export function keysFor(connKey: string, userId: string | null,): string[] {
     return u && u !== connKey ? [connKey, u,] : [connKey,];
 }
 
-export type ModRefusal = { code: 'muted' | 'silenced'; message: string; } | null;
+export type ModRefusal = { code: 'muted' | 'silenced' | 'kicked' | 'banned'; message: string; } | null;
 
 /**
- * PURE — may this sender chat / react? Silence blocks everything; mute blocks chat.
+ * PURE — may this sender chat / react? A ban (every show) or kick (this
+ * show) blocks everything, silence blocks everything, mute blocks chat.
+ * `entries` covers every key the sender answers to (socket key + ticket
+ * user), so a banned user cannot chat by opening an anonymous socket and
+ * attaching a signed-in ticket.
  */
-export function moderationRefusal(entries: ModEntry[], what: 'chat' | 'react', now = Date.now(),): ModRefusal {
+export function moderationRefusal(entries: ModEntry[], what: 'chat' | 'react', now = Date.now(), banned = false,): ModRefusal {
+    if (banned) return { code: 'banned', message: 'You have been banned from live shows', };
+    if (entries.some((e,) => e.kicked)) return { code: 'kicked', message: 'A moderator removed you from this show', };
     for (const e of entries) {
         if (e.silencedUntil && e.silencedUntil > now) {
             const mins = Math.max(1, Math.ceil((e.silencedUntil - now) / 60_000,),);
@@ -191,8 +215,9 @@ const BAN_TTL_MS = 30_000;
 
 async function banSets(): Promise<BanSets> {
     if (bans && Date.now() - bans.at < BAN_TTL_MS) return bans;
+    // Expired time-limited bans no longer count (the row stays for the record).
     const r = await query<{ user_id: string | null; anon_key: string | null; ip_hash: string | null; }>(
-        `SELECT user_id, anon_key, ip_hash FROM live_bans`,
+        `SELECT user_id, anon_key, ip_hash FROM live_bans WHERE expires_at IS NULL OR expires_at > NOW()`,
     );
     const next: BanSets = { users: new Set(), anon: new Set(), ips: new Set(), at: Date.now(), };
     for (const b of r.rows) {
@@ -215,15 +240,35 @@ export async function isBanned(key: string, ipHash: string | null,): Promise<boo
     }
 }
 
-export async function addBan(key: string, ipHash: string | null, by: string | null, reason: string | null,): Promise<void> {
+export interface BanOptions {
+    /** Minutes until the ban ends; null/undefined = permanent. */
+    minutes?: number | null;
+    /** The show the ban was made in. */
+    postId?: string | null;
+}
+
+/** PURE — a ban's end time for `minutes` (null = permanent). */
+export function banExpiry(minutes: number | null | undefined, now = Date.now(),): Date | null {
+    if (!minutes || minutes <= 0) return null;
+    return new Date(now + Math.round(minutes,) * 60_000,);
+}
+
+export async function addBan(key: string, ipHash: string | null, by: string | null, reason: string | null, opts: BanOptions = {},): Promise<void> {
+    const expires = banExpiry(opts.minutes,);
+    const postId = opts.postId ?? null;
     if (key.startsWith('u:',)) {
         await query(
-            `INSERT INTO live_bans (user_id, reason, created_by) VALUES ($1, $2, $3)
-             ON CONFLICT (user_id) WHERE user_id IS NOT NULL DO UPDATE SET reason = EXCLUDED.reason`,
-            [key.slice(2,), reason, by,],
+            `INSERT INTO live_bans (user_id, reason, created_by, expires_at, post_id) VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (user_id) WHERE user_id IS NOT NULL
+             DO UPDATE SET reason = EXCLUDED.reason, created_by = EXCLUDED.created_by, created_at = NOW(),
+                           expires_at = EXCLUDED.expires_at, post_id = EXCLUDED.post_id`,
+            [key.slice(2,), reason, by, expires, postId,],
         );
     } else {
-        await query(`INSERT INTO live_bans (anon_key, ip_hash, reason, created_by) VALUES ($1, $2, $3, $4)`, [key, ipHash, reason, by,],);
+        await query(
+            `INSERT INTO live_bans (anon_key, ip_hash, reason, created_by, expires_at, post_id) VALUES ($1, $2, $3, $4, $5, $6)`,
+            [key, ipHash, reason, by, expires, postId,],
+        );
     }
     bans = null;
 }

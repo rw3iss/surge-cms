@@ -46,6 +46,12 @@ describe('collectionVisible', () => {
         expect(collectionVisible({ enabled: true, roles: ['vip',], tierIds: [], }, member,),).toBe(false,);
         expect(collectionVisible({ enabled: true, roles: ['vip',], tierIds: [T1,], }, member,),).toBe(true,);
     },);
+    it('S2: an inactive rule falls back to the gallery floor', () => {
+        expect(collectionVisible(off, ANONYMOUS_GRANTS, false,),).toBe(false,);
+        expect(collectionVisible(off, ANONYMOUS_GRANTS, true,),).toBe(true,);
+        expect(collectionVisible(off, staff, false,),).toBe(true,);
+        expect(collectionVisible({ enabled: true, roles: ['vip',], tierIds: [T1,], }, member, false,),).toBe(true,);
+    },);
 },);
 
 describe('SQL predicates', () => {
@@ -65,6 +71,13 @@ describe('SQL predicates', () => {
         expect(itemGateSql(staff, 'FLOOR', params,),).toBe('TRUE',);
         expect(collectionGateSql(staff, params,),).toBe('TRUE',);
         expect(params,).toEqual([],);
+    },);
+
+    it('collection gate with a floor: CASE active THEN passed ELSE floor', () => {
+        const params: unknown[] = [];
+        expect(collectionGateSql(ANONYMOUS_GRANTS, params, 'gc', 'FLOOR',),).toBe(
+            '(CASE WHEN (gc.access_enabled AND (cardinality(gc.access_roles) > 0 OR cardinality(gc.access_tier_ids) > 0)) THEN (gc.access_roles && $1::text[] OR gc.access_tier_ids && $2::uuid[]) ELSE FLOOR END)',
+        );
     },);
 
     it('collection gate: inactive OR passed', () => {

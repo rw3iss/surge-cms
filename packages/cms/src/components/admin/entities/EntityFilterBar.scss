@@ -1,0 +1,32 @@
+// EntityFilterBar — component-scoped styles (moved out of pages/admin/entities/EntitiesList.scss
+// so the component no longer depends on a PAGE stylesheet; ADMIN_STYLES.md →
+// "Where to put a new admin style"). Tokens are auto-injected via `additionalData`.
+
+// Filter bar (filterable-field dropdowns) — used by the Data tab + entity
+// search modal to narrow results by a field's distinct/enum values.
+.entity-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: $spacing-sm $spacing-md;
+    margin-bottom: $spacing-md;
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 150px;
+    }
+
+    &__label {
+        font-size: $font-size-xs;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--admin-text-muted, #{$text-light});
+    }
+
+    &__clear {
+        align-self: center;
+    }
+}

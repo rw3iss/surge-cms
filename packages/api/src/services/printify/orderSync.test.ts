@@ -140,6 +140,13 @@ describe('matchPrintifyOrder', () => {
         expect(matchPrintifyOrder(base({ id: 's1', metadata: { order_type: 'sample', }, label: 'Sample', },), idx,),).toBeNull();
     },);
 
+    it('a manual order LABELLED with our number is flagged unconfirmed, never linked silently', () => {
+        expect(matchPrintifyOrder(base({ id: 'm2', label: 'SS-B', metadata: { order_type: 'manual', }, },), idx,),)
+            .toMatchObject({ ref: { orderId: 'o2', }, unconfirmed: true, },);
+        // A plain API order with the same label is matched as before.
+        expect(matchPrintifyOrder(base({ id: 'm3', label: 'SS-B', metadata: null, },), idx,)?.unconfirmed,).toBeUndefined();
+    },);
+
     it('flags an order already linked to a different Printify order', () => {
         expect(matchPrintifyOrder(base({ id: 'pfNEW', metadata: { shop_order_id: 'SS-C', }, },), idx,),)
             .toMatchObject({ ref: { orderId: 'o3', }, conflict: true, },);

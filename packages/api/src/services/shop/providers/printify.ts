@@ -189,6 +189,12 @@ export const printifyProvider: ShopProvider = {
         };
     },
 
+    async fetchOrderState(config, externalOrderId,) {
+        const { getOrder, } = await import('../../printify/client.js');
+        const { mapPrintifyOrder, } = await import('../../printify/orderSync.js');
+        return mapPrintifyOrder(await getOrder(toEngineConfig(config,) as never, externalOrderId,) as never,);
+    },
+
     async reconcileOrders(config, opts,) {
         const { reconcilePrintifyOrders, } = await import('../../printify/orderSync.js');
         return reconcilePrintifyOrders(toEngineConfig(config,) as never, opts,);

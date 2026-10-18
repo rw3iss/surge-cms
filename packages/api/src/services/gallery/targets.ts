@@ -9,8 +9,11 @@ import { isStaffViewer, } from '../discussions/viewer';
 import { getSettings as getCommentsSettings, } from '../comments/settings';
 import * as threads from '../comments/threads';
 import { isFeatureEnabledServer, } from '../settings';
-import { get, } from './items';
+import { get, list, } from './items';
 import { getSettings, } from './settings';
+
+/** `list` caps `ids` (and the page) at 200. */
+const SUMMARY_CHUNK = 200;
 
 const pick = (sw: 'inherit' | 'on' | 'off', fallback: boolean,) => (sw === 'inherit' ? fallback : sw === 'on');
 
@@ -32,10 +35,14 @@ registerCommentTarget({
         return { ...base, canComment: true, allowAnonymous: pick(item.anonymousComments, s.allowAnonymousComments,), };
     },
     async summaries(ids,) {
+        // One query per 200 ids (not settings + SELECT + COUNT per id): a
+        // moderation page of 50 comments used to cost ~150 queries.
         const out = new Map<string, { title: string; url: string; }>();
-        for (const id of ids) {
-            const item = await get(id, { audience: 'admin', },);
-            if (item) out.set(id, { title: item.title || 'Gallery item', url: item.url, },);
+        const unique = [...new Set(ids,),];
+        for (let i = 0; i < unique.length; i += SUMMARY_CHUNK) {
+            const chunk = unique.slice(i, i + SUMMARY_CHUNK,);
+            const r = await list({ ids: chunk, limit: chunk.length, }, { audience: 'admin', },);
+            for (const item of r.items) out.set(item.id, { title: item.title || 'Gallery item', url: item.url, },);
         }
         return out;
     },

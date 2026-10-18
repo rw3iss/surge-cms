@@ -90,3 +90,22 @@
     &__total { margin: 12px 0 0; text-align: right; }
     &__note { margin: 0; padding: 12px 24px 18px; font-size: 0.85rem; color: var(--site-text-muted, #6b7280); }
 }
+
+/* Staff check-in at the door. */
+.event-ticket__checked-at {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.8125rem;
+    color: var(--site-text-muted, #6b7280);
+}
+
+.event-ticket__checkin {
+    margin-top: 0.5rem;
+}
+
+.event-ticket__checkin-error {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.8125rem;
+    color: var(--site-error, #dc2626);
+}

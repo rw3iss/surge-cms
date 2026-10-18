@@ -11,7 +11,9 @@
  * subscription paid with the card entered here; →free cancels at the end of
  * the period already paid for, and can be resumed until then.
  */
-import { loadStripe, type Stripe, type StripeCardElement, } from '@stripe/stripe-js';
+import type { Stripe, StripeCardElement, } from '@stripe/stripe-js';
+import { perMonthCents, } from '@sitesurge/types';
+import { mountStripeCard, payNewSubscription, saveCardForLater, tokenizeCard, } from '../../utils/stripeCard';
 import { createEffect, createResource, createSignal, For, onCleanup, Show, type Component, } from 'solid-js';
 import { useSearchParams, } from '@solidjs/router';
 import { ApplicationPayment, ApplyModal, } from '../membership/MembershipApplication';
@@ -29,7 +31,10 @@ const longDate = (iso: string | null,) => (iso ? new Date(iso,).toLocaleDateStri
 
 const MembershipPanel: Component = () => {
     const auth = useAuth();
-    const [data, { refetch, },] = createResource<MembershipResponse | null>(() => cms.payments.membership().catch(() => null),);
+    // A failed load keeps its error (data.error) so the panel can offer "Try again".
+    const [data, { refetch, },] = createResource<MembershipResponse | null>(() => cms.payments.membership(),);
+    /** An inline "are you sure?" step (instead of window.confirm, which some webviews block). */
+    const [asking, setAsking,] = createSignal<'cancel' | 'withdraw' | null>(null,);
     const [view, setView,] = createSignal<View>('overview',);
     const [selected, setSelected,] = createSignal<string | null>(null,);
     /** The chosen price on the chosen level (one of its `prices`; null = its default). */
@@ -75,10 +80,7 @@ const MembershipPanel: Component = () => {
         return t && p && p !== defaultPriceId(t,) ? p : undefined;
     };
     /** Monthly-equivalent cents, so $250 / year compares fairly with $25 / month. */
-    const perMonth = (t: MembershipTierOption,) => {
-        const months = ({ day: 1 / 30, week: 12 / 52, month: 1, year: 12, } as Record<string, number>)[t.interval] ?? 1;
-        return t.priceCents / (months * Math.max(1, t.intervalCount || 1,));
-    };
+    const perMonth = (t: MembershipTierOption,) => perMonthCents({ amount: t.priceCents, interval: t.interval, intervalCount: t.intervalCount, },);
 
     const direction = () => {
         const to = chosen();
@@ -112,8 +114,30 @@ const MembershipPanel: Component = () => {
     // `/profile?tab=membership&tier=<id>` (from /subscribe): open the chooser
     // with that tier picked, once the tiers are loaded.
     // `&price=<priceId>` picks one of that level's prices (e.g. yearly).
-    const [params,] = useSearchParams<{ tier?: string; price?: string; }>();
+    const [params, setParams,] = useSearchParams<{ tier?: string; price?: string; claim?: string; token?: string; }>();
     let preselected = false;
+
+    // `&claim=<applicationId>&token=<token>` (the link in the application
+    // emails): attach an application sent before this account existed, on any
+    // device — the token is the credential.
+    let claimed = false;
+    createEffect(() => {
+        if (claimed || !params.claim || !params.token || data.loading) return;
+        claimed = true;
+        void (async () => {
+            try {
+                await cms.payments.claimMembershipApplication({ applicationId: params.claim!, token: params.token!, },);
+                setNotice('Your application is now attached to your account.',);
+                await refetch();
+                void auth.refreshUser?.();
+            } catch (e) {
+                // Already attached (e.g. by verifying the email) is not an error worth showing.
+                if (!pending()) setError(e instanceof Error ? e.message : 'That application link could not be used.',);
+            } finally {
+                setParams({ claim: undefined, token: undefined, }, { replace: true, },);
+            }
+        })();
+    },);
     createEffect(() => {
         const want = params.tier;
         if (preselected || !want || tiers().length === 0) return;
@@ -139,17 +163,10 @@ const MembershipPanel: Component = () => {
     /** Mount the card field (only when the change needs a card). */
     const mountCard = async (el: HTMLDivElement,) => {
         try {
-            let key = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
-            const res = await cms.payments.publishableKey('default',).catch(() => null);
-            if (res?.publishableKey) key = res.publishableKey;
-            if (!key) return setError('Payments are not configured.',);
-            stripe = await loadStripe(key,);
-            if (!stripe) return setError('Could not load the payment form.',);
             card?.destroy();
-            card = stripe.elements().create('card', { style: { base: { fontSize: '16px', }, }, },);
-            card.mount(el,);
-        } catch {
-            setError('Could not load the payment form.',);
+            ({ stripe, card, } = await mountStripeCard(el,));
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Could not load the payment form.',);
         }
     };
 
@@ -187,15 +204,12 @@ const MembershipPanel: Component = () => {
             let paymentMethod: string | null = null;
             if (preview()?.requiresPayment) {
                 if (!stripe || !card) throw new Error('Enter your card details.',);
-                const pm = await stripe.createPaymentMethod({ type: 'card', card, },);
-                if (pm.error) throw new Error(pm.error.message || 'Check your card details.',);
-                paymentMethod = pm.paymentMethod.id;
+                paymentMethod = await tokenizeCard({ stripe, card, },);
             }
             const res = await cms.payments.changeMembership(to.id, priceArg(),);
             if (res.result === 'payment_required' && res.clientSecret && res.subscriptionId) {
-                if (!stripe || !paymentMethod) throw new Error('Enter your card details.',);
-                const pay = await stripe.confirmCardPayment(res.clientSecret, { payment_method: paymentMethod, },);
-                if (pay.error) throw new Error(pay.error.message || 'Your card was declined.',);
+                if (!stripe || !card || !paymentMethod) throw new Error('Enter your card details.',);
+                await payNewSubscription({ stripe, card, }, res.clientSecret, paymentMethod,);
                 const done = await cms.payments.confirmMembership(res.subscriptionId,);
                 if (done.result !== 'changed') throw new Error('The payment is still processing — check back in a minute.',);
                 await finish(`You're now on the ${to.name} tier.`,);
@@ -220,7 +234,7 @@ const MembershipPanel: Component = () => {
 
     /** Subscription-required mode: cancel without "switching to Free" (it is hidden). */
     const cancelPlan = async () => {
-        if (!window.confirm('Cancel your membership? You keep access until the end of the period you paid for, then you will need to become a member again.')) return;
+        setAsking(null,);
         setBusy(true,);
         setError('',);
         try {
@@ -241,11 +255,8 @@ const MembershipPanel: Component = () => {
         setError('',);
         try {
             if (!stripe || !card) throw new Error('Enter your card details.',);
-            const { clientSecret, } = await cms.payments.membershipCardSetup();
-            const res = await stripe.confirmCardSetup(clientSecret, { payment_method: { card, }, },);
-            if (res.error) throw new Error(res.error.message || 'Your card was declined.',);
-            const pm = res.setupIntent?.payment_method;
-            const saved = await cms.payments.updateMembershipCard(typeof pm === 'string' ? pm : pm!.id,);
+            const pm = await saveCardForLater({ stripe, card, },);
+            const saved = await cms.payments.updateMembershipCard(pm,);
             await finish(saved.paid ? 'Card updated and the outstanding payment went through.' : 'Card updated.',);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'The card could not be saved.',);
@@ -270,7 +281,15 @@ const MembershipPanel: Component = () => {
     return (
         <div class="profile__card membership">
             <Show when={!data.loading} fallback={<p class="profile__muted">Loading your membership…</p>}>
-                <Show when={data()} fallback={<p class="profile__muted">Membership details are unavailable right now.</p>}>
+                <Show
+                    when={!data.error && data()}
+                    fallback={
+                        <div class="membership__pending membership__pending--failed" role="alert">
+                            Membership details could not be loaded{data.error instanceof Error && data.error.message ? `: ${data.error.message}` : '.'}{' '}
+                            <button type="button" class="membership__link" onClick={() => void refetch()}>Try again</button>
+                        </div>
+                    }
+                >
                     <Show when={notice()}><div class="membership__notice">{notice()}</div></Show>
 
                     <Show when={!pending() && data()?.lastFailedAttempt && view() === 'overview'}>
@@ -323,12 +342,19 @@ const MembershipPanel: Component = () => {
                             <Show when={!pending()!.hasCard && !pending()!.noCard && !addingCard()}>
                                 <button type="button" class="membership__link" onClick={() => setAddingCard(true,)}>Add my card</button>{' · '}
                             </Show>
+                            <Show when={asking() === 'withdraw'}>
+                                <span class="membership__ask">
+                                    Withdraw your application?{' '}
+                                    <button type="button" class="membership__link" onClick={() => setAsking(null,)}>Keep it</button>{' · '}
+                                </span>
+                            </Show>
                             <button
                                 type="button"
                                 class="membership__link"
                                 disabled={busy()}
                                 onClick={async () => {
-                                    if (!window.confirm('Withdraw your application?',)) return;
+                                    if (asking() !== 'withdraw') return setAsking('withdraw',);
+                                    setAsking(null,);
                                     setBusy(true,);
                                     try {
                                         await cms.payments.withdrawMembershipApplication();
@@ -341,7 +367,7 @@ const MembershipPanel: Component = () => {
                                     }
                                 }}
                             >
-                                Withdraw application
+                                {asking() === 'withdraw' ? 'Yes, withdraw' : 'Withdraw application'}
                             </button>
                             <Show when={addingCard() && tiers().find((t,) => t.id === pending()!.tierId,)}>
                                 <ApplicationPayment
@@ -383,7 +409,12 @@ const MembershipPanel: Component = () => {
                             <Show when={current()!.card}>
                                 <div><dt>Card</dt><dd>{current()!.card!.brand} ending in {current()!.card!.last4}</dd></div>
                             </Show>
-                            <Show when={current()!.source === 'manual'}><div><dt>Source</dt><dd>Assigned by Staff</dd></div></Show>
+                            <Show when={current()!.source === 'manual'}>
+                                <div>
+                                    <dt>Source</dt>
+                                    <dd>Assigned by staff{current()!.cancelAtPeriodEnd && current()!.currentPeriodEnd ? ` · ends ${longDate(current()!.currentPeriodEnd,)}` : ''}</dd>
+                                </div>
+                            </Show>
                         </dl>
                         <Show when={current()!.cancelAtPeriodEnd}>
                             <p class="membership__warning">
@@ -412,7 +443,7 @@ const MembershipPanel: Component = () => {
                                     class="btn btn--outline"
                                     disabled={busy()}
                                     onClick={() => {
-                                        if (required()) { void cancelPlan(); return; }
+                                        if (required()) { setAsking('cancel',); return; }
                                         setSelected(tiers().find((t,) => t.isFree,)?.id ?? null,);
                                         setPriceSel(null,);
                                         void toConfirm();
@@ -420,6 +451,13 @@ const MembershipPanel: Component = () => {
                                 >
                                     Cancel membership
                                 </button>
+                            </Show>
+                            <Show when={asking() === 'cancel'}>
+                                <div class="membership__ask" role="alertdialog" aria-label="Cancel your membership?">
+                                    <p>Cancel your membership? You keep access until the end of the period you paid for, then you will need to become a member again.</p>
+                                    <button type="button" class="btn btn--outline" disabled={busy()} onClick={() => void cancelPlan()}>Yes, cancel</button>
+                                    <button type="button" class="btn btn--outline-neutral" onClick={() => setAsking(null,)}>Keep my membership</button>
+                                </div>
                             </Show>
                         </div>
                     </Show>
@@ -508,8 +546,15 @@ const MembershipPanel: Component = () => {
                                 <dt>Price difference</dt>
                                 <dd>
                                     {(() => {
-                                        const d = preview()!.to.priceCents - (preview()!.from?.priceCents ?? 0);
-                                        return `${d >= 0 ? '+' : '−'}${money(Math.abs(d,), preview()!.currency,)}${per(preview()!.to.isFree && preview()!.from ? preview()!.from! : preview()!.to,)}`;
+                                        const to = preview()!.to;
+                                        const from = preview()!.from;
+                                        // Different billing intervals: compare per month, or $25/month → $250/year reads "+$225".
+                                        if (from && !from.isFree && !to.isFree && (from.interval !== to.interval || from.intervalCount !== to.intervalCount)) {
+                                            const d = Math.round(perMonth(to,) - perMonth(from,),);
+                                            return `${d >= 0 ? '+' : '−'}${money(Math.abs(d,), preview()!.currency,)} / month equivalent`;
+                                        }
+                                        const d = to.priceCents - (from?.priceCents ?? 0);
+                                        return `${d >= 0 ? '+' : '−'}${money(Math.abs(d,), preview()!.currency,)}${per(to.isFree && from ? from : to,)}`;
                                     })()}
                                 </dd>
                             </div>

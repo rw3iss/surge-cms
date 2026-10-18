@@ -108,3 +108,46 @@ export function dataBindingSummary(
     if (!shown.length) return head;
     return `${head}: ${shown.join(', ',)}${refs.length > shown.length ? '…' : ''}`;
 }
+
+/**
+ * Order a "Set data…" selection the way the window's list SHOWED it, so what
+ * the block renders matches what the operator saw.
+ *
+ *  - No sort chosen (the default: newest first) → the pick order is kept.
+ *  - Otherwise each ref's position under the CURRENT sort, as the server
+ *    returned it (`serverRank`, id → index across loaded pages), comes first —
+ *    a client re-sort can disagree with the server (equal values, server-only
+ *    sort keys).
+ *  - Refs not on any page loaded under this sort are compared on the sort
+ *    field here, empty values last, and sit after the ranked ones.
+ */
+export function orderSelection(opts: {
+    refs: string[];
+    sortBy: string;
+    sortOrder: 'asc' | 'desc';
+    known: Record<string, EntityRecord | undefined>;
+    serverRank: ReadonlyMap<string, number>;
+},): string[] {
+    const { refs, sortBy, sortOrder, known, serverRank, } = opts;
+    if (!sortBy && sortOrder === 'desc') return refs;
+    const field = sortBy || 'createdAt';
+    const dir = sortOrder === 'asc' ? 1 : -1;
+    const val = (ref: string,) => (known[ref] as Record<string, unknown> | undefined)?.[field];
+    const rankOf = (ref: string,) => {
+        const id = (known[ref] as { id?: unknown; } | undefined)?.id;
+        return serverRank.get(String(id ?? ref,),);
+    };
+    return [...refs,].sort((a, b,) => {
+        const ra = rankOf(a,), rb = rankOf(b,);
+        if (ra !== undefined && rb !== undefined) return ra - rb;
+        if (ra !== undefined) return -1;
+        if (rb !== undefined) return 1;
+        const va = val(a,), vb = val(b,);
+        if (va == null && vb == null) return 0;
+        if (va == null) return 1;
+        if (vb == null) return -1;
+        if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
+        return String(va,).localeCompare(String(vb,), undefined, { numeric: true, sensitivity: 'base', },) * dir;
+    },);
+}
+

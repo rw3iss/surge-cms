@@ -136,6 +136,8 @@ const AdminGallery = lazy(() => import('./pages/admin/gallery/GalleryAdmin'));
 const AdminGallerySettings = lazy(() => import('./pages/admin/gallery/GallerySettings'));
 const AdminHelpGallery = lazy(() =>
     import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpGallery, })));
+const AdminHelpLiveShows = lazy(() =>
+    import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpLiveShows, })));
 const AdminEntitiesList = lazy(() => import('./pages/admin/entities/EntitiesList'));
 const AdminEntityDetail = lazy(() => import('./pages/admin/entities/EntityDetail'));
 const AdminEntityRecordEdit = lazy(() => import('./pages/admin/entities/EntityRecordEdit'));
@@ -305,6 +307,7 @@ const App: Component = () => {
 										<Route path="/help/post-types" component={AdminHelpPostTypes} />
 										<Route path="/help/comments-and-forum" component={AdminHelpDiscussions} />
 										<Route path="/help/gallery" component={AdminHelpGallery} />
+										<Route path="/help/live-shows" component={AdminHelpLiveShows} />
 										<Route path="/wiki" component={AdminWiki} />
 										<Route path="/wiki/:id" component={AdminWikiEditor} />
 									</Route>

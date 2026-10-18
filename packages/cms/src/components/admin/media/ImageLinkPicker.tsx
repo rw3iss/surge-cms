@@ -13,6 +13,7 @@
  */
 import { viewMediaProps, } from '@/stores/mediaViewer';
 import { Component, createSignal, Show, } from 'solid-js';
+import CommitInput from '../forms/CommitInput';
 import MediaSelectModal, { type MediaItem, } from './MediaSelectModal';
 import MediaUploadModal from './MediaUploadModal';
 import './ImageLinkPicker.scss';
@@ -90,11 +91,12 @@ const ImageLinkPicker: Component<ImageLinkPickerProps> = (props,) => {
 
             <label class="image-link-picker__field">
                 <span class="image-link-picker__label">Image URL</span>
-                <input
-                    type="text"
+                {/* Commits on blur / Enter — the header/footer editors rebuild their
+                    item lists on change, so a per-keystroke lift remounted this field. */}
+                <CommitInput
                     value={props.imageUrl ?? ''}
                     placeholder="/uploads/… or https://… (optional)"
-                    onInput={(e,) => props.onChange({ imageUrl: e.currentTarget.value, },)}
+                    onCommit={(v,) => props.onChange({ imageUrl: v, },)}
                 />
             </label>
             <p class="image-link-picker__hint">

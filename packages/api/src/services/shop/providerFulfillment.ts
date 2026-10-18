@@ -11,6 +11,7 @@
  * Wrapping the whole thing in a transaction would either duplicate an accepted
  * supplier order on retry or strand a real one.
  */
+import { ValidationError, } from '../../core/errors';
 import { query, } from '../../db';
 import { logger, } from '../../utils/logger';
 import { getProvider, } from './providers/registry';
@@ -71,6 +72,9 @@ export async function submitOrderToProviders(orderId: string,): Promise<SubmitRe
     return result;
 }
 
+/** A `submitting` claim older than this is assumed abandoned and may be retried. */
+export const SUBMIT_CLAIM_MINUTES = 10;
+
 async function submitGroup(order: OrderRow, providerKey: string,): Promise<'submitted' | 'skipped'> {
     // Claim the row first. The UNIQUE (order_id, provider) constraint plus this
     // early return is what makes a retry safe: an order already sent is never
@@ -108,14 +112,25 @@ async function submitGroup(order: OrderRow, providerKey: string,): Promise<'subm
     }),);
     if (!lines.length) return 'skipped';
 
-    await query(
+    // Claim atomically. The earlier SELECT is only a fast path: two callers
+    // (a webhook redelivery, the 15-min retry sweep, a manual retry) can both
+    // pass it while the first is still waiting on the supplier, and each would
+    // create a supplier order. Only one of them gets a row back from this
+    // statement; a `submitting` claim older than SUBMIT_CLAIM_MINUTES is
+    // treated as abandoned (a crash mid-call) and may be re-taken.
+    const claim = await query<{ id: string; }>(
         `INSERT INTO shop_order_fulfillments (order_id, provider, status, attempts)
          VALUES ($1, $2, 'submitting', 1)
          ON CONFLICT (order_id, provider) DO UPDATE
          SET status = 'submitting', attempts = shop_order_fulfillments.attempts + 1,
-             updated_at = NOW()`,
-        [order.id, providerKey,],
+             updated_at = NOW()
+         WHERE shop_order_fulfillments.external_order_id IS NULL
+           AND (shop_order_fulfillments.status <> 'submitting'
+                OR shop_order_fulfillments.updated_at < NOW() - make_interval(mins => $3::int))
+         RETURNING id`,
+        [order.id, providerKey, SUBMIT_CLAIM_MINUTES,],
     );
+    if (!claim.rows.length) return 'skipped';
 
     const { externalOrderId, } = await provider.submitOrder(config, {
         orderNumber: order.order_number,
@@ -311,12 +326,19 @@ export async function refreshOrderFulfillmentStatus(
 
 /** Stored shape of a fulfilment row, compared field-by-field to decide whether
  *  a reconcile changed anything. */
-function canonicalState(s: {
+export function canonicalState(s: {
     status: string; externalStatus: string | null; shipments: ProviderShipment[] | null;
     inProductionAt: string | null; shippedAt: string | null; deliveredAt: string | null;
 },): string {
+    // Shipments are flattened to positional tuples: the stored copy comes back
+    // from a jsonb column, which REORDERS object keys (by length, then bytes),
+    // so stringifying the objects never matched and every shipped row was
+    // rewritten on every sweep.
+    const shipments = (s.shipments ?? []).map((x,) => [
+        x.carrier ?? null, x.number ?? null, x.url ?? null, x.shippedAt ?? null, x.deliveredAt ?? null,
+    ]);
     return JSON.stringify([
-        s.status, s.externalStatus ?? null, s.shipments ?? [],
+        s.status, s.externalStatus ?? null, shipments,
         s.inProductionAt ?? null, s.shippedAt ?? null, s.deliveredAt ?? null,
     ],);
 }
@@ -422,10 +444,13 @@ export async function retryPendingProviderFulfillment(): Promise<{ resubmitted: 
          FROM shop_order_fulfillments f
          JOIN shop_orders o ON o.id = f.order_id
          WHERE f.external_order_id IS NULL
-           AND f.status IN ('failed', 'submitting', 'pending')
+           AND (f.status IN ('failed', 'pending')
+                -- A submit still in flight is left alone; only an abandoned one is retried.
+                OR (f.status = 'submitting' AND f.updated_at < NOW() - make_interval(mins => $1::int)))
            AND o.status IN ('paid', 'processing')
            AND f.attempts < 10
          LIMIT 50`,
+        [SUBMIT_CLAIM_MINUTES,],
     );
     let resubmitted = 0;
     for (const row of r.rows) {
@@ -435,35 +460,81 @@ export async function retryPendingProviderFulfillment(): Promise<{ resubmitted: 
     return { resubmitted, };
 }
 
-/** Record tracking pushed by a provider webhook or found by polling. */
-export async function recordProviderTracking(
-    providerKey: string,
-    externalOrderId: string,
-    tracking: { status: string; carrier?: string; tracking?: string[]; trackingUrl?: string; },
-): Promise<void> {
-    const shipped = ['shipped', 'fulfilled', 'delivered',].includes(tracking.status.toLowerCase(),);
-    const r = await query<{ order_id: string; }>(
-        `UPDATE shop_order_fulfillments
-         SET status = $3, carrier = COALESCE($4, carrier),
-             tracking_numbers = COALESCE($5, tracking_numbers),
-             tracking_url = COALESCE($6, tracking_url),
-             shipped_at = CASE WHEN $7 AND shipped_at IS NULL THEN NOW() ELSE shipped_at END,
-             updated_at = NOW()
-         WHERE provider = $1 AND external_order_id = $2
-         RETURNING order_id`,
-        [
-            providerKey, externalOrderId, tracking.status,
-            tracking.carrier ?? null, tracking.tracking ?? null,
-            tracking.trackingUrl ?? null, shipped,
-        ],
-    );
-    const orderId = r.rows[0]?.order_id;
-    if (!orderId) {
-        logger.warn(`[shop] tracking for unknown ${providerKey} order ${externalOrderId}`,);
-        return;
-    }
 
-    // The roll-up mirrors the first parcel onto the order-level columns (which
-    // existing views and emails read) and moves the order status forward.
-    await refreshOrderFulfillmentStatus(orderId,);
+// ─── Admin: per-supplier panel ─────────────────────────────────────
+
+/** One supplier's hand-off for an order, as the admin order page shows it. */
+export interface OrderFulfilmentRow {
+    provider: string;
+    status: string;
+    externalStatus: string | null;
+    externalOrderId: string | null;
+    lastError: string | null;
+    attempts: number;
+    submittedAt: string | null;
+    lastSyncedAt: string | null;
+    shippedAt: string | null;
+    deliveredAt: string | null;
+    trackingNumbers: string[];
+}
+
+/** Every supplier row of an order, plus a placeholder for a supplier group
+ *  that has lines but no row yet (never attempted). */
+export async function listOrderFulfilments(orderId: string,): Promise<OrderFulfilmentRow[]> {
+    const r = await query<{
+        provider: string; status: string | null; external_status: string | null; external_order_id: string | null;
+        last_error: string | null; attempts: number | null; submitted_at: Date | null; last_synced_at: Date | null;
+        shipped_at: Date | null; delivered_at: Date | null; tracking_numbers: string[] | null;
+    }>(
+        `SELECT g.provider, f.status, f.external_status, f.external_order_id, f.last_error, f.attempts,
+                f.submitted_at, f.last_synced_at, f.shipped_at, f.delivered_at, f.tracking_numbers
+           FROM (SELECT DISTINCT fulfillment_group AS provider FROM shop_order_items
+                  WHERE order_id = $1 AND fulfillment_group IS NOT NULL
+                    AND fulfillment_group NOT IN ('native', 'event_tickets')
+                 UNION
+                 SELECT provider FROM shop_order_fulfillments WHERE order_id = $1) g
+           LEFT JOIN shop_order_fulfillments f ON f.order_id = $1 AND f.provider = g.provider
+          ORDER BY g.provider`,
+        [orderId,],
+    );
+    return r.rows.map((x,) => ({
+        provider: x.provider,
+        status: x.status ?? 'not_sent',
+        externalStatus: x.external_status,
+        externalOrderId: x.external_order_id,
+        lastError: x.last_error,
+        attempts: Number(x.attempts ?? 0,),
+        submittedAt: iso(x.submitted_at,),
+        lastSyncedAt: iso(x.last_synced_at,),
+        shippedAt: iso(x.shipped_at,),
+        deliveredAt: iso(x.delivered_at,),
+        trackingNumbers: x.tracking_numbers ?? [],
+    }));
+}
+
+/** Admin "Retry submission" for one supplier. Already-sent groups are skipped. */
+export async function retryOrderFulfilment(orderId: string, providerKey: string,): Promise<SubmitResult> {
+    const r = await submitOrderToProviders(orderId,);
+    // Report only the asked-for supplier; the others were idempotent no-ops.
+    return {
+        submitted: r.submitted.filter((p,) => p === providerKey,),
+        failed: r.failed.filter((f,) => f.provider === providerKey,),
+        skipped: r.skipped.filter((p,) => p === providerKey,),
+    };
+}
+
+/** Admin "Refresh from supplier": read the supplier order and apply its state. */
+export async function refreshOrderFulfilment(orderId: string, providerKey: string,): Promise<ApplyStateResult> {
+    const row = await query<{ external_order_id: string | null; }>(
+        `SELECT external_order_id FROM shop_order_fulfillments WHERE order_id = $1 AND provider = $2`,
+        [orderId, providerKey,],
+    );
+    const externalId = row.rows[0]?.external_order_id;
+    if (!externalId) throw new ValidationError(`This order has no ${providerKey} order to refresh yet — retry the submission first.`,);
+    const provider = getProvider(providerKey,);
+    if (!provider?.fetchOrderState) throw new ValidationError(`${provider?.label ?? providerKey} does not support reading an order back.`,);
+    const config = await getActiveProviderConfig(providerKey,);
+    if (!config) throw new ValidationError(`Provider “${providerKey}” is not enabled or configured.`,);
+    const state = await provider.fetchOrderState(config, externalId,);
+    return applyFulfilmentState(orderId, providerKey, externalId, state,);
 }

@@ -1,7 +1,8 @@
 /**
  * EntityRecordForm — a schema-driven form rendering one control per field of
  * an entity type. Controlled: the parent owns the `values` map and receives
- * an updated copy on every edit. `disabled` renders a read-only view.
+ * an updated copy when a field COMMITS — on blur / Enter for text, number,
+ * date and textarea fields (the admin rule: never per keystroke). `disabled` renders a read-only view.
  *
  * Media fields open the shared MediaSelectModal; relation fields open the
  * EntitySearchSelectModal (single) scoped to the field's target type.
@@ -9,11 +10,12 @@
 import { openMediaViewer, } from '@/stores/mediaViewer';
 import type { EntityFieldDef, EntityRecord, EntityTypeDef, } from '@sitesurge/types';
 import { Component, createSignal, For, Show, } from 'solid-js';
-import FormCheck from '../forms/FormCheck';
+import Toggle from '../common/Toggle';
+import { CommitInput, } from '../forms/CommitInput';
 import FormField from '../forms/FormField';
 import MediaSelectModal from '../media/MediaSelectModal';
 import EntitySearchSelectModal from './EntitySearchSelectModal';
-import '../../../pages/admin/entities/EntitiesList.scss';
+import './EntityRecordForm.scss';
 
 export interface EntityRecordFormProps {
     type: EntityTypeDef;
@@ -73,9 +75,10 @@ const EntityRecordForm: Component<EntityRecordFormProps> = (props,) => {
         switch (field.type) {
             case 'boolean':
                 return (
-                    <FormCheck
+                    <Toggle
                         label={field.label || key}
                         checked={Boolean(val(key,),)}
+                        disabled={disabled}
                         onChange={(v,) => !disabled && setField(key, v,)}
                     />
                 );
@@ -83,23 +86,28 @@ const EntityRecordForm: Component<EntityRecordFormProps> = (props,) => {
             case 'markdown':
             case 'richtext':
                 return (
-                    <textarea
+                    <CommitInput
+                        multiline
+                        trim={false}
                         value={String(val(key,) ?? '',)}
                         disabled={disabled}
-                        onInput={(e,) => setField(key, e.currentTarget.value,)}
+                        onCommit={(v,) => setField(key, v,)}
                     />
                 );
             case 'json':
                 return (
                     <>
-                        <textarea
+                        {/* Parsed on blur (keeps the text while it is invalid). */}
+                        <CommitInput
+                            multiline
+                            trim={false}
                             value={jsonValue(key,)}
                             disabled={disabled}
                             placeholder="{ }"
-                            onInput={(e,) => onJson(key, e.currentTarget.value,)}
+                            onCommit={(v,) => onJson(key, v,)}
                         />
                         <Show when={jsonError()[key]}>
-                            <span class="form-help-muted" style={{ color: 'var(--color-error, #c0392b)', }}>
+                            <span class="form-help-muted form-help--error">
                                 Invalid JSON — not saved
                             </span>
                         </Show>
@@ -108,31 +116,30 @@ const EntityRecordForm: Component<EntityRecordFormProps> = (props,) => {
             case 'number':
             case 'integer':
                 return (
-                    <input
+                    <CommitInput
                         type="number"
                         step={field.type === 'integer' ? '1' : 'any'}
                         value={val(key,) == null ? '' : String(val(key,),)}
                         disabled={disabled}
-                        onInput={(e,) =>
-                            setField(key, e.currentTarget.value === '' ? undefined : Number(e.currentTarget.value,),)}
+                        onCommit={(v,) => setField(key, v === '' ? undefined : Number(v,),)}
                     />
                 );
             case 'date':
                 return (
-                    <input
+                    <CommitInput
                         type="date"
                         value={toDateInput(val(key,), false,)}
                         disabled={disabled}
-                        onInput={(e,) => setField(key, e.currentTarget.value || undefined,)}
+                        onCommit={(v,) => setField(key, v || undefined,)}
                     />
                 );
             case 'datetime':
                 return (
-                    <input
+                    <CommitInput
                         type="datetime-local"
                         value={toDateInput(val(key,), true,)}
                         disabled={disabled}
-                        onInput={(e,) => setField(key, e.currentTarget.value || undefined,)}
+                        onCommit={(v,) => setField(key, v || undefined,)}
                     />
                 );
             case 'enum':
@@ -151,12 +158,11 @@ const EntityRecordForm: Component<EntityRecordFormProps> = (props,) => {
             case 'media':
                 return (
                     <div class="entity-record-form__ref-row">
-                        <input
-                            type="text"
+                        <CommitInput
                             placeholder="media id"
                             value={String(val(key,) ?? '',)}
                             disabled={disabled}
-                            onInput={(e,) => setField(key, e.currentTarget.value || undefined,)}
+                            onCommit={(v,) => setField(key, v || undefined,)}
                         />
                         <Show when={!disabled}>
                             <button
@@ -181,12 +187,11 @@ const EntityRecordForm: Component<EntityRecordFormProps> = (props,) => {
             case 'relation':
                 return (
                     <div class="entity-record-form__ref-row">
-                        <input
-                            type="text"
+                        <CommitInput
                             placeholder="id or slug"
                             value={String(val(key,) ?? '',)}
                             disabled={disabled}
-                            onInput={(e,) => setField(key, e.currentTarget.value || undefined,)}
+                            onCommit={(v,) => setField(key, v || undefined,)}
                         />
                         <Show when={!disabled && field.options?.relationType}>
                             <button
@@ -206,11 +211,10 @@ const EntityRecordForm: Component<EntityRecordFormProps> = (props,) => {
             case 'slug':
             default:
                 return (
-                    <input
-                        type="text"
+                    <CommitInput
                         value={String(val(key,) ?? '',)}
                         disabled={disabled}
-                        onInput={(e,) => setField(key, e.currentTarget.value || undefined,)}
+                        onCommit={(v,) => setField(key, v || undefined,)}
                     />
                 );
         }
@@ -221,21 +225,19 @@ const EntityRecordForm: Component<EntityRecordFormProps> = (props,) => {
             {/* Standard slug / status columns when the type declares them. */}
             <Show when={props.type.hasSlug}>
                 <FormField label="Slug">
-                    <input
-                        type="text"
+                    <CommitInput
                         value={String(val('slug',) ?? '',)}
                         disabled={props.disabled}
-                        onInput={(e,) => setField('slug', e.currentTarget.value || undefined,)}
+                        onCommit={(v,) => setField('slug', v || undefined,)}
                     />
                 </FormField>
             </Show>
             <Show when={props.type.hasStatus}>
                 <FormField label="Status">
-                    <input
-                        type="text"
+                    <CommitInput
                         value={String(val('status',) ?? '',)}
                         disabled={props.disabled}
-                        onInput={(e,) => setField('status', e.currentTarget.value || undefined,)}
+                        onCommit={(v,) => setField('status', v || undefined,)}
                     />
                 </FormField>
             </Show>

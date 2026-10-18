@@ -50,6 +50,16 @@ export interface GallerySyncBody {
     /** With `deleteMedia`: also delete media that is still used elsewhere
      *  (else it is kept and counted in `mediaKept`). */
     forceMedia?: boolean;
+    /**
+     * Concurrency check: the gallery the draft was built from — the newest
+     * `updatedAt` and the item count of the admin list it loaded. When the
+     * gallery changed since (another editor or tab published, edited, added or
+     * removed), the publish is refused with 409 GALLERY_CHANGED unless
+     * `overwrite`. Absent = no check (SDK / MCP callers).
+     */
+    basedOn?: { updatedAt: string | null; count: number; };
+    /** Publish even though the gallery changed since `basedOn` (last writer wins). */
+    overwrite?: boolean;
 }
 export interface GallerySyncResponse {
     items: GalleryItem[];

@@ -13,6 +13,10 @@
  *   - Host controls over the live room WebSocket (`connectLiveRoom`), shown
  *     once the post is saved AND published, and never after the show ended.
  *
+ * State is split into hooks that own their cleanup: `hooks/useMediaDevices`
+ * (camera / mic / meter) and `hooks/useLiveRoomHost` (the room socket, chat,
+ * viewers). The broadcast + recorder stay here — they tie both together.
+ *
  * A recording left open by an earlier page (crash / reload) is offered for
  * finishing or discarding; it is never appended to (a new MediaRecorder writes
  * a new container header) — going live again records "part 2".
@@ -21,10 +25,8 @@ import { A, } from '@solidjs/router';
 import {
     type Component, createEffect, createSignal, For, on, onCleanup, onMount, Show,
 } from 'solid-js';
-import { createStore, reconcile, } from 'solid-js/store';
 import type {
-    LiveChatMessage, LiveChatMode, LiveClientCommand, LivePostSettings, LiveRecording, LiveRecordingMethod,
-    LiveRoomState, LiveServerEvent, LiveStatus, PostsSettingsResponse,
+    LiveChatMode, LivePostSettings, LiveRecording, LiveRecordingMethod, LiveStatus, PostsSettingsResponse,
 } from '@sitesurge/types';
 import { formatDateTime, formatFileSize, } from '@sitesurge/types';
 import { cms, } from '../../../../../services/cmsClient';
@@ -37,18 +39,14 @@ import {
 } from '../../../../../services/liveRecording';
 import ConfirmModal from '../../../common/ConfirmModal';
 import LiveRecordings from './LiveRecordings';
-import LiveChat, { type LiveChatMe, } from '../../../../live/chat/LiveChat';
-import type { MentionCandidate, } from '../../../../live/chat/mentions';
+import LiveChat from '../../../../live/chat/LiveChat';
 import LiveViewers from './LiveViewers';
 import Toggle from '../../../common/Toggle';
 import { FormField, } from '../../../forms';
 import { useToast, } from '../../../../common/toast';
-import {
-    connectLiveRoom, type DistributiveOmit, type LiveRoomStatus as ConnStatus,
-} from '../../../../../services/liveRoom';
 import type { PostTypeEditorProps, } from '../types';
-
-type HostCommand = DistributiveOmit<LiveClientCommand, 'token'>;
+import { useLiveRoomHost, } from './hooks/useLiveRoomHost';
+import { useMediaDevices, } from './hooks/useMediaDevices';
 
 const STATUS_LABEL: Record<LiveStatus, string> = {
     idle: 'Not started',
@@ -103,200 +101,27 @@ const LivePostEditor: Component<PostTypeEditorProps> = (props,) => {
     const patchSettings = (patch: Partial<LivePostSettings>,) =>
         props.onTypeSettingsChange({ ...(props.typeSettings ?? {}), ...patch, },);
 
-    // ─── Camera / microphone preview ───
-    let videoEl: HTMLVideoElement | undefined;
-    const [stream, setStream,] = createSignal<MediaStream | null>(null,);
-    const [cameras, setCameras,] = createSignal<MediaDeviceInfo[]>([],);
-    const [mics, setMics,] = createSignal<MediaDeviceInfo[]>([],);
-    const [cameraId, setCameraId,] = createSignal('',);
-    const [micId, setMicId,] = createSignal('',);
-    const [previewMuted, setPreviewMuted,] = createSignal(true,);
-    const [micLevel, setMicLevel,] = createSignal(0,);
-    const [mediaError, setMediaError,] = createSignal('',);
-    const [starting, setStarting,] = createSignal(false,);
+    // ─── Camera / microphone preview (hooks/useMediaDevices) ───
+    const {
+        attachVideo, stream, cameras, mics, cameraId, micId, previewMuted, micLevel, mediaError, starting,
+        startCamera, stopStream, pickDevice, togglePreviewMute,
+    } = useMediaDevices();
 
-    let audioCtx: AudioContext | null = null;
-    let meterFrame = 0;
-
-    const stopMeter = () => {
-        if (meterFrame) cancelAnimationFrame(meterFrame,);
-        meterFrame = 0;
-        void audioCtx?.close().catch(() => {},);
-        audioCtx = null;
-        setMicLevel(0,);
-    };
-
-    const stopStream = () => {
-        stopMeter();
-        stream()?.getTracks().forEach((t,) => t.stop());
-        setStream(null,);
-        if (videoEl) videoEl.srcObject = null;
-    };
-
-    const startMeter = (s: MediaStream,) => {
-        stopMeter();
-        if (!s.getAudioTracks().length || typeof AudioContext === 'undefined') return;
-        audioCtx = new AudioContext();
-        const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 512;
-        audioCtx.createMediaStreamSource(s,).connect(analyser,);
-        const buf = new Uint8Array(analyser.fftSize,);
-        const tick = () => {
-            analyser.getByteTimeDomainData(buf,);
-            let sum = 0;
-            for (const v of buf) { const x = (v - 128) / 128; sum += x * x; }
-            // RMS → 0..1, boosted so normal speech reads mid-scale.
-            setMicLevel(Math.min(1, Math.sqrt(sum / buf.length,) * 3,),);
-            meterFrame = requestAnimationFrame(tick,);
-        };
-        tick();
-    };
-
-    const refreshDevices = async () => {
-        const all = await navigator.mediaDevices.enumerateDevices();
-        setCameras(all.filter((d,) => d.kind === 'videoinput'),);
-        setMics(all.filter((d,) => d.kind === 'audioinput'),);
-    };
-
-    const startCamera = async () => {
-        if (!navigator.mediaDevices?.getUserMedia) {
-            setMediaError('This browser cannot open a camera (a secure https connection is required).',);
-            return;
-        }
-        setStarting(true,);
-        setMediaError('',);
-        try {
-            const next = await navigator.mediaDevices.getUserMedia({
-                video: cameraId() ? { deviceId: { exact: cameraId(), }, } : true,
-                audio: micId() ? { deviceId: { exact: micId(), }, } : true,
-            },);
-            stopStream();
-            setStream(next,);
-            if (videoEl) {
-                videoEl.srcObject = next;
-                videoEl.muted = previewMuted();
-                void videoEl.play().catch(() => {},);
-            }
-            // Labels are only exposed once permission is granted.
-            await refreshDevices();
-            const v = next.getVideoTracks()[0]?.getSettings().deviceId;
-            const a = next.getAudioTracks()[0]?.getSettings().deviceId;
-            if (v) setCameraId(v,);
-            if (a) setMicId(a,);
-            startMeter(next,);
-        } catch (err) {
-            const name = (err as DOMException)?.name;
-            setMediaError(
-                name === 'NotAllowedError'
-                    ? 'Camera or microphone access was refused. Allow it in the browser\'s site settings.'
-                    : name === 'NotFoundError'
-                        ? 'No camera or microphone was found.'
-                        : `Could not open the camera: ${(err as Error)?.message || name || 'unknown error'}`,
-            );
-        } finally {
-            setStarting(false,);
-        }
-    };
-
-    const pickDevice = (kind: 'camera' | 'mic', id: string,) => {
-        if (kind === 'camera') setCameraId(id,);
-        else setMicId(id,);
-        if (stream()) void startCamera();
-    };
-
-    const togglePreviewMute = () => {
-        const next = !previewMuted();
-        setPreviewMuted(next,);
-        if (videoEl) videoEl.muted = next;
-    };
-
-    const onDeviceChange = () => { if (stream()) void refreshDevices().catch(() => {},); };
-    navigator.mediaDevices?.addEventListener?.('devicechange', onDeviceChange,);
-    onCleanup(() => {
-        navigator.mediaDevices?.removeEventListener?.('devicechange', onDeviceChange,);
-        stopStream();
-    },);
-
-    // ─── Live room (host controls) ───
-    const [room, setRoom,] = createSignal<LiveRoomState | null>(null,);
-    const [conn, setConn,] = createSignal<ConnStatus>('closed',);
-    const [viewers, setViewers,] = createSignal(0,);
-    const [messages, setMessages,] = createStore<LiveChatMessage[]>([],);
-    /** Who the console is connected as (from `welcome`) — the chat posts under this name. */
-    const [chatMe, setChatMe,] = createSignal<LiveChatMe | null>(null,);
-    /** Right-column panel: show settings, or the Viewers list (opened from the header count). */
-    const [panel, setPanel,] = createSignal<'settings' | 'viewers'>('settings',);
-    const [viewerMentions, setViewerMentions,] = createSignal<MentionCandidate[]>([],);
-    const [confirmEnd, setConfirmEnd,] = createSignal(false,);
-    const [endedAt, setEndedAt,] = createSignal<string | null>(null,);
-    let send: ((cmd: HostCommand,) => void) | null = null;
-
-    const ended = () => !!(props.liveEndedAt || endedAt());
-    const canHost = () => !!props.postId && props.status === 'published' && !ended();
-    const roomStatus = (): LiveStatus => (ended() ? 'ended' : room()?.status ?? 'idle');
-
-    const onEvent = (e: LiveServerEvent,) => {
-        switch (e.type) {
-            case 'welcome':
-                setRoom(e.state,);
-                setViewers(e.state.viewers,);
-                setMessages(reconcile(e.history ?? [], { key: 'id', },),);
-                setChatMe({ ...e.you, canModerate: e.you.canModerate ?? e.you.isHost, },);
-                if (!e.you.isHost) toast.error('You are connected as a viewer — host controls need the posts:write permission.',);
-                break;
-            case 'state':
-                setRoom(e.state,);
-                setViewers(e.state.viewers,);
-                break;
-            case 'viewers':
-                setViewers(e.count,);
-                break;
-            case 'chat':
-                setMessages(messages.length, e.message,);
-                break;
-            case 'chat_deleted':
-                setMessages(reconcile(messages.filter((m,) => m.id !== e.id), { key: 'id', },),);
-                break;
-            case 'chat_reactions':
-                setMessages((m,) => m.id === e.id, 'reactions', e.reactions,);
-                break;
-            case 'ended':
-                setRoom(e.state,);
-                setEndedAt(e.state.endedAt ?? new Date().toISOString(),);
-                break;
-            case 'error':
-                toast.error(e.message || `Live room error (${e.code})`,);
-                break;
-            default:
-                break;
-        }
-    };
-
-    createEffect(on(canHost, (ok,) => {
-        if (!ok || !props.postId) return;
-        const handle = connectLiveRoom(props.postId, { onEvent, onStatus: setConn, },);
-        send = handle.send;
-        onCleanup(() => {
-            send = null;
-            handle.close();
-            setConn('closed',);
-        },);
-    },),);
-
-    const command = (cmd: HostCommand,) => {
-        if (!send) { toast.error('Not connected to the live room.',); return; }
-        send(cmd,);
-    };
+    // ─── Live room (host controls — hooks/useLiveRoomHost) ───
+    const {
+        room, conn, viewers, messages, chatMe, panel, setPanel, viewerMentions, setViewerMentions,
+        confirmEnd, setConfirmEnd, endedAt, ended, canHost, roomStatus, command, isConnected,
+    } = useLiveRoomHost({ postId: () => props.postId, status: () => props.status, liveEndedAt: () => props.liveEndedAt, },);
 
     // A settings change while connected applies to the room at once; the
     // stored value is saved with the post as usual.
     const setChatMode = (mode: LiveChatMode,) => {
         patchSettings({ chatMode: mode, },);
-        if (send) command({ type: 'chat_mode', mode, },);
+        if (isConnected()) command({ type: 'chat_mode', mode, },);
     };
     const setReactions = (enabled: boolean,) => {
         patchSettings({ reactionsEnabled: enabled, },);
-        if (send) command({ type: 'reactions', enabled, },);
+        if (isConnected()) command({ type: 'reactions', enabled, },);
     };
 
     // ─── Provider (Posts → Settings → Live Show) ───
@@ -573,7 +398,7 @@ const LivePostEditor: Component<PostTypeEditorProps> = (props,) => {
                 {/* ─── Preview ─── */}
                 <div class="live-console__preview">
                     <div class="live-console__video-wrap">
-                        <video ref={videoEl} class="live-console__video" autoplay playsinline muted />
+                        <video ref={attachVideo} class="live-console__video" autoplay playsinline muted />
                         <Show when={!stream()}>
                             <div class="live-console__video-empty">
                                 <button

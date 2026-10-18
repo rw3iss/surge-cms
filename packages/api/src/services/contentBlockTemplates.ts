@@ -3,7 +3,8 @@
  * Thin wrappers that keep the per-entity-type cache fresh on every mutation.
  * Modeled on the mail-template service pair.
  */
-import type { ContentBlockTemplate, ContentBlockTemplateBlock, } from '@sitesurge/types';
+import type { ContentBlockTemplate, ContentBlockTemplateBlock, TemplateUsage, } from '@sitesurge/types';
+import { query, } from '../db';
 import { normalizeTemplateSlots, } from '@sitesurge/types';
 import * as entityManager from '../entities/entityManager';
 import * as repo from '../repositories/contentBlockTemplates.repo';
@@ -85,8 +86,73 @@ export async function findBlocksResolved(templateId: string,): Promise<ContentBl
     return repo.findBlocksResolved(templateId,);
 }
 
+/** Create with blocks (`id` null) or update meta + blocks — one transaction. */
+export async function saveWithBlocks(
+    id: string | null,
+    input: Partial<repo.CreateInput>,
+    blocks: repo.SaveBlockInput[],
+): Promise<ContentBlockTemplate | null> {
+    const template = await repo.saveWithBlocks(id, withSlots(input,), blocks,);
+    if (template) await invalidate(template.entityTypeKey,);
+    return template;
+}
+
 export async function replaceBlocks(templateId: string, blocks: repo.SaveBlockInput[],): Promise<void> {
     await repo.replaceBlocks(templateId, blocks,);
     const template = await repo.findById(templateId,);
     if (template) await invalidate(template.entityTypeKey,);
+}
+
+/**
+ * Where templates / components are used: every page, post, mail template and
+ * other template whose blocks reference one of `templateIds` — as a component
+ * (`settings.templateId`), an entity block (`settings.entity.templateId`) or a
+ * carousel entity item (`settings.items[].entity.templateId`). Matched on the
+ * id string inside the settings JSON: ids are UUIDs, so every reference shape
+ * is covered without listing them (and a new one cannot be missed).
+ *
+ * Deleting a referenced template silently empties every one of these, so the
+ * admin shows the list and asks for confirmation first.
+ */
+const USAGE_SOURCES: Array<{ kind: TemplateUsage['kind']; table: string; fk: string; settings: string; owner: string; title: string; }> = [
+    { kind: 'page', table: 'blocks', fk: 'page_id', settings: 'settings', owner: 'pages', title: 'title', },
+    { kind: 'post', table: 'post_content_blocks', fk: 'post_id', settings: 'data', owner: 'posts', title: 'title', },
+    { kind: 'mail_template', table: 'mail_template_blocks', fk: 'template_id', settings: 'settings', owner: 'mail_templates', title: 'name', },
+    { kind: 'template', table: 'content_block_template_blocks', fk: 'template_id', settings: 'settings', owner: 'content_block_templates', title: 'name', },
+];
+
+export async function usages(templateIds: string[],): Promise<Map<string, TemplateUsage[]>> {
+    const out = new Map<string, TemplateUsage[]>();
+    const ids = templateIds.filter(Boolean,);
+    if (ids.length === 0) return out;
+    await Promise.all(USAGE_SOURCES.map(async (src,) => {
+        try {
+            const r = await query<{ tid: string; owner_id: string; title: string | null; n: number; }>(
+                `SELECT m.tid, b.${src.fk}::text AS owner_id, e.${src.title} AS title, COUNT(*)::int AS n
+                   FROM ${src.table} b
+                   JOIN ${src.owner} e ON e.id = b.${src.fk}
+                   JOIN unnest($1::text[]) AS m(tid) ON b.${src.settings}::text LIKE '%' || m.tid || '%'
+                  WHERE NOT ($2 AND b.${src.fk}::text = m.tid)
+                  GROUP BY m.tid, b.${src.fk}, e.${src.title}`,
+                [ids, src.kind === 'template',],
+            );
+            for (const row of r.rows) {
+                const list = out.get(row.tid,) ?? [];
+                list.push({ kind: src.kind, id: row.owner_id, title: row.title || '(untitled)', blocks: row.n, },);
+                out.set(row.tid, list,);
+            }
+        } catch {
+            // A table missing on this install (feature not enabled) has no usages.
+        }
+    },),);
+    return out;
+}
+
+/** Attach `usages` + `usageCount` to each template (staff list views). */
+export async function withUsageCounts(templates: ContentBlockTemplate[],): Promise<ContentBlockTemplate[]> {
+    const map = await usages(templates.map((t,) => t.id),);
+    return templates.map((t,) => {
+        const u = map.get(t.id,) ?? [];
+        return { ...t, usages: u, usageCount: u.length, };
+    },);
 }

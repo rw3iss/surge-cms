@@ -1,17 +1,8 @@
 /** Small display formatters shared by the upload tray and the video panels. */
+import { formatSize, } from './mediaUtils';
 
-export function formatBytes(bytes: number | null | undefined,): string {
-    if (bytes === null || bytes === undefined || !Number.isFinite(bytes,)) return '—';
-    if (bytes < 1024) return `${bytes} B`;
-    const units = ['KB', 'MB', 'GB', 'TB',];
-    let v = bytes / 1024;
-    let u = 0;
-    while (v >= 1024 && u < units.length - 1) {
-        v /= 1024;
-        u++;
-    }
-    return `${v.toFixed(v < 10 ? 1 : 0,)} ${units[u]}`;
-}
+/** Same as `mediaUtils.formatSize` (kept as a name for the tray / video panels). */
+export const formatBytes = formatSize;
 
 /** `1:02:03` / `4:05` from milliseconds. */
 export function formatDuration(ms: number | null | undefined,): string {

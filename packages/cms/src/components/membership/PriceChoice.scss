@@ -41,7 +41,7 @@
 
   &__opt.is-selected {
     border-color: var(--site-primary, #e63946);
-    color: var(--site-text, #111);
+    color: var(--site-text, #1f2937);
   }
 
   &__opt:not(.is-selected):hover { border-color: var(--site-text-muted, #6b7280); }

@@ -15,7 +15,7 @@
  * `users.approval_status` mirrors the member's latest application so the
  * Users table can filter "pending approval".
  */
-import { createHmac, timingSafeEqual, } from 'crypto';
+import { createHmac, randomUUID, timingSafeEqual, } from 'crypto';
 import type Stripe from 'stripe';
 import type {
     MembershipApplication, MembershipApplicationAnswer, MembershipApplicationsListQuery, MembershipApplicationStatus,
@@ -28,7 +28,7 @@ import { query, } from '../db';
 import { logger, } from '../utils/logger';
 import { logAudit, } from './audit';
 import type { AuditContext, } from './types';
-import { sendEmail, } from './email';
+import { sendPurposeMail, } from './mail/purposes';
 import * as forms from './forms';
 import { assertTierPrice, pendingApplicationFor, startApprovedMembership, } from './membership';
 import { buildNotification, notifyUser, notifyWith, personLabel, } from './notifications';
@@ -37,7 +37,6 @@ import { getStripeClient, } from './payment/stripe';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-const esc = (s: string,) => s.replace(/[&<>"']/g, (c,) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;', }[c]!),);
 
 function answerText(v: unknown,): string {
     if (v == null) return '';
@@ -200,12 +199,92 @@ async function applicationNotice(
     },);
 }
 
+/** Site base URL for links in emails. */
+function siteUrl(path: string,): string {
+    return `${((config.frontendUrl as string | undefined) ?? '').replace(/\/+$/, '',)}${path}`;
+}
+
+/**
+ * Where an applicant finishes: Profile → Membership, carrying the claim token
+ * for an application submitted signed out. The profile sends a signed-out
+ * visitor through log in / sign up and claims it after (the token is the
+ * credential, so another device or a closed tab no longer loses it).
+ */
+export function claimUrl(applicationId: string, tierId: string, token: string | null,): string {
+    const q = new URLSearchParams({ tab: 'membership', tier: tierId, },);
+    if (token) { q.set('claim', applicationId,); q.set('token', token,); }
+    return siteUrl(`/profile?${q.toString()}`,);
+}
+
+/** What the applicant still has to do, for the "we received it" email (plain text). */
+export function receiptNext(o: { signedIn: boolean; noCard: boolean; },): string {
+    return o.noCard
+        ? (o.signedIn
+            ? 'There is nothing else to do now. We will email you when your application has been reviewed.'
+            : 'Create your account with this email address so we can attach your application. Nothing is charged.')
+        : (o.signedIn
+            ? 'If you have not added your card yet, add it now. You will not be charged unless your application is approved.'
+            : 'Create your account with this email address and add your card. You will not be charged unless your application is approved.');
+}
+
+/**
+ * Team follow-up on an application's lifecycle ("card added — ready to
+ * approve", "withdrawn"), on the same `membership_application` notification
+ * as the first notice, with the same deep link — so reviewers need not poll.
+ */
+function applicationFollowUp(applicationId: string, userId: string, tierName: string, kind: 'card' | 'withdrawn',): void {
+    const title = kind === 'card' ? 'Membership application ready to approve' : 'Membership application withdrawn';
+    void notifyWith('membership_application', async () => {
+        const person = await notifyUser({ userId, },);
+        const who = personLabel(person, 'An applicant',);
+        return buildNotification({
+            title,
+            subject: `${title} — ${who} (${tierName})`,
+            intro: kind === 'card'
+                ? `${who} added their card for ${tierName}. The application can now be approved.`
+                : `${who} withdrew their application for ${tierName}.`,
+            person,
+            personHeading: 'Applicant',
+            sections: [{ heading: 'Application', rows: [{ label: 'Level', value: tierName, },], },],
+            links: [
+                ...(kind === 'card' ? [{ label: 'Review application', url: `/admin/users?application=${applicationId}`, },] : []),
+                { label: 'All pending applications', url: '/admin/users?approval=pending', },
+                ...(person?.adminUrl ? [{ label: 'View member', url: person.adminUrl, },] : []),
+            ],
+        },);
+    }, { subject: `${title}: ${tierName}`, text: `${title}: ${tierName}.`, },);
+}
+
 /** Step 1 — the answers (signed in or not). Emails the team at once. */
 export async function submit(body: MembershipApplySubmitBody, ctx: ApplyContext,): Promise<MembershipApplySubmitResponse> {
     const tier = await loadTier(body.tierId,);
+    // Honeypot: a bot filled the hidden field. Answer as if accepted; store and send nothing.
+    if (body.website) {
+        return {
+            application: { id: randomUUID(), tierId: tier.id, tierName: tier.name, status: 'pending', createdAt: new Date().toISOString(), },
+            token: null,
+        };
+    }
     if (ctx.userId) await assertCanApply(ctx.userId, tier,);
     await assertTierPrice(tier.id, body.priceId,);
     const c = await collectAnswers(tier, body.answers, ctx,);
+    // A signed-out applicant who sends the same level again (a retry, or a
+    // script) gets the SAME application back — no second row, no second
+    // round of emails. At most one pending account-less row per (email, level).
+    if (!ctx.userId && c.email) {
+        const dup = await query<{ id: string; created_at: Date; }>(
+            `SELECT id, created_at FROM membership_applications
+              WHERE user_id IS NULL AND status = 'pending' AND plan_id = $1 AND lower(contact_email) = lower($2)
+              ORDER BY created_at DESC LIMIT 1`,
+            [tier.id, c.email,],
+        );
+        if (dup.rows[0]) {
+            return {
+                application: { id: dup.rows[0].id, tierId: tier.id, tierName: tier.name, status: 'pending', createdAt: new Date(dup.rows[0].created_at,).toISOString(), },
+                token: applicationToken(dup.rows[0].id,),
+            };
+        }
+    }
     const ins = await query<{ id: string; created_at: Date; }>(
         `INSERT INTO membership_applications (user_id, plan_id, form_id, submission_id, answers, contact_email, price_id)
          VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, created_at`,
@@ -216,6 +295,7 @@ export async function submit(body: MembershipApplySubmitBody, ctx: ApplyContext,
     },);
     const id = ins.rows[0].id;
     if (ctx.userId) await setUserApproval(ctx.userId, 'pending',);
+    const token = ctx.userId ? null : applicationToken(id,);
 
     // The tier's own form already emails per its settings; the built-in form uses
     // the "Membership application" notification (Settings → Notifications).
@@ -226,18 +306,56 @@ export async function submit(body: MembershipApplySubmitBody, ctx: ApplyContext,
         },);
     }
     if (c.email) {
-        void sendEmail({
+        const hide = (await query<{ hide_price: boolean; }>(`SELECT hide_price FROM subscription_plans WHERE id = $1`, [tier.id,],)).rows[0]?.hide_price === true;
+        // Operator-editable: Users → Settings → Email templates → "Membership application received".
+        void sendPurposeMail('membership_application_received', {
             to: c.email,
-            subject: `We received your ${tier.name} application`,
-            html: `<p>Thank you for applying for <strong>${esc(tier.name,)}</strong>. Your request has been submitted, and someone from our team will call you soon.</p>`
-                + `<p>If you have not finished yet, create your account and add your card — <strong>you will not be charged unless your application is approved</strong>.</p>`,
+            context: {
+                user: { name: c.answers.find((x,) => /^(full )?name$/i.test(x.label.trim(),),)?.value ?? '', email: c.email, },
+                tier: { name: tier.name, },
+                application: { next: receiptNext({ signedIn: !!ctx.userId, noCard: hide, },), claimUrl: claimUrl(id, tier.id, token,), },
+            },
         },).catch((e: unknown,) => logger.warn('application receipt email failed', { error: (e as Error).message, },),);
     }
     return {
         application: { id, tierId: tier.id, tierName: tier.name, status: 'pending', createdAt: new Date(ins.rows[0].created_at,).toISOString(), },
         // Only an account-less application needs a handle to claim it later.
-        token: ctx.userId ? null : applicationToken(id,),
+        token,
     };
+}
+
+/**
+ * Attach account-less applications to a user whose email is now PROVEN
+ * (verified by the verification link, or by an invite link). Only then: with
+ * an unverified address anyone could sign up as the applicant and take over
+ * their application. One pending row at most (one pending per user), plus
+ * any approved, unstarted offers.
+ */
+export async function claimByVerifiedEmail(userId: string, email: string,): Promise<number> {
+    let n = 0;
+    try {
+        const rows = await query<{ id: string; status: string; }>(
+            `SELECT id, status FROM membership_applications
+              WHERE user_id IS NULL AND lower(contact_email) = lower($1) AND status IN ('pending', 'approved')
+              ORDER BY created_at DESC`,
+            [email,],
+        );
+        let pendingTaken = !!(await pendingApplicationFor(userId,));
+        for (const r of rows.rows) {
+            if (r.status === 'pending') {
+                if (pendingTaken) continue;
+                pendingTaken = true;
+            }
+            const u = await query(`UPDATE membership_applications SET user_id = $2, updated_at = NOW() WHERE id = $1 AND user_id IS NULL`, [r.id, userId,],);
+            if (u.rowCount) {
+                n++;
+                await setUserApproval(userId, r.status as MembershipApplicationStatus,);
+            }
+        }
+    } catch (e) {
+        logger.warn('membership: could not attach applications by email', { userId, error: (e as Error).message, },);
+    }
+    return n;
 }
 
 /** Step 2 — signed in: claim the application (token, when submitted signed out) and save the card. */
@@ -260,6 +378,7 @@ export async function attachCard(userId: string, body: MembershipApplyCardBody,)
         [a.id, userId, card.customer, card.pmId,],
     );
     await setUserApproval(userId, 'pending',);
+    applicationFollowUp(a.id, userId, a.name, 'card',);
     return { application: { id: a.id, tierId: a.plan_id, tierName: a.name, status: 'pending', createdAt: new Date(a.created_at,).toISOString(), }, };
 }
 
@@ -296,7 +415,7 @@ export async function apply(body: MembershipApplyBody, ctx: ApplyContext & { use
 // ─── Admin ───────────────────────────────────────────────────────────────
 
 const SELECT = `
-    SELECT a.*, p.name AS tier_name, p.hide_price AS tier_hide_price, f.title AS form_title,
+    SELECT a.*, p.name AS tier_name, p.hide_price AS tier_hide_price, p.stripe_price_id AS tier_price_id, f.title AS form_title,
            u.email AS user_email, u.display_name AS user_name, u.handle AS user_handle,
            d.display_name AS decided_by_name
       FROM membership_applications a
@@ -321,6 +440,7 @@ function mapApp(r: Record<string, unknown>, card: MembershipApplication['card'] 
         submissionId: (r.submission_id as string | null) ?? null,
         answers: (r.answers as MembershipApplicationAnswer[] | null) ?? [],
         card,
+        offerExpiresAt: r.offer_expires_at ? new Date(r.offer_expires_at as string,).toISOString() : null,
         note: (r.note as string | null) ?? null,
         error: (r.error as string | null) ?? null,
         decidedBy: (r.decided_by_name as string | null) ?? null,
@@ -363,11 +483,27 @@ async function cardOf(pmId: string | null,): Promise<MembershipApplication['card
     }
 }
 
+/** The Stripe price approval will bill (the chosen one, else the level's default). */
+async function priceOf(priceId: string | null,): Promise<MembershipApplication['price']> {
+    const stripe = getStripeClient('default',);
+    if (!stripe || !priceId) return null;
+    try {
+        const p = await stripe.prices.retrieve(priceId,);
+        return { priceId: p.id, amount: p.unit_amount ?? 0, currency: p.currency, interval: p.recurring?.interval ?? 'month', intervalCount: p.recurring?.interval_count ?? 1, };
+    } catch {
+        return null;
+    }
+}
+
 export async function get(id: string,): Promise<MembershipApplication> {
     const r = await query(`${SELECT} WHERE a.id = $1`, [id,],);
     const row = r.rows[0];
     if (!row) throw new NotFoundError('Application',);
-    return mapApp(row, await cardOf((row.payment_method_id as string | null) ?? null,),);
+    const [card, price,] = await Promise.all([
+        cardOf((row.payment_method_id as string | null) ?? null,),
+        priceOf((row.price_id as string | null) ?? (row.tier_price_id as string | null) ?? null,),
+    ],);
+    return { ...mapApp(row, card,), price, };
 }
 
 async function loadPending(id: string,) {
@@ -380,6 +516,30 @@ async function loadPending(id: string,) {
     return a;
 }
 
+/** How long a "hide price" approval (an offer) stays open. */
+export const OFFER_TTL_DAYS = 30;
+
+/**
+ * Claim a pending application for approval: one conditional UPDATE, so only
+ * ONE approval at a time gets past here (two admins / two tabs / a retried
+ * request would otherwise both charge the card). Returns the claim time, or
+ * throws when someone else is approving it right now.
+ */
+async function claimForApproval(id: string,): Promise<Date> {
+    const r = await query<{ approving_at: Date; }>(
+        `UPDATE membership_applications SET approving_at = NOW()
+          WHERE id = $1 AND status = 'pending' AND (approving_at IS NULL OR approving_at < NOW() - INTERVAL '5 minutes')
+          RETURNING approving_at`,
+        [id,],
+    );
+    if (!r.rows[0]) throw new ConflictError('This application is being approved by someone else right now.',);
+    return new Date(r.rows[0].approving_at,);
+}
+
+async function releaseClaim(id: string,): Promise<void> {
+    await query(`UPDATE membership_applications SET approving_at = NULL WHERE id = $1`, [id,],).catch(() => {},);
+}
+
 /**
  * Approve. Normally: start the membership and charge the saved card now.
  * A "hide price" level (no card was taken): approval is an OFFER — the member
@@ -387,32 +547,44 @@ async function loadPending(id: string,) {
  */
 export async function approve(id: string, note: string | undefined, ctx: AuditContext,): Promise<MembershipApplication> {
     const a = await loadPending(id,);
+    const claimedAt = await claimForApproval(id,);
+    try {
+        return await approveClaimed(a, id, note, ctx, claimedAt,);
+    } finally {
+        await releaseClaim(id,);
+    }
+}
+
+async function approveClaimed(a: Awaited<ReturnType<typeof loadPending>>, id: string, note: string | undefined, ctx: AuditContext, claimedAt: Date,): Promise<MembershipApplication> {
     const tier = (await query<{ hide_price: boolean; name: string; }>(`SELECT hide_price, name FROM subscription_plans WHERE id = $1`, [a.plan_id,],)).rows[0];
     if (tier?.hide_price && !a.payment_method_id) {
         await query(
-            `UPDATE membership_applications SET status = 'approved', note = $2, error = NULL, decided_by = $3, decided_at = NOW(), updated_at = NOW() WHERE id = $1`,
-            [id, note?.trim() || null, ctx.userId || null,],
+            `UPDATE membership_applications SET status = 'approved', note = $2, error = NULL, decided_by = $3, decided_at = NOW(), updated_at = NOW(),
+                    offer_expires_at = NOW() + make_interval(days => $4) WHERE id = $1`,
+            [id, note?.trim() || null, ctx.userId || null, OFFER_TTL_DAYS,],
         );
         if (a.user_id) await setUserApproval(a.user_id, 'approved',);
         await logAudit({ userId: ctx.userId, action: 'approve', entityType: 'membership_application', entityId: id, newValues: { tierId: a.plan_id, offer: true, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
         const app = await get(id,);
         if (app.contactEmail) {
-            const url = `${((config.frontendUrl as string | undefined) ?? '').replace(/\/+$/, '',)}/profile?tab=membership&tier=${encodeURIComponent(a.plan_id,)}`;
-            void sendEmail({
+            // An account-less applicant gets a fresh claim link (the token is the credential).
+            const url = claimUrl(id, a.plan_id, a.user_id ? null : applicationToken(id,),);
+            const until = new Date(Date.now() + OFFER_TTL_DAYS * 86400_000,).toLocaleDateString('en-US', { dateStyle: 'long', },);
+            void sendPurposeMail('membership_application_approved', {
                 to: app.contactEmail,
-                subject: `You're approved for ${tier.name}`,
-                html: `<p>Good news — your application for <strong>${esc(tier.name,)}</strong> was approved.</p>`
-                    + (note?.trim() ? `<p>${esc(note.trim(),)}</p>` : '')
-                    + `<p>${a.user_id ? 'Sign in' : 'Create your account (use the link from your application email) and sign in'} to choose your billing and start your membership:</p>`
-                    + `<p><a href="${esc(url,)}" style="background:#111;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">Start my membership</a></p>`
-                    + `<p>Nothing has been charged yet.</p>`,
+                context: {
+                    user: { name: app.user?.displayName ?? '', email: app.contactEmail, },
+                    tier: { name: tier.name, },
+                    application: { claimUrl: url, offer: 'yes', offerExpires: until, },
+                    note: note?.trim() ?? '',
+                },
             },).catch(() => {},);
         }
         return app;
     }
     if (!a.user_id) throw new ValidationError('The applicant has not created their account yet — approve once they have signed up and added a card.',);
     try {
-        await startApprovedMembership(a.user_id!, a.plan_id, a.payment_method_id, a.price_id,);
+        await startApprovedMembership(a.user_id!, a.plan_id, a.payment_method_id, a.price_id, { idempotencyKey: `approve:${id}:${claimedAt.getTime()}`, },);
     } catch (e) {
         const message = (e as Error).message;
         await query(`UPDATE membership_applications SET error = $2, updated_at = NOW() WHERE id = $1`, [id, message,],);
@@ -427,6 +599,23 @@ export async function approve(id: string, note: string | undefined, ctx: AuditCo
     return get(id,);
 }
 
+/**
+ * Withdraw an approved OFFER that the member has not started (hide-price
+ * levels). `reject` refuses it because it is no longer pending.
+ */
+export async function withdrawOffer(id: string, ctx: AuditContext,): Promise<MembershipApplication> {
+    const r = await query<{ user_id: string | null; plan_id: string; }>(
+        `UPDATE membership_applications SET status = 'withdrawn', updated_at = NOW()
+          WHERE id = $1 AND status = 'approved' AND activated_at IS NULL RETURNING user_id, plan_id`,
+        [id,],
+    );
+    const row = r.rows[0];
+    if (!row) throw new ValidationError('Only an approved offer that was not started yet can be withdrawn.',);
+    if (row.user_id) await setUserApproval(row.user_id, null,);
+    await logAudit({ userId: ctx.userId, action: 'withdraw_offer', entityType: 'membership_application', entityId: id, newValues: { tierId: row.plan_id, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
+    return get(id,);
+}
+
 /** Reject: nothing is charged; the member is told. */
 export async function reject(id: string, note: string | undefined, ctx: AuditContext,): Promise<MembershipApplication> {
     const a = await loadPending(id,);
@@ -438,12 +627,9 @@ export async function reject(id: string, note: string | undefined, ctx: AuditCon
     await logAudit({ userId: ctx.userId, action: 'reject', entityType: 'membership_application', entityId: id, newValues: { tierId: a.plan_id, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
     const app = await get(id,);
     if (app.contactEmail) {
-        void sendEmail({
+        void sendPurposeMail('membership_application_rejected', {
             to: app.contactEmail,
-            subject: `Your ${app.tierName} application`,
-            html: `<p>Thank you for applying for <strong>${esc(app.tierName,)}</strong>. We are not able to approve your application at this time.</p>`
-                + (note?.trim() ? `<p>${esc(note.trim(),)}</p>` : '')
-                + `<p>Your card was not charged.</p>`,
+            context: { user: { name: app.user?.displayName ?? '', email: app.contactEmail, }, tier: { name: app.tierName, }, note: note?.trim() ?? '', },
         },).catch(() => {},);
     }
     return app;
@@ -451,8 +637,12 @@ export async function reject(id: string, note: string | undefined, ctx: AuditCon
 
 /** The member withdraws their own pending application. */
 export async function withdraw(userId: string,): Promise<void> {
-    const r = await query<{ id: string; }>(
-        `UPDATE membership_applications SET status = 'withdrawn', updated_at = NOW() WHERE user_id = $1 AND status = 'pending' RETURNING id`, [userId,],
+    const r = await query<{ id: string; plan_id: string; }>(
+        `UPDATE membership_applications SET status = 'withdrawn', updated_at = NOW() WHERE user_id = $1 AND status = 'pending' RETURNING id, plan_id`, [userId,],
     );
-    if (r.rows.length) await setUserApproval(userId, null,);
+    if (r.rows.length) {
+        await setUserApproval(userId, null,);
+        const tierName = (await query<{ name: string; }>(`SELECT name FROM subscription_plans WHERE id = $1`, [r.rows[0].plan_id,],)).rows[0]?.name ?? 'membership';
+        applicationFollowUp(r.rows[0].id, userId, tierName, 'withdrawn',);
+    }
 }

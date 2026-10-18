@@ -15,7 +15,8 @@
  * here, or later from the wall / Profile → Membership.
  */
 import type { FormAnswer, MembershipTierOption, } from '@sitesurge/types';
-import { loadStripe, type Stripe, type StripeCardElement, } from '@stripe/stripe-js';
+import type { Stripe, StripeCardElement, } from '@stripe/stripe-js';
+import { mountStripeCard, payNewSubscription, tokenizeCard, } from '../../utils/stripeCard';
 import { A, useSearchParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
 import Markdown from '../common/Markdown';
@@ -142,17 +143,10 @@ const SubscriptionSignup: Component = () => {
     onCleanup(() => card?.destroy(),);
     const mountCard = async (el: HTMLDivElement,) => {
         try {
-            let key = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
-            const res = await cms.payments.publishableKey('default',).catch(() => null);
-            if (res?.publishableKey) key = res.publishableKey;
-            if (!key) return setError('Payments are not configured yet. Please try again later.',);
-            stripe = await loadStripe(key,);
-            if (!stripe) return setError('Could not load the payment form.',);
             card?.destroy();
-            card = stripe.elements().create('card', { style: { base: { fontSize: '16px', }, }, },);
-            card.mount(el,);
-        } catch {
-            setError('Could not load the payment form.',);
+            ({ stripe, card, } = await mountStripeCard(el,));
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Could not load the payment form.',);
         }
     };
 
@@ -166,12 +160,11 @@ const SubscriptionSignup: Component = () => {
             // here and creates nothing in Stripe (each server call used to leave
             // an "incomplete" subscription behind).
             if (!stripe || !card) throw new Error('Enter your card details.',);
-            const pm = await stripe.createPaymentMethod({ type: 'card', card, },);
-            if (pm.error) throw new Error(pm.error.message || 'Check your card details.',);
+            const m = { stripe, card, };
+            const pm = await tokenizeCard(m,);
             const res = await cms.payments.changeMembership(t.id, altPrice(),);
             if (res.result === 'payment_required' && res.clientSecret && res.subscriptionId) {
-                const r = await stripe.confirmCardPayment(res.clientSecret, { payment_method: pm.paymentMethod.id, },);
-                if (r.error) throw new Error(r.error.message || 'Your card was declined.',);
+                await payNewSubscription(m, res.clientSecret, pm,);
                 const done = await cms.payments.confirmMembership(res.subscriptionId,);
                 if (done.result !== 'changed') throw new Error('Your payment is still processing — check back in a minute from your profile.',);
             } else if (res.result !== 'changed' && res.result !== 'unchanged') {

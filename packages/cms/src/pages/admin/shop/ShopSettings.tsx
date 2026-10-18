@@ -2,7 +2,7 @@ import { A, } from '@solidjs/router';
 import { Component, createSignal, For, Show, } from 'solid-js';
 import LoadingState from '../../../components/admin/common/LoadingState';
 import { createSafeResource, } from '../../../hooks/createSafeResource';
-import { createStore, } from 'solid-js/store';
+import { createStore, unwrap, } from 'solid-js/store';
 import type { ShopAppearance, ShopSettings as ShopSettingsModel, } from '@sitesurge/types';
 import { FormField, } from '../../../components/admin/forms';
 import Toggle from '../../../components/admin/common/Toggle';
@@ -105,24 +105,19 @@ const ShopSettingsInner: Component = () => {
                     : undefined,
                 rates: settings.shipping?.rates,
             };
+            // Send EVERY setting the form holds (the server's schema whitelists
+            // keys), rather than hand-listing them: the hand-written list kept
+            // dropping new settings until someone noticed they never stuck.
+            // Only the fields that need a transform are built explicitly.
+            const { shipping: _shipping, tracking: _tracking, ...rest } = unwrap(settings,);
+            const base = Object.fromEntries(
+                Object.entries(rest,).filter(([, v,],) => v !== null && v !== undefined),
+            );
             await cms.shop.settings.update({
                 settings: {
-                    currency: settings.currency,
-                    taxEnabled: settings.taxEnabled,
-                    businessName: settings.businessName,
-                    businessAddress: settings.businessAddress,
-                    storeEnabled: settings.storeEnabled,
+                    ...base,
                     newMerchandiseListId: settings.newMerchandiseListId || null,
-                    showMerchandiseSignup: settings.showMerchandiseSignup,
-                    merchandiseSignupAddContact: settings.merchandiseSignupAddContact,
-                    stripeTaxEnabled: settings.stripeTaxEnabled,
                     shipping,
-                    // These four live on the Appearance / General tabs and were
-                    // missing from the save, so changing them never stuck.
-                    storefrontMode: settings.storefrontMode,
-                    cartDisplay: settings.cartDisplay,
-                    orderEmailDisplay: settings.orderEmailDisplay,
-                    adminNotificationDisplay: settings.adminNotificationDisplay,
                     ...(settings.tracking
                         ? {
                             tracking: {
@@ -134,7 +129,7 @@ const ShopSettingsInner: Component = () => {
                             },
                         }
                         : {}),
-                },
+                } as never,
                 appearance: { ...appearance, },
             },);
             // Written alongside the shop settings so one Save covers every tab —

@@ -8,20 +8,30 @@
  */
 import type {
     Block,
+    ContentBlockTemplate,
     ContentBlockTemplateBlock,
     EntityBinding,
     EntityRecord,
+    TemplateSlot,
 } from '@sitesurge/types';
+import { bindingQueryLimit, buildBlockTree, rendersOnce, templateRenderGroups, } from '@sitesurge/types';
 import { cms, } from './cmsClient';
 
 /** Template-context bag shape (mirrors RuntimeOptions['entities']). */
 export type TplEntities = Record<string, { kind: string; data: Record<string, unknown> | null; id?: string; } | null>;
 
-/** Singular/plural template variable names for an entity type (heuristic —
- *  matches the default var names, so no staff-only registry fetch is needed on
- *  the public site). */
-export function entityVars(entityType: string,): { singular: string; plural: string; } {
-    return { singular: entityType, plural: `${entityType}s`, };
+export interface EntityVars { singular: string; plural: string; }
+
+/**
+ * Singular/plural template variable names for an entity type. The template
+ * read carries the type's real `singularVar` / `pluralVar` (pass it as `tpl`);
+ * without one this falls back to the default names (`type` / `types`).
+ */
+export function entityVars(
+    entityType: string,
+    tpl?: Pick<ContentBlockTemplate, 'singularVar' | 'pluralVar'> | null,
+): EntityVars {
+    return { singular: tpl?.singularVar || entityType, plural: tpl?.pluralVar || `${entityType}s`, };
 }
 
 /**
@@ -51,15 +61,39 @@ async function getOne(entityType: string, ref: string,): Promise<EntityRecord | 
     }
 }
 
+/** Query limit for a binding — the shared rule (`@sitesurge/types`), same as email. */
+export { bindingQueryLimit, } from '@sitesurge/types';
+
+/**
+ * Records for `refs`, in `refs` order, with ONE list request (`id in refs`)
+ * instead of one request per record. A ref the list did not return (a slug, or
+ * a type whose data provider ignores the id filter) falls back to a single read.
+ */
+export async function fetchRecordsByRefs(entityType: string, refs: string[],): Promise<EntityRecord[]> {
+    if (refs.length === 0) return [];
+    const byId = new Map<string, EntityRecord>();
+    try {
+        const res = await cms.entities.list(entityType, {
+            filter: { id: { op: 'in', value: refs, }, },
+            limit: Math.min(200, refs.length,),
+        } as never, LIVE,);
+        for (const r of (res.data ?? []) as EntityRecord[]) byId.set(String(r.id,), r,);
+    } catch { /* fall back to single reads below */ }
+    const out = await Promise.all(refs.map(async (ref,) => byId.get(ref,) ?? await getOne(entityType, ref,)),);
+    return out.filter((r,): r is EntityRecord => r !== null);
+}
+
 /**
  * Resolve the records a binding points at (already capped at `maxRecords`).
- * `ctx` supplies the current route entity for `context` binding.
+ * `ctx` supplies the current route entity for `context` binding; `vars` the
+ * type's variable names (the context entity is looked up under them).
  */
 export async function resolveRecords(
     entityType: string,
     binding: EntityBinding,
     maxRecords: number | null | undefined,
     ctx: TplEntities | undefined,
+    vars: EntityVars = entityVars(entityType,),
 ): Promise<EntityRecord[]> {
     const cap = (arr: EntityRecord[],) => (maxRecords && maxRecords > 0 ? arr.slice(0, maxRecords,) : arr);
     try {
@@ -68,8 +102,7 @@ export async function resolveRecords(
             case 'none':
                 return [{} as EntityRecord,];
             case 'context': {
-                const { singular, } = entityVars(entityType,);
-                const wrapped = ctx?.[singular] ?? ctx?.[entityType];
+                const wrapped = ctx?.[vars.singular] ?? ctx?.[entityType];
                 if (wrapped?.data) return [wrapped.data as EntityRecord,];
                 // No current-page entity — a mail template, a standalone
                 // template preview, a generic page. Render the template ONCE
@@ -85,13 +118,15 @@ export async function resolveRecords(
                 return rec ? [rec,] : [];
             }
             case 'list': {
-                const recs = await Promise.all((binding.refs ?? []).map((r,) => getOne(entityType, r,)),);
-                return cap(recs.filter((r,): r is EntityRecord => r !== null),);
+                // Cap BEFORE fetching — a 20-record pick capped at 4 fetches 4.
+                const refs = (binding.refs ?? []).filter(Boolean,);
+                return await fetchRecordsByRefs(entityType, maxRecords && maxRecords > 0 ? refs.slice(0, maxRecords,) : refs,);
             }
             case 'query': {
                 const res = await cms.entities.list(entityType, {
                     ...binding.query,
-                    limit: maxRecords || binding.query?.limit || 20,
+                    // The query's own limit wins when it is lower than the template's cap.
+                    limit: bindingQueryLimit(maxRecords, binding.query?.limit,),
                 } as never, LIVE,);
                 return cap((res.data ?? []) as EntityRecord[],);
             }
@@ -101,6 +136,51 @@ export async function resolveRecords(
     } catch {
         return [];
     }
+}
+
+/** A template resolved for one binding: everything a renderer needs. */
+export interface ResolvedEntityTemplate {
+    /** False when the template does not exist (deleted?) or failed to load. */
+    found: boolean;
+    templateId: string;
+    entityType: string;
+    roots: Block[];
+    /** One entry per render: `[record]` each, or `[all]` for a `once` list template. */
+    groups: EntityRecord[][];
+    once: boolean;
+    tplSlots: TemplateSlot[];
+    vars: EntityVars;
+}
+
+/**
+ * THE one "render an entity template for a binding" resolver — used by the
+ * `entity` block and by carousel entity items, so the two cannot drift (they
+ * had: different limits, different variable names, frozen vs live slots).
+ * Never throws.
+ */
+export async function resolveEntityTemplate(
+    cfg: { entityType: string; templateId: string; binding?: EntityBinding | null; },
+    ctx: TplEntities | undefined,
+): Promise<ResolvedEntityTemplate> {
+    const empty: ResolvedEntityTemplate = {
+        found: false, templateId: cfg.templateId, entityType: cfg.entityType, roots: [], groups: [], once: false,
+        tplSlots: [], vars: entityVars(cfg.entityType,),
+    };
+    const tpl = await cms.contentBlockTemplates.getOne(cfg.entityType, cfg.templateId,).catch(() => null);
+    if (!tpl) return empty;
+    const vars = entityVars(cfg.entityType, tpl,);
+    const recs = await resolveRecords(cfg.entityType, cfg.binding ?? { mode: 'context', }, tpl.maxRecords, ctx, vars,);
+    const meta = tpl as ContentBlockTemplate;
+    return {
+        found: true,
+        templateId: cfg.templateId,
+        entityType: cfg.entityType,
+        roots: buildBlockTree(mapTemplateBlocks(tpl.blocks ?? [],),),
+        groups: templateRenderGroups(recs, meta,),
+        once: rendersOnce(meta,),
+        tplSlots: tpl.slots ?? [],
+        vars,
+    };
 }
 
 /** Map a content-block template's flat blocks into the `Block` shape the

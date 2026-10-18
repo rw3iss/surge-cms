@@ -7,6 +7,7 @@ import ModalShell from '../common/ModalShell';
 import { FormField, } from '../forms';
 import { confirmMediaDelete, fetchMediaUsage, isMediaInUseError, } from '../../../stores/mediaDeleteConfirm';
 import MediaUsageList from './MediaUsageList';
+import { formatSize, getTypeLabel, } from './mediaUtils';
 import VideoStatusPanel from './VideoStatusPanel';
 import './MediaEditModal.scss';
 import './VideoMedia.scss';
@@ -21,6 +22,7 @@ export interface MediaEditItem {
     thumbnailUrl?: string;
     title?: string;
     caption?: string;
+    alt?: string | null;
     credits?: string | null;
     width?: number;
     height?: number;
@@ -36,27 +38,15 @@ interface MediaEditModalProps {
     onDeleted: (id: string,) => void;
 }
 
-function formatSize(bytes: number,): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1,)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1,)} MB`;
-}
-
-function getTypeLabel(mimeType: string,): string {
-    if (mimeType?.startsWith('image/',)) return 'Image';
-    if (mimeType?.startsWith('video/',)) return 'Video';
-    if (mimeType?.startsWith('audio/',)) return 'Audio';
-    return 'Document';
-}
-
 export default function MediaEditModal(props: MediaEditModalProps,) {
     const [title, setTitle,] = createSignal(props.media.title || '',);
     const [description, setDescription,] = createSignal(props.media.caption || '',);
     const [credits, setCredits,] = createSignal(props.media.credits || '',);
+    const [alt, setAlt,] = createSignal(props.media.alt || '',);
     const [saving, setSaving,] = createSignal(false,);
     const [deleting, setDeleting,] = createSignal(false,);
     const [error, setError,] = createSignal('',);
-    const [copied, setCopied,] = createSignal(false,);
+    const [copied, setCopied,] = createSignal<false | 'url' | 'watch'>(false,);
     /**
      * The values the fields were filled from. Save sends only what differs, so
      * an untouched field can never overwrite a newer value — the grid's list is
@@ -67,6 +57,7 @@ export default function MediaEditModal(props: MediaEditModalProps,) {
         title: props.media.title || '',
         caption: props.media.caption || '',
         credits: props.media.credits || '',
+        alt: props.media.alt || '',
     },);
 
     /** Encoded-video summary — from the grid row, refreshed from the server. */
@@ -84,11 +75,12 @@ export default function MediaEditModal(props: MediaEditModalProps,) {
             const fresh = await cms.media.getById(props.media.id, { cache: false, },) as any;
             if (!fresh) return;
             if (fresh.video !== undefined) setVideoSummary(fresh.video ?? null,);
-            const next = { title: fresh.title || '', caption: fresh.caption || '', credits: fresh.credits || '', };
+            const next = { title: fresh.title || '', caption: fresh.caption || '', credits: fresh.credits || '', alt: fresh.alt || '', };
             // Only replace fields the user hasn't started editing.
             if (title() === orig().title) setTitle(next.title,);
             if (description() === orig().caption) setDescription(next.caption,);
             if (credits() === orig().credits) setCredits(next.credits,);
+            if (alt() === orig().alt) setAlt(next.alt,);
             setOrig(next,);
         } catch { /* keep the grid's values */ }
     },);
@@ -113,6 +105,7 @@ export default function MediaEditModal(props: MediaEditModalProps,) {
             if (title() !== orig().title) patch.title = title();
             if (description() !== orig().caption) patch.caption = description();
             if (credits() !== orig().credits) patch.credits = credits();
+            if (alt() !== orig().alt) patch.alt = alt();
             if (Object.keys(patch,).length === 0) {
                 props.onClose();
                 return;
@@ -141,15 +134,19 @@ export default function MediaEditModal(props: MediaEditModalProps,) {
         }
     };
 
-    const handleCopyUrl = () => {
+    /** Which copy button last succeeded ('url' | 'watch'), for its "Copied" label. */
+    const copy = (text: string, which: 'url' | 'watch',) => {
         void navigator.clipboard
-            .writeText(props.media.url,)
+            .writeText(text,)
             .then(() => {
-                setCopied(true,);
+                setCopied(which,);
                 setTimeout(() => setCopied(false,), 1500,);
             },)
             .catch(() => setError('Copy failed — select and copy the URL manually',),);
     };
+    const handleCopyUrl = () => copy(props.media.url, 'url',);
+    /** The public player page for a video (teaser + subscribe for non-members). */
+    const watchUrl = () => `${window.location.origin}/watch/${props.media.id}`;
 
     return (
         <ModalShell
@@ -206,8 +203,18 @@ export default function MediaEditModal(props: MediaEditModalProps,) {
                 <div class="media-edit-modal__url">
                     <code>{props.media.url}</code>
                     <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={handleCopyUrl}>
-                        {copied() ? 'Copied' : 'Copy'}
+                        {copied() === 'url' ? 'Copied' : 'Copy'}
                     </button>
+                    <Show when={isEncoded()}>
+                        <button
+                            type="button"
+                            class="ui-button ui-button--secondary ui-button--sm"
+                            title={watchUrl()}
+                            onClick={() => copy(watchUrl(), 'watch',)}
+                        >
+                            {copied() === 'watch' ? 'Copied' : 'Copy watch link'}
+                        </button>
+                    </Show>
                 </div>
 
                 <Show when={isEncoded()}>
@@ -234,6 +241,21 @@ export default function MediaEditModal(props: MediaEditModalProps,) {
                             disabled={busy()}
                         />
                     </FormField>
+                    <Show when={isImage() || isVideo()}>
+                        <FormField
+                            label="Alt text"
+                            hint="Describe the image for screen readers; leave empty for decorative images."
+                        >
+                            <input
+                                type="text"
+                                value={alt()}
+                                onInput={(e,) => setAlt(e.currentTarget.value,)}
+                                placeholder="e.g. A volunteer handing out food at the shelter"
+                                maxLength={1000}
+                                disabled={busy()}
+                            />
+                        </FormField>
+                    </Show>
                     <FormField label="Description">
                         <textarea
                             rows={3}

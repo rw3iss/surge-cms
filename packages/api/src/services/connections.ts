@@ -18,7 +18,6 @@ import { cache, } from './cache';
 import { getOAuthProvider, isOAuthProvider, } from './oauth';
 import { GOOGLE_REVOKE_URL, } from './oauth/google';
 import * as youtube from './social/youtube';
-import { registerProviderCron, unregisterProviderCron, } from './socialCrons';
 import { logger, } from '../utils/logger';
 import { mapRow, mapRows, } from '../utils/mapRow';
 import { uuidOrNull, } from '../utils/uuid';
@@ -306,7 +305,8 @@ export async function disconnect(provider: string,): Promise<void> {
         throw new NotFoundError('Connection',);
     }
 
-    unregisterProviderCron(provider,);
+    // Provider crons are registered once on the primary and skip a provider
+    // that is no longer connected (socialCrons.ts) — nothing to unregister.
     await cache.invalidateSocialCache();
 
     logger.info(`Social connection disconnected: ${provider}`,);
@@ -592,8 +592,8 @@ export async function completeOAuth(
         ],
     );
 
-    // Register and start the token refresh cron
-    registerProviderCron(provider,);
+    // The token-refresh cron is always registered (primary only) and picks
+    // this connection up on its next run (socialCrons.ts).
 
     await cache.invalidateSocialCache();
 

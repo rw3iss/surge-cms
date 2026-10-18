@@ -1,4 +1,11 @@
-import { Component, createSignal, For, onMount, Show, } from 'solid-js';
+/**
+ * Settings → Site Header editor.
+ *
+ * Text fields commit on `change` (blur / Enter), never per keystroke — the
+ * admin "commit on blur" rule — and the dropdown children render through
+ * `<Index>` so an edit never remounts the row being typed in.
+ */
+import { Component, createSignal, For, Index, onMount, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import { colorCssValue, } from '../../../services/colorResolver';
 import { fontStack, } from '../../../utils/appearanceStyle';
@@ -769,7 +776,7 @@ const SiteHeaderEditor: Component = () => {
                                 type="text"
                                 class="site-header-editor__input--sm"
                                 value={textSize()}
-                                onInput={(e,) => {
+                                onChange={(e,) => {
                                     setTextSize(e.currentTarget.value,);
                                     markDirty();
                                 }}
@@ -798,7 +805,7 @@ const SiteHeaderEditor: Component = () => {
                                 type="text"
                                 class="site-header-editor__input--sm"
                                 value={headerPadding()}
-                                onInput={(e,) => {
+                                onChange={(e,) => {
                                     setHeaderPadding(e.currentTarget.value,);
                                     markDirty();
                                 }}
@@ -820,7 +827,7 @@ const SiteHeaderEditor: Component = () => {
                                 type="text"
                                 class="site-header-editor__input--sm"
                                 value={headerMargin()}
-                                onInput={(e,) => {
+                                onChange={(e,) => {
                                     setHeaderMargin(e.currentTarget.value,);
                                     markDirty();
                                 }}
@@ -842,7 +849,7 @@ const SiteHeaderEditor: Component = () => {
                                 type="text"
                                 class="site-header-editor__input--sm"
                                 value={itemSpacing()}
-                                onInput={(e,) => {
+                                onChange={(e,) => {
                                     setItemSpacing(e.currentTarget.value,);
                                     markDirty();
                                 }}
@@ -1179,7 +1186,7 @@ const SiteHeaderEditor: Component = () => {
                                             type="text"
                                             class="site-header-edit-panel__input"
                                             value={item().text || ''}
-                                            onInput={(e,) => updateEditField('text', e.currentTarget.value,)}
+                                            onChange={(e,) => updateEditField('text', e.currentTarget.value,)}
                                             placeholder="Link text"
                                         />
                                     </div>
@@ -1193,7 +1200,7 @@ const SiteHeaderEditor: Component = () => {
                                             type="text"
                                             class="site-header-edit-panel__input"
                                             value={item().url || ''}
-                                            onInput={(e,) => updateEditField('url', e.currentTarget.value,)}
+                                            onChange={(e,) => updateEditField('url', e.currentTarget.value,)}
                                             placeholder="/"
                                         />
                                     </div>
@@ -1214,26 +1221,30 @@ const SiteHeaderEditor: Component = () => {
                                             <Tooltip content="Links shown in a dropdown under this menu. The menu's own URL stays clickable." />
                                         </label>
                                         <div class="site-header-submenu">
-                                            <For each={item().children ?? []}>
-                                                {(child, idx,) => (
+                                            {/* <Index>: rows keyed by POSITION, so rebuilding the children array on
+                                                an edit does not remount the row being typed in. */}
+                                            <Index each={item().children ?? []}>
+                                                {(child, i,) => {
+                                                    const idx = () => i;
+                                                    return (
                                                     <div class="site-header-submenu__row">
                                                         <input
                                                             type="text"
                                                             class="site-header-edit-panel__input"
-                                                            value={child.text || ''}
-                                                            onInput={(e,) => updateChild(idx(), { text: e.currentTarget.value, },)}
+                                                            value={child().text || ''}
+                                                            onChange={(e,) => updateChild(idx(), { text: e.currentTarget.value, },)}
                                                             placeholder="Label"
                                                         />
                                                         <input
                                                             type="text"
                                                             class="site-header-edit-panel__input"
-                                                            value={child.url || ''}
-                                                            onInput={(e,) => updateChild(idx(), { url: e.currentTarget.value, },)}
+                                                            value={child().url || ''}
+                                                            onChange={(e,) => updateChild(idx(), { url: e.currentTarget.value, },)}
                                                             placeholder="/path"
                                                         />
                                                         <div class="site-header-submenu__newtab" title="Open in new tab">
                                                             <Toggle
-                                                                checked={child.openInNewTab || false}
+                                                                checked={child().openInNewTab || false}
                                                                 onChange={(next,) => updateChild(idx(), { openInNewTab: next, },)}
                                                                 label="New tab"
                                                             />
@@ -1264,8 +1275,9 @@ const SiteHeaderEditor: Component = () => {
                                                             </button>
                                                         </div>
                                                     </div>
-                                                )}
-                                            </For>
+                                                    );
+                                                }}
+                                            </Index>
                                             <button class="ui-button ui-button--secondary ui-button--sm" onClick={addChild}>
                                                 + Add sub-item
                                             </button>
@@ -1310,7 +1322,7 @@ const SiteHeaderEditor: Component = () => {
                                             type="text"
                                             class="site-header-edit-panel__input site-header-edit-panel__input--short"
                                             value={item().width || '20px'}
-                                            onInput={(e,) => updateEditField('width', e.currentTarget.value,)}
+                                            onChange={(e,) => updateEditField('width', e.currentTarget.value,)}
                                             placeholder="20px"
                                         />
                                     </div>
@@ -1324,7 +1336,7 @@ const SiteHeaderEditor: Component = () => {
                                             type="text"
                                             class="site-header-edit-panel__input site-header-edit-panel__input--short"
                                             value={item().width || ''}
-                                            onInput={(e,) => updateEditField('width', e.currentTarget.value,)}
+                                            onChange={(e,) => updateEditField('width', e.currentTarget.value,)}
                                             placeholder="e.g. 200px or leave empty"
                                         />
                                     </div>
@@ -1355,7 +1367,7 @@ const SiteHeaderEditor: Component = () => {
                                                         type="text"
                                                         class="site-header-edit-panel__input site-header-edit-panel__input--short"
                                                         value={item().fontSize || ''}
-                                                        onInput={(e,) =>
+                                                        onChange={(e,) =>
                                                             updateEditField('fontSize', e.currentTarget.value || undefined,)}
                                                         placeholder="Default (e.g. 16px, 1.1rem, clamp(...))"
                                                     />
@@ -1450,7 +1462,7 @@ const SiteHeaderEditor: Component = () => {
                                                             type="text"
                                                             class="site-header-edit-panel__input site-header-edit-panel__input--short"
                                                             value={item().width || ''}
-                                                            onInput={(e,) =>
+                                                            onChange={(e,) =>
                                                                 updateEditField('width', e.currentTarget.value,)}
                                                             placeholder="e.g. 120px"
                                                         />
@@ -1505,7 +1517,7 @@ const SiteHeaderEditor: Component = () => {
                                                     type="text"
                                                     class="site-header-edit-panel__input site-header-edit-panel__input--short"
                                                     value={item().minWidth || ''}
-                                                    onInput={(e,) =>
+                                                    onChange={(e,) =>
                                                         updateEditField('minWidth', e.currentTarget.value || undefined,)}
                                                     placeholder="e.g. 120px"
                                                 />
@@ -1530,7 +1542,7 @@ const SiteHeaderEditor: Component = () => {
                                                         type="text"
                                                         class="site-header-edit-panel__input site-header-edit-panel__input--short"
                                                         value={item().margin || ''}
-                                                        onInput={(e,) =>
+                                                        onChange={(e,) =>
                                                             updateEditField('margin', e.currentTarget.value,)}
                                                         placeholder="e.g. 5px 10px"
                                                     />
@@ -1583,7 +1595,7 @@ const SiteHeaderEditor: Component = () => {
                                                         type="text"
                                                         class="site-header-edit-panel__input site-header-edit-panel__input--short"
                                                         value={item().padding || ''}
-                                                        onInput={(e,) =>
+                                                        onChange={(e,) =>
                                                             updateEditField('padding', e.currentTarget.value,)}
                                                         placeholder="e.g. 5px 10px"
                                                     />

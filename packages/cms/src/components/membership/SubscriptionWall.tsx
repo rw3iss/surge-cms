@@ -12,14 +12,7 @@ import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
 import './SubscriptionWall.scss';
 
-/** Routes a restricted member may always use. */
-const ALWAYS_OPEN = ['/subscribe', '/profile', '/login', '/join', '/verify', '/invite/', '/forgot-password', '/reset-password', '/u/', '/lists/',];
-
-export function isOpenPath(path: string, openPaths: string[],): boolean {
-    const p = path.replace(/\/+$/, '',) || '/';
-    if (openPaths.includes(p,)) return true;
-    return ALWAYS_OPEN.some((o,) => (o.endsWith('/',) ? p.startsWith(o,) : p === o || p.startsWith(`${o}/`,)));
-}
+export { isOpenPath, } from '../../utils/membershipAccess';
 
 const SubscriptionWall: Component<{ access: MemberAccessState; }> = (props,) => {
     const auth = useAuth();
@@ -56,13 +49,17 @@ const SubscriptionWall: Component<{ access: MemberAccessState; }> = (props,) => 
                         and email you.{' '}
                         {props.access.pendingApplication?.noCard
                             ? 'Once you are approved, you will choose your billing and start your membership — nothing is charged before then.'
-                            : 'Your card is saved but will not be charged unless your application is approved.'}
+                            : props.access.pendingApplication?.hasCard
+                            ? 'Your card is saved but will not be charged unless your application is approved.'
+                            : 'Add your card to finish your application — it is not charged unless your application is approved.'}
                     </p>
                     <div class="subscription-wall__actions">
                         <button type="button" class="btn btn--primary" disabled={checking()} onClick={recheck}>
                             {checking() ? 'Checking…' : 'Check again'}
                         </button>
-                        <A href="/profile?tab=membership" class="btn btn--outline">View my application</A>
+                        <A href="/profile?tab=membership" class="btn btn--outline">
+                            {!props.access.pendingApplication?.noCard && !props.access.pendingApplication?.hasCard ? 'Add my card' : 'View my application'}
+                        </A>
                     </div>
                 </Show>
                 <Show

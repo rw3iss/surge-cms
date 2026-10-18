@@ -3,6 +3,9 @@ import { Component, createEffect, For, Show, } from 'solid-js';
 import EmptyState from '../../../components/admin/common/EmptyState';
 import LoadingState from '../../../components/admin/common/LoadingState';
 import type { ShopOrder, } from '@sitesurge/types';
+import { SHOP_ORDER_STATUSES, } from '@sitesurge/types';
+import ExportMenu from '../../../components/admin/common/ExportMenu';
+import Toggle from '../../../components/ui/Toggle';
 import Pagination from '../../../components/admin/common/Pagination';
 import { usePaginatedList, } from '../../../hooks/usePaginatedList';
 import { useSearchFilter, } from '../../../hooks/useSearchFilter';
@@ -17,16 +20,28 @@ import AdminTitle from '../../../components/admin/common/AdminTitle';
 import OrderTracking, { orderShipmentsOf, } from '../../../components/shop/OrderTracking';
 
 const ShopOrdersInner: Component = () => {
-    const { searchParams, setSearchParams, } = useSearchFilter();
+    const { searchInput, handleSearchInput, searchParams, setSearchParams, } = useSearchFilter();
+
+    // `?attention=1` is where the "needs attention" alert links: the same rule
+    // as its count (services/shop/attention.ts), so the numbers match.
+    const attention = () => searchParams.attention === '1' || searchParams.attention === 'true';
+    const filters = () => ({
+        status: searchParams.status || undefined,
+        search: searchParams.search || undefined,
+        attention: attention() || undefined,
+        from: searchParams.from || undefined,
+        // `to` is a date: include the whole day.
+        to: searchParams.to ? new Date(new Date(`${searchParams.to}T00:00:00`,).getTime() + 86_400_000,).toISOString() : undefined,
+    });
 
     const list = usePaginatedList<ShopOrder>({
-        fetch: (p,) => cms.shop.orders.list(p,),
+        fetch: (p,) => cms.shop.orders.list(p as never,),
         initialLimit: 20,
-        params: () => ({ status: searchParams.status, }),
+        params: filters,
     },);
 
     createEffect(() => {
-        searchParams.status;
+        filters();
         list.resetPage();
     },);
 
@@ -38,20 +53,49 @@ const ShopOrdersInner: Component = () => {
                 <h1>Orders</h1>
             </div>
             <div class="admin-filter-bar">
+                {/* Search-as-you-type (debounced) — the documented exception to commit-on-blur. */}
+                <input
+                    class="admin-filter-bar__search"
+                    type="text"
+                    placeholder="Order number, email or name…"
+                    value={searchInput()}
+                    onInput={(e,) => handleSearchInput(e.currentTarget.value,)}
+                />
                 <select
                     class="admin-filter-bar__select"
                     value={searchParams.status || ''}
                     onChange={(e,) => setSearchParams({ status: e.currentTarget.value || undefined, },)}
                 >
                     <option value="">All statuses</option>
-                    <option value="pending">Pending</option>
-                    <option value="paid">Paid</option>
-                    <option value="processing">Processing</option>
-                    <option value="shipped">Shipped</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="cancelled">Cancelled</option>
-                    <option value="refunded">Refunded</option>
+                    <For each={SHOP_ORDER_STATUSES}>
+                        {(st,) => <option value={st}>{st.charAt(0,).toUpperCase() + st.slice(1,)}</option>}
+                    </For>
                 </select>
+                <input
+                    class="admin-filter-bar__select"
+                    type="date"
+                    aria-label="Placed from"
+                    title="Placed from"
+                    value={searchParams.from || ''}
+                    onChange={(e,) => setSearchParams({ from: e.currentTarget.value || undefined, },)}
+                />
+                <input
+                    class="admin-filter-bar__select"
+                    type="date"
+                    aria-label="Placed to"
+                    title="Placed to"
+                    value={searchParams.to || ''}
+                    onChange={(e,) => setSearchParams({ to: e.currentTarget.value || undefined, },)}
+                />
+                <Toggle
+                    checked={attention()}
+                    onChange={(on,) => setSearchParams({ attention: on ? '1' : undefined, },)}
+                    label="Needs attention"
+                />
+                <ExportMenu
+                    url={(format, query,) => cms.shop.orders.exportUrl(format, query,)}
+                    query={() => filters()}
+                />
             </div>
             <Show when={!list.loading()} fallback={<LoadingState />}>
                 <Show

@@ -28,33 +28,11 @@ import {
 import { formatHtml, } from '../../../utils/codeFormat';
 import { templatePreviewContext, } from '../../../stores/templatePreviewContext';
 import TemplatedContent from '../../blocks/TemplatedContent';
+import { readStoredHeight, writeStoredHeight, } from './blockHeights';
 
-const STORAGE_KEY = 'sitesurge.editor.blockHeights';
 const DEFAULT_HEIGHT = 200;
 const MIN_HEIGHT = 80;
 
-function readStoredHeight(blockId: string,): number | null {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY,);
-        if (!raw) return null;
-        const obj = JSON.parse(raw,) as Record<string, number>;
-        const v = obj[blockId];
-        return typeof v === 'number' ? v : null;
-    } catch {
-        return null;
-    }
-}
-
-function writeStoredHeight(blockId: string, height: number,) {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY,);
-        const obj = raw ? (JSON.parse(raw,) as Record<string, number>) : {};
-        obj[blockId] = height;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(obj,),);
-    } catch {
-        // ignore quota / parse errors — height is a UI affordance, not data.
-    }
-}
 
 interface HtmlInlineEditorProps {
     /** What Tab inserts; from Settings → Appearance → Code tab width. */
@@ -231,7 +209,7 @@ const HtmlInlineEditor: Component<HtmlInlineEditorProps> = (props,) => {
                             rendered blank. */}
                         <Show
                             when={(props.content || '').trim()}
-                            fallback={<p style={{ color: '#999', }}>No content yet.</p>}
+                            fallback={<p class="form-help-muted">No content yet.</p>}
                         >
                             <TemplatedContent html={props.content} entities={templatePreviewContext()} />
                         </Show>

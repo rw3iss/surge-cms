@@ -1,6 +1,6 @@
 import { describe, expect, it, } from 'vitest';
 import {
-    rendersOnce, templateDataFor, templateDataIds, templateDataOf, templateDataPlaceholderText, templateListRenderOf, templateRenderGroups,
+    bindingQueryLimit, rendersOnce, templateDataFor, templateDataIds, templateDataOf, templateDataPlaceholderText, templateListRenderOf, templateRenderGroups,
 } from './templateData';
 
 describe('templateListRenderOf', () => {
@@ -45,3 +45,15 @@ describe('templateDataFor', () => {
         expect(templateDataOf(null, [{ id: 'x', },],),).toBeNull();
     },);
 },);
+
+describe('bindingQueryLimit (web + email share it)', () => {
+    it('a query limit below the cap wins; never above the cap or the ceiling', () => {
+        expect(bindingQueryLimit(10, 3,),).toBe(3,);
+        expect(bindingQueryLimit(4, 50,),).toBe(4,);
+        expect(bindingQueryLimit(null, 50, 25,),).toBe(25,);
+        expect(bindingQueryLimit(null, undefined,),).toBe(20,);
+        expect(bindingQueryLimit(null, undefined, 25,),).toBe(25,);
+        expect(bindingQueryLimit(6, undefined,),).toBe(6,);
+    },);
+},);
+

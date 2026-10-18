@@ -158,7 +158,7 @@ export async function sendPurposeMail(key: string, input: SendPurposeMailInput,)
             // `{{site.name}}` works even when the body is untouched.
             subject = await resolveMailTemplate(subjectTpl, context,);
             html = input.defaultHtml
-                ? await resolveMailTemplate(input.defaultHtml, context,)
+                ? await resolveMailTemplate(input.defaultHtml, context, { html: true, },)
                 : await defaultPurposeHtml(key, context, site,);
         }
 

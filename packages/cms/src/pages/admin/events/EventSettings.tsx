@@ -14,6 +14,7 @@ import './EventSettings.scss';
 import { useToast, } from '../../../components/common/toast';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
 import { AccessRuleField, } from '../../../components/admin/access/AccessRuleField';
+import EmailTemplatesPanel, { type PurposeConfig, } from '../../../components/admin/mail/EmailTemplatesPanel';
 
 const AdminEventSettings: Component = () => {
     const toast = useToast();
@@ -31,6 +32,9 @@ const AdminEventSettings: Component = () => {
     const [viewTier, setViewTier,] = createSignal<string | null>(null,);
     const [registerAccess, setRegisterAccess,] = createSignal<EventAccess>('public',);
     const [registerTier, setRegisterTier,] = createSignal<string | null>(null,);
+    // Event emails ("You're registered", "Your tickets") are mail purposes,
+    // stored in the site-wide mail_purposes row like every other feature's.
+    const [mailPurposes, setMailPurposes,] = createSignal<Record<string, PurposeConfig>>({},);
     const [tierOptions,] = createResource(() => cms.subscriptionTiers.options().catch(() => [] as SubscriptionTierOption[]),);
 
     const [loaded,] = createResource(async () => {
@@ -47,6 +51,9 @@ const AdminEventSettings: Component = () => {
             setViewTier(s.viewMinTierId ?? null,);
             setRegisterAccess(s.registerAccess ?? 'public',);
             setRegisterTier(s.registerMinTierId ?? null,);
+            try {
+                setMailPurposes((await cms.settings.getMailPurposes()) as Record<string, PurposeConfig> ?? {},);
+            } catch { /* non-fatal: the Emails section starts from defaults */ }
             return s;
         } catch {
             return null;
@@ -70,6 +77,7 @@ const AdminEventSettings: Component = () => {
                 registerAccess: registerAccess(),
                 registerMinTierId: registerAccess() === 'tier' ? registerTier() : null,
             },);
+            await cms.settings.setMailPurposes(mailPurposes() as Record<string, unknown>,);
             toast.success('Event settings saved',);
         } catch (e) {
             // The server rejects a URL that collides with a page or a reserved
@@ -216,6 +224,16 @@ const AdminEventSettings: Component = () => {
                     label="Allow charging for events"
                     hint="Requires the Shop feature — tickets are checked out through it. Forces registration on."
                 />
+            </section>
+
+            <section class="admin-section">
+                <header class="admin-section__header">
+                    <h2>Emails</h2>
+                    <p class="form-help-muted">
+                        What attendees receive. Leave a template empty to send the built-in message.
+                    </p>
+                </header>
+                <EmailTemplatesPanel feature="events" value={mailPurposes()} onChange={setMailPurposes} />
             </section>
         </div>
     );

@@ -1,5 +1,12 @@
 // Public live show: 16:9 stage + reactions, chat beside it (stacked on mobile).
 // Public-site tokens with neutral fallbacks.
+
+// Player chrome: the stage is always dark (video letterbox), whatever the
+// site theme, so its colours are named constants rather than site tokens.
+$stage-bg: #0f1115;
+$stage-text: #f3f4f6;
+$stage-on-media: #fff;
+$stage-live: #dc2626;
 .live-show {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
@@ -15,6 +22,14 @@
         grid-template-columns: minmax(0, 1fr);
     }
 
+    // An ended show with saved chat: the replay and its chat side by side
+    // (stacked on narrow screens, like the live layout).
+    &--ended.live-show--with-chat {
+        grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+
+        @media (max-width: 900px) { grid-template-columns: minmax(0, 1fr); }
+    }
+
     &__main {
         display: flex;
         flex-direction: column;
@@ -28,8 +43,8 @@
         width: 100%;
         overflow: hidden;
         border-radius: var(--site-radius, 8px);
-        background: #0f1115;
-        color: #f3f4f6;
+        background: $stage-bg;
+        color: $stage-text;
     }
 
     &__player {
@@ -106,7 +121,7 @@
     &__ended-title {
         font-size: 1.15rem;
         font-weight: 600;
-        color: #f3f4f6;
+        color: $stage-text;
     }
 
     &__ended-sub {
@@ -136,13 +151,13 @@
         font-size: 0.8rem;
         font-weight: 600;
         line-height: 1;
-        color: #fff;
+        color: $stage-on-media;
         background: rgb(0 0 0 / 0.55);
         backdrop-filter: blur(4px);
     }
 
     &__status--live {
-        background: #dc2626;
+        background: $stage-live;
         letter-spacing: 0.06em;
     }
 
@@ -154,7 +169,7 @@
         width: 0.5rem;
         height: 0.5rem;
         border-radius: 50%;
-        background: #fff;
+        background: $stage-on-media;
         animation: live-show-blink 1.4s ease-in-out infinite;
     }
 
@@ -201,7 +216,7 @@
         padding: 0.5rem 0.9rem;
         border-radius: var(--site-radius, 8px);
         font-size: 0.875rem;
-        color: #fff;
+        color: $stage-on-media;
         background: rgb(17 24 39 / 0.9);
     }
 

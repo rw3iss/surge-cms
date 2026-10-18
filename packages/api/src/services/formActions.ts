@@ -130,9 +130,11 @@ export function submitterContact(
 }
 
 /** Render a `{{ … }}` template against a flat form-value context → string. */
-async function renderTpl(tpl: string, context: Record<string, unknown>,): Promise<string> {
+/** `raw` = no HTML escaping — for a SUBJECT line (a header, not HTML). Bodies stay escaped: answers are visitor input. */
+export async function renderTpl(tpl: string, context: Record<string, unknown>, opts: { raw?: boolean; } = {},): Promise<string> {
     const runtime: TemplateRuntime = {
         context,
+        raw: opts.raw,
         // Form templates get the shared value functions (upper, formatDate,
         // default, …) — no entities, so anything else resolves to nothing.
         resolve: (name, args,) => {
@@ -214,7 +216,7 @@ async function runEmail(
         return;
     }
 
-    const subject = (await renderTpl(cfg.emailSubject || '', rawCtx,)).trim()
+    const subject = (await renderTpl(cfg.emailSubject || '', rawCtx, { raw: true, },)).trim()
         || `New submission: ${form.title}`;
     const body = (await renderTpl(cfg.emailBody || '', htmlCtx,)).trim()
         || '<p>A form was submitted.</p>';

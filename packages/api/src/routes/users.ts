@@ -79,6 +79,7 @@ const listQuery = z.object({
     status: z.string().optional(),
     subscription: z.string().max(64,).optional(),
     approval: z.enum(['pending', 'approved', 'rejected',],).optional(),
+    verified: z.enum(['verified', 'unverified',],).optional(),
     sortBy: z.string().optional(),
     sortOrder: z.string().optional(),
     page: z.coerce.number().int().min(1,).default(1,),
@@ -94,6 +95,21 @@ const bansQuery = z.object({
 },);
 
 const idParams = z.object({ id: z.string(), },);
+
+type Ctx = { user?: { id: string; role: string; }; userId?: string; apiKey?: unknown; };
+/** The acting admin. An admin-scope API key acts as an admin (never sysadmin). */
+const callerOf = (ctx: Ctx,): users.UserManager => ({ id: ctx.user?.id ?? ctx.userId ?? '', role: ctx.user?.role ?? 'admin', });
+/**
+ * Permission on top of the `admin` tier. API keys already passed the scope
+ * check for this tier and carry no role, so they keep today's access.
+ */
+async function allow(ctx: Ctx, key: string,): Promise<void> {
+    if (ctx.apiKey) return;
+    await permissions.requirePermission({ id: ctx.user?.id, role: ctx.user?.role, }, key,);
+}
+const BULK_PERMISSION: Record<users.UserBulkAction, string> = {
+    delete: 'users:delete', ban: 'users:ban', unban: 'users:ban', activate: 'users:write', deactivate: 'users:write', role: 'users:write',
+};
 
 // ─── Routes ───────────────────────────────────────────────────────
 // Literal paths (/banned/list, /banned/:banId, /ban-ip) before /:id.
@@ -112,7 +128,9 @@ export const usersRoutes = [
         method: 'get', path: '/', auth: 'admin',
         summary: 'List users with search/role/status filters and sorting.',
         input: { query: listQuery, },
-        handler: async ({ query, },) => {
+        handler: async (ctx,) => {
+            const { query, } = ctx;
+            await allow(ctx, 'users:read',);
             const result = await users.list(
                 {
                     search: query.search,
@@ -120,6 +138,7 @@ export const usersRoutes = [
                     status: query.status,
                     subscription: query.subscription,
                     approval: query.approval,
+                    verified: query.verified,
                     sortBy: query.sortBy,
                     sortOrder: query.sortOrder,
                 },
@@ -133,7 +152,9 @@ export const usersRoutes = [
         method: 'get', path: '/banned/list', auth: 'admin',
         summary: 'List active bans.',
         input: { query: bansQuery, },
-        handler: async ({ query, },) => {
+        handler: async (ctx,) => {
+            const { query, } = ctx;
+            await allow(ctx, 'users:read',);
             const result = await users.listBans({ page: query.page, limit: query.limit, },);
             return reply(result.data, { meta: result.meta, },);
         },
@@ -143,7 +164,9 @@ export const usersRoutes = [
         method: 'delete', path: '/banned/:banId', auth: 'admin',
         summary: 'Remove a ban by id.',
         input: { params: z.object({ banId: z.string(), },), },
-        handler: async ({ params, audit, },) => {
+        handler: async (ctx,) => {
+            const { params, audit, } = ctx;
+            await allow(ctx, 'users:ban',);
             await users.removeBan(params.banId, audit(),);
             return { message: 'Ban removed', };
         },
@@ -153,7 +176,9 @@ export const usersRoutes = [
         method: 'post', path: '/ban-ip', auth: 'admin',
         summary: 'Ban an IP address.',
         input: { body: banUserSchema, },
-        handler: async ({ body, audit, },) => {
+        handler: async (ctx,) => {
+            const { body, audit, } = ctx;
+            await allow(ctx, 'users:ban',);
             if (!body.ipAddress) throw new AppError(400, 'BAD_REQUEST', 'IP address is required',);
             await users.banIp(body.ipAddress, { reason: body.reason, expiresAt: body.expiresAt, }, audit(),);
             return { message: 'IP address banned', };
@@ -213,21 +238,32 @@ export const usersRoutes = [
                 value: z.string().max(500,).optional(),
             },),
         },
-        handler: async ({ body, user, audit, },) => users.bulk(body.ids, body.action, body.value, { id: user!.id, role: user!.role, }, audit(),),
+        handler: async (ctx,) => {
+            const { body, audit, } = ctx;
+            await allow(ctx, 'users:bulk',);
+            await allow(ctx, BULK_PERMISSION[body.action],);
+            return users.bulk(body.ids, body.action, body.value, callerOf(ctx,), audit(),);
+        },
     },),
 
     defineRoute({
         method: 'get', path: '/:id', auth: 'admin',
         summary: 'Fetch a user with Patreon membership.',
         input: { params: idParams, },
-        handler: ({ params, },) => users.getWithMembership(params.id,),
+        handler: async (ctx,) => {
+            await allow(ctx, 'users:read',);
+            return users.getWithMembership(ctx.params.id,);
+        },
     },),
 
     defineRoute({
         method: 'post', path: '/', auth: 'admin',
         summary: 'Create a user (email/password credential).',
         input: { body: createUserSchema, },
-        handler: async ({ body, audit, },) => {
+        handler: async (ctx,) => {
+            const { body, audit, } = ctx;
+            await allow(ctx, 'users:write',);
+            await users.guardManage(callerOf(ctx,), null, 'create', { role: body.role, },);
             const user = await users.create(body, audit(),);
             return reply(user, { status: 201, },);
         },
@@ -237,7 +273,12 @@ export const usersRoutes = [
         method: 'put', path: '/:id', auth: 'admin',
         summary: 'Update a user.',
         input: { params: idParams, body: updateUserSchema, },
-        handler: ({ params, body, audit, },) => users.update(params.id, body, audit(),),
+        handler: async (ctx,) => {
+            const { params, body, audit, } = ctx;
+            await allow(ctx, 'users:write',);
+            await users.guardManage(callerOf(ctx,), params.id, 'update', { role: body.role, },);
+            return users.update(params.id, body, audit(),);
+        },
     },),
 
     defineRoute({
@@ -245,7 +286,10 @@ export const usersRoutes = [
         summary: 'Upload a user avatar (resized to 256×256 webp).',
         pre: [avatarUpload.single('avatar',),],
         input: { params: idParams, },
-        handler: ({ params, req, audit, },) => {
+        handler: async (ctx,) => {
+            const { params, req, audit, } = ctx;
+            await allow(ctx, 'users:write',);
+            await users.guardManage(callerOf(ctx,), params.id, 'update',);
             const file = req.file;
             if (!file) throw new AppError(400, 'BAD_REQUEST', 'No file uploaded',);
             return users.setAvatar(params.id, file.path, audit(),);
@@ -256,9 +300,34 @@ export const usersRoutes = [
         method: 'post', path: '/:id/password', auth: 'admin',
         summary: 'Set a user\'s password.',
         input: { params: idParams, body: z.object({ password: z.string().min(8,), },) satisfies z.ZodType<UserPasswordBody>, },
-        handler: async ({ params, body, audit, },) => {
+        handler: async (ctx,) => {
+            const { params, body, audit, } = ctx;
+            await allow(ctx, 'users.password:set',);
+            await users.guardManage(callerOf(ctx,), params.id, 'password',);
             await users.setPassword(params.id, body.password, audit(),);
             return { message: 'Password updated', };
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/:id/verification/resend', auth: 'admin',
+        summary: 'Send a fresh email-verification link to an unverified user.',
+        input: { params: idParams, },
+        handler: async (ctx,) => {
+            await allow(ctx, 'users:verify',);
+            await users.guardManage(callerOf(ctx,), ctx.params.id, 'update',);
+            return users.resendVerificationFor(ctx.params.id, ctx.audit(),);
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/:id/verification/verify', auth: 'admin',
+        summary: "Mark a user's email address verified (audited).",
+        input: { params: idParams, },
+        handler: async (ctx,) => {
+            await allow(ctx, 'users:verify',);
+            await users.guardManage(callerOf(ctx,), ctx.params.id, 'update',);
+            return users.markEmailVerified(ctx.params.id, ctx.audit(),);
         },
     },),
 
@@ -266,7 +335,10 @@ export const usersRoutes = [
         method: 'post', path: '/:id/ban', auth: 'admin',
         summary: 'Ban a user.',
         input: { params: idParams, body: banUserSchema, },
-        handler: async ({ params, body, audit, },) => {
+        handler: async (ctx,) => {
+            const { params, body, audit, } = ctx;
+            await allow(ctx, 'users:ban',);
+            await users.guardManage(callerOf(ctx,), params.id, 'ban',);
             await users.ban(params.id, { reason: body.reason, expiresAt: body.expiresAt, }, audit(),);
             return { message: 'User banned successfully', };
         },
@@ -276,7 +348,10 @@ export const usersRoutes = [
         method: 'post', path: '/:id/unban', auth: 'admin',
         summary: 'Unban a user.',
         input: { params: idParams, },
-        handler: async ({ params, audit, },) => {
+        handler: async (ctx,) => {
+            const { params, audit, } = ctx;
+            await allow(ctx, 'users:ban',);
+            await users.guardManage(callerOf(ctx,), params.id, 'unban',);
             await users.unban(params.id, audit(),);
             return { message: 'User unbanned successfully', };
         },
@@ -286,7 +361,10 @@ export const usersRoutes = [
         method: 'delete', path: '/:id', auth: 'admin',
         summary: 'Permanently delete a user (orphans authored content, audit-logged).',
         input: { params: idParams, },
-        handler: async ({ params, audit, },) => {
+        handler: async (ctx,) => {
+            const { params, audit, } = ctx;
+            await allow(ctx, 'users:delete',);
+            await users.guardManage(callerOf(ctx,), params.id, 'delete',);
             await users.remove(params.id, audit(),);
             return { message: 'User deleted', };
         },
@@ -297,16 +375,19 @@ export const usersRoutes = [
         method: 'get', path: '/:id/subscription', auth: 'admin',
         summary: "A user's current subscription tier (paid, manual or free).",
         input: { params: idParams, },
-        handler: ({ params, },) => tiers.userSubscription(params.id,),
+        handler: async (ctx,) => {
+            await allow(ctx, 'users:read',);
+            return tiers.userSubscription(ctx.params.id,);
+        },
     },),
 
     defineRoute({
         method: 'put', path: '/:id/subscription', auth: 'admin',
         summary: 'Put a user on a subscription tier by hand (not for Stripe subscribers).',
-        input: { params: idParams, body: z.object({ tierId: z.string().uuid().nullable(), },) satisfies z.ZodType<UserSubscriptionAssignBody>, },
+        input: { params: idParams, body: z.object({ tierId: z.string().uuid().nullable(), endsAt: z.string().datetime({ offset: true, },).nullable().optional(), },) satisfies z.ZodType<UserSubscriptionAssignBody>, },
         handler: async ({ params, body, user, audit, },) => {
             await permissions.requirePermission({ id: user?.id, role: user?.role, }, 'subscriptions:manage',);
-            return tiers.assignTier(params.id, body.tierId, audit(),);
+            return tiers.assignTier(params.id, body.tierId, audit(), body.endsAt ?? null,);
         },
     },),
 ];

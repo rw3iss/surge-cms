@@ -10,6 +10,10 @@ this folder (via `import.meta.glob` in `registry.ts`) default-exports a
 | `blocks/` | `article`, `video`, `custom`, and any type with `editor: 'blocks'` |
 | `live/` | `live` (live-show console: camera preview, show settings, host controls) |
 
+**Loading:** `blocks/` is bundled with the Post editor; every other folder is a
+lazy chunk, loaded only when a post of that type is opened (the Post editor
+wraps the editor in `<Suspense>`). A new editor folder is lazy automatically.
+
 ## Resolution (`getEditorFor(def)`)
 
 1. A folder named after the **type key** (`types/announcement/`).

@@ -5,6 +5,7 @@
  */
 import type { Comment, CommentAuthor, CommentStatus, } from '@sitesurge/types';
 import { renderMarkdown, stripMarkdown, } from '@sitesurge/types';
+import { ENTITLED_STATUSES, } from '../permissions/subjects';
 
 export interface CommentRow {
     id: string;
@@ -37,24 +38,46 @@ export interface CommentRow {
     a_tier?: string | null;
 }
 
-/** Entitled subscription statuses (permissions/subjects.ENTITLED_STATUSES), inlined as a constant. */
-const ENTITLED = `ARRAY['active','trialing','past_due']`;
+/**
+ * Entitled subscription statuses as a SQL array literal — built from
+ * `permissions/subjects.ENTITLED_STATUSES`, so the two cannot drift.
+ */
+export const ENTITLED_SQL = `ARRAY[${ENTITLED_STATUSES.map((s,) => `'${s.replace(/'/g, "''",)}'`).join(',',)}]`;
 
-/** `SELECT ${COMMENT_COLUMNS} FROM comments c ${AUTHOR_JOIN}`. */
-export const COMMENT_COLUMNS = `
-    c.*,
+/**
+ * The author-card columns (`a_*`), for ANY query that joins the author as
+ * `users u` + `user_activity ua` (see `authorJoin`). ONE definition shared by
+ * comment rows, discovery threads and forum threads, so a change to the card
+ * (e.g. hiding the tier for private profiles) is made once.
+ */
+export function authorColumns(authorIdExpr: string,): string {
+    return `
     u.display_name AS a_name, u.handle AS a_handle, u.profile_public AS a_public,
     u.avatar_url AS a_avatar, u.role AS a_role, u.created_at AS a_joined,
     COALESCE(ua.total, 0) AS a_activity,
     (SELECT sp.name FROM subscriptions s JOIN subscription_plans sp ON sp.id = s.plan_id
-      WHERE s.user_id = c.author_id AND s.status = ANY(${ENTITLED})
+      WHERE s.user_id = ${authorIdExpr} AND s.status = ANY(${ENTITLED_SQL})
       ORDER BY sp.sort_order DESC LIMIT 1) AS a_tier`;
+}
 
-export const AUTHOR_JOIN = `
-    LEFT JOIN users u ON u.id = c.author_id
-    LEFT JOIN user_activity ua ON ua.user_id = c.author_id`;
+/** `LEFT JOIN users u` + `user_activity ua` for the author id expression. */
+export function authorJoin(authorIdExpr: string,): string {
+    return `
+    LEFT JOIN users u ON u.id = ${authorIdExpr}
+    LEFT JOIN user_activity ua ON ua.user_id = ${authorIdExpr}`;
+}
 
-/** Visible-body fields are blanked for deleted comments, and for hidden/pending ones a non-moderator may not see. */
+/** `SELECT ${COMMENT_COLUMNS} FROM comments c ${AUTHOR_JOIN}`. */
+export const COMMENT_COLUMNS = `
+    c.*,${authorColumns('c.author_id',)}`;
+
+export const AUTHOR_JOIN = authorJoin('c.author_id',);
+
+/**
+ * Visible-body fields are blanked for deleted comments, and for hidden/pending
+ * ones a non-moderator (other than the author) may not see — the MAPPER
+ * enforces it, so a caller that forgets `visibilityClause` fails closed.
+ */
 export interface MapOpts {
     viewerId?: string | null;
     moderator?: boolean;
@@ -89,7 +112,9 @@ export function mapAuthor(r: CommentRow,): CommentAuthor {
 export function mapComment(r: CommentRow, o: MapOpts = {},): Comment {
     const own = Boolean(o.viewerId,) && r.author_id === o.viewerId;
     const deleted = r.status === 'deleted';
-    const showBody = !deleted || o.moderator;
+    // Fail closed: moderators see every body; the author sees their own
+    // (pending/hidden) one; everyone else only a visible comment's.
+    const showBody = Boolean(o.moderator,) || (!deleted && (own || r.status === 'visible'));
     return {
         id: r.id,
         targetType: r.target_type,

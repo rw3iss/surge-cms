@@ -79,11 +79,35 @@ export class S3StorageProvider implements StorageProvider, ObjectStore {
         await this.deleteObject(`uploads/${filename}`,);
     }
 
-    async deleteThumbnail(filename: string,): Promise<void> {
+    async deleteThumbnail(filename: string, thumbnailUrl?: string | null,): Promise<void> {
+        // The row's own thumbnail first: rebuilt thumbnails (v3, see
+        // scripts/rebuild-thumbnails.ts) use another stem AND extension.
+        const own = thumbnailUrl ? this.keyFromUrl(thumbnailUrl,) : null;
+        if (own) await this.deleteObject(own,);
+        // Legacy keys, best effort (deleting a missing key is a no-op).
         await this.deleteObject(`uploads/thumb_${filename}`,);
-        // Regenerated (transparency-keeping) thumbnails live under a new key —
-        // see scripts/regenerate-thumbnails.ts. Deleting a missing key is a no-op.
         await this.deleteObject(`uploads/thumb_v2_${filename}`,);
+    }
+
+    /**
+     * The bucket key behind one of OUR public URLs (CDN host or the bucket
+     * host), or null for a foreign URL. Only `uploads/` keys are returned, so a
+     * stored URL can never point a delete at another prefix.
+     */
+    keyFromUrl(url: string,): string | null {
+        const base = this.publicUrl('',);
+        let rest: string | null = null;
+        if (url.startsWith(base,)) rest = url.slice(base.length,);
+        else {
+            try {
+                const u = new URL(url,);
+                if (this.cdnUrl && u.origin === new URL(this.cdnUrl,).origin) rest = u.pathname.replace(/^\/+/, '',);
+            } catch { /* not a URL */ }
+        }
+        if (!rest) return null;
+        rest = decodeURIComponent(rest.split(/[?#]/,)[0] ?? '',);
+        if (!rest.startsWith('uploads/',) || rest.includes('..',)) return null;
+        return rest;
     }
 
     getUrl(filename: string,): string {

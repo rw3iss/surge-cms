@@ -62,3 +62,34 @@
     gap: 0.75rem;
     align-items: center;
 }
+
+/* Which occurrence the card signs up for. */
+.event-signup__date {
+    margin: 0 0 0.75rem;
+    color: var(--site-text-muted, #6b7280);
+}
+
+.event-signup__date-pick {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin: 0 0 0.75rem;
+
+    > span {
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    select {
+        width: 100%;
+    }
+}
+
+/* Honeypot field — off-screen, never shown to people. */
+.event-signup__hp {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}

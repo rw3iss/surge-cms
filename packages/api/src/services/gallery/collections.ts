@@ -7,6 +7,7 @@
  * the cover come from the SAME item gate as the item listing, so a count
  * always matches what the collection page shows.
  */
+import crypto from 'crypto';
 import {
     galleryCollectionPath, type GalleryCollection, type GalleryCollectionDeleteBody, type GalleryCollectionDeleteResponse,
     type GalleryCollectionInput, type GalleryMoveItemsBody, type GalleryMoveItemsResponse,
@@ -15,13 +16,13 @@ import { NotFoundError, ValidationError, } from '../../core/errors';
 import { query, transaction, } from '../../db';
 import { uuidOrNull, } from '../../utils/uuid';
 import { ANONYMOUS_GRANTS, viewerGrants, type ViewerGrants, } from '../access/grants';
-import type { LevelViewer, } from '../access/level';
+import { viewerLevel, type LevelViewer, } from '../access/level';
 import { logAudit, } from '../audit';
 import { cache, CACHE_KEYS, } from '../cache';
 import type { AuditContext, } from '../types';
 import { cleanRule, collectionGateSql, ruleFromRow, } from './access';
-import { assertCollectionsExist, audienceConditions, deleteMediaQuietly, ITEM_FROM, } from './items';
-import { getSettings, } from './settings';
+import { assertCollectionsExist, audienceConditions, deleteMediaQuietly, ITEM_FROM, removeGalleryItems, viewerSignature, } from './items';
+import { galleryFloor, getSettings, } from './settings';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -62,7 +63,15 @@ async function select(audience: Audience, viewer: LevelViewer, grants: ViewerGra
     if (audience === 'site') itemWhere.push('gi.hidden_in_gallery = false',);
     const itemCond = ['gi.collection_id = gc.id', ...itemWhere,].join(' AND ',);
     const where: string[] = [];
-    if (audience === 'site') where.push(collectionGateSql(grants, params,),);
+    if (audience === 'site' && !grants.staff) {
+        // The gallery floor applies to collections too (S2): an inactive rule
+        // falls back to it, so a members-only gallery lists nothing to anonymous.
+        const [level, floor,] = await Promise.all([viewerLevel(viewer,), galleryFloor(s,),],);
+        params.push(floor,);
+        const floorParam = `$${params.length}`;
+        params.push(level === Infinity ? 1_000_000 : level,);
+        where.push(collectionGateSql(grants, params, 'gc', `${floorParam}::int <= $${params.length}::int`,),);
+    }
     // Gallery-page listing: hidden collections are not listed (their item counts / covers need no change — a
     // collection page lists its own non-hidden items, and those are what itemCount counts).
     if (listing) where.push('gc.hidden_in_gallery = false',);
@@ -92,14 +101,16 @@ async function select(audience: Audience, viewer: LevelViewer, grants: ViewerGra
 export async function listCollections(viewer: LevelViewer, grants?: ViewerGrants, opts: { listing?: boolean; } = {},): Promise<GalleryCollection[]> {
     const anonymous = !viewer?.id;
     const listing = Boolean(opts.listing,);
-    const key = listing ? CACHE_KEYS.galleryCollectionsListing : CACHE_KEYS.galleryCollections;
-    if (anonymous) {
-        const hit = await cache.get<GalleryCollection[]>(key,);
-        if (hit) return hit;
-    }
     const g = grants ?? (anonymous ? ANONYMOUS_GRANTS : await viewerGrants(viewer,));
+    // Anonymous keeps its fixed keys; a signed-in viewer is cached by its gate
+    // signature (F4), under the gallery prefix so every gallery write clears it.
+    const key = anonymous
+        ? (listing ? CACHE_KEYS.galleryCollectionsListing : CACHE_KEYS.galleryCollections)
+        : CACHE_KEYS.galleryList(crypto.createHash('sha1',).update(`collections|${listing}|${viewerSignature(await viewerLevel(viewer,), g,)}`,).digest('hex',).slice(0, 16,),);
+    const hit = await cache.get<GalleryCollection[]>(key,);
+    if (hit) return hit;
     const out = await select('site', viewer, g, undefined, listing,);
-    if (anonymous) await cache.set(key, out, 60,);
+    await cache.set(key, out, 60,);
     return out;
 }
 
@@ -206,14 +217,9 @@ export async function deleteCollection(id: string, body: GalleryCollectionDelete
         const exists = await client.query(`SELECT id FROM gallery_collections WHERE id = $1 FOR UPDATE`, [id,],);
         if (!exists.rows[0]) throw new NotFoundError('Gallery collection',);
         if (body.items === 'delete') {
-            const d = await client.query<{ id: string; media_id: string | null; }>(
-                `DELETE FROM gallery_items WHERE collection_id = $1 RETURNING id, media_id`, [id,],
-            );
-            count = d.rows.length;
-            if (count) {
-                await client.query(`DELETE FROM comment_threads WHERE target_type = 'gallery_item' AND target_id = ANY($1::uuid[])`, [d.rows.map((x,) => x.id,),],);
-            }
-            if (body.deleteMedia) for (const x of d.rows) if (x.media_id) mediaToDelete.push(x.media_id,);
+            const gone = await removeGalleryItems(client, { collectionId: id, },);
+            count = gone.ids.length;
+            if (body.deleteMedia) mediaToDelete.push(...gone.mediaIds,);
         } else if (body.items === 'root') {
             const u = await client.query(`UPDATE gallery_items SET collection_id = NULL, updated_at = NOW() WHERE collection_id = $1`, [id,],);
             count = u.rowCount ?? 0;

@@ -159,7 +159,7 @@ export const SOURCES: Source[] = [
         sql: `WITH ${N}
               SELECT DISTINCT n.media_id, sp.id::text AS id, sp.title AS label, 'Product media' AS field, NULL AS extra
                 FROM shop_product_media pm JOIN shop_products sp ON sp.id = pm.product_id
-                JOIN n ON concat_ws(' ', pm.media_id::text, pm.external_url) LIKE n.pat`,
+                JOIN n ON pm.media_id = n.media_id::uuid OR pm.external_url LIKE n.pat`,
         toUsage: (r,) => ({ kind: 'product', id: r.id, label: r.label || 'Untitled product', adminUrl: `/admin/shop/products/${r.id}`, }),
     },
     {
@@ -170,10 +170,11 @@ export const SOURCES: Source[] = [
         toUsage: (r,) => ({ kind: 'product', id: r.id, label: r.label || 'Untitled product', adminUrl: `/admin/shop/products/${r.id}`, }),
     },
     {
+        // Id-keyed: compare the uuid (index on media_id), not LIKE over text.
         name: 'gallery items',
         sql: `WITH ${N}
               SELECT DISTINCT n.media_id, gi.id::text AS id, NULLIF(gi.title, '') AS label, 'Gallery' AS field, NULL AS extra
-                FROM gallery_items gi JOIN n ON gi.media_id::text LIKE n.pat`,
+                FROM gallery_items gi JOIN n ON gi.media_id = n.media_id::uuid`,
         toUsage: (r,) => ({ kind: 'gallery_item', id: r.id, label: r.label || 'Gallery item', adminUrl: '/admin/gallery', }),
     },
     {
@@ -213,6 +214,27 @@ export const SOURCES: Source[] = [
                      'Thumbnail' AS field, NULL AS extra
                 FROM social_posts sp JOIN n ON concat_ws(' ', sp.thumbnail_url, sp.media_url) LIKE n.pat`,
         toUsage: (r,) => ({ kind: 'social_post', id: r.id, label: r.label || 'Social post', adminUrl: '/admin/social', }),
+    },
+    {
+        // The email as sent (what `/mail/:jobId` serves): deleting the file
+        // breaks its image in the archive. Not content to edit — a warning.
+        name: 'sent emails',
+        sql: `WITH ${N}
+              SELECT DISTINCT n.media_id, j.id::text AS id, j.subject AS label, 'Archived email — will show a broken image' AS field, NULL AS extra
+                FROM mail_send_jobs j JOIN n ON j.rendered_html_template LIKE n.pat`,
+        toUsage: (r,) => ({ kind: 'sent_email', id: r.id, label: `Sent email: ${r.label || 'Untitled'}`, adminUrl: `/admin/mail/jobs/${r.id}`, }),
+    },
+    {
+        name: 'comments',
+        sql: `WITH ${N}
+              SELECT DISTINCT n.media_id, c.id::text AS id, left(c.body, 60) AS label, c.target_type::text AS field, c.target_id::text AS extra
+                FROM comments c JOIN n ON c.body LIKE n.pat
+               WHERE c.status <> 'deleted'`,
+        toUsage: (r,) => ({
+            kind: 'comment', id: r.id, label: r.label || 'Comment',
+            adminUrl: `/admin/comments?target=${encodeURIComponent(`${r.field}:${r.extra}`,)}`,
+            field: r.field === 'forum_thread' ? 'Forum post' : 'Comment',
+        }),
     },
     {
         name: 'users',
@@ -296,6 +318,23 @@ export function collectUsage(
     return out;
 }
 
+/** Sources queried at once by `findMediaUsage`. */
+export const USAGE_CONCURRENCY = 4;
+
+/** `Promise.all(list.map(fn))` with at most `limit` running; results keep input order. */
+export async function mapLimit<T, R,>(list: T[], limit: number, fn: (x: T,) => Promise<R>,): Promise<R[]> {
+    const out: R[] = Array.from({ length: list.length, },);
+    let next = 0;
+    const worker = async () => {
+        while (next < list.length) {
+            const i = next++;
+            out[i] = await fn(list[i],);
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(limit, list.length,), }, worker,),);
+    return out;
+}
+
 /** Postgres "undefined table/column" — the owning feature was never installed. */
 const isMissingRelation = (e: unknown,): boolean => ['42P01', '42703',].includes((e as { code?: string; }).code ?? '',);
 
@@ -319,7 +358,9 @@ export async function findMediaUsage(
     const known = new Map(media.rows.map((m,) => [m.id, m,]),);
     const { ids: nIds, pats, } = buildPatterns(ids.map((id,) => known.get(id,) ?? { id, },),);
     const sources = [...SOURCES, ...(await entitySources()),];
-    const results = await Promise.all(sources.map(async (source,) => {
+    // At most USAGE_CONCURRENCY sources at once: each is a table scan, and
+    // ~17 in parallel per check took most of the pool on a busy site.
+    const results = await mapLimit(sources, USAGE_CONCURRENCY, async (source,) => {
         try {
             const r = await query<UsageRow>(source.sql, [nIds, pats,],);
             return { source, rows: r.rows, };
@@ -327,7 +368,7 @@ export async function findMediaUsage(
             if (!isMissingRelation(e,)) logger.warn('media usage: source failed', { source: source.name, error: (e as Error).message, },);
             return { source, rows: [] as UsageRow[], };
         }
-    },),);
+    },);
     const usage = collectUsage(ids, results,);
     if (opts.excludeKinds?.length) {
         const drop = new Set(opts.excludeKinds,);

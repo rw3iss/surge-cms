@@ -44,7 +44,7 @@ describe('issueOrderTickets', () => {
         },);
         const lines = issueTickets.mock.calls[0][1];
         expect(lines[0],).toMatchObject({ tierId: 't1', quantity: 2, priceCents: 1500, },);
-        expect(sendTicketConfirmation,).toHaveBeenCalledWith('e1', 'guest@b.test', expect.any(Array,),);
+        expect(sendTicketConfirmation,).toHaveBeenCalledWith('e1', 'guest@b.test', expect.any(Array,), '2026-10-01',);
         expect(issueTickets.mock.calls[0][2],).toEqual({ orderId: 'o1', },);
     },);
 

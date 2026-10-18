@@ -15,6 +15,7 @@ import Toggle from '../common/Toggle';
 import { FormField, } from '../forms';
 import AccessRuleEditor from './AccessRuleEditor';
 import CommitInput from './CommitInput';
+import CopyButton, { absoluteUrl, } from './CopyButton';
 import { formatSize, } from '../media/mediaUtils';
 import { displayTitle, type DraftItem, type DraftOptions, } from './galleryDraft';
 
@@ -130,6 +131,8 @@ export default function GalleryItemPanel(props: GalleryItemPanelProps,) {
                         </button>
                         <Show when={props.item.id && props.item.url}>
                             <a class="ui-button ui-button--ghost ui-button--sm" href={props.item.url} target="_blank" rel="noopener">View public page ↗</a>
+                            <CopyButton label="Copy page link" text={() => absoluteUrl(props.item.url!,)} />
+                            <CopyButton label="Copy template" text={() => `{{gallery('${props.item.id}')}}`} />
                         </Show>
                     </div>
                 </Show>

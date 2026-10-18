@@ -484,6 +484,8 @@ export interface ShopCheckoutResponse {
     clientSecret: string | null;
     orderId: string;
     orderNumber: string;
+    /** The order's confirmation secret — append as `?k=` to the order page. */
+    accessKey?: string;
     totalCents: number;
 }
 
@@ -497,6 +499,14 @@ export interface ShopOrderListQuery {
     status?: string;
     /** Only the caller's own orders, even for an admin. */
     mine?: boolean;
+    /** Admin: order number, buyer email or name (substring). */
+    search?: string;
+    /** Admin: only orders whose supplier hand-off needs a human. */
+    attention?: boolean;
+    /** Admin: placed on/after this ISO date. */
+    from?: string;
+    /** Admin: placed before this ISO date. */
+    to?: string;
     page?: number;
     limit?: number;
 }
@@ -515,6 +525,15 @@ export type ShopOrderResponse = ShopOrderDetail;
 /** Params for GET /shop/orders/number/:orderNumber. */
 export interface ShopOrderByNumberParams {
     orderNumber: string;
+}
+
+/**
+ * Query for GET /shop/orders/number/:orderNumber (and the receipt). Without
+ * the order's access key (or a signed-in owner / admin) the buyer's name,
+ * email and digital download tokens are withheld.
+ */
+export interface ShopOrderByNumberQuery {
+    k?: string;
 }
 
 /** GET /shop/orders/number/:orderNumber — the confirmation detail. */

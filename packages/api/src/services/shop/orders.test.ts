@@ -12,14 +12,18 @@ vi.mock('./orderTracking', () => ({
     attachShipmentsMany: async (o: unknown,) => o,
 }),);
 vi.mock('../../config', () => ({ config: { stripe: { secretKey: undefined, }, frontendUrl: '', }, }),);
+const refundsCreate = vi.fn();
+const getStripeClientMock = vi.fn((): unknown => null);
+vi.mock('../payment/stripe', () => ({ getStripeClient: (...a: unknown[]) => getStripeClientMock(...(a as [])), }),);
 
 const findOrdersMock = vi.fn().mockResolvedValue({ data: [], total: 0, });
 const findOrderByIdMock = vi.fn();
 const updateOrderMock = vi.fn();
+const findOrderByNumberMock = vi.fn();
 vi.mock('../../repositories/shop/shopOrders.repo', () => ({
     findOrders: (...a: unknown[]) => findOrdersMock(...a),
     findOrderById: (...a: unknown[]) => findOrderByIdMock(...a),
-    findOrderByNumber: vi.fn(),
+    findOrderByNumber: (...a: unknown[]) => findOrderByNumberMock(...a),
     updateOrder: (...a: unknown[]) => updateOrderMock(...a),
     findDigitalItemByToken: vi.fn(),
     findDigitalFileUrl: vi.fn(),
@@ -137,5 +141,72 @@ describe('trackingPatch — manual tracking', () => {
     it('honours an explicit trackingManual: false (hand back to the sync)', () => {
         expect(orders.trackingPatch({ trackingManual: false, },).trackingManual,).toBe(false,);
         expect(orders.trackingPatch({ trackingUrl: 'https://t.example/1', trackingManual: false, },).trackingManual,).toBe(false,);
+    },);
+},);
+
+describe('shop orders service — refunds', () => {
+    const ctx = { userId: 'admin1', ipAddress: '127.0.0.1', userAgent: 'test', };
+    beforeEach(() => {
+        refundsCreate.mockReset();
+        getStripeClientMock.mockReset();
+        findOrderByIdMock.mockReset();
+        updateOrderMock.mockReset();
+        findOrderByIdMock.mockResolvedValue({ id: 'o1', status: 'paid', stripePaymentIntentId: 'pi_1', customerEmail: 'a@b', items: [], },);
+    },);
+
+    it('refunds through the SHOP Stripe context with an idempotency key', async () => {
+        getStripeClientMock.mockReturnValue({ refunds: { create: refundsCreate, }, },);
+        await orders.update('o1', { status: 'refunded', }, ctx,);
+        expect(getStripeClientMock,).toHaveBeenCalledWith('shop',);
+        expect(refundsCreate,).toHaveBeenCalledWith({ payment_intent: 'pi_1', }, { idempotencyKey: 'refund:o1', },);
+        expect(updateOrderMock,).toHaveBeenCalled();
+    },);
+
+    it('an order already refunded in Stripe still flips to refunded', async () => {
+        refundsCreate.mockRejectedValue(Object.assign(new Error('already',), { code: 'charge_already_refunded', },),);
+        getStripeClientMock.mockReturnValue({ refunds: { create: refundsCreate, }, },);
+        await orders.update('o1', { status: 'refunded', }, ctx,);
+        expect(updateOrderMock.mock.calls[0][1],).toMatchObject({ status: 'refunded', },);
+    },);
+
+    it('no shop Stripe key → a clear error, nothing written', async () => {
+        await expect(orders.update('o1', { status: 'refunded', }, ctx,),).rejects.toThrow(/not configured/,);
+        expect(updateOrderMock,).not.toHaveBeenCalled();
+    },);
+},);
+
+describe('shop orders service — order-number projection', () => {
+    const ORDER = {
+        id: 'o1', orderNumber: 'SS-1', userId: 'u1', customerEmail: 'Jane@X.com', customerName: 'Jane',
+        accessKey: 'k'.repeat(32), shippingAddress: { line1: '1 Main', }, stripePaymentIntentId: 'pi',
+        items: [{ id: 'i1', isDigital: true, downloadToken: 'dl-secret', },],
+    };
+    beforeEach(() => findOrderByNumberMock.mockResolvedValue(ORDER,));
+
+    it('the number alone reveals no identity and no download tokens', async () => {
+        const o = await orders.getByNumber('SS-1', { isAdmin: false, },);
+        expect(o,).toMatchObject({ customerEmail: '', customerName: null, accessKey: null, shippingAddress: null, },);
+        expect(o!.items[0].downloadToken,).toBeNull();
+    },);
+
+    it('the access key unlocks name, email and downloads (still no address)', async () => {
+        const o = await orders.getByNumber('SS-1', { isAdmin: false, accessKey: 'k'.repeat(32), },);
+        expect(o,).toMatchObject({ customerEmail: 'Jane@X.com', customerName: 'Jane', shippingAddress: null, },);
+        expect(o!.items[0].downloadToken,).toBe('dl-secret',);
+    },);
+
+    it('a wrong key is treated as no key', async () => {
+        const o = await orders.getByNumber('SS-1', { isAdmin: false, accessKey: 'x'.repeat(32), },);
+        expect(o!.items[0].downloadToken,).toBeNull();
+    },);
+
+    it('the signed-in owner (email any case) is trusted', async () => {
+        const o = await orders.getByNumber('SS-1', { isAdmin: false, email: 'jane@x.com', },);
+        expect(o!.items[0].downloadToken,).toBe('dl-secret',);
+    },);
+
+    it('owner email matching is case-insensitive for get() too', async () => {
+        findOrderByIdMock.mockResolvedValue({ ...ORDER, userId: null, },);
+        await expect(orders.get('o1', { isAdmin: false, email: 'JANE@x.com', },),).resolves.toMatchObject({ id: 'o1', },);
     },);
 },);

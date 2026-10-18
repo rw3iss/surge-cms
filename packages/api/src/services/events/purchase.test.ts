@@ -55,3 +55,13 @@ describe('purchaseTickets — attendee details', () => {
         expect(register.mock.calls[0][0].fields,).toBeUndefined();
     });
 });
+
+describe('purchaseTickets — one registration per date', () => {
+    it('refuses lines for two dates of the same series', async () => {
+        await expect(purchaseTickets({
+            lines: [LINE, { ...LINE, occurrenceDate: '2026-10-08', },] as never,
+            email: 'a@b.test',
+        } as never,),).rejects.toThrow(/one date at a time/i,);
+        expect(register,).not.toHaveBeenCalled();
+    });
+});

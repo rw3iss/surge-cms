@@ -40,7 +40,7 @@ const CarouselBlock: Component<CarouselBlockProps> = (props,) => {
                             </span>
                         }
                     >
-                        <span style={{ color: 'var(--admin-text-muted, #6b7280)', 'font-size': '0.85rem', }}>
+                        <span class="block-preview-summary">
                             Carousel — {initial.items.length} slide(s)
                         </span>
                     </Show>

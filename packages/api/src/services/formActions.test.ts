@@ -46,3 +46,12 @@ describe('parseEmailList (form "Send to" recipients)', () => {
         }
     },);
 },);
+
+describe('form email templates: escaping', () => {
+    it('subject (raw) keeps visitor text as typed; body escapes it', async () => {
+        const { renderTpl, } = await import('./formActions');
+        const ctx = { name: "O'Brien & <Co>", };
+        expect(await renderTpl('Tip from {{name}}', ctx, { raw: true, },),).toBe("Tip from O'Brien & <Co>",);
+        expect(await renderTpl('<p>{{name}}</p>', ctx,),).not.toContain('<Co>',);
+    },);
+},);

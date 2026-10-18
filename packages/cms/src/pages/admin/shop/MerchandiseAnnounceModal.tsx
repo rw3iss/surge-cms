@@ -13,6 +13,7 @@
  *    operator's own template or the built-in layout.
  */
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
+import Checkbox from '../../../components/ui/Checkbox';
 import { A, } from '@solidjs/router';
 import type { ShopProduct, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
@@ -136,7 +137,7 @@ const MerchandiseAnnounceModal: Component<MerchandiseAnnounceModalProps> = (prop
     );
 
     const send = async () => {
-        if (chosenIds().length === 0) return;
+        if (chosenIds().length === 0 || sending()) return;
         setSending(true,);
         try {
             const r = await cms.shop.merchandise.announce({
@@ -202,21 +203,24 @@ const MerchandiseAnnounceModal: Component<MerchandiseAnnounceModalProps> = (prop
                 </Show>
                 <For each={all()}>
                     {(p,) => (
-                        <label
+                        <div
                             class="merch-announce__product"
                             classList={{ 'is-off': !selected().has(p.id,), }}
                         >
-                            <input
-                                type="checkbox"
+                            <Checkbox
                                 checked={selected().has(p.id,)}
                                 onChange={() => toggle(p.id,)}
+                                label={
+                                    <>
+                                        <Show when={p.imageUrl}>
+                                            <img src={p.imageUrl!} alt="" class="merch-announce__thumb" />
+                                        </Show>
+                                        <span class="merch-announce__name">{p.title}</span>
+                                    </>
+                                }
                             />
-                            <Show when={p.imageUrl}>
-                                <img src={p.imageUrl!} alt="" class="merch-announce__thumb" />
-                            </Show>
-                            <span class="merch-announce__name">{p.title}</span>
                             <span class="merch-announce__price">{money(p.priceCents,)}</span>
-                        </label>
+                        </div>
                     )}
                 </For>
             </div>

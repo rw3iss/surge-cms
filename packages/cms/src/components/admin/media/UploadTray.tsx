@@ -7,9 +7,11 @@
  * sessions left unfinished by an earlier page ("Choose file to resume").
  */
 import { Component, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
+import { confirmMediaDelete, } from '../../../stores/mediaDeleteConfirm';
 import { isFeatureEnabled, } from '../../../stores/siteSettings';
 import {
     cancel,
+    cancelMedia,
     dismiss,
     dismissFinished,
     hasActiveUploads,
@@ -54,10 +56,22 @@ const UploadRow: Component<{ item: UploadItem; }> = (p,) => {
     const [cancelling, setCancelling,] = createSignal(false,);
     /** Cancel at any stage; a finished video still encoding asks first (its file is deleted). */
     const onCancel = async () => {
-        if (p.item.state === 'done' && !confirm(`Stop processing "${p.item.name}" and delete it?`,)) return;
+        // A finished video still encoding: the admin's own confirmation (it also
+        // lists where the media is already used), then the same discard path
+        // as the library — not a native confirm().
+        let force: boolean | undefined;
+        if (p.item.state === 'done' && p.item.mediaId) {
+            const ok = await confirmMediaDelete({
+                ids: [p.item.mediaId,], title: 'Stop processing?', confirmLabel: 'Stop and delete',
+                message: `Stop processing "${p.item.name}" and delete it?`, ignoreKinds: ['gallery_item',],
+            },);
+            if (!ok.confirmed) return;
+            force = ok.force;
+        }
         setCancelling(true,);
         try {
-            await cancel(p.item.id,);
+            if (p.item.state === 'done' && p.item.mediaId) await cancelMedia(p.item.mediaId, { force, },);
+            else await cancel(p.item.id,);
         } catch (e) {
             setPickError((e as Error)?.message || 'Could not cancel.',);
             setCancelling(false,);

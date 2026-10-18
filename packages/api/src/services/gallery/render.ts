@@ -25,19 +25,37 @@
 import { galleryItemRadius, galleryMasonryColumns, itemRadiusCss, } from '@sitesurge/types';
 import type { GalleryAspect, GalleryBlockSettings, GalleryItem, } from '@sitesurge/types';
 import { EMAIL_CONTENT_WIDTH, pxValue, } from '../mail/blocks/_util';
+import { escapeHtml, } from '../../utils/html';
 import { WATCH_BAR_HEIGHT, watchBarCell, } from '../mail/blocks/watchOverlay';
 
-const esc = (s: unknown,): string =>
-    String(s ?? '',).replace(/&/g, '&amp;',).replace(/</g, '&lt;',).replace(/>/g, '&gt;',).replace(/"/g, '&quot;',);
+/** The shared HTML escaper (escapes `'` too — the local copy did not). */
+const esc = escapeHtml;
 
-/** `/uploads/x.jpg` → `https://site/uploads/x.jpg`; absolute URLs unchanged. */
-export function absUrl(u: string | null | undefined, base: string,): string {
+/**
+ * A URL for a CSS `url('…')` inside an HTML attribute: `'`, `(`, `)` and
+ * whitespace are percent-encoded so the value can never close the CSS string
+ * or the `url()` — HTML-escaping alone is not enough there, since the
+ * attribute is DECODED (`&#39;` → `'`) before the CSS is parsed.
+ */
+export function cssUrl(u: string,): string {
+    return u.replace(/['()\s\\]/g, (c,) => `%${c.charCodeAt(0,).toString(16,).toUpperCase().padStart(2, '0',)}`,);
+}
+
+/**
+ * `/uploads/x.jpg` → `https://site/uploads/x.jpg`; absolute URLs unchanged.
+ * NOTE the argument order (url, base) — the reverse of `mail/blocks/_util`
+ * `absUrl(siteUrl, link)`; hence the distinct name.
+ */
+export function absoluteGalleryUrl(u: string | null | undefined, base: string,): string {
     const s = String(u ?? '',).trim();
     if (!s) return '';
     if (/^https?:\/\//i.test(s,)) return s;
     if (s.startsWith('//',)) return `https:${s}`;
     return `${base.replace(/\/+$/, '',)}${s.startsWith('/',) ? '' : '/'}${s}`;
 }
+
+/** @deprecated Use `absoluteGalleryUrl` (same arguments) — kept for existing importers. */
+export const absUrl = absoluteGalleryUrl;
 
 /** The image to SHOW for an item: the picture itself, or a video's poster. */
 export function previewUrl(item: GalleryItem,): string {
@@ -55,9 +73,9 @@ export interface GalleryHtmlOptions {
 export function galleryFiguresHtml(items: GalleryItem[] | null | undefined, base = '', opts: GalleryHtmlOptions = {},): string {
     if (!Array.isArray(items,) || !items.length) return '';
     const figs = items.filter((i,) => i.media,).map((i,) => {
-        const src = absUrl(previewUrl(i,), base,);
+        const src = absoluteGalleryUrl(previewUrl(i,), base,);
         const alt = i.media?.alt || i.title || '';
-        const href = absUrl(i.url, base,);
+        const href = absoluteGalleryUrl(i.url, base,);
         const img = src
             ? `<img src="${esc(src,)}" alt="${esc(alt,)}" loading="lazy"${i.media?.width ? ` width="${i.media.width}"` : ''}${i.media?.height ? ` height="${i.media.height}"` : ''} />`
             : '';
@@ -239,18 +257,20 @@ export function galleryEmailHtml(
      * nothing to fill, and a cover crop fills itself — the block's own
      * background is all that may show.
      */
-    const bgCell = (src: string, href: string, alt: string, isVideo: boolean, bw: number, bh: number, size: 'cover' | 'contain',): string => {
+    const bgCell = (src: string, href: string, alt: string, isVideo: boolean, bw: number, bh: number, size: 'cover' | 'contain', cssSrc = src,): string => {
         const vml = `<!--[if gte mso 9]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:${bw}px;height:${bh}px;"><v:fill type="frame" src="${src}" aspect="${size === 'cover' ? 'atleast' : 'atmost'}" /><v:textbox inset="0,0,0,0"><![endif]-->`;
         const content = isVideo
             ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate"><tr><td height="${Math.max(0, bh - WATCH_BAR_HEIGHT,)}" style="height:${Math.max(0, bh - WATCH_BAR_HEIGHT,)}px;font-size:0;line-height:0">&nbsp;</td></tr><tr>${watchBarCell(radius,)}</tr></table>`
             : `<span style="display:block;height:${bh}px;font-size:0;line-height:0">&nbsp;</span>`;
-        return `<table role="presentation" width="${bw}" cellpadding="0" cellspacing="0" border="0" style="width:${bw}px;max-width:100%;margin:${placeMargin};border-collapse:separate"><tr><td class="gallery-item-media" background="${src}" width="${bw}" height="${bh}" valign="bottom" role="img" aria-label="${alt}" title="${alt}" style="width:${bw}px;height:${bh}px;padding:0;vertical-align:bottom;background-image:url('${src}');background-position:center center;background-size:${size};background-repeat:no-repeat;border-radius:${r}">`
+        return `<table role="presentation" width="${bw}" cellpadding="0" cellspacing="0" border="0" style="width:${bw}px;max-width:100%;margin:${placeMargin};border-collapse:separate"><tr><td class="gallery-item-media" background="${src}" width="${bw}" height="${bh}" valign="bottom" role="img" aria-label="${alt}" title="${alt}" style="width:${bw}px;height:${bh}px;padding:0;vertical-align:bottom;background-image:url('${cssSrc}');background-position:center center;background-size:${size};background-repeat:no-repeat;border-radius:${r}">`
             + `${vml}<a href="${href}" title="${alt}" style="display:block;text-decoration:none;color:#ffffff">${content}</a><!--[if gte mso 9]></v:textbox></v:rect><![endif]--></td></tr></table>`;
     };
 
     const visualOf = (i: GalleryItem,): string => {
-        const href = esc(absUrl(i.url, base,),);
-        const src = esc(absUrl(previewUrl(i,), base,),);
+        const href = esc(absoluteGalleryUrl(i.url, base,),);
+        const rawSrc = absoluteGalleryUrl(previewUrl(i,), base,);
+        const src = esc(rawSrc,);
+        const cssSrc = esc(cssUrl(rawSrc,),);
         const isVideo = i.media?.type === 'video';
         const alt = esc(i.media?.alt || i.title || (isVideo ? 'Video' : 'Image'),);
         if (!src) {
@@ -260,7 +280,7 @@ export function galleryEmailHtml(
         }
         if (h && plan.fit === 'cover') {
             // Cover: the fixed box, the picture cropped to fill it (the site's object-fit: cover).
-            return bgCell(src, href, alt, isVideo, w, h, 'cover',);
+            return bgCell(src, href, alt, isVideo, w, h, 'cover', cssSrc,);
         }
         /** The picture scaled to `width` (never stretched), its corners `corners`. */
         const plain = (width: number, corners: string, height?: number,) =>
@@ -270,7 +290,7 @@ export function galleryEmailHtml(
             const ar = mediaAspect(i,);
             if (ar) {
                 const fit = galleryContainSize(w, h, ar,);
-                if (isVideo) return bgCell(src, href, alt, true, fit.width, fit.height, 'cover',);
+                if (isVideo) return bgCell(src, href, alt, true, fit.width, fit.height, 'cover', cssSrc,);
                 return `<a href="${href}" style="display:block;text-decoration:none;">${plain(fit.width, r, fit.height,)}</a>`;
             }
             // Unknown aspect: the picture scaled down inside the limits (no box to letterbox in).
@@ -284,7 +304,7 @@ export function galleryEmailHtml(
         const ar = plan.mode === 'masonry' ? mediaAspect(i,) : null;
         if (ar) {
             const nh = Math.max(1, Math.round(w / ar,),);
-            if (isVideo) return bgCell(src, href, alt, true, w, nh, 'cover',);
+            if (isVideo) return bgCell(src, href, alt, true, w, nh, 'cover', cssSrc,);
             return `<a href="${href}" style="display:block;text-decoration:none;">${plain(w, r, nh,)}</a>`;
         }
         // Natural height: the picture itself, scaled to the item width.

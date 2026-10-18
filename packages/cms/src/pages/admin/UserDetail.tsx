@@ -1,6 +1,9 @@
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, Show, } from 'solid-js';
-import { roleLabel, } from '../../components/admin/users/assignableRoles';
+import { primaryRoleOptions, roleLabel, } from '../../components/admin/users/assignableRoles';
+import { FormField, } from '../../components/admin/forms';
+import ConfirmModal from '../../components/admin/common/ConfirmModal';
+import { useAuth, } from '../../stores/auth';
 import UserRolesPanel from '../../components/admin/users/UserRolesPanel';
 import Toggle from '../../components/admin/common/Toggle';
 import { cms, } from '../../services/cmsClient';
@@ -11,6 +14,12 @@ import AdminTitle from '../../components/admin/common/AdminTitle';
 import UserSubscriptionPanel from '../../components/admin/subscriptions/UserSubscriptionPanel';
 import UserMessagesPanel from '../../components/admin/users/UserMessagesPanel';
 import UserApplicationsPanel from '../../components/admin/applications/UserApplicationsPanel';
+
+/** Text fields commit on BLUR (and Enter), never per keystroke (ADMIN_STYLES.md). */
+const commitOnBlur = (set: (v: string,) => void,) => (e: FocusEvent & { currentTarget: HTMLInputElement; },) => set(e.currentTarget.value.trim(),);
+const blurOnEnter = (e: KeyboardEvent & { currentTarget: HTMLInputElement; },) => {
+    if (e.key === 'Enter') e.currentTarget.blur();
+};
 
 const AdminUserDetail: Component = () => {
     const params = useParams<{ id: string, }>();
@@ -38,6 +47,16 @@ const AdminUserDetail: Component = () => {
     const [handle, setHandle,] = createSignal('',);
     const [role, setRole,] = createSignal('member',);
     const [roles,] = createResource(() => cms.roles.list().catch(() => [],),);
+    const auth = useAuth();
+    const callerIsSysadmin = () => auth.user?.role === 'sysadmin';
+    /** Main-role choices (sysadmin only for a sysadmin) — always including the user's current role. */
+    const roleChoices = () => {
+        const opts = primaryRoleOptions(roles(), auth.user?.role,);
+        const cur = (roles() ?? []).find((r,) => r.key === role(),);
+        return cur && !opts.some((r,) => r.key === cur.key,) ? [...opts, cur,] : opts;
+    };
+    const [confirmDelete, setConfirmDelete,] = createSignal(false,);
+    const [deleting, setDeleting,] = createSignal(false,);
     /** Additional roles (`users.extra_roles`) — kept when the membership changes. */
     const [extraRoles, setExtraRoles,] = createSignal<string[]>([],);
     const [isActive, setIsActive,] = createSignal(true,);
@@ -150,6 +169,27 @@ const AdminUserDetail: Component = () => {
         }
     };
 
+    /** Email verification (support): send a new link, or mark the address verified. */
+    const resendVerificationLink = async () => {
+        clearMessages();
+        try {
+            const r = await cms.users.resendVerification(params.id,);
+            setSuccess(r.sent ? 'A new verification link was sent.' : 'This email address is already verified.',);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Could not send the link.',);
+        }
+    };
+    const markVerified = async () => {
+        clearMessages();
+        try {
+            await cms.users.markEmailVerified(params.id,);
+            setSuccess('Email marked as verified.',);
+            refetch();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Could not mark the email verified.',);
+        }
+    };
+
     const handleUnban = async () => {
         clearMessages();
         try {
@@ -162,12 +202,15 @@ const AdminUserDetail: Component = () => {
     };
 
     const handleDelete = async () => {
-        if (!confirm('Permanently delete this user? This cannot be undone.',)) return;
+        setDeleting(true,);
         try {
             await cms.users.remove(params.id,);
             navigate('/admin/users',);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to delete user',);
+        } finally {
+            setDeleting(false,);
+            setConfirmDelete(false,);
         }
     };
 
@@ -195,7 +238,7 @@ const AdminUserDetail: Component = () => {
                 <h1>{user()?.displayName || user()?.email || 'User'}</h1>
                 <Show when={user()}>
                     <div class="admin-header__actions">
-                        <button type="button" class="ui-button ui-button--danger" onClick={handleDelete}>
+                        <button type="button" class="ui-button ui-button--danger" onClick={() => setConfirmDelete(true,)}>
                             Delete Account
                         </button>
                         <button
@@ -242,7 +285,7 @@ const AdminUserDetail: Component = () => {
                             ref={avatarInput}
                             type="file"
                             accept="image/*"
-                            style={{ display: 'none', }}
+                            class="user-detail__avatar-input"
                             onChange={handleAvatarUpload}
                         />
                     </div>
@@ -251,7 +294,10 @@ const AdminUserDetail: Component = () => {
                         <p class="user-detail__email">{user()?.email}</p>
                         <div class="user-detail__badges">
                             <span class={`badge ${statusInfo().cls}`}>{statusInfo().label}</span>
-                            <span class={`badge ${roleBadge(user()?.role || '',)}`}>{user()?.role}</span>
+                            <Show when={user()?.emailVerified === false}>
+                                <span class="badge badge--warning" title="This account has not confirmed its email address yet">Email not verified</span>
+                            </Show>
+                            <span class={`badge ${roleBadge(user()?.role || '',)}`}>{roleLabel(roles(), user()?.role || '',)}</span>
                             <For each={user()?.extraRoles ?? []}>
                                 {(r,) => <span class="badge badge--info" title="Additional role">+ {roleLabel(roles(), r,)}</span>}
                             </For>
@@ -270,59 +316,47 @@ const AdminUserDetail: Component = () => {
                     <div class="user-detail__panel">
                         <h2 class="user-detail__panel-title">Profile</h2>
 
-                        <div class="settings-fields">
-                            <div class="settings-field">
-                                <label class="settings-field__label">Display Name</label>
-                                <input
-                                    class="settings-field__input"
-                                    style={{ width: '240px', }}
-                                    type="text"
-                                    value={displayName()}
-                                    onInput={(e,) => setDisplayName(e.currentTarget.value,)}
-                                />
-                            </div>
-                            <div class="settings-field">
-                                <label class="settings-field__label">Handle</label>
-                                <div class="user-detail__handle-col">
+                        <div class="admin-form-row">
+                            <FormField label="Display Name">
+                                <input type="text" class="user-detail__field--name" value={displayName()} onBlur={commitOnBlur(setDisplayName,)} onKeyDown={blurOnEnter} />
+                            </FormField>
+                            <FormField
+                                label="Handle"
+                                hint={`3–40 characters: lowercase letters, numbers, - and _. Public page: ${handle().trim() ? `/members/${handle().trim().toLowerCase()}` : '—'}`}
+                            >
                                 <div class="user-detail__handle">
                                     <span class="user-detail__handle-prefix">@</span>
                                     <input
-                                        class="settings-field__input"
-                                        style={{ width: '208px', }}
                                         type="text"
+                                        class="user-detail__field--handle"
                                         maxLength={40}
                                         value={handle()}
                                         placeholder="member-handle"
-                                        onInput={(e,) => setHandle(e.currentTarget.value,)}
-                                        aria-describedby="user-handle-hint"
+                                        onBlur={commitOnBlur(setHandle,)}
+                                        onKeyDown={blurOnEnter}
                                     />
                                 </div>
-                                <span id="user-handle-hint" class="user-detail__handle-hint">
-                                    3–40 characters: lowercase letters, numbers, - and _. Public page:{' '}
-                                    <Show when={handle().trim()} fallback={'—'}>/members/{handle().trim().toLowerCase()}</Show>
-                                </span>
-                                </div>
-                            </div>
-                            <div class="settings-field">
-                                <label class="settings-field__label">Role</label>
+                            </FormField>
+                        </div>
+                        <div class="admin-form-row">
+                            <FormField label="Role" hint={role() === 'sysadmin' && !callerIsSysadmin() ? 'Only a sysadmin can change a sysadmin.' : undefined}>
                                 <select
-                                    class="settings-field__input"
-                                    style={{ width: '140px', }}
+                                    class="user-detail__field--role"
                                     value={role()}
+                                    disabled={role() === 'sysadmin' && !callerIsSysadmin()}
                                     onChange={(e,) => setRole(e.currentTarget.value,)}
                                 >
-                                    {/* Built-in + custom roles (Settings → Permissions → Roles). */}
-                                    <For each={roles() ?? []}>{(r,) => <option value={r.key}>{r.label}</option>}</For>
+                                    {/* Built-in + custom roles (Settings → Permissions → Roles); sysadmin only for a sysadmin. */}
+                                    <For each={roleChoices()}>{(r,) => <option value={r.key} selected={role() === r.key}>{r.label}</option>}</For>
                                 </select>
-                            </div>
-                            <div class="settings-field">
-                                <label class="settings-field__label">Active</label>
+                            </FormField>
+                            <FormField label="Active">
                                 <Toggle
                                     checked={isActive()}
                                     onChange={setIsActive}
                                     label={isActive() ? 'Enabled' : 'Disabled'}
                                 />
-                            </div>
+                            </FormField>
                         </div>
                     </div>
 
@@ -472,12 +506,11 @@ const AdminUserDetail: Component = () => {
                             >
                                 <div class="user-detail__inline-form">
                                     <input
-                                        class="settings-field__input"
                                         type="password"
                                         placeholder="New password (min 8 chars)"
                                         value={newPassword()}
                                         onInput={(e,) => setNewPassword(e.currentTarget.value,)}
-                                        style={{ width: '220px', }}
+                                        class="settings-field__input user-detail__field--password"
                                     />
                                     <button
                                         class="ui-button ui-button--primary ui-button--sm"
@@ -495,6 +528,18 @@ const AdminUserDetail: Component = () => {
                                 </div>
                             </Show>
                         </div>
+
+                        {/* Email verification (only while unverified) */}
+                        <Show when={user()?.emailVerified === false}>
+                            <div class="user-detail__action-group">
+                                <button class="ui-button ui-button--secondary ui-button--sm" onClick={() => void resendVerificationLink()}>
+                                    Resend verification
+                                </button>
+                                <button class="ui-button ui-button--secondary ui-button--sm" onClick={() => void markVerified()}>
+                                    Mark email verified
+                                </button>
+                            </div>
+                        </Show>
 
                         {/* Ban / Unban */}
                         <div class="user-detail__action-group">
@@ -519,12 +564,11 @@ const AdminUserDetail: Component = () => {
                                 >
                                     <div class="user-detail__inline-form">
                                         <input
-                                            class="settings-field__input"
                                             type="text"
                                             placeholder="Reason (optional)"
                                             value={banReason()}
                                             onInput={(e,) => setBanReason(e.currentTarget.value,)}
-                                            style={{ width: '180px', }}
+                                            class="settings-field__input user-detail__field--reason"
                                         />
                                         <input
                                             class="settings-field__input"
@@ -549,6 +593,18 @@ const AdminUserDetail: Component = () => {
                     </div>
                 </div>
             </Show>
+
+            <ConfirmModal
+                open={confirmDelete()}
+                title="Permanently delete this user?"
+                message="This cannot be undone. Their authored content stays, without an author."
+                confirmLabel="Delete account"
+                busyLabel="Deleting…"
+                loading={deleting()}
+                danger
+                onConfirm={() => void handleDelete()}
+                onCancel={() => setConfirmDelete(false,)}
+            />
         </div>
     );
 };

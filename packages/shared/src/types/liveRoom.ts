@@ -84,7 +84,7 @@ export type LiveModerationAction = 'mute' | 'unmute' | 'silence' | 'unsilence' |
 export interface LiveModerateBody {
     key: LiveViewerKey;
     action: LiveModerationAction;
-    /** silence: minutes (>= 5, default 5). */
+    /** silence: minutes (>= 5, default 5, max 7 days). ban: minutes until it ends — omit for a permanent ban. */
     minutes?: number;
     reason?: string;
 }
@@ -104,7 +104,14 @@ export interface LiveBan {
     reason: string | null;
     bannedBy: string | null;
     createdAt: string;
+    /** When the ban ends; null = permanent. */
+    expiresAt?: string | null;
+    /** The show the ban was made in (title), when known. */
+    fromShow?: string | null;
 }
+
+/** Longest time-limited ban, minutes (365 days). */
+export const LIVE_BAN_MAX_MINUTES = 365 * 24 * 60;
 
 /** Minimum silence duration, minutes. */
 export const LIVE_SILENCE_MIN_MINUTES = 5;

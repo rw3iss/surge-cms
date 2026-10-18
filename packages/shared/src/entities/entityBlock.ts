@@ -36,6 +36,10 @@ export interface EntityBlockSettings {
     /** How multiple resolved records lay out: a vertical `stack` (default) or a
      *  swipeable `carousel` (each record's rendered template is a slide). */
     layout?: 'stack' | 'carousel';
+    /** Carousel layout: records visible at once (default 3). */
+    carouselPerPage?: number;
+    /** Carousel layout: gap between records, any CSS length (default 16px). */
+    carouselGap?: string;
     /** Fills the template's slots: slot id → binding. */
     slots?: Record<string, SlotBinding>;
 }

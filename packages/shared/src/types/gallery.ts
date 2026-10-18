@@ -252,6 +252,12 @@ export interface GalleryQuery {
     limit?: number;
     page?: number;
     /**
+     * `sort=random` only: a stable shuffle key. Pages fetched with the same seed
+     * share ONE order, so "Load more" neither repeats nor skips items (a fresh
+     * `random()` per page did both). Ignored for other sorts.
+     */
+    seed?: string;
+    /**
      * Gallery-page listing: leave out items hidden from the gallery and items in hidden collections
      * (except when `collectionId` names that collection). Absent = include them (blocks, templates, email).
      */
@@ -406,7 +412,7 @@ export function galleryMasonryColumns<T,>(
 ): number[][] {
     const n = Math.max(1, Math.round(Number(columns,) || 1,),);
     const cols: number[][] = Array.from({ length: n, }, () => [],);
-    const heights = new Array<number>(n,).fill(0,);
+    const heights: number[] = Array.from({ length: n, }, () => 0,);
     items.forEach((item, index,) => {
         let best = 0;
         for (let c = 1; c < n; c++) if (heights[c]! < heights[best]!) best = c;

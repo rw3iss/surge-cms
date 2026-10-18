@@ -34,6 +34,10 @@ import { isAdminRole, } from '@sitesurge/types';
 type U = { id?: string; role?: string; } | undefined;
 const viewer = (u: U,) => (u?.id ? { id: u.id, role: u.role ?? null, } : null);
 const need = (u: U, key: string,) => requirePermission({ id: u?.id, role: u?.role, }, key,);
+/** `media:read` for the management reads; a scoped API key already passed its read scope. */
+const needRead = async (ctx: { user?: U; apiKey?: unknown; },) => {
+    if (!ctx.apiKey) await need(ctx.user, 'media:read',);
+};
 
 const idParams = z.object({ id: z.string().uuid(), },);
 
@@ -96,6 +100,12 @@ const settingsBody = z.object({
 },) satisfies z.ZodType<SettingsVideoBody>;
 
 const isAdmin = (u: U,) => isAdminRole(u?.role ?? '',);
+/** The permission a session's file needs: video uploads have their own. */
+const uploadPermission = (mime: string,) => (mime.startsWith('video/',) ? 'media.video:upload' : 'media:write');
+/** Re-check the permission on every later step of a session (S3). */
+const authorizer = (u: U,): uploads.SessionAuthorizer => async (mime,) => {
+    await need(u, uploadPermission(mime,),);
+};
 
 export const videoRoutes = [
     // ─── Uploads ──────────────────────────────────────────────────────
@@ -104,7 +114,7 @@ export const videoRoutes = [
         summary: 'Create (or resume) a direct multipart upload session.',
         input: { body: createBody, },
         handler: async ({ body, user, audit, },) => {
-            await need(user, body.mimeType.startsWith('video/',) ? 'media.video:upload' : 'media:write',);
+            await need(user, uploadPermission(body.mimeType,),);
             return uploads.createOrResume(user?.id ?? null, body, audit(),);
         },
     },),
@@ -123,13 +133,13 @@ export const videoRoutes = [
         method: 'post', path: '/uploads/:id/part-urls', auth: 'staff',
         summary: 'Presigned PUT URLs for up to 50 parts.',
         input: { params: idParams, body: partUrlsBody, },
-        handler: ({ params, body, user, },) => uploads.partUrls(user?.id ?? '', params.id, body.partNumbers,),
+        handler: ({ params, body, user, },) => uploads.partUrls(user?.id ?? '', params.id, body.partNumbers, authorizer(user,),),
     },),
     defineRoute({
         method: 'post', path: '/uploads/:id/complete', auth: 'staff',
         summary: 'Complete an upload: creates the media row (and the encode job for a video). Optional { title } wins over the create options.',
         input: { params: idParams, body: completeBody, },
-        handler: ({ params, body, user, audit, },) => uploads.complete(user?.id ?? '', params.id, audit(), body ?? {},),
+        handler: ({ params, body, user, audit, },) => uploads.complete(user?.id ?? '', params.id, audit(), body ?? {}, authorizer(user,),),
     },),
     defineRoute({
         method: 'delete', path: '/uploads/:id', auth: 'staff',
@@ -146,17 +156,26 @@ export const videoRoutes = [
         method: 'get', path: '/jobs', auth: 'staff',
         summary: 'The encode queue (newest first; active=true for running/queued only).',
         input: { query: z.object({ active: z.coerce.boolean().optional(), limit: z.coerce.number().int().min(1,).max(200,).optional(), },), },
-        handler: ({ query, },) => repo.listJobs(query,),
+        handler: async (ctx,) => {
+            await needRead(ctx,);
+            return repo.listJobs(ctx.query,);
+        },
     },),
     defineRoute({
         method: 'get', path: '/status', auth: 'staff',
         summary: 'Can this server encode? ffmpeg, libx264, disk, storage.',
-        handler: () => videoToolingStatus({ refresh: true, },),
+        handler: async (ctx,) => {
+            await needRead(ctx,);
+            return videoToolingStatus({ refresh: true, },);
+        },
     },),
     defineRoute({
         method: 'get', path: '/settings', auth: 'staff',
         summary: 'Effective video settings.',
-        handler: () => getVideoSettings(),
+        handler: async (ctx,) => {
+            await needRead(ctx,);
+            return getVideoSettings();
+        },
     },),
     defineRoute({
         method: 'put', path: '/settings', auth: 'admin',
@@ -202,7 +221,10 @@ export const videoRoutes = [
         method: 'get', path: '/:id', auth: 'staff',
         summary: 'Encode status, renditions, teaser and job of a video.',
         input: { params: idParams, },
-        handler: ({ params, },) => manage.info(params.id,),
+        handler: async (ctx,) => {
+            await needRead(ctx,);
+            return manage.info(ctx.params.id,);
+        },
     },),
     defineRoute({
         method: 'put', path: '/:id', auth: 'staff',
@@ -277,11 +299,13 @@ export const videoRoutes = [
             if (link.kind !== 'redirect') {
                 // A browser opening the link gets a page: the login page when
                 // it lacks access (it says why and comes back to /watch/:id),
-                // the player page ("Processing…") while still encoding. A
-                // <video src> / API client gets a plain 403.
+                // the player page ("Processing…") while still encoding.
                 if (req.accepts(['html', 'json',],) === 'html') return res.redirect(302, link.url,);
-                const details = link.kind === 'denied' ? { reason: link.reason, } : undefined;
-                res.status(403,).json({ success: false, error: { code: 'CONTENT_LOCKED', message: 'This video is for subscribers.', details, }, },);
+                // No access → 403 CONTENT_LOCKED; may watch but still
+                // encoding → 409 VIDEO_NOT_READY (never a paywall message).
+                const r = play.fileLinkErrorResponse(link,);
+                res.set(r.headers,);
+                res.status(r.status,).json(r.body,);
                 return;
             }
             res.set('Cache-Control', link.cacheControl,);
@@ -295,6 +319,24 @@ export const videoRoutes = [
         handler: async ({ params, body, user, audit, },) => {
             await need(user, 'media.video:manage',);
             return manage.share(params.id, body.days ?? 7, audit(),);
+        },
+    },),
+    defineRoute({
+        method: 'post', path: '/:id/share/revoke', auth: 'staff',
+        summary: 'Revoke every share link issued for this video (each token carries the video\'s share epoch; this bumps it).',
+        input: { params: idParams, },
+        handler: async ({ params, user, audit, },) => {
+            await need(user, 'media.video:manage',);
+            return manage.revokeShares(params.id, audit(),);
+        },
+    },),
+    defineRoute({
+        method: 'get', path: '/:id/shares', auth: 'staff',
+        summary: 'Share links issued for this video (from the audit log), newest first, with revoked / expired flags.',
+        input: { params: idParams, },
+        handler: async ({ params, user, },) => {
+            await need(user, 'media.video:manage',);
+            return manage.shares(params.id,);
         },
     },),
     defineRoute({

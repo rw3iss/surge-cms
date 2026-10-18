@@ -63,6 +63,8 @@ const [version, setVersion,] = createSignal(0,);
 const uploaders = new Map<string, MultipartUpload>();
 const PROCESSING_POLL_MS = 10_000;
 const waiters = new Map<string, ((m: Media | null,) => void)[]>();
+/** The media each finished row produced, so a late `whenComplete` still gets it. */
+const completed = new Map<string, Media>();
 let seq = 0;
 let unfinishedLoaded = false;
 
@@ -100,6 +102,7 @@ function run(id: string, up: MultipartUpload, failState: UploadItemState = 'erro
             const sid = up.sessionId;
             if (sid) patch(id, { sessionId: sid, },);
             if (media) {
+                completed.set(id, media,);
                 const processing = media.status === 'processing';
                 patch(id, { mediaId: media.id, state: 'done', percent: 100, loaded: up.file.size, eta: null, speed: 0, processing, },);
                 setVersion((v,) => v + 1,);
@@ -161,11 +164,17 @@ export function startUpload(file: File, options?: UploadSessionOptions,): string
     return id;
 }
 
-/** Resolves with the created media when the row completes (null if cancelled/failed). */
+/**
+ * Resolves with the created media when the row completes — also when it had
+ * ALREADY completed before the call (a fast upload). Null only when the row
+ * was cancelled / failed (or never existed).
+ */
 export function whenComplete(id: string,): Promise<Media | null> {
+    const done = completed.get(id,);
+    if (done) return Promise.resolve(done,);
     const item = state.items.find((i,) => i.id === id,);
     if (!item) return Promise.resolve(null,);
-    if (item.state === 'done') return Promise.resolve(null,);
+    if (item.state === 'done' || item.state === 'cancelled' || item.state === 'error') return Promise.resolve(null,);
     return new Promise((resolve,) => waiters.set(id, [...(waiters.get(id,) ?? []), resolve,],),);
 }
 
@@ -181,6 +190,7 @@ export function setUploadTitle(id: string, title: string,): void {
 }
 
 function removeRow(id: string,): void {
+    completed.delete(id,);
     setState('items', (items,) => items.filter((i,) => i.id !== id,),);
 }
 

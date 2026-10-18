@@ -1,4 +1,5 @@
-import { batch, Component, createSignal, ErrorBoundary, For, Match, onCleanup, onMount, Show, Switch, untrack, } from 'solid-js';
+import { batch, Component, createSignal, ErrorBoundary, For, onCleanup, onMount, Show, untrack, } from 'solid-js';
+import { Dynamic, } from 'solid-js/web';
 import { BlockStyleData, BlockStyleService, } from '../../../services/blockStyles';
 import { clearStyleDraft, setStyleDraft, } from '../../../stores/blockStyleDraft';
 import { holdViewport, } from './viewportHold';
@@ -24,29 +25,11 @@ import TextBlock from './types/TextBlock';
 import UrlLinkBlock from './types/UrlLinkBlock';
 import VideoBlock from './types/VideoBlock';
 import ConfirmModal from '../common/ConfirmModal';
+import HeroBlockEdit from './types/HeroBlock';
+import { CommitInput, } from '../forms/CommitInput';
+import { useToast, } from '../../common/toast';
 
 // Inline simple block editors for types that don't have separate files
-const HeroBlockEdit: Component<{ data: Record<string, any>; onUpdate: (d: Record<string, any>,) => void; }> = (props,) => {
-    return (
-        <>
-            <FormField label="Hero Title">
-                <input type="text" value={props.data.title || ''} onChange={(e,) => props.onUpdate({ ...props.data, title: e.currentTarget.value, },)} placeholder="Hero title..." />
-            </FormField>
-            <FormField label="Subtitle">
-                <input type="text" value={props.data.subtitle || ''} onChange={(e,) => props.onUpdate({ ...props.data, subtitle: e.currentTarget.value, },)} placeholder="Subtitle..." />
-            </FormField>
-            <FormField label="Content">
-                <textarea rows={4} value={props.data.content || ''} onChange={(e,) => props.onUpdate({ ...props.data, content: e.currentTarget.value, },)} placeholder="Hero content (HTML)..." />
-            </FormField>
-            <FormField label="Background Image URL">
-                <input type="text" value={props.data.backgroundImage || ''} onChange={(e,) => props.onUpdate({ ...props.data, backgroundImage: e.currentTarget.value, },)} placeholder="https://..." />
-            </FormField>
-            <FormField label="Min Height">
-                <input type="text" value={props.data.minHeight || ''} onChange={(e,) => props.onUpdate({ ...props.data, minHeight: e.currentTarget.value, },)} placeholder="e.g. 300px, 50vh" />
-            </FormField>
-        </>
-    );
-};
 
 /** HTML body content is edited inline on the block preview itself
  *  (HtmlInlineEditor) — the flyout panel only shows the general
@@ -69,15 +52,25 @@ const ReferenceBlockEdit: Component<{
 );
 
 const SpacerBlockEdit: Component<{ data: Record<string, any>; onUpdate: (d: Record<string, any>,) => void; }> = (props,) => (
-    <FormField label="Height" hint="Any valid CSS height: px, rem, em, vh, vw, %">
-        <input
-            type="text"
-            value={props.data.height || '60px'}
-            onChange={(e,) => props.onUpdate({ ...props.data, height: e.currentTarget.value, },)}
-            placeholder="e.g. 60px, 2rem, 10vh"
+    <FormField label="Height" hint="Any valid CSS height: px, rem, em, vh, vw, %. A bare number is px. Empty = 60px.">
+        <CommitInput
+            value={props.data.height}
+            onCommit={(v,) => props.onUpdate({ ...props.data, height: v, },)}
+            placeholder="60px"
         />
     </FormField>
 );
+
+/** Block types whose text accepts `{{ }}`, with the field(s) it applies to. */
+const TEMPLATABLE_TYPES: ReadonlyMap<string, string> = new Map([
+    ['rich_text', '{{ }} works in the text of this block.',],
+    ['text', '{{ }} works in the text of this block.',],
+    ['html', '{{ }} works in the HTML of this block.',],
+    ['hero', '{{ }} works in the title, subtitle and content.',],
+    ['url_link', '{{ }} works in the title, description and URL.',],
+    ['entity', "{{ }} works in the template's text blocks, with the bound record's variables.",],
+    ['template', "{{ }} works in the component's text blocks.",],
+],);
 
 // ─── Main controller ───
 
@@ -104,6 +97,7 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
     const [selectedStyleId, setSelectedStyleId,] = createSignal<string>('none',);
     const [showRemoveConfirm, setShowRemoveConfirm,] = createSignal(false,);
     const [showTplRef, setShowTplRef,] = createSignal(false,);
+    const toast = useToast();
 
     // Load styles once on mount — NOT reactive on props.block changes,
     // so style changes don't re-resolve and cause scroll jumps or resets.
@@ -222,10 +216,11 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
 
     const handleSaveTemplate = async (style: BlockStyleData,) => {
         let saved: BlockStyleData | null = null;
-        if (style.id) {
-            saved = await BlockStyleService.update(style.id, style,);
-        } else {
-            saved = await BlockStyleService.create(style,);
+        try {
+            saved = style.id ? await BlockStyleService.update(style.id, style,) : await BlockStyleService.create(style,);
+        } catch (e) {
+            toast.error(`Could not save the style template: ${(e as Error).message || 'unknown error'}`,);
+            return;
         }
         if (saved) {
             // Refresh the styles list so the new/updated template
@@ -259,7 +254,7 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
                 <div class="bec-dirty-bar">
                     <span class="bec-dirty-bar__label">Unsaved changes</span>
                     <Show when={props.onRevert}>
-                        <button class="btn btn--xs btn--ghost bec-dirty-bar__revert" onClick={() => setShowRevertConfirm(true,)}>
+                        <button type="button" class="ui-button ui-button--sm ui-button--ghost bec-dirty-bar__revert" onClick={() => setShowRevertConfirm(true,)}>
                             Revert
                         </button>
                     </Show>
@@ -298,9 +293,11 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
                             </For>
                         </select>
                         <button
+                            type="button"
                             class="bec-icon-btn bec-icon-btn--danger"
                             onClick={() => setShowRemoveConfirm(true,)}
                             title="Delete block"
+                            aria-label="Delete block"
                         >
                             <svg viewBox="0 0 16 16" width="16" height="16">
                                 <path d="M5 2V1h6v1h3v2H2V2h3zm1 2h4v9H6V4zm-2 0h1v9H4V4zm7 0h1v9h-1V4z" fill="currentColor" />
@@ -331,7 +328,9 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
                     </select>
                     <Show when={!editingStyle()}>
                         <button
+                            type="button"
                             class="bec-icon-btn"
+                            aria-label="Edit style"
                             onClick={() => {
                                 if (selectedStyleId() === 'none') {
                                     handleStyleChange('custom',);
@@ -347,8 +346,8 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
                         </button>
                     </Show>
                     <Show when={editingStyle() && selectedStyleId() !== 'none'}>
-                        <button class="btn btn--xs btn--primary" onClick={handleSaveStyle}>Save</button>
-                        <button class="btn btn--xs btn--ghost" onClick={() => { stopDraft(); setEditingStyle(false,); }}>Cancel</button>
+                        <button type="button" class="ui-button ui-button--sm ui-button--primary" onClick={handleSaveStyle}>Save</button>
+                        <button type="button" class="ui-button ui-button--sm ui-button--ghost" onClick={() => { stopDraft(); setEditingStyle(false,); }}>Cancel</button>
                     </Show>
                 </div>
             </div>
@@ -397,7 +396,12 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
                             setCurrentStyle({ ...currentStyle(), id: undefined, name: '', },);
                         }) : undefined}
                         onSetDefault={async (templateId,) => {
-                            await BlockStyleService.update(templateId, { isDefault: true, },);
+                            try {
+                                await BlockStyleService.update(templateId, { isDefault: true, },);
+                            } catch (e) {
+                                toast.error(`Could not set the default style: ${(e as Error).message || 'unknown error'}`,);
+                                return;
+                            }
                             setBlockStyles(await BlockStyleService.getAll(),);
                             const updated = blockStyles().find(s => s.id === templateId);
                             if (updated) setCurrentStyle(BlockStyleService.withDefaults(updated,),);
@@ -413,7 +417,9 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
                 </div>
             </Show>
 
-            {/* ── Variable & Function Reference (collapsible, bottom of panel) ── */}
+            {/* ── Variable & Function Reference (collapsible, bottom of panel) —
+                only for block types whose text takes {{ }} ── */}
+            <Show when={TEMPLATABLE_TYPES.has(props.block.type,)}>
             <div class="block-edit-controller__tpl-ref">
                 <button
                     type="button"
@@ -425,9 +431,11 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
                     Variable &amp; Function Reference
                 </button>
                 <Show when={showTplRef()}>
+                    <p class="form-help-muted">{TEMPLATABLE_TYPES.get(props.block.type,)}</p>
                     <TemplateReference />
                 </Show>
             </div>
+            </Show>
 
             <ConfirmModal
                 open={showRemoveConfirm()}
@@ -443,6 +451,48 @@ const BlockEditController: Component<BlockEditControllerProps> = (props,) => {
             />
         </div>
     );
+};
+
+type EditFormProps = { block: BlockData; onUpdate: (data: Record<string, any>,) => void; };
+
+/** Shown for a type with no edit form here. */
+const NoEditForm: Component<EditFormProps> = (p,) => (
+    <p class="form-help-muted">The {p.block.type.replace(/_/g, ' ',)} block has no options here.</p>
+);
+
+/**
+ * The edit form per block type. A `Record<BlockType, …>`, so adding a
+ * `BlockType` fails to compile until it gets an arm (was a 20-arm <Switch>
+ * that silently rendered nothing for a new type). `null` = no form here.
+ */
+const BLOCK_EDIT_FORMS: Record<BlockType, Component<EditFormProps> | null> = {
+    rich_text: (p,) => <TextBlock data={p.block.data} mode="edit" onUpdate={p.onUpdate} />,
+    text: (p,) => <TextBlock data={p.block.data} mode="edit" onUpdate={p.onUpdate} />,
+    image: (p,) => <ImageBlock data={p.block.data} mode="edit" onUpdate={p.onUpdate} />,
+    video: (p,) => <VideoBlock data={p.block.data} mode="edit" onUpdate={p.onUpdate} />,
+    document: (p,) => <DocumentBlock data={p.block.data} mode="edit" onUpdate={p.onUpdate} />,
+    url_link: (p,) => <UrlLinkBlock data={p.block.data} mode="edit" onUpdate={p.onUpdate} />,
+    hero: (p,) => <HeroBlockEdit data={p.block.data} onUpdate={p.onUpdate} />,
+    html: (p,) => <HtmlBlockEdit data={p.block.data} onUpdate={p.onUpdate} />,
+    campaign: (p,) => <CampaignBlock data={p.block.data} mode="edit" onUpdate={p.onUpdate} />,
+    form: (p,) => <FormBlock data={p.block.data} mode="edit" onUpdate={p.onUpdate} />,
+    social: (p,) => <SocialBlock data={p.block.data} mode="edit" onUpdate={p.onUpdate} />,
+    carousel: (p,) => <CarouselBlock data={p.block.data} mode="edit" onUpdate={p.onUpdate} />,
+    post: (p,) => <ReferenceBlockEdit data={p.block.data} onUpdate={p.onUpdate} label="Post" idField="postId" />,
+    post_list: (p,) => <PostListBlock data={p.block.data} mode="edit" onUpdate={p.onUpdate} />,
+    gallery: (p,) => <GalleryBlockEdit data={p.block.data} onUpdate={p.onUpdate} />,
+    spacer: (p,) => <SpacerBlockEdit data={p.block.data} onUpdate={p.onUpdate} />,
+    group: (p,) => <GroupBlock data={p.block.data} mode="edit" onUpdate={p.onUpdate} />,
+    group_item: (p,) => <GroupItemBlock data={p.block.data} mode="edit" onUpdate={p.onUpdate} />,
+    entity: (p,) => <EntityBlockEdit data={p.block.data} mode="edit" onUpdate={p.onUpdate} />,
+    template: (p,) => (
+        <TemplateBlockEdit
+            settings={p.block.data as Record<string, unknown>}
+            onChange={(patch,) => p.onUpdate({ ...p.block.data, ...patch, },)}
+        />
+    ),
+    // No admin form for the events block in this editor yet (events area).
+    event: null,
 };
 
 /**
@@ -469,68 +519,7 @@ const BlockContentForm: Component<{
             );
         }}
     >
-    <Switch>
-        <Match when={props.block.type === 'text' || props.block.type === 'rich_text'}>
-            <TextBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
-        </Match>
-        <Match when={props.block.type === 'image'}>
-            <ImageBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
-        </Match>
-        <Match when={props.block.type === 'video'}>
-            <VideoBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
-        </Match>
-        <Match when={props.block.type === 'document'}>
-            <DocumentBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
-        </Match>
-        <Match when={props.block.type === 'url_link'}>
-            <UrlLinkBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
-        </Match>
-        <Match when={props.block.type === 'hero'}>
-            <HeroBlockEdit data={props.block.data} onUpdate={props.onUpdate} />
-        </Match>
-        <Match when={props.block.type === 'html'}>
-            <HtmlBlockEdit data={props.block.data} onUpdate={props.onUpdate} />
-        </Match>
-        <Match when={props.block.type === 'campaign'}>
-            <CampaignBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
-        </Match>
-        <Match when={props.block.type === 'form'}>
-            <FormBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
-        </Match>
-        <Match when={props.block.type === 'social'}>
-            <SocialBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
-        </Match>
-        <Match when={props.block.type === 'carousel'}>
-            <CarouselBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
-        </Match>
-        <Match when={props.block.type === 'post'}>
-            <ReferenceBlockEdit data={props.block.data} onUpdate={props.onUpdate} label="Post" idField="postId" />
-        </Match>
-        <Match when={props.block.type === 'post_list'}>
-            <PostListBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
-        </Match>
-        <Match when={props.block.type === 'gallery'}>
-            <GalleryBlockEdit data={props.block.data} onUpdate={props.onUpdate} />
-        </Match>
-        <Match when={props.block.type === 'spacer'}>
-            <SpacerBlockEdit data={props.block.data} onUpdate={props.onUpdate} />
-        </Match>
-        <Match when={props.block.type === 'group'}>
-            <GroupBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
-        </Match>
-        <Match when={props.block.type === 'group_item'}>
-            <GroupItemBlock data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
-        </Match>
-        <Match when={props.block.type === 'entity'}>
-            <EntityBlockEdit data={props.block.data} mode="edit" onUpdate={props.onUpdate} />
-        </Match>
-        <Match when={props.block.type === 'template'}>
-            <TemplateBlockEdit
-                settings={props.block.data as Record<string, unknown>}
-                onChange={(patch,) => props.onUpdate({ ...props.block.data, ...patch, },)}
-            />
-        </Match>
-    </Switch>
+    <Dynamic component={BLOCK_EDIT_FORMS[props.block.type as BlockType] ?? NoEditForm} block={props.block} onUpdate={props.onUpdate} />
     </ErrorBoundary>
 );
 

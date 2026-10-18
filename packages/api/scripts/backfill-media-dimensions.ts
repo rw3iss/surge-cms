@@ -17,6 +17,18 @@ import { closePool, query, } from '../src/db/client';
 
 const APPLY = process.argv.includes('--apply',);
 
+/**
+ * Absolute URL of a stored media URL. A relative one (`/uploads/…`, local
+ * storage) needs SITE_URL — there is no safe default host, since a guess
+ * (another install's domain) would read the WRONG site's files.
+ */
+function sourceUrl(url: string,): URL {
+    if (/^https?:\/\//i.test(url,)) return new URL(url,);
+    const site = process.env.SITE_URL;
+    if (!site) throw new Error(`SITE_URL is not set; cannot fetch the relative URL ${url}`,);
+    return new URL(url, site,);
+}
+
 async function main(): Promise<void> {
     const rows = (await query<{ id: string; filename: string; url: string; }>(
         `SELECT id, filename, url FROM media
@@ -28,7 +40,7 @@ async function main(): Promise<void> {
     let done = 0, failed = 0;
     for (const r of rows) {
         try {
-            const res = await fetch(new URL(r.url, process.env.SITE_URL || 'https://surgemedia.us',),);
+            const res = await fetch(sourceUrl(r.url,),);
             if (!res.ok) { console.log(`skip ${r.filename}: HTTP ${res.status}`,); failed++; continue; }
             const m = await sharp(Buffer.from(await res.arrayBuffer(),),).metadata();
             if (!m.width || !m.height) { console.log(`skip ${r.filename}: no size in file`,); failed++; continue; }

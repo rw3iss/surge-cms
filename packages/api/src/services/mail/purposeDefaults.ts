@@ -150,6 +150,45 @@ export async function defaultPurposeHtml(
             break;
         }
 
+        case 'membership_application_received': {
+            const tier = pick(ctx, 'tier.name',) || 'membership';
+            const url = pick(ctx, 'application.claimUrl',);
+            body = H('Application received',)
+                + greeting(name,)
+                + P(`Thank you for applying for <strong>${escapeHtml(tier,)}</strong>. Your request has been submitted, and someone from our team will contact you soon.`,)
+                + (pick(ctx, 'application.next',) ? P(escapeHtml(pick(ctx, 'application.next',),),) : '')
+                + (url ? button(url, 'Finish my application',) : '');
+            break;
+        }
+
+        case 'membership_application_approved': {
+            const tier = pick(ctx, 'tier.name',) || 'membership';
+            const offer = pick(ctx, 'application.offer',) === 'yes';
+            const note = pick(ctx, 'note',);
+            const expires = pick(ctx, 'application.offerExpires',);
+            body = H(`You're approved for ${tier}`,)
+                + greeting(name,)
+                + P(`Good news — your application for <strong>${escapeHtml(tier,)}</strong> was approved.`,)
+                + (note ? P(escapeHtml(note,),) : '')
+                + (offer
+                    ? P('Choose your billing and start your membership:',)
+                        + button(pick(ctx, 'application.claimUrl',) || `${site.siteUrl}/profile?tab=membership`, 'Start my membership',)
+                        + MUTED(`${expires ? `This offer is open until ${escapeHtml(expires,)}. ` : ''}Nothing has been charged yet.`,)
+                    : P('Your membership is active.',) + button(`${site.siteUrl}/profile?tab=membership`, 'View my membership',));
+            break;
+        }
+
+        case 'membership_application_rejected': {
+            const tier = pick(ctx, 'tier.name',) || 'membership';
+            const note = pick(ctx, 'note',);
+            body = H('About your application',)
+                + greeting(name,)
+                + P(`Thank you for applying for <strong>${escapeHtml(tier,)}</strong>. We are not able to approve your application at this time.`,)
+                + (note ? P(escapeHtml(note,),) : '')
+                + MUTED('Your card was not charged.',);
+            break;
+        }
+
         case 'user_welcome':
             body = H(`Welcome to ${siteName}`,)
                 + greeting(name,)
@@ -240,5 +279,5 @@ export async function defaultPurposeHtml(
             break;
     }
 
-    return resolveMailTemplate(card(body,), ctx,);
+    return resolveMailTemplate(card(body,), ctx, { html: true, },);
 }

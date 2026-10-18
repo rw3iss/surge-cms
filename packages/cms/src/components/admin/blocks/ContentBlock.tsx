@@ -210,6 +210,16 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                 e.stopPropagation();
                 if (!props.isSelected) props.onToggleEdit(props.block.id,);
             }}
+            onKeyDown={(e,) => {
+                // Alt+↑ / Alt+↓ move the SELECTED block — not while typing in a field.
+                if (!props.isSelected || !e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+                const t = e.target as HTMLElement;
+                if (t.isContentEditable || t.closest('input, textarea, select, [contenteditable="true"]',)) return;
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.key === 'ArrowUp' && props.index > 0) props.onMoveUp(props.block.id,);
+                if (e.key === 'ArrowDown' && props.index < props.total - 1) props.onMoveDown(props.block.id,);
+            }}
             onPointerDown={(e,) => {
                 if ((e.target as HTMLElement).closest('.content-block__hover-drag',)) {
                     props.onDragStart(e, props.block.id,);
@@ -221,10 +231,14 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                 <span class="content-block__hover-drag" title="Drag to reorder">
                     &#9776;
                 </span>
-                <span
+                {/* A real button: the preview silences clicks, so this label is
+                    the only way to select a block — it must be reachable by
+                    keyboard and announce its state. */}
+                <button
+                    type="button"
                     class="content-block__hover-label"
-                    style={{ cursor: 'pointer', }}
-                    title="Select / deselect this block"
+                    title="Select / deselect this block (Alt+↑ / Alt+↓ moves the selected block)"
+                    aria-pressed={props.isSelected}
                     onClick={(e,) => { e.stopPropagation(); props.onToggleEdit(props.block.id,); }}
                 >
                     {getBlockLabel(props.block.type,)}
@@ -234,8 +248,8 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                     <Show when={isDisabled()}>
                         <span class="content-block__hover-tag"> (Disabled)</span>
                     </Show>
-                </span>
-                <button
+                </button>
+                <button type="button"
                     class="content-block__hover-btn content-block__hover-btn--collapse"
                     onClick={() => setIsCollapsed(!isCollapsed(),)}
                     title={isCollapsed() ? 'Expand block' : 'Collapse block'}
@@ -243,19 +257,21 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                 >
                     {isCollapsed() ? '+' : '–'}
                 </button>
-                <button
+                <button type="button"
                     class="content-block__hover-btn"
                     onClick={() => props.onMoveUp(props.block.id,)}
                     disabled={props.index === 0}
                     title="Move up"
+                    aria-label="Move block up"
                 >
                     &#9650;
                 </button>
-                <button
+                <button type="button"
                     class="content-block__hover-btn"
                     onClick={() => props.onMoveDown(props.block.id,)}
                     disabled={props.index === props.total - 1}
                     title="Move down"
+                    aria-label="Move block down"
                 >
                     &#9660;
                 </button>
@@ -265,14 +281,17 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                     onMouseEnter={cancelHoverClose}
                     onMouseLeave={() => { if (showOptionsMenu()) scheduleHoverClose(); }}
                 >
-                    <button
+                    <button type="button"
                         class="content-block__hover-btn content-block__hover-btn--options"
                         onClick={() => setShowOptionsMenu(!showOptionsMenu(),)}
                         title="Options"
+                        aria-label="Block options"
+                        aria-haspopup="menu"
+                        aria-expanded={showOptionsMenu()}
                     >
                         &#8943;
                     </button>
-                    <button
+                    <button type="button"
                         class="content-block__hover-btn content-block__hover-btn--delete"
                         onClick={() => setShowRemoveConfirm(true,)}
                         title="Delete block"
@@ -287,43 +306,43 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                     </button>
                     <Show when={showOptionsMenu()}>
                         <div class="content-block__options-menu">
-                            <button onClick={() => { props.onToggleEdit(props.block.id,); setShowOptionsMenu(false,); }}>
+                            <button type="button" onClick={() => { props.onToggleEdit(props.block.id,); setShowOptionsMenu(false,); }}>
                                 Edit
                             </button>
                             <Show when={props.index > 0}>
-                                <button onClick={() => { props.onMoveToTop?.(props.block.id,); setShowOptionsMenu(false,); }}>
+                                <button type="button" onClick={() => { props.onMoveToTop?.(props.block.id,); setShowOptionsMenu(false,); }}>
                                     Move to Top
                                 </button>
                             </Show>
                             <Show when={props.index < props.total - 1}>
-                                <button onClick={() => { props.onMoveToBottom?.(props.block.id,); setShowOptionsMenu(false,); }}>
+                                <button type="button" onClick={() => { props.onMoveToBottom?.(props.block.id,); setShowOptionsMenu(false,); }}>
                                     Move to Bottom
                                 </button>
                             </Show>
-                            <button onClick={() => { props.onInsertBefore?.(props.block.id,); setShowOptionsMenu(false,); }}>
+                            <button type="button" onClick={() => { props.onInsertBefore?.(props.block.id,); setShowOptionsMenu(false,); }}>
                                 Insert Block Before
                             </button>
-                            <button onClick={() => { props.onInsertAfter?.(props.block.id,); setShowOptionsMenu(false,); }}>
+                            <button type="button" onClick={() => { props.onInsertAfter?.(props.block.id,); setShowOptionsMenu(false,); }}>
                                 Insert Block After
                             </button>
-                            <button onClick={() => { props.onCopyBlock?.(props.block.id,); setShowOptionsMenu(false,); }}>
+                            <button type="button" onClick={() => { props.onCopyBlock?.(props.block.id,); setShowOptionsMenu(false,); }}>
                                 Copy Block
                             </button>
-                            <button onClick={() => { setShowSaveComponent(true,); setShowOptionsMenu(false,); }}>
+                            <button type="button" onClick={() => { setShowSaveComponent(true,); setShowOptionsMenu(false,); }}>
                                 Save as Component
                             </button>
                             <Show when={props.canPaste}>
-                                <button onClick={() => { props.onPasteAfter?.(props.block.id,); setShowOptionsMenu(false,); }}>
+                                <button type="button" onClick={() => { props.onPasteAfter?.(props.block.id,); setShowOptionsMenu(false,); }}>
                                     Paste Block (after)
                                 </button>
-                                <button onClick={() => { props.onPasteReplace?.(props.block.id,); setShowOptionsMenu(false,); }}>
+                                <button type="button" onClick={() => { props.onPasteReplace?.(props.block.id,); setShowOptionsMenu(false,); }}>
                                     Paste Block (replace)
                                 </button>
                             </Show>
-                            <button onClick={() => { toggleDisabled(); setShowOptionsMenu(false,); }}>
+                            <button type="button" onClick={() => { toggleDisabled(); setShowOptionsMenu(false,); }}>
                                 {isDisabled() ? 'Enable' : 'Disable'}
                             </button>
-                            <button
+                            <button type="button"
                                 class="content-block__options-danger"
                                 onClick={() => { setShowRemoveConfirm(true,); setShowOptionsMenu(false,); }}
                             >

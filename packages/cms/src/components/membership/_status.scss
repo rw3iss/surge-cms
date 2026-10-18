@@ -1,0 +1,25 @@
+// Membership status colours (success / warning / danger / info / offer).
+//
+// Each reads a public theme token first — `--site-success-bg` / `-fg` /
+// `-border` and the same for warning, danger, info — so a site (e.g. a dark
+// theme) can restyle every membership notice, badge and panel in one place.
+// The literals are only the fallbacks for a site that sets none.
+@use 'sass:map';
+
+$status: (
+  success: (bg: #ecfdf5, fg: #065f46, border: #22c55e),
+  warning: (bg: #fffbeb, fg: #92400e, border: #f59e0b),
+  danger: (bg: #fef2f2, fg: #991b1b, border: #ef4444),
+  info: (bg: #e0e7ff, fg: #3730a3, border: #6366f1),
+);
+
+@function status($kind, $part) {
+  $c: map.get($status, $kind, $part);
+  @return var(--site-#{$kind}-#{$part}, #{$c});
+}
+
+// Background + text of a status block / badge.
+@mixin status-fill($kind) {
+  background: status($kind, bg);
+  color: status($kind, fg);
+}

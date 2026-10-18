@@ -13,7 +13,8 @@ import { config, } from '../../config';
 import { ValidationError, } from '../../core/errors';
 import * as repo from '../../repositories/events.repo';
 import { logger, } from '../../utils/logger';
-import { sendEmail, } from '../email';
+import { sendPurposeMail, } from '../mail/purposes';
+import { describeWhen, escapeHtml, eventLink, } from './format';
 import { register, } from './registration';
 import { eventSender, getSettings, } from './settings';
 import { issueTickets, resolveTicketLines, } from './tickets';
@@ -45,13 +46,18 @@ export async function purchaseTickets(input: {
     if (!isValidEmail(email,)) throw new ValidationError('A valid email address is required',);
     if (!input.lines?.length) throw new ValidationError('No tickets selected.',);
 
-    const { lines, totalCents, } = await resolveTicketLines(input.lines, { viewer: input.viewer, },);
+    const { lines, totalCents, } = await resolveTicketLines(input.lines, { viewer: input.viewer, buyerEmail: email, },);
 
     // Every line must belong to one event: an order spans a single event's
     // registration, and mixing them would leave attendees on the wrong list.
     const eventIds = [...new Set(lines.map((l,) => l.eventId),),];
     if (eventIds.length > 1) {
         throw new ValidationError('Please check out tickets for one event at a time.',);
+    }
+    // …and one DATE: the registration is per occurrence, and a ticket for
+    // week 3 must not hang off a registration for week 1.
+    if (new Set(lines.map((l,) => l.occurrenceDate),).size > 1) {
+        throw new ValidationError('Please check out tickets for one date at a time.',);
     }
 
     const currency = lines[0]?.currency ?? 'USD';
@@ -75,7 +81,7 @@ export async function purchaseTickets(input: {
         viewer: input.viewer,
     },);
     const tickets = await issueTickets(registration.id, lines,);
-    await sendTicketConfirmation(lines[0].eventId, email, tickets,);
+    await sendTicketConfirmation(lines[0].eventId, email, tickets, lines[0].occurrenceDate,);
 
     return {
         status: 'confirmed',
@@ -94,38 +100,43 @@ export async function sendTicketConfirmation(
     eventId: string,
     email: string,
     tickets: Array<{ code: string; tierName: string; priceCents?: number; currency?: string; }>,
+    occurrenceDate?: string | null,
 ): Promise<void> {
     try {
         const event = await repo.findById(eventId,);
         if (!event) return;
-        const when = new Date(event.startsAt,).toLocaleString('en-US', {
-            dateStyle: 'full',
-            timeStyle: 'short',
-        },);
+        const when = await describeWhen(event, occurrenceDate,);
+        const url = await eventLink(event,);
         const base = config.frontendUrl.replace(/\/+$/, '',);
+        const ticketUrl = (code: string,) => `${base}/tickets/${encodeURIComponent(code,)}`;
         // Each code links to its ticket page — the proof of registration.
         const rows = tickets.map((t,) =>
-            `<tr><td style="padding:4px 10px 4px 0">${t.tierName}</td>` +
-            `<td style="padding:4px 0"><a href="${base}/tickets/${
-                encodeURIComponent(t.code,)
-            }"><code>${t.code}</code></a></td></tr>`
+            `<tr><td style="padding:4px 10px 4px 0">${escapeHtml(t.tierName,)}</td>` +
+            `<td style="padding:4px 0"><a href="${escapeHtml(ticketUrl(t.code,),)}"><code>${escapeHtml(t.code,)}</code></a></td></tr>`
         ).join('',);
+        const ticketsHtml = `<table>${rows}</table>`;
 
-        await sendEmail({
-            ...(await eventSender()),
+        // A mail purpose (Events settings → Emails): editable, switchable; this
+        // body is the built-in default.
+        await sendPurposeMail('event_tickets', {
             to: email,
-            subject: `Your tickets: ${event.title}`,
-            html: `<h2>You're going to ${event.title}</h2>
-                <p>${when}</p>
-                ${event.location ? `<p>${event.location}</p>` : ''}
+            ...(await eventSender()),
+            defaultSubject: `Your tickets: ${event.title}`,
+            defaultHtml: `<h2>You're going to ${escapeHtml(event.title,)}</h2>
+                <p>${escapeHtml(when,)}</p>
+                ${event.location ? `<p>${escapeHtml(event.location,)}</p>` : ''}
                 <h3 style="margin-top:18px">Your tickets</h3>
-                <table>${rows}</table>
+                ${ticketsHtml}
                 <p style="margin-top:16px">
-                    <a href="${config.frontendUrl.replace(/\/+$/, '',)}/events/${event.slug}">
-                        View the event
-                    </a>
+                    <a href="${escapeHtml(url,)}">View the event</a>
                 </p>
-                <p style="color:#666;font-size:12px">Bring these codes with you.</p>`,
+                <p style="color:#6b7280;font-size:12px">Bring these codes with you.</p>`,
+            context: {
+                event: { title: event.title, location: event.location ?? '', url, },
+                occurrence: { date: occurrenceDate ?? '', when, },
+                tickets: tickets.map((t,) => ({ code: t.code, tier: t.tierName, url: ticketUrl(t.code,), })),
+                ticketsHtml,
+            },
         },);
     } catch (e) {
         logger.warn('event ticket confirmation email failed', {

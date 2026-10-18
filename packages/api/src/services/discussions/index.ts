@@ -18,6 +18,7 @@ export * as activity from './activity';
 export * from './targets';
 export * from './events';
 export * from './viewer';
+export { accessFor, filterReadable, } from './readable';
 export { getSettings, updateSettings, } from './settings';
 
 /** Nightly: recompute activity + reply counters and every target's own counters. */

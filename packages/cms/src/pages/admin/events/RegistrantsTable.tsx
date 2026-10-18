@@ -6,6 +6,7 @@
 import type { EventRegistration, EventTicketTier, } from '@sitesurge/types';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
+import ExportMenu from '../../../components/admin/common/ExportMenu';
 
 export interface RegistrantsTableProps {
     eventId: string;
@@ -67,6 +68,13 @@ const RegistrantsTable: Component<RegistrantsTableProps> = (props,) => {
                 <span class="form-help-muted">
                     {total()} {total() === 1 ? 'person' : 'people'} for {props.occurrenceDate}
                 </span>
+                <Show when={total() > 0}>
+                    <ExportMenu
+                        url={(format, query,) => cms.events.registrationsExportUrl(
+                            props.eventId, props.occurrenceDate, format, { columns: query.columns ? String(query.columns,) : undefined, },
+                        )}
+                    />
+                </Show>
             </div>
 
             <Show when={totalSold() > 0}>

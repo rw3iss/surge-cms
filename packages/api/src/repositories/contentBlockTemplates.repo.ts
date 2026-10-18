@@ -8,8 +8,15 @@
  * `block_styles`) are resolved on read via `populateBlockStyles` so the
  * renderer ingests fully-inlined style props.
  */
+import { randomUUID, } from 'crypto';
+import { orderParentsFirst, } from '../services/revisions';
 import type { ContentBlockTemplate, ContentBlockTemplateBlock, TemplateListRender, TemplateSlot, } from '@sitesurge/types';
+import type { PoolClient, } from 'pg';
 import { getPool, query, } from '../db';
+
+/** A query runner: the pool's `query`, or a transaction's client. */
+type Runner = Pick<PoolClient, 'query'>;
+const pooled: Runner = { query: ((sql: string, params?: unknown[],) => query(sql, params as never,)) as never, };
 import * as blockStyleResolution from '../services/blockStyleResolution';
 
 // ── Template metadata ──
@@ -91,8 +98,8 @@ export interface CreateInput {
     slots?: TemplateSlot[];
 }
 
-export async function create(input: CreateInput,): Promise<ContentBlockTemplate> {
-    const r = await query<TemplateRow>(`
+export async function create(input: CreateInput, db: Runner = pooled,): Promise<ContentBlockTemplate> {
+    const r = await db.query<TemplateRow>(`
         INSERT INTO content_block_templates
             (name, description, entity_type_key, mode, max_records, sample_record_ids, script, script_enabled, slots, list_render)
         VALUES ($1, $2, $3, COALESCE($4, 'single'), $5, $6::text[], $7, COALESCE($8, true), $9::jsonb, COALESCE($10, 'each'))
@@ -112,7 +119,7 @@ export async function create(input: CreateInput,): Promise<ContentBlockTemplate>
     return mapTemplate(r.rows[0],);
 }
 
-export async function update(id: string, patch: Partial<CreateInput>,): Promise<ContentBlockTemplate | null> {
+export async function update(id: string, patch: Partial<CreateInput>, db: Runner = pooled,): Promise<ContentBlockTemplate | null> {
     const fields: string[] = [];
     const values: unknown[] = [];
     const set = (col: string, val: unknown,): void => {
@@ -136,9 +143,12 @@ export async function update(id: string, patch: Partial<CreateInput>,): Promise<
     }
     if (patch.script !== undefined) set('script', patch.script ?? null,);
     if (patch.scriptEnabled !== undefined) set('script_enabled', patch.scriptEnabled,);
-    if (fields.length === 0) return findById(id,);
+    if (fields.length === 0) {
+        const cur = await db.query<TemplateRow>(`SELECT * FROM content_block_templates WHERE id = $1`, [id,],);
+        return cur.rows[0] ? mapTemplate(cur.rows[0],) : null;
+    }
     values.push(id,);
-    const r = await query<TemplateRow>(
+    const r = await db.query<TemplateRow>(
         `UPDATE content_block_templates SET ${fields.join(', ',)} WHERE id = $${values.length} RETURNING *`,
         values,
     );
@@ -206,37 +216,72 @@ export interface SaveBlockInput {
     style?: Record<string, unknown>;
 }
 
-/**
- * Replace the entire block tree for a template in a single transaction so a
- * failed save can't leave half the new blocks and half the old ones.
- */
-export async function replaceBlocks(templateId: string, blocks: SaveBlockInput[],): Promise<void> {
-    const pool = getPool();
-    const client = await pool.connect();
+/** Insert a template's whole block tree on `client` (inside the caller's transaction). */
+async function writeBlocks(client: Runner, templateId: string, blocks: SaveBlockInput[],): Promise<void> {
+    await client.query(`DELETE FROM content_block_template_blocks WHERE template_id = $1`, [templateId,],);
+    // `parent_block_id` is a non-deferrable self-FK, so a child sent before
+    // its parent failed the WHOLE save. Insert parents first (the same walk
+    // revisions use); id-less blocks get an id here so the walk can key them.
+    const ordered = orderParentsFirst(
+        blocks.map((b,) => ({ ...b, id: b.id ?? randomUUID(), }) as unknown as Record<string, unknown>),
+    ) as unknown as SaveBlockInput[];
+    for (const b of ordered) {
+        await client.query(
+            `INSERT INTO content_block_template_blocks
+                (id, template_id, parent_block_id, block_type, position, settings, style)
+             VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4::block_type, $5, $6::jsonb, $7::jsonb)`,
+            [
+                b.id ?? null,
+                templateId,
+                b.parentBlockId ?? null,
+                b.blockType,
+                b.position,
+                JSON.stringify(b.settings ?? {},),
+                JSON.stringify(b.style ?? {},),
+            ],
+        );
+    }
+}
+
+/** Run `fn` in one transaction. */
+async function inTransaction<T,>(fn: (client: PoolClient,) => Promise<T>,): Promise<T> {
+    const client = await getPool().connect();
     try {
         await client.query('BEGIN',);
-        await client.query(`DELETE FROM content_block_template_blocks WHERE template_id = $1`, [templateId,],);
-        for (const b of blocks) {
-            await client.query(
-                `INSERT INTO content_block_template_blocks
-                    (id, template_id, parent_block_id, block_type, position, settings, style)
-                 VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4::block_type, $5, $6::jsonb, $7::jsonb)`,
-                [
-                    b.id ?? null,
-                    templateId,
-                    b.parentBlockId ?? null,
-                    b.blockType,
-                    b.position,
-                    JSON.stringify(b.settings ?? {},),
-                    JSON.stringify(b.style ?? {},),
-                ],
-            );
-        }
+        const out = await fn(client,);
         await client.query('COMMIT',);
+        return out;
     } catch (err) {
         await client.query('ROLLBACK',);
         throw err;
     } finally {
         client.release();
     }
+}
+
+/**
+ * Replace the entire block tree for a template in a single transaction so a
+ * failed save can't leave half the new blocks and half the old ones.
+ */
+export async function replaceBlocks(templateId: string, blocks: SaveBlockInput[],): Promise<void> {
+    await inTransaction((client,) => writeBlocks(client, templateId, blocks,),);
+}
+
+/**
+ * Create a template WITH its blocks, or update one's metadata AND blocks, in
+ * ONE transaction. Two requests (meta, then blocks) could leave new slots /
+ * listRender beside the old blocks — rendered everywhere the template is used —
+ * when the second failed; a failed create left an empty template behind.
+ */
+export async function saveWithBlocks(
+    id: string | null,
+    input: Partial<CreateInput>,
+    blocks: SaveBlockInput[],
+): Promise<ContentBlockTemplate | null> {
+    return inTransaction(async (client,) => {
+        const tpl = id ? await update(id, input, client,) : await create(input as CreateInput, client,);
+        if (!tpl) return null;
+        await writeBlocks(client, tpl.id, blocks,);
+        return tpl;
+    },);
 }

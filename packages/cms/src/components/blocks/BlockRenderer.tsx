@@ -10,8 +10,10 @@
  * this module back. That cycle is intentional and safe: the binding is read
  * when a component RENDERS, never while the module evaluates.
  */
-import type { Block, } from '@sitesurge/types';
-import { Component, Match, Show, Switch, } from 'solid-js';
+import type { Block, BlockType, } from '@sitesurge/types';
+import { cssLength, } from '@sitesurge/types';
+import { Component, Show, } from 'solid-js';
+import { Dynamic, } from 'solid-js/web';
 import { fontStack, } from '../../utils/appearanceStyle';
 import { blockCss, type CascadeLayer, carouselPropTargets, } from '../../utils/blockResponsiveCss';
 import { siteSettings, } from '../../stores/siteSettings';
@@ -65,6 +67,51 @@ interface BlockRendererProps {
      *  otherwise recurse until the tab dies. */
     templateAncestry?: readonly string[];
 }
+
+/** What every web block renderer receives. */
+interface WebBlockProps {
+    block: Block;
+    ctx?: TplCtx;
+    ancestry?: readonly string[];
+}
+
+/** A type with no web renderer renders nothing. */
+const NotRendered: Component<WebBlockProps> = () => null;
+
+/**
+ * The web renderer per block type — a `Record<BlockType, …>` like the SSR and
+ * mail registries, so adding a `BlockType` fails to compile until it gets an
+ * arm (the old 20-arm <Switch> silently rendered nothing). `null` = not
+ * rendered on the web (say why).
+ */
+const WEB_BLOCK_RENDERERS: Record<BlockType, Component<WebBlockProps> | null> = {
+    hero: (p,) => <HeroBlock block={p.block} ctx={p.ctx} />,
+    rich_text: (p,) => <RichTextBlock block={p.block} ctx={p.ctx} />,
+    text: (p,) => <RichTextBlock block={p.block} ctx={p.ctx} />,
+    image: (p,) => <ImageBlock block={p.block} />,
+    video: (p,) => <VideoBlock block={p.block} />,
+    post: (p,) => <PostBlock block={p.block} ctx={p.ctx} />,
+    post_list: (p,) => <PostListRenderer settings={(p.block.settings || {}) as PostListSettings} />,
+    form: (p,) => <FormBlock block={p.block} />,
+    campaign: (p,) => <CampaignBlock block={p.block} />,
+    social: (p,) => <SocialBlock block={p.block} />,
+    document: (p,) => <DocumentLink block={p.block} />,
+    url_link: (p,) => <UrlLinkCard block={p.block} />,
+    html: (p,) => <HTMLBlock block={p.block} ctx={p.ctx} />,
+    carousel: (p,) => <CarouselBlockRenderer block={p.block} />,
+    // A bare number is px (`60` used to become the invalid `height: 60`).
+    spacer: (p,) => <div style={{ height: cssLength(p.block.settings?.height,) ?? '60px', }} />,
+    entity: (p,) => <EntityBlock block={p.block} ctx={p.ctx} />,
+    template: (p,) => <TemplateBlock block={p.block} ctx={p.ctx} ancestry={p.ancestry} />,
+    group: (p,) => <GroupBlock block={p.block} ctx={p.ctx} />,
+    group_item: (p,) => <GroupItemBlock block={p.block} ctx={p.ctx} />,
+    // Gallery (feature `gallery`) — published media items. The legacy
+    // `gallery` rows were deleted by migration 027.
+    gallery: (p,) => <GalleryBlock block={p.block} />,
+    // Not rendered on the web yet — the SSR and mail registries render it
+    // (events area follow-up).
+    event: null,
+};
 
 export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
     // A disabled block keeps its content in the DB but never renders on the
@@ -265,78 +312,12 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                     ...(s().overflowY ? { 'overflow-y': s().overflowY, } : {}),
                 }}
             >
-                <Switch>
-                    <Match when={props.block.type === 'hero'}>
-                        <HeroBlock block={props.block} ctx={props.templateContext} />
-                    </Match>
-                    <Match when={props.block.type === 'rich_text'}>
-                        <RichTextBlock block={props.block} ctx={props.templateContext} />
-                    </Match>
-                    <Match when={props.block.type === 'image'}>
-                        <ImageBlock block={props.block} />
-                    </Match>
-                    <Match when={props.block.type === 'video'}>
-                        <VideoBlock block={props.block} />
-                    </Match>
-                    <Match when={props.block.type === 'post'}>
-                        <PostBlock block={props.block} ctx={props.templateContext} />
-                    </Match>
-                    <Match when={props.block.type === 'post_list'}>
-                        <PostListRenderer settings={(props.block.settings || {}) as PostListSettings} />
-                    </Match>
-                    <Match when={props.block.type === 'form'}>
-                        <FormBlock block={props.block} />
-                    </Match>
-                    <Match when={props.block.type === 'campaign'}>
-                        <CampaignBlock block={props.block} />
-                    </Match>
-                    <Match when={props.block.type === 'social'}>
-                        <SocialBlock block={props.block} />
-                    </Match>
-                    <Match when={props.block.type === 'text'}>
-                        <RichTextBlock block={props.block} ctx={props.templateContext} />
-                    </Match>
-                    <Match when={props.block.type === 'document'}>
-                        <DocumentLink block={props.block} />
-                    </Match>
-                    <Match when={props.block.type === 'url_link'}>
-                        <UrlLinkCard block={props.block} />
-                    </Match>
-                    <Match when={props.block.type === 'html'}>
-                        <HTMLBlock block={props.block} ctx={props.templateContext} />
-                    </Match>
-                    <Match when={props.block.type === 'carousel'}>
-                        <CarouselBlockRenderer block={props.block} />
-                    </Match>
-                    <Match when={props.block.type === 'spacer'}>
-                        <div
-                            style={{
-                                height: (props.block.settings?.height as string) || '60px',
-                            }}
-                        />
-                    </Match>
-                    <Match when={props.block.type === 'entity'}>
-                        <EntityBlock block={props.block} ctx={props.templateContext} />
-                    </Match>
-                    <Match when={props.block.type === 'template'}>
-                        <TemplateBlock
-                            block={props.block}
-                            ctx={props.templateContext}
-                            ancestry={props.templateAncestry}
-                        />
-                    </Match>
-                    <Match when={props.block.type === 'group'}>
-                        <GroupBlock block={props.block} ctx={props.templateContext} />
-                    </Match>
-                    <Match when={props.block.type === 'group_item'}>
-                        <GroupItemBlock block={props.block} ctx={props.templateContext} />
-                    </Match>
-                    {/* Gallery (feature `gallery`) — published media items. The
-                        legacy `gallery` rows were deleted by migration 027. */}
-                    <Match when={props.block.type === 'gallery'}>
-                        <GalleryBlock block={props.block} />
-                    </Match>
-                </Switch>
+                <Dynamic
+                    component={WEB_BLOCK_RENDERERS[props.block.type] ?? NotRendered}
+                    block={props.block}
+                    ctx={props.templateContext}
+                    ancestry={props.templateAncestry}
+                />
             </div>
         </div>
         </Show>

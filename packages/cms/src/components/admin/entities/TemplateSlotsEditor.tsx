@@ -14,49 +14,18 @@ import {
     type SlotBinding,
     type TemplateSlot,
 } from '@sitesurge/types';
-import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
+import { Component, createSignal, For, Show, } from 'solid-js';
 import { produce, type SetStoreFunction, } from 'solid-js/store';
 import { nextSlotId, slotIdError, } from '../../../utils/templateSlots';
 import Toggle from '../common/Toggle';
 import { FormField, FormRowAction, } from '../forms';
 import DataBindingField from './DataBindingField';
 import EntityTypeSelect from './EntityTypeSelect';
+import { CommitInput, } from '../forms/CommitInput';
 import './TemplateSlotsEditor.scss';
 
-/** A text input with a local draft that commits on blur / Enter. `validate`
- *  returning a message keeps the draft and shows it instead of committing. */
-const DraftInput: Component<{
-    value: string;
-    onCommit: (v: string,) => void;
-    validate?: (v: string,) => string | null;
-    placeholder?: string;
-    onError?: (msg: string | null,) => void;
-}> = (props,) => {
-    let el: HTMLInputElement | undefined;
-    const [draft, setDraft,] = createSignal(props.value,);
-    createEffect(() => {
-        const v = props.value;
-        if (document.activeElement !== el) setDraft(v,);
-    },);
-    const commit = () => {
-        const v = draft().trim();
-        const err = props.validate?.(v,) ?? null;
-        props.onError?.(err,);
-        if (err) return;
-        if (v !== props.value) props.onCommit(v,);
-    };
-    return (
-        <input
-            ref={el}
-            type="text"
-            value={draft()}
-            placeholder={props.placeholder}
-            onInput={(e,) => setDraft(e.currentTarget.value,)}
-            onBlur={commit}
-            onKeyDown={(e,) => { if (e.key === 'Enter') { e.preventDefault(); commit(); } }}
-        />
-    );
-};
+/** Shared commit-on-blur input (validate keeps the draft and reports the error). */
+const DraftInput = CommitInput;
 
 export interface TemplateSlotsEditorProps {
     slots: TemplateSlot[];

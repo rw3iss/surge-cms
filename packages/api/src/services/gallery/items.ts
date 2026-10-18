@@ -16,7 +16,8 @@ import {
     galleryItemPath, galleryMediaType, type GalleryItem, type GalleryListResult, type GalleryQuery, type GallerySettings,
     type GallerySyncBody, type GallerySyncResponse, type GalleryItemPatch,
 } from '@sitesurge/types';
-import { NotFoundError, ValidationError, } from '../../core/errors';
+import { AppError, NotFoundError, ValidationError, } from '../../core/errors';
+import type { PoolClient, } from 'pg';
 import { query, transaction, } from '../../db';
 import { logger, } from '../../utils/logger';
 import { uuidOrNull, } from '../../utils/uuid';
@@ -136,6 +137,8 @@ export function normalizeQuery(q: Omit<GalleryQuery, 'ids'> & { ids?: string[] |
         search: q.search?.trim().slice(0, 100,) || undefined,
         sort,
         dir: q.dir === 'desc' ? 'desc' : 'asc',
+        // Only a random order uses the seed; elsewhere it would just split the cache.
+        seed: sort === 'random' && /^[\w-]{1,32}$/.test(String(q.seed ?? '',),) ? String(q.seed,) : undefined,
         limit: Math.min(MAX_LIMIT, Math.max(1, Math.round(Number(q.limit,) || 24,),),),
         page: Math.max(1, Math.round(Number(q.page,) || 1,),),
         listing: q.listing === true || (q.listing as unknown) === 'true' || undefined,
@@ -225,19 +228,44 @@ function orderBy(q: ReturnType<typeof normalizeQuery>, params: unknown[],): stri
         case 'newest': return 'ORDER BY gi.created_at DESC';
         case 'oldest': return 'ORDER BY gi.created_at ASC';
         case 'title': return `ORDER BY lower(COALESCE(NULLIF(gi.title, ''), m.title, m.original_name)) ${q.dir === 'desc' ? 'DESC' : 'ASC'}`;
-        case 'random': return 'ORDER BY random()';
+        case 'random': {
+            // Seeded: every page of one session shares the same shuffle (C7).
+            if (!q.seed) return 'ORDER BY random()';
+            params.push(q.seed,);
+            return `ORDER BY md5(gi.id::text || $${params.length}), gi.id`;
+        }
         default: return q.dir === 'desc' ? 'ORDER BY gi.sort_order DESC, gi.created_at ASC' : 'ORDER BY gi.sort_order ASC, gi.created_at DESC';
     }
 }
 
-/** List / query. Anonymous site reads are cached (60 s) except random order. */
+/**
+ * Everything the site gate reads about a viewer, as one string: two viewers
+ * with the same signature see exactly the same items (`audienceConditions`
+ * uses only the level and the grants).
+ */
+export function viewerSignature(level: number, g: ViewerGrants,): string {
+    if (g.staff) return 'staff';
+    return `l${level}|r${[...g.roles,].sort().join(',',)}|t${[...g.tierIds,].sort().join(',',)}|${g.signedIn ? 's' : 'a'}`;
+}
+
+/** List / query. Site reads are cached (60 s) per viewer signature, except an unseeded random order. */
 export async function list(raw: Omit<GalleryQuery, 'ids'> & { ids?: string[] | string; } = {}, opts: ListOptions = {},): Promise<GalleryListResult> {
     const q = normalizeQuery(raw,);
     const s = await getSettings();
-    const anonymous = (opts.audience ?? 'site') === 'site' && !opts.viewer?.id;
-    const cacheKey = anonymous && q.sort !== 'random'
-        ? CACHE_KEYS.galleryList(crypto.createHash('sha1',).update(JSON.stringify(q,),).digest('hex',).slice(0, 16,),)
-        : null;
+    // Site reads are cached per VIEWER SIGNATURE (F4) — every input of the
+    // gate: level + staff + roles + tiers — so members sharing a signature
+    // share an entry (anonymous is one signature). An unseeded random order is
+    // different every time, so never cached; a seeded one carries its seed.
+    let cacheKey: string | null = null;
+    if ((opts.audience ?? 'site') === 'site' && (q.sort !== 'random' || q.seed)) {
+        let sig = 'anon';
+        if (opts.viewer?.id) {
+            const grants = opts.grants ?? await viewerGrants(opts.viewer,);
+            opts = { ...opts, grants, };
+            sig = viewerSignature(await viewerLevel(opts.viewer,), grants,);
+        }
+        cacheKey = CACHE_KEYS.galleryList(crypto.createHash('sha1',).update(JSON.stringify({ q, sig, },),).digest('hex',).slice(0, 16,),);
+    }
     if (cacheKey) {
         const hit = await cache.get<GalleryListResult>(cacheKey,);
         if (hit) return hit;
@@ -360,15 +388,74 @@ export async function update(id: string, patch: GalleryItemPatch, ctx: AuditCont
     return item;
 }
 
+/** Which items `removeGalleryItems` removes (exactly one key). */
+export type GalleryItemSelector = { ids: string[]; } | { collectionId: string; } | { mediaId: string; };
+
+/**
+ * THE way gallery items are removed (item remove, Publish removals, collection
+ * delete, media discard), inside the caller's transaction:
+ *   1. delete the rows,
+ *   2. soft-delete their comments through the discussions engine (`setStatus`
+ *      → 'deleted'), so author activity counts, reply counts and discovery
+ *      feeds stop counting comments on an item that no longer exists,
+ *   3. delete their comment threads.
+ * Caches + audit stay with the caller (each audits its own act). Returns the
+ * removed item ids and their media ids (for an optional media delete).
+ */
+export async function removeGalleryItems(
+    client: PoolClient, sel: GalleryItemSelector,
+): Promise<{ ids: string[]; mediaIds: string[]; rows: { id: string; mediaId: string | null; }[]; }> {
+    let where: string;
+    let param: unknown;
+    if ('ids' in sel) {
+        const ids = sel.ids.filter((x,) => UUID.test(x,),);
+        if (!ids.length) return { ids: [], mediaIds: [], rows: [], };
+        where = 'id = ANY($1::uuid[])';
+        param = ids;
+    } else if ('collectionId' in sel) {
+        where = 'collection_id = $1';
+        param = sel.collectionId;
+    } else {
+        where = 'media_id = $1';
+        param = sel.mediaId;
+    }
+    const d = await client.query<{ id: string; media_id: string | null; }>(`DELETE FROM gallery_items WHERE ${where} RETURNING id, media_id`, [param,],);
+    const ids = d.rows.map((r,) => r.id);
+    const mediaIds = d.rows.map((r,) => r.media_id).filter((m,): m is string => Boolean(m,),);
+    const rows = d.rows.map((r,) => ({ id: r.id, mediaId: r.media_id, }));
+    if (!ids.length) return { ids, mediaIds, rows, };
+    await deleteItemDiscussions(client, ids,);
+    return { ids, mediaIds, rows, };
+}
+
+/** Step 2 + 3 of `removeGalleryItems` (no-op where the discussions tables were never installed). */
+async function deleteItemDiscussions(client: PoolClient, itemIds: string[],): Promise<void> {
+    const t = await client.query<{ comments: string | null; threads: string | null; }>(
+        `SELECT to_regclass('comments')::text AS comments, to_regclass('comment_threads')::text AS threads`,
+    );
+    if (t.rows[0]?.comments) {
+        const c = await client.query<{ id: string; }>(
+            `SELECT id FROM comments WHERE target_type = 'gallery_item' AND target_id::text = ANY($1::text[]) AND status <> 'deleted'`,
+            [itemIds,],
+        );
+        if (c.rows.length) {
+            const { setStatus, } = await import('../discussions/comments.js');
+            for (const row of c.rows) await setStatus(row.id, 'deleted', client,);
+        }
+    }
+    if (t.rows[0]?.threads) {
+        await client.query(`DELETE FROM comment_threads WHERE target_type = 'gallery_item' AND target_id::text = ANY($1::text[])`, [itemIds,],);
+    }
+}
+
 /** Remove one item; optionally delete its media from the library too. */
 export async function remove(
     id: string, deleteMedia: boolean, ctx: AuditContext, forceMedia = false,
 ): Promise<{ removed: true; mediaDeleted: boolean; mediaKept: boolean; }> {
-    const r = await query<{ media_id: string | null; }>(`DELETE FROM gallery_items WHERE id = $1 RETURNING media_id`, [id,],);
-    if (!r.rows[0]) throw new NotFoundError('Gallery item',);
-    await query(`DELETE FROM comment_threads WHERE target_type = 'gallery_item' AND target_id = $1`, [id,],).catch(() => {},);
+    const r = await transaction((client,) => removeGalleryItems(client, { ids: [id,], },),);
+    if (!r.ids.length) throw new NotFoundError('Gallery item',);
     let outcome: MediaDeleteOutcome | null = null;
-    if (deleteMedia && r.rows[0].media_id) outcome = await deleteMediaQuietly(r.rows[0].media_id, ctx, forceMedia,);
+    if (deleteMedia && r.mediaIds[0]) outcome = await deleteMediaQuietly(r.mediaIds[0], ctx, forceMedia,);
     await cache.invalidateGalleryCache();
     await cache.invalidateSitemapCache();
     await logAudit({ userId: ctx.userId, action: 'gallery_item_remove', entityType: 'gallery_item', entityId: id, newValues: { deleteMedia, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
@@ -402,6 +489,92 @@ export async function deleteMediaQuietly(mediaId: string, ctx: AuditContext, for
     }
 }
 
+/** One row of a bulk publish statement: only the PRESENT fields (an omitted field stays as it is). */
+type PublishRow = Record<string, unknown>;
+
+/**
+ * The publish draft → the JSON rows of the two bulk statements. Existing items
+ * (by `id`) carry only the fields their input had (`setClause` semantics); new
+ * items (by `mediaId`) carry everything with defaults. `ord` = the item's
+ * position in the draft.
+ */
+export function publishRows(keep: GallerySyncBody['items'], createdBy: string | null,): { updates: PublishRow[]; inserts: PublishRow[]; } {
+    const updates: PublishRow[] = [];
+    const inserts: PublishRow[] = [];
+    keep.forEach((item, ord,) => {
+        const p = cleanPatch(item,);
+        if (item.id) {
+            const row: PublishRow = { id: item.id, ord, };
+            for (const [k, col,] of Object.entries(COLS,) as [Exclude<keyof GalleryItemPatch, 'access'>, string][]) {
+                if (p[k] !== undefined) row[col] = p[k];
+            }
+            if (p.access) Object.assign(row, { access_enabled: p.access.enabled, access_roles: p.access.roles, access_tier_ids: p.access.tierIds, },);
+            updates.push(row,);
+        } else {
+            const access = p.access ?? { enabled: false, roles: [], tierIds: [], };
+            inserts.push({
+                media_id: item.mediaId, ord, title: p.titleOverride ?? null, caption: p.captionOverride ?? null, tags: p.tags ?? [],
+                visibility: p.visibility ?? 'inherit', min_tier_id: p.minTierId ?? null, comments: p.comments ?? 'inherit',
+                anonymous_comments: p.anonymousComments ?? 'inherit', created_by: createdBy, collection_id: p.collectionId ?? null,
+                access_enabled: access.enabled, access_roles: access.roles, access_tier_ids: access.tierIds, hidden_in_gallery: p.hiddenInGallery ?? false,
+            },);
+        }
+    },);
+    return { updates, inserts, };
+}
+
+/** `e ? 'col'` = the field was sent; else the row keeps its value. */
+const fieldOr = (col: string, value: string,) => `CASE WHEN e ? '${col}' THEN ${value} ELSE g.${col} END`;
+const textArr = (col: string,) => `ARRAY(SELECT jsonb_array_elements_text(e->'${col}'))`;
+
+export const BULK_UPDATE_SQL = `UPDATE gallery_items g SET
+        sort_order = (e->>'ord')::int,
+        title = ${fieldOr('title', `e->>'title'`,)},
+        caption = ${fieldOr('caption', `e->>'caption'`,)},
+        tags = ${fieldOr('tags', textArr('tags',),)},
+        visibility = ${fieldOr('visibility', `e->>'visibility'`,)},
+        min_tier_id = ${fieldOr('min_tier_id', `(e->>'min_tier_id')::uuid`,)},
+        comments = ${fieldOr('comments', `e->>'comments'`,)},
+        anonymous_comments = ${fieldOr('anonymous_comments', `e->>'anonymous_comments'`,)},
+        collection_id = ${fieldOr('collection_id', `(e->>'collection_id')::uuid`,)},
+        access_enabled = ${fieldOr('access_enabled', `(e->>'access_enabled')::boolean`,)},
+        access_roles = ${fieldOr('access_roles', textArr('access_roles',),)},
+        access_tier_ids = ${fieldOr('access_tier_ids', `${textArr('access_tier_ids',)}::uuid[]`,)},
+        hidden_in_gallery = ${fieldOr('hidden_in_gallery', `(e->>'hidden_in_gallery')::boolean`,)},
+        updated_at = NOW()
+    FROM jsonb_array_elements($1::jsonb) e
+    WHERE g.id = (e->>'id')::uuid`;
+
+export const BULK_INSERT_SQL = `INSERT INTO gallery_items (media_id, sort_order, title, caption, tags, visibility, min_tier_id, comments, anonymous_comments,
+                                created_by, collection_id, access_enabled, access_roles, access_tier_ids, hidden_in_gallery)
+    SELECT (e->>'media_id')::uuid, (e->>'ord')::int, e->>'title', e->>'caption', ${textArr('tags',)}, e->>'visibility', (e->>'min_tier_id')::uuid,
+           e->>'comments', e->>'anonymous_comments', (e->>'created_by')::uuid, (e->>'collection_id')::uuid, (e->>'access_enabled')::boolean,
+           ${textArr('access_roles',)}, ${textArr('access_tier_ids',)}::uuid[], (e->>'hidden_in_gallery')::boolean
+      FROM jsonb_array_elements($1::jsonb) e
+    ON CONFLICT (media_id) WHERE media_id IS NOT NULL DO UPDATE SET sort_order = EXCLUDED.sort_order, updated_at = NOW()
+    RETURNING (xmax = 0) AS inserted`;
+
+/**
+ * C4: refuse a publish built from an older gallery. Another editor (or tab)
+ * that published, edited, added or removed items moves the newest
+ * `updated_at` or the count; replacing the whole order + every field from an
+ * hours-old draft would silently undo their work. 409 GALLERY_CHANGED, so the
+ * admin can offer "reload / publish anyway" (`overwrite`).
+ */
+export async function assertUnchangedSince(basedOn: NonNullable<GallerySyncBody['basedOn']>,): Promise<void> {
+    const r = await query<{ n: number; latest: Date | null; }>(`SELECT COUNT(*)::int AS n, MAX(updated_at) AS latest FROM gallery_items`,);
+    const n = Number(r.rows[0]?.n ?? 0,);
+    const latest = r.rows[0]?.latest ? new Date(r.rows[0].latest,).getTime() : null;
+    const based = basedOn.updatedAt ? Date.parse(basedOn.updatedAt,) : null;
+    // Timestamps go through JSON (ms precision); Postgres keeps µs — allow 1 ms.
+    const newer = latest !== null && (based === null || latest > based + 1);
+    if (newer || n !== basedOn.count) {
+        throw new AppError(409, 'GALLERY_CHANGED', 'The gallery was changed by someone else since you loaded it. Reload to see their changes, or publish anyway to replace them.', {
+            count: n, updatedAt: latest !== null ? new Date(latest,).toISOString() : null,
+        },);
+    }
+}
+
 /**
  * Publish the admin's draft: the ordered list of items to keep (existing by
  * `id`, new by `mediaId`) + removals, in one transaction. Media deletions
@@ -409,6 +582,7 @@ export async function deleteMediaQuietly(mediaId: string, ctx: AuditContext, for
  */
 export async function sync(body: GallerySyncBody, ctx: AuditContext,): Promise<GallerySyncResponse> {
     const s = await getSettings();
+    if (body.basedOn && !body.overwrite) await assertUnchangedSince(body.basedOn,);
     const removals = (body.remove ?? []).filter((r,) => UUID.test(r.id,),);
     const removeIds = new Set(removals.map((r,) => r.id,),);
     const keep = (body.items ?? []).filter((i,) => !(i.id && removeIds.has(i.id,)),);
@@ -431,47 +605,25 @@ export async function sync(body: GallerySyncBody, ctx: AuditContext,): Promise<G
     let removedCount = 0;
     const mediaToDelete: string[] = [];
     await transaction(async (client,) => {
-        for (const r of removals) {
-            const d = await client.query<{ media_id: string | null; }>(`DELETE FROM gallery_items WHERE id = $1 RETURNING media_id`, [r.id,],);
-            if (d.rows[0]) {
-                removedCount += 1;
-                await client.query(`DELETE FROM comment_threads WHERE target_type = 'gallery_item' AND target_id = $1`, [r.id,],);
-                if (r.deleteMedia && d.rows[0].media_id) mediaToDelete.push(d.rows[0].media_id,);
-            }
+        if (removals.length) {
+            const gone = await removeGalleryItems(client, { ids: removals.map((r,) => r.id,), },);
+            removedCount = gone.ids.length;
+            const withMedia = new Set(removals.filter((r,) => r.deleteMedia,).map((r,) => r.id,),);
+            for (const row of gone.rows) if (withMedia.has(row.id,) && row.mediaId) mediaToDelete.push(row.mediaId,);
         }
-        let order = 0;
-        for (const item of keep) {
-            const p = cleanPatch(item,);
-            if (item.id) {
-                const params: unknown[] = [item.id, order,];
-                const sets = setClause(p, params,);
-                const u = await client.query(
-                    `UPDATE gallery_items SET sort_order = $2${sets.length ? `, ${sets.join(', ',)}` : ''}, updated_at = NOW() WHERE id = $1`,
-                    params,
-                );
-                if (u.rowCount) updated += 1;
-            } else {
-                // Already in the gallery (published elsewhere meanwhile) → just move it.
-                const existing = await client.query<{ id: string; }>(`SELECT id FROM gallery_items WHERE media_id = $1`, [item.mediaId,],);
-                if (existing.rows[0]) {
-                    await client.query(`UPDATE gallery_items SET sort_order = $2, updated_at = NOW() WHERE id = $1`, [existing.rows[0].id, order,],);
-                    updated += 1;
-                } else {
-                    const access = p.access ?? { enabled: false, roles: [], tierIds: [], };
-                    await client.query(
-                        `INSERT INTO gallery_items (media_id, sort_order, title, caption, tags, visibility, min_tier_id, comments, anonymous_comments, created_by,
-                                                    collection_id, access_enabled, access_roles, access_tier_ids, hidden_in_gallery)
-                         VALUES ($1, $2, $3, $4, $5::text[], $6, $7, $8, $9, $10, $11, $12, $13::text[], $14::uuid[], $15)`,
-                        [
-                            item.mediaId, order, p.titleOverride ?? null, p.captionOverride ?? null, p.tags ?? [], p.visibility ?? 'inherit',
-                            p.minTierId ?? null, p.comments ?? 'inherit', p.anonymousComments ?? 'inherit', uuidOrNull(ctx.userId,),
-                            p.collectionId ?? null, access.enabled, access.roles, access.tierIds, p.hiddenInGallery ?? false,
-                        ],
-                    );
-                    added += 1;
-                }
+        // P2: two statements for the whole draft, not one (or two) per item.
+        const { updates, inserts, } = publishRows(keep, uuidOrNull(ctx.userId,),);
+        if (updates.length) {
+            const u = await client.query(BULK_UPDATE_SQL, [JSON.stringify(updates,),],);
+            updated += u.rowCount ?? 0;
+        }
+        if (inserts.length) {
+            const ins = await client.query<{ inserted: boolean; }>(BULK_INSERT_SQL, [JSON.stringify(inserts,),],);
+            for (const r of ins.rows) {
+                if (r.inserted) added += 1;
+                // Already in the gallery (published elsewhere meanwhile) → only its place moved.
+                else updated += 1;
             }
-            order += 1;
         }
     },);
 

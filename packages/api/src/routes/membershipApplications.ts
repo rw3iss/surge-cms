@@ -70,4 +70,13 @@ export const membershipApplicationsRoutes = [
             return applications.reject(params.id, body.note, audit(),);
         },
     },),
+    defineRoute({
+        method: 'post', path: '/:id/withdraw-offer', auth: 'admin',
+        summary: 'Withdraw an approved offer (hide-price level) that the member has not started yet.',
+        input: { params: idParams, },
+        handler: async ({ params, user, audit, },) => {
+            await review(user,);
+            return applications.withdrawOffer(params.id, audit(),);
+        },
+    },),
 ];

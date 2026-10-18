@@ -7,6 +7,7 @@ import type {
     MediaVideoInfoResponse, MediaVideoJobsQuery, MediaVideoJobsResponse, MediaVideoUpdateBody,
     MediaVideoActionResponse, MediaVideoReencodeBody, MediaPlaybackResponse, MediaVideoStatusResponse,
     SettingsVideoResponse, SettingsVideoBody, MediaVideoKeysResponse, MediaVideoKeyRotateResponse, MediaVideoShareResponse,
+    MediaVideoSharesResponse, MediaVideoShareRevokeResponse,
     MediaUsageResponse, MediaBulkDeleteResponse,
 } from '@sitesurge/types';
 import type { Paginated, } from '@sitesurge/types';
@@ -149,6 +150,12 @@ export class MediaModule extends ModuleBase {
         /** POST /video/:id/share — a time-limited direct link that skips the access check (default 7 days). */
         share: (id: string, days?: number,): Promise<MediaVideoShareResponse> =>
             this.mutate<MediaVideoShareResponse>('POST', '/video/:id/share', { params: { id, }, body: { days, }, },),
+        /** GET /video/:id/shares — share links issued for the video (from the audit log), with revoked / expired flags. */
+        shares: (id: string,): Promise<MediaVideoSharesResponse> =>
+            this.get<MediaVideoSharesResponse>('/video/:id/shares', { params: { id, }, options: { cache: false, }, },),
+        /** POST /video/:id/share/revoke — invalidate every share link issued so far for this video. */
+        revokeShares: (id: string,): Promise<MediaVideoShareRevokeResponse> =>
+            this.mutate<MediaVideoShareRevokeResponse>('POST', '/video/:id/share/revoke', { params: { id, }, },),
         /** GET /video/jobs — the encode queue (`active: true` = running/queued only). */
         jobs: (query?: MediaVideoJobsQuery,): Promise<MediaVideoJobsResponse> =>
             this.get<MediaVideoJobsResponse>('/video/jobs', { query: query as Record<string, unknown>, options: { cache: false, }, },),

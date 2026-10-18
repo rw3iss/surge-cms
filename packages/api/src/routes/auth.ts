@@ -46,6 +46,7 @@ import {
     isLocalhostIp,
     refreshTokens,
     registerMember,
+    resendVerificationByEmail,
     syncPatreonMembership,
     verifyEmailToken,
 } from '../services/auth';
@@ -258,6 +259,8 @@ export const authRoutes = [
                 authResponse = await authenticateWithEmail(body.email, body.password, ipAddress, userAgent, body.rememberMe,);
             } catch (error) {
                 logger.error('Login error', { error, },);
+                // Typed refusals keep their code (EMAIL_NOT_VERIFIED → "Resend the link").
+                if (error instanceof AppError) throw error;
                 throw new UnauthorizedError(error instanceof Error ? error.message : 'Login failed',);
             }
 
@@ -338,6 +341,17 @@ export const authRoutes = [
             if (!user) throw new UnauthorizedError('Not authenticated',);
             const sent = await resendVerification(user.id,);
             return { sent, };
+        },
+    },),
+
+    defineRoute({
+        method: 'post', path: '/resend-verification-by-email', auth: 'public',
+        summary: 'Send a fresh verification link to an unverified account by email (login refused it). Always answers the same, so it never reveals an account.',
+        pre: [loginLimiter,],
+        input: { body: z.object({ email: z.string().trim().email().max(320,), },), },
+        handler: async ({ body, },) => {
+            await resendVerificationByEmail(body.email,);
+            return { message: 'If that address has an unverified account, a new verification link is on its way.', };
         },
     },),
 

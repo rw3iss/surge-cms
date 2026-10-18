@@ -9,7 +9,7 @@ import { PREVIEW_CONTAINER, } from '@sitesurge/types';
 import AddBlockMenu from './AddBlockMenu';
 import BlockEditController from './BlockEditController';
 import { stableSelection, } from './stableSelection';
-import { holdViewport, } from './viewportHold';
+import { DATA_SETTLE_MS, holdViewport, } from './viewportHold';
 import ContentBlock, { BlockData, BlockType, } from './ContentBlock';
 import FlyoutPanel, { type FlyoutMode, } from '../common/FlyoutPanel';
 import Toggle from '../common/Toggle';
@@ -147,7 +147,11 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
      * while the change settles — see `viewportHold.ts`.
      */
     const emitBlocks = (next: BlockData[],) => {
-        holdViewport(selectedBlockId(),);
+        // A data edit settles fast; a structural one (type change, add/remove)
+        // may suspend a renderer, so it keeps the full window.
+        const structural = next.length !== props.blocks.length
+            || next.some((b, i,) => b.id !== props.blocks[i]?.id || b.type !== props.blocks[i]?.type);
+        holdViewport(selectedBlockId(), structural ? undefined : { minMs: DATA_SETTLE_MS, },);
         props.onBlocksChange(next,);
     };
 

@@ -176,6 +176,13 @@ export interface ShopProvider {
     pollStatus?(config: ProviderConfig, externalOrderId: string,): Promise<ProviderTracking>;
 
     /**
+     * Read ONE supplier order's full tracking state — the admin's "Refresh from
+     * supplier" on an order. Same shape the reconcile writes, so it goes
+     * through `applyFulfilmentState`.
+     */
+    fetchOrderState?(config: ProviderConfig, externalOrderId: string,): Promise<ProviderFulfilmentState>;
+
+    /**
      * Pull-tracking providers: read the supplier's recent orders and bring ours
      * in line — link unlinked ones, map status, save every shipment. Idempotent.
      */

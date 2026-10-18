@@ -177,6 +177,13 @@ async function bootRunningMode(
         } catch (err) {
             logger.warn('Live recording cron not registered', { error: err, },);
         }
+        // Hand-assigned memberships past their end date (Users → user → Membership).
+        try {
+            const { initMembershipCrons, } = await import('./services/subscriptionTiers.js');
+            initMembershipCrons();
+        } catch (err) {
+            logger.warn('Membership cron not registered', { error: err, },);
+        }
         cronRegistry.startAll();
         logger.info(
             config.cronEnabled

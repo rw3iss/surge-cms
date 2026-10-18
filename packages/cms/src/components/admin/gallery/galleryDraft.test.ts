@@ -1,7 +1,7 @@
 import type { GalleryItem, } from '@sitesurge/types';
 import { describe, expect, it, } from 'vitest';
 import {
-    buildPublishBody, displayTitle, draftFromItems, EMPTY_OPTIONS, inheritedOverride, isDraftDirty, moveItem, patchOf, persistableDraft, rowsIn,
+    basedOnOf, buildPublishBody, displayTitle, draftFromItems, EMPTY_OPTIONS, inheritedOverride, isDraftDirty, moveItem, patchOf, persistableDraft, rowsIn,
     type DraftItem,
 } from './galleryDraft';
 
@@ -39,6 +39,17 @@ describe('gallery draft', () => {
         expect(body.remove,).toEqual([{ id: 'b', deleteMedia: true, },],);
     },);
 
+    it('a drafted move of a saved item is dirty (C5)', () => {
+        const d = draftFromItems(saved,);
+        expect(isDraftDirty([{ ...d[0], collectionId: 'c9', }, d[1],], saved,),).toBe(true,);
+    },);
+
+    it('basedOnOf: the newest updatedAt + the count (C4)', () => {
+        expect(basedOnOf([item('a', { updatedAt: '2026-10-01T00:00:00.000Z', },), item('b', { updatedAt: '2026-10-02T00:00:00.000Z', },),],),)
+            .toEqual({ updatedAt: '2026-10-02T00:00:00.000Z', count: 2, },);
+        expect(basedOnOf([],),).toEqual({ updatedAt: null, count: 0, },);
+    },);
+
     it('refuses a staged file that was not uploaded', () => {
         expect(() => buildPublishBody([{ key: 'f:1', media: null, file: new File(['x',], 'a.png',), options: EMPTY_OPTIONS, },],),).toThrow(/a\.png/,);
     },);
@@ -48,11 +59,12 @@ describe('gallery draft', () => {
         expect(p.map((x,) => x.key,),).toEqual(['a', 'b',],);
     },);
 
-    it('carries the collection: saved rows mirror it, only NEW rows send it on publish', () => {
+    it('carries the collection: drafted for saved AND new rows, sent on publish (C5)', () => {
         const d = draftFromItems([item('a', { collectionId: 'c1', },), item('b',),],);
         expect(d.map((r,) => r.collectionId,),).toEqual(['c1', null,],);
         const body = buildPublishBody([...d, { key: 'm:z', mediaId: 'z', collectionId: 'c2', media: null, options: EMPTY_OPTIONS, }, { key: 'm:y', mediaId: 'y', media: null, options: EMPTY_OPTIONS, },],);
-        expect(body.items[0],).not.toHaveProperty('collectionId',);
+        expect(body.items[0],).toMatchObject({ id: 'a', collectionId: 'c1', },);
+        expect(body.items[1],).toMatchObject({ id: 'b', collectionId: null, },);
         expect(body.items[2],).toMatchObject({ mediaId: 'z', collectionId: 'c2', },);
         expect(body.items[3],).toMatchObject({ mediaId: 'y', collectionId: null, },);
         expect(rowsIn(d, 'c1',).map((r,) => r.key,),).toEqual(['a',],);

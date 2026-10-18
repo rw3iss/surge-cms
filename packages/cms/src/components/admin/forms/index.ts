@@ -32,4 +32,5 @@ export type { FormCheckProps, } from './FormCheck';
 
 export { default as FormSection, } from './FormSection';
 export { default as FormRowAction, } from './FormRowAction';
+export { default as CommitInput, } from './CommitInput';
 export type { FormSectionProps, } from './FormSection';

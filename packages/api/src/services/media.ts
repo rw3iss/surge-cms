@@ -133,7 +133,7 @@ async function encodeIfVideo(item: Media, file: UploadFile, storageProvider: unk
  * the gallery masonry / email sizing use it, so a failure must not block an upload.
  */
 export async function imageDimensions(filePath: string, mimeType: string,): Promise<{ width: number; height: number; } | null> {
-    if (!/^image\//.test(mimeType,) || mimeType === 'image/svg+xml') return null;
+    if (!mimeType.startsWith('image/',) || mimeType === 'image/svg+xml') return null;
     try {
         const m = await sharp(filePath,).metadata();
         if (!m.width || !m.height) return null;
@@ -450,10 +450,17 @@ export async function remove(id: string, ctx: AuditContext,): Promise<void> {
     if (result.rows.length === 0) throw new NotFoundError('Media',);
 
     const { filename, thumbnail_url, } = result.rows[0];
-    const storageProvider = (await resolveStorageProvider());
-    await storageProvider.delete(filename,);
-    if (thumbnail_url) {
-        await storageProvider.deleteThumbnail(filename,);
+    // The row is gone, so the delete HAS happened: a storage failure (an R2
+    // blip) must not skip the audit + cache invalidation below, or report the
+    // id as failed. The orphaned object is logged for a sweep.
+    try {
+        const storageProvider = (await resolveStorageProvider());
+        await storageProvider.delete(filename,);
+        if (thumbnail_url) await storageProvider.deleteThumbnail(filename, thumbnail_url,);
+    } catch (e) {
+        logger.warn('Media storage delete failed; object left orphaned', {
+            mediaId: id, filename, thumbnailUrl: thumbnail_url, error: (e as Error).message,
+        },);
     }
 
     await logAudit({
@@ -485,13 +492,11 @@ export interface MediaDiscardResult {
 export async function discard(id: string, ctx: AuditContext,): Promise<MediaDiscardResult> {
     let galleryItemsRemoved = 0;
     try {
-        const r = await query<{ id: string; }>(`DELETE FROM gallery_items WHERE media_id = $1 RETURNING id`, [id,],);
-        galleryItemsRemoved = r.rows.length;
+        // The shared remover: rows + their comments (engine-counted) + threads, one transaction.
+        const { removeGalleryItems, } = await import('./gallery/items.js');
+        const r = await transaction((client,) => removeGalleryItems(client, { mediaId: id, },),);
+        galleryItemsRemoved = r.ids.length;
         if (galleryItemsRemoved) {
-            await query(
-                `DELETE FROM comment_threads WHERE target_type = 'gallery_item' AND target_id = ANY($1::uuid[])`,
-                [r.rows.map((x,) => x.id),],
-            ).catch(() => {},);
             await cache.invalidateGalleryCache();
             await cache.invalidateSitemapCache();
         }

@@ -12,10 +12,14 @@ import { getRow, mapForViewer, setStatus, } from './comments';
 import { emitDiscussionEvent, } from './events';
 import { AUTHOR_JOIN, COMMENT_COLUMNS, type CommentRow, excerptOf, } from './rows';
 import { getSettings, } from './settings';
+import { rateLimit, } from './spam';
 import { findTarget, getTarget, parseTarget, } from './targets';
 import { isModerator, type Viewer, } from './viewer';
 
 // ─── Reactions ──────────────────────────────────────────────────────
+
+/** Reaction toggles a member may make per minute (shared across workers). */
+export const REACT_LIMIT_PER_MINUTE = 30;
 
 /** Toggle one reaction kind for the viewer. */
 export async function react(id: string, kind: string, viewer: Viewer,): Promise<{ reactions: Record<string, number>; myReactions: string[]; }> {
@@ -23,6 +27,7 @@ export async function react(id: string, kind: string, viewer: Viewer,): Promise<
     const s = await getSettings();
     if (!s.reactionsEnabled || !s.reactions.includes(kind,)) throw new ValidationError('That reaction is not available.',);
     if (!(await permissions.can(viewer, 'discussions:react',).catch(() => false))) throw new ForbiddenError();
+    await rateLimit(`u:${viewer.id}:react`, REACT_LIMIT_PER_MINUTE, 60,);
     const row = await getRow(id,);
     if (!row || row.status !== 'visible') throw new NotFoundError('Comment',);
     const target = await getTarget(row.target_type,);
@@ -64,12 +69,20 @@ export async function report(id: string, reason: string | undefined, viewer: Vie
 
 // ─── Moderation queue ───────────────────────────────────────────────
 
-async function requireModerator(viewer: Viewer,): Promise<void> {
-    if (!(await isModerator(viewer,))) throw new ForbiddenError();
+/**
+ * What the viewer may moderate: everything (`discussions:moderate`), or only
+ * forum posts (`forum:moderate` — the forum's own moderators, who can already
+ * pin/lock/hide threads and must be able to clear forum replies from the
+ * queue). Throws 403 otherwise.
+ */
+export async function moderationScope(viewer: Viewer,): Promise<'all' | 'forum'> {
+    if (await isModerator(viewer,)) return 'all';
+    if (viewer.id && (await permissions.can(viewer, 'forum:moderate',).catch(() => false))) return 'forum';
+    throw new ForbiddenError();
 }
 
 export async function list(q: DiscussionsModerationQuery, viewer: Viewer,): Promise<{ items: ModerationItem[]; total: number; page: number; limit: number; }> {
-    await requireModerator(viewer,);
+    if ((await moderationScope(viewer,)) === 'forum') q = { ...q, scope: 'forum', };
     const page = Math.max(1, Number(q.page ?? 1,),);
     const limit = Math.min(100, Math.max(1, Number(q.limit ?? 25,),),);
     const params: unknown[] = [];
@@ -148,10 +161,11 @@ const NEXT: Record<DiscussionsModerationAction, CommentRow['status'] | null> = {
 };
 
 export async function act(id: string, action: DiscussionsModerationAction, viewer: Viewer,): Promise<{ id: string; status: CommentRow['status']; }> {
-    await requireModerator(viewer,);
+    const scope = await moderationScope(viewer,);
     if (!(action in NEXT)) throw new ValidationError('Unknown action',);
     const row = await getRow(id,);
     if (!row) throw new NotFoundError('Comment',);
+    if (scope === 'forum' && row.target_type !== 'forum_thread') throw new ForbiddenError();
     const next = NEXT[action];
     let status = row.status;
     if (next) {
@@ -169,7 +183,7 @@ export async function act(id: string, action: DiscussionsModerationAction, viewe
 }
 
 export async function bulk(ids: string[], action: DiscussionsModerationAction, viewer: Viewer,): Promise<{ updated: number; }> {
-    await requireModerator(viewer,);
+    await moderationScope(viewer,);
     let updated = 0;
     for (const id of ids.slice(0, 200,)) {
         try {
@@ -181,7 +195,7 @@ export async function bulk(ids: string[], action: DiscussionsModerationAction, v
 }
 
 export async function counts(viewer: Viewer, scope: 'all' | 'comments' | 'forum' = 'all',): Promise<{ pending: number; reported: number; }> {
-    await requireModerator(viewer,);
+    if ((await moderationScope(viewer,)) === 'forum') scope = 'forum';
     const s = scope === 'forum' ? `AND c.target_type = 'forum_thread'` : scope === 'comments' ? `AND c.target_type <> 'forum_thread'` : '';
     const r = await query<{ pending: number; reported: number; }>(
         `SELECT (SELECT COUNT(*)::int FROM comments c WHERE c.status = 'pending' ${s}) AS pending,

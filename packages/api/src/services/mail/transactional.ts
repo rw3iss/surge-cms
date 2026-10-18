@@ -63,7 +63,7 @@ export async function renderStandaloneMail(
 
     return {
         subject: await resolveMailTemplate(result.subject, context,),
-        html: await resolveMailTemplate(result.html, context,),
+        html: await resolveMailTemplate(result.html, context, { html: true, },),
         preheader: result.preheader ? await resolveMailTemplate(result.preheader, context,) : undefined,
     };
 }

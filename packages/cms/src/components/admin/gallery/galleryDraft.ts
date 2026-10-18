@@ -38,9 +38,8 @@ export interface DraftItem {
     /** Local preview (object URL) of a staged file. */
     previewUrl?: string;
     /**
-     * The collection the row is in (null/absent = the gallery root). A NEW row's
-     * collection is sent on Publish; a saved item is moved on the server at once
-     * (`moveItems`), so for saved rows this mirrors the server and is never sent.
+     * The collection the row is in (null/absent = the gallery root). Drafted
+     * like every other field and sent on Publish, for new AND saved rows.
      */
     collectionId?: string | null;
     /** Media shown in the grid (null = deleted from the library). */
@@ -143,7 +142,8 @@ export function buildPublishBody(draft: DraftItem[], uploaded: Map<string, strin
     for (const d of draft) {
         if (d.removed) continue;
         if (d.id) {
-            items.push({ id: d.id, ...patchOf(d.options,), },);
+            // Collection membership is drafted too (C5): a move publishes with the rest.
+            items.push({ id: d.id, ...patchOf(d.options,), collectionId: d.collectionId ?? null, },);
             continue;
         }
         const mediaId = d.mediaId ?? uploaded.get(d.key,);
@@ -156,13 +156,29 @@ export function buildPublishBody(draft: DraftItem[], uploaded: Map<string, strin
 
 const sameOptions = (a: DraftOptions, b: DraftOptions,) => JSON.stringify(patchOf(a,),) === JSON.stringify(patchOf(b,),);
 
-/** Does the draft differ from the saved items (adds, removals, order, options)? */
+/** Does the draft differ from the saved items (adds, removals, order, collection, options)? */
 export function isDraftDirty(draft: DraftItem[], saved: GalleryItem[],): boolean {
     const live = draft.filter((d,) => !d.removed,);
     if (draft.some((d,) => d.removed && d.id,)) return true;
     if (live.some((d,) => !d.id,)) return true;
     if (live.length !== saved.length) return true;
-    return live.some((d, i,) => d.id !== saved[i].id || !sameOptions(d.options, optionsOf(saved[i],),),);
+    return live.some((d, i,) => d.id !== saved[i].id
+        || (d.collectionId ?? null) !== (saved[i].collectionId ?? null)
+        || !sameOptions(d.options, optionsOf(saved[i],),),);
+}
+
+/**
+ * The gallery a draft is built on, for the publish concurrency check (C4):
+ * the newest `updatedAt` and the item count of the saved list.
+ */
+export function basedOnOf(saved: GalleryItem[],): { updatedAt: string | null; count: number; } {
+    let newest = 0;
+    let iso: string | null = null;
+    for (const i of saved) {
+        const t = Date.parse(i.updatedAt,);
+        if (Number.isFinite(t,) && t > newest) { newest = t; iso = new Date(t,).toISOString(); }
+    }
+    return { updatedAt: iso, count: saved.length, };
 }
 
 /** Rows shown in a view: one collection's, or the root's (`null`). */

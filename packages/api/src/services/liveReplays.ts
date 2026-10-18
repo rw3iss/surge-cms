@@ -9,12 +9,13 @@
  * `recordingRemovedAt` set, so the page says "Video has been removed."
  */
 import type { LiveRecordingVersion, } from '@sitesurge/types';
-import { query, } from '../db';
+import { query, transaction, } from '../db';
 import { ConflictError, NotFoundError, } from '../core/errors';
 import { logger, } from '../utils/logger';
 import { logAudit, } from './audit';
 import { cache, } from './cache';
 import * as media from './media';
+import { findMediaUsage, } from './mediaUsage';
 import type { AuditContext, } from './types';
 
 interface Versioned {
@@ -96,24 +97,58 @@ export async function selectVersion(postId: string, mediaId: string, ctx: AuditC
 }
 
 /**
- * Delete one version: the media item and EVERY stored file of it (original,
- * quick replay, all HLS rungs, teaser, downloads, poster — via media.remove →
- * video asset cleanup). Removing the shown one leaves no replay on the post.
+ * Where else is each media item used — every usage EXCEPT this post's own
+ * (its recording settings and its blocks). Shared "in use" scan
+ * (`mediaUsage.findMediaUsage`): pages, other posts, gallery items, mail and
+ * block templates, entity media fields, products, settings, …
+ */
+export async function usedElsewhere(mediaIds: string[], postId: string,): Promise<Set<string>> {
+    const usage = await findMediaUsage(mediaIds,);
+    const out = new Set<string>();
+    for (const [id, list,] of Object.entries(usage,)) {
+        if (list.some((u,) => !(u.kind === 'post' && u.id === postId))) out.add(id,);
+    }
+    return out;
+}
+
+/**
+ * Delete one version. The post's list is updated under a row lock (so a
+ * recording completing at the same moment — `liveRecordings.complete`, which
+ * appends under the same lock — is never lost), THEN the media item and every
+ * stored file of it (original, quick replay, HLS rungs, teaser, downloads,
+ * poster) are removed — unless something else still uses it, in which case it
+ * is only removed from this post. Removing the shown one leaves no replay.
  */
 export async function deleteVersion(postId: string, mediaId: string, ctx: AuditContext,): Promise<LiveRecordingVersion[]> {
-    const p = await loadPost(postId,);
-    const list = versionsOf(p,);
-    if (!list.some((v,) => v.mediaId === mediaId)) throw new NotFoundError('Recording',);
-    await media.remove(mediaId, ctx,).catch((e: unknown,) => {
-        // Already gone from the library: still drop it from the post.
-        if (!(e instanceof NotFoundError)) throw e;
+    const wasCurrent = await transaction(async (client,) => {
+        const r = await client.query<Versioned>(
+            `SELECT id, post_type, live_ended_at, type_settings FROM posts WHERE id = $1 FOR UPDATE`, [postId,],
+        );
+        const p = r.rows[0];
+        if (!p) throw new NotFoundError('Post',);
+        const list = versionsOf(p,);
+        if (!list.some((v,) => v.mediaId === mediaId)) throw new NotFoundError('Recording',);
+        const current = p.type_settings?.recordingMediaId === mediaId;
+        const patch = {
+            recordingVersions: list.filter((v,) => v.mediaId !== mediaId),
+            ...(current ? { recordingMediaId: null, recordingRemovedAt: new Date().toISOString(), } : {}),
+        };
+        await client.query(
+            `UPDATE posts SET type_settings = COALESCE(type_settings, '{}'::jsonb) || $2::jsonb, updated_at = NOW() WHERE id = $1`,
+            [postId, JSON.stringify(patch,),],
+        );
+        return current;
     },);
-    const wasCurrent = p.type_settings?.recordingMediaId === mediaId;
-    await writeSettings(postId, {
-        recordingVersions: list.filter((v,) => v.mediaId !== mediaId),
-        ...(wasCurrent ? { recordingMediaId: null, recordingRemovedAt: new Date().toISOString(), } : {}),
-    },);
-    await audit(ctx, postId, 'live_recording_delete', { mediaId, wasCurrent, },);
+    await cache.invalidatePostCache(postId,);
+
+    const keep = (await usedElsewhere([mediaId,], postId,).catch(() => new Set([mediaId,],))).has(mediaId,);
+    if (!keep) {
+        await media.remove(mediaId, ctx,).catch((e: unknown,) => {
+            // Already gone from the library: the post no longer lists it either.
+            if (!(e instanceof NotFoundError)) throw e;
+        },);
+    }
+    await audit(ctx, postId, 'live_recording_delete', { mediaId, wasCurrent, fileKept: keep, },);
     return listVersions(postId,);
 }
 
@@ -168,16 +203,13 @@ export async function purgePostMedia(postId: string, ctx: AuditContext,): Promis
             for (const r of open.rows) await abort(postId, r.id, ctx,).catch(() => undefined);
         }
 
-        for (const id of ids) {
-            if (!/^[0-9a-f-]{36}$/i.test(id,)) continue;
-            const shared = await query<{ n: number; }>(
-                `SELECT (SELECT COUNT(*) FROM post_content_blocks WHERE post_id <> $2 AND data->>'mediaId' = $1)
-                      + (SELECT COUNT(*) FROM blocks WHERE settings->>'mediaId' = $1)
-                      + (SELECT COUNT(*) FROM posts WHERE id <> $2 AND (type_settings->>'recordingMediaId' = $1
-                            OR type_settings->'recordingVersions' @> jsonb_build_array(jsonb_build_object('mediaId', $1::text)))) AS n`,
-                [id, postId,],
-            );
-            if (Number(shared.rows[0]?.n ?? 0,) > 0) {
+        const valid = [...ids,].filter((id,) => /^[0-9a-f-]{36}$/i.test(id,),);
+        // Kept when anything other than THIS post still uses it — the shared
+        // scan covers galleries, templates, entity fields, other posts, pages…
+        // A scan failure keeps everything (never delete on doubt).
+        const shared = valid.length ? await usedElsewhere(valid, postId,).catch(() => new Set(valid,)) : new Set<string>();
+        for (const id of valid) {
+            if (shared.has(id,)) {
                 kept.push(id,);
                 continue;
             }

@@ -37,6 +37,19 @@
     &:hover { box-shadow: $shadow-md; border-color: var(--site-primary, #{$primary-color}); }
   }
 
+  &__filter {
+    display: block;
+    width: min(28rem, 100%);
+    margin: 0 0 $spacing-lg;
+    padding: $spacing-sm $spacing-md;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    font: inherit;
+  }
+
+  &__card--off { opacity: 0.6; }
+  &__card-off { font-size: $font-size-sm; font-weight: 400; color: $text-light; }
+
   &__card-title { margin: 0 0 $spacing-xs; font-size: $font-size-lg; }
   &__card-desc { margin: 0; color: $text-light; font-size: $font-size-sm; line-height: 1.5; }
 }

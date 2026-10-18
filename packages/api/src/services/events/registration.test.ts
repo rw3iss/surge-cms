@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi, } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, } from 'vitest';
 
 /**
  * The recurrence → registration seam.
@@ -19,16 +19,20 @@ const findById = vi.fn();
 const findBySlug = vi.fn();
 const upsertRegistration = vi.fn();
 const countRegistrations = vi.fn();
+const findOverridesForEvents = vi.fn();
 
 vi.mock('../../repositories/events.repo', () => ({
     findById: (...a: unknown[]) => findById(...a,),
     findBySlug: (...a: unknown[]) => findBySlug(...a,),
     upsertRegistration: (...a: unknown[]) => upsertRegistration(...a,),
     countRegistrations: (...a: unknown[]) => countRegistrations(...a,),
+    findOverridesForEvents: (...a: unknown[]) => findOverridesForEvents(...a,),
 }),);
+vi.mock('./access', () => ({ assertCanRegister: vi.fn().mockResolvedValue(undefined,), }),);
 vi.mock('../../db', () => ({ query: vi.fn(), }),);
 const sendEmail = vi.fn().mockResolvedValue(undefined,);
-vi.mock('../email', () => ({ sendEmail: (...a: unknown[]) => sendEmail(...a,), }),);
+// The confirmation is a mail purpose now (editable / switchable in Events settings).
+vi.mock('../mail/purposes', () => ({ sendPurposeMail: (...a: unknown[]) => sendEmail(...a,), }),);
 vi.mock('./settings', () => ({
     getSettings: vi.fn().mockResolvedValue({ allowRegistration: true, },),
     eventSender: vi.fn().mockResolvedValue({},),
@@ -75,10 +79,15 @@ beforeEach(() => {
     vi.clearAllMocks();
     setEvent(SERIES,);
     countRegistrations.mockResolvedValue(0,);
+    findOverridesForEvents.mockResolvedValue(new Map(),);
+    vi.useFakeTimers({ toFake: ['Date',], },);
+    vi.setSystemTime(new Date('2026-08-20T00:00:00Z',),);
     upsertRegistration.mockImplementation((row: { occurrenceDate: string; },) =>
         Promise.resolve({ id: 'r1', ...row, },)
     );
 },);
+
+afterEach(() => vi.useRealTimers(),);
 
 describe('registration ↔ recurrence', () => {
     it('expands the series to the five September Tuesdays', () => {
@@ -114,9 +123,30 @@ describe('registration ↔ recurrence', () => {
         expect(new Set(stored,).size,).toBe(5,); // no collapsing onto one date
     });
 
-    it('defaults to the series START date when no occurrence is named', async () => {
+    it('defaults to the series START date when no occurrence is named (before it starts)', async () => {
         await register({ eventId: 'e1', email: 'a@example.com', },);
         expect(upsertRegistration.mock.calls[0][0].occurrenceDate,).toBe('2026-09-01',);
+    });
+
+    it('defaults to the NEXT upcoming occurrence once the series is under way', async () => {
+        vi.setSystemTime(new Date('2026-09-10T00:00:00Z',),);
+        await register({ eventId: 'e1', email: 'a@example.com', },);
+        expect(upsertRegistration.mock.calls[0][0].occurrenceDate,).toBe('2026-09-15',);
+    });
+
+    it('a public caller cannot book a date the series never falls on', async () => {
+        await expect(register({ eventId: 'e1', occurrenceDate: '2026-09-16', email: 'a@example.com', viewer: null, },),)
+            .rejects.toThrow(/not one of this event/i,);
+        expect(upsertRegistration,).not.toHaveBeenCalled();
+    });
+
+    it('a public caller cannot book a cancelled or past date', async () => {
+        findOverridesForEvents.mockResolvedValue(new Map([['e1', [{ eventId: 'e1', occurrenceDate: '2026-09-15', status: 'cancelled', },],],],),);
+        await expect(register({ eventId: 'e1', occurrenceDate: '2026-09-15', email: 'a@example.com', viewer: null, },),)
+            .rejects.toThrow(/cancelled/i,);
+        vi.setSystemTime(new Date('2026-09-10T00:00:00Z',),);
+        await expect(register({ eventId: 'e1', occurrenceDate: '2026-09-08', email: 'a@example.com', viewer: null, },),)
+            .rejects.toThrow(/already passed/i,);
     });
 
     it('survives a repository that returns startsAt as a Date, not a string', async () => {
@@ -168,5 +198,17 @@ describe('defaultOccurrenceDate', () => {
     it('accepts both shapes the repository can hand back', () => {
         expect(defaultOccurrenceDate('2026-09-01T18:00:00.000Z',),).toBe('2026-09-01',);
         expect(defaultOccurrenceDate(new Date('2026-09-01T18:00:00.000Z',),),).toBe('2026-09-01',);
+    });
+});
+
+describe('registration email', () => {
+    it('goes through the event_registered purpose with an escaped default body', async () => {
+        setEvent({ ...SERIES, title: '<script>x</script>', },);
+        sendEmail.mockClear();
+        await register({ eventId: 'e1', email: 'a@example.com', },);
+        const [key, input,] = sendEmail.mock.calls[0] as unknown as [string, { defaultHtml: string; context: { occurrence: { date: string; }; }; }];
+        expect(key,).toBe('event_registered',);
+        expect(input.defaultHtml,).not.toContain('<script>',);
+        expect(input.context.occurrence.date,).toBe('2026-09-01',);
     });
 });

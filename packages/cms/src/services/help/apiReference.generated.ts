@@ -327,6 +327,26 @@ export const API_MODULES: ApiModuleDoc[] = [
             },
             {
                 "method": "POST",
+                "path": "/resend-verification-by-email",
+                "absolutePath": "/api/v1/auth/resend-verification-by-email",
+                "auth": "public",
+                "summary": "Send a fresh verification link to an unverified account by email (login refused it). Always answers the same, so it never reveals an account.",
+                "input": {
+                    "body": [
+                        {
+                            "name": "email",
+                            "type": "string<email>",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.auth.resendVerificationByEmail"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
                 "path": "/forgot-password",
                 "absolutePath": "/api/v1/auth/forgot-password",
                 "auth": "public",
@@ -1706,6 +1726,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "name": "slots",
                             "type": "object[]",
                             "required": false
+                        },
+                        {
+                            "name": "blocks",
+                            "type": "object[]",
+                            "required": false
                         }
                     ]
                 },
@@ -1766,6 +1791,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                         },
                         {
                             "name": "slots",
+                            "type": "object[]",
+                            "required": false
+                        },
+                        {
+                            "name": "blocks",
                             "type": "object[]",
                             "required": false
                         }
@@ -2233,6 +2263,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "required": false
                         },
                         {
+                            "name": "root",
+                            "type": "string<uuid>",
+                            "required": false
+                        },
+                        {
                             "name": "page",
                             "type": "integer",
                             "required": false
@@ -2392,6 +2427,26 @@ export const API_MODULES: ApiModuleDoc[] = [
                 },
                 "sdk": [
                     "cms.discussions.report"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/comments/:id/locate",
+                "absolutePath": "/api/v1/discussions/comments/:id/locate",
+                "auth": "optional",
+                "summary": "Where a comment lives: its top-level comment (load it with `GET /comments?root=`) — for `#comment-<id>` deep links.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.discussions.locate"
                 ],
                 "sdkStatus": "method"
             },
@@ -2950,6 +3005,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "name": "slots",
                             "type": "object[]",
                             "required": false
+                        },
+                        {
+                            "name": "blocks",
+                            "type": "object[]",
+                            "required": false
                         }
                     ]
                 },
@@ -3010,6 +3070,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                         },
                         {
                             "name": "slots",
+                            "type": "object[]",
+                            "required": false
+                        },
+                        {
+                            "name": "blocks",
                             "type": "object[]",
                             "required": false
                         }
@@ -3453,6 +3518,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "name": "notifyPush",
                             "type": "boolean",
                             "required": false
+                        },
+                        {
+                            "name": "website",
+                            "type": "string",
+                            "required": false
                         }
                     ]
                 },
@@ -3460,6 +3530,25 @@ export const API_MODULES: ApiModuleDoc[] = [
                     "cms.events.subscribe"
                 ],
                 "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/subscribe/confirm/:token",
+                "absolutePath": "/api/v1/events/subscribe/confirm/:token",
+                "auth": "public",
+                "summary": "Confirm an event-notification subscription (the double opt-in link); redirects to the calendar.",
+                "raw": true,
+                "input": {
+                    "params": [
+                        {
+                            "name": "token",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [],
+                "sdkStatus": "none"
             },
             {
                 "method": "POST",
@@ -3662,6 +3751,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "name": "fields",
                             "type": "object",
                             "required": false
+                        },
+                        {
+                            "name": "website",
+                            "type": "string",
+                            "required": false
                         }
                     ]
                 },
@@ -3704,6 +3798,71 @@ export const API_MODULES: ApiModuleDoc[] = [
                 },
                 "sdk": [
                     "cms.events.registrations"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/:id/registrations/export",
+                "absolutePath": "/api/v1/events/:id/registrations/export",
+                "auth": "staff",
+                "summary": "Export one occurrence's registrants with ticket codes (CSV, or ?format=print for a door list).",
+                "raw": true,
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ],
+                    "query": [
+                        {
+                            "name": "occurrenceDate",
+                            "type": "string",
+                            "required": true
+                        },
+                        {
+                            "name": "format",
+                            "type": "'csv' | 'print'",
+                            "required": false
+                        },
+                        {
+                            "name": "columns",
+                            "type": "'all' | 'basic'",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.events.registrationsExportUrl"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "PUT",
+                "path": "/tickets/:code/check-in",
+                "absolutePath": "/api/v1/events/tickets/:code/check-in",
+                "auth": "staff",
+                "summary": "Check a ticket in at the door, or undo it (`{ checkedIn: false }`).",
+                "input": {
+                    "params": [
+                        {
+                            "name": "code",
+                            "type": "string",
+                            "required": true
+                        }
+                    ],
+                    "body": [
+                        {
+                            "name": "checkedIn",
+                            "type": "boolean",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.events.checkIn"
                 ],
                 "sdkStatus": "method"
             },
@@ -5599,6 +5758,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "required": false
                         },
                         {
+                            "name": "seed",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
                             "name": "listing",
                             "type": "boolean | '0' | '1' | 'true' | 'false'",
                             "required": false
@@ -5866,6 +6030,16 @@ export const API_MODULES: ApiModuleDoc[] = [
                         },
                         {
                             "name": "forceMedia",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
+                            "name": "basedOn",
+                            "type": "object",
+                            "required": false
+                        },
+                        {
+                            "name": "overwrite",
                             "type": "boolean",
                             "required": false
                         }
@@ -8053,6 +8227,26 @@ export const API_MODULES: ApiModuleDoc[] = [
                     "cms.membershipApplications.reject"
                 ],
                 "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/:id/withdraw-offer",
+                "absolutePath": "/api/v1/membership-applications/:id/withdraw-offer",
+                "auth": "admin",
+                "summary": "Withdraw an approved offer (hide-price level) that the member has not started yet.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.membershipApplications.withdrawOffer"
+                ],
+                "sdkStatus": "method"
             }
         ]
     },
@@ -9210,6 +9404,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "name": "answers",
                             "type": "object[]",
                             "required": true
+                        },
+                        {
+                            "name": "website",
+                            "type": "string",
+                            "required": false
                         }
                     ]
                 },
@@ -11064,6 +11263,47 @@ export const API_MODULES: ApiModuleDoc[] = [
                 },
                 "sdk": [
                     "cms.posts.liveModerate"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/:id/live/chat",
+                "absolutePath": "/api/v1/posts/:id/live/chat",
+                "auth": "optional",
+                "summary": "The saved chat of an ENDED live show, oldest first (same view gate as the show; deleted lines left out).",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.posts.liveChat"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/:id/live/chat/transcript",
+                "absolutePath": "/api/v1/posts/:id/live/chat/transcript",
+                "auth": "staff",
+                "summary": "Download the show's chat transcript (text; deleted lines marked). Needs `posts.live:host`.",
+                "raw": true,
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.posts.liveChatTranscriptUrl"
                 ],
                 "sdkStatus": "method"
             },
@@ -13804,6 +14044,26 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "required": false
                         },
                         {
+                            "name": "search",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "attention",
+                            "type": "'0' | '1' | 'true' | 'false'",
+                            "required": false
+                        },
+                        {
+                            "name": "from",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "to",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
                             "name": "page",
                             "type": "integer",
                             "required": false
@@ -13833,6 +14093,13 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "type": "string",
                             "required": true
                         }
+                    ],
+                    "query": [
+                        {
+                            "name": "k",
+                            "type": "string",
+                            "required": false
+                        }
                     ]
                 },
                 "sdk": [
@@ -13853,6 +14120,13 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "name": "orderNumber",
                             "type": "string",
                             "required": true
+                        }
+                    ],
+                    "query": [
+                        {
+                            "name": "k",
+                            "type": "string",
+                            "required": false
                         }
                     ]
                 },
@@ -13883,6 +14157,138 @@ export const API_MODULES: ApiModuleDoc[] = [
                 },
                 "sdk": [
                     "cms.shop.orders.downloadUrl"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/orders/export",
+                "absolutePath": "/api/v1/shop/orders/export",
+                "auth": "admin",
+                "summary": "Export orders as CSV (or ?format=print) with the Orders table filters: status, search, attention, from, to.",
+                "raw": true,
+                "input": {
+                    "query": [
+                        {
+                            "name": "format",
+                            "type": "'csv' | 'print'",
+                            "required": false
+                        },
+                        {
+                            "name": "columns",
+                            "type": "'all' | 'basic'",
+                            "required": false
+                        },
+                        {
+                            "name": "status",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "search",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "attention",
+                            "type": "'0' | '1' | 'true' | 'false'",
+                            "required": false
+                        },
+                        {
+                            "name": "from",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "to",
+                            "type": "string",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.shop.orders.exportUrl"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/orders/stats",
+                "absolutePath": "/api/v1/shop/orders/stats",
+                "auth": "admin",
+                "summary": "Shop dashboard figures: paid revenue + orders for 7 / 30 days, to ship, needs attention, low stock.",
+                "sdk": [
+                    "cms.shop.orders.stats"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/orders/:id/fulfilments",
+                "absolutePath": "/api/v1/shop/orders/:id/fulfilments",
+                "auth": "admin",
+                "summary": "Per-supplier fulfilment rows of an order: status, supplier order id, last error, attempts, sync times.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.shop.orders.fulfilments"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/orders/:id/fulfilment/:provider/retry",
+                "absolutePath": "/api/v1/shop/orders/:id/fulfilment/:provider/retry",
+                "auth": "admin",
+                "summary": "Re-submit an order to one supplier (skipped when it already has a supplier order).",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string<uuid>",
+                            "required": true
+                        },
+                        {
+                            "name": "provider",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.shop.orders.retryFulfilment"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/orders/:id/fulfilment/:provider/refresh",
+                "absolutePath": "/api/v1/shop/orders/:id/fulfilment/:provider/refresh",
+                "auth": "admin",
+                "summary": "Read one supplier order back and apply its status + tracking to ours.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string<uuid>",
+                            "required": true
+                        },
+                        {
+                            "name": "provider",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.shop.orders.refreshFulfilment"
                 ],
                 "sdkStatus": "method"
             },
@@ -14226,6 +14632,17 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "summary": "Pull the latest products from Printify into the shop (upsert + archive removed), then reconcile Printify orders (status + tracking).",
                 "sdk": [
                     "cms.shop.printify.sync"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/printify/orders/resync",
+                "absolutePath": "/api/v1/shop/printify/orders/resync",
+                "auth": "admin",
+                "summary": "Reconcile a full year of Printify orders in the background (answers at once; 409 while a sync runs).",
+                "sdk": [
+                    "cms.shop.printify.fullOrderResync"
                 ],
                 "sdkStatus": "method"
             },
@@ -15145,6 +15562,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "required": false
                         },
                         {
+                            "name": "verified",
+                            "type": "'verified' | 'unverified'",
+                            "required": false
+                        },
+                        {
                             "name": "sortBy",
                             "type": "string",
                             "required": false
@@ -15518,6 +15940,46 @@ export const API_MODULES: ApiModuleDoc[] = [
             },
             {
                 "method": "POST",
+                "path": "/:id/verification/resend",
+                "absolutePath": "/api/v1/users/:id/verification/resend",
+                "auth": "admin",
+                "summary": "Send a fresh email-verification link to an unverified user.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.users.resendVerification"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/:id/verification/verify",
+                "absolutePath": "/api/v1/users/:id/verification/verify",
+                "auth": "admin",
+                "summary": "Mark a user's email address verified (audited).",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.users.markEmailVerified"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
                 "path": "/:id/ban",
                 "absolutePath": "/api/v1/users/:id/ban",
                 "auth": "admin",
@@ -15637,6 +16099,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "name": "tierId",
                             "type": "string<uuid> | null",
                             "required": true
+                        },
+                        {
+                            "name": "endsAt",
+                            "type": "string<date-time> | null",
+                            "required": false
                         }
                     ]
                 },
@@ -16278,6 +16745,46 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "sdkStatus": "method"
             },
             {
+                "method": "POST",
+                "path": "/:id/share/revoke",
+                "absolutePath": "/api/v1/video/:id/share/revoke",
+                "auth": "staff",
+                "summary": "Revoke every share link issued for this video (each token carries the video's share epoch; this bumps it).",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.media.video.revokeShares"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/:id/shares",
+                "absolutePath": "/api/v1/video/:id/shares",
+                "auth": "staff",
+                "summary": "Share links issued for this video (from the audit log), newest first, with revoked / expired flags.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.media.video.shares"
+                ],
+                "sdkStatus": "method"
+            },
+            {
                 "method": "GET",
                 "path": "/:id/download",
                 "absolutePath": "/api/v1/video/:id/download",
@@ -16545,4 +17052,4 @@ export const API_MODULES: ApiModuleDoc[] = [
 ];
 
 export const API_MODULE_COUNT = 55;
-export const API_ROUTE_COUNT = 571;
+export const API_ROUTE_COUNT = 589;

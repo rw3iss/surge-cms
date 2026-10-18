@@ -10,13 +10,26 @@ import { cms, } from '../../../../services/cmsClient';
 import EntityBindingSummary from '../../entities/EntityBindingSummary';
 import DataBindingField from '../../entities/DataBindingField';
 import { slotDisplayName, slotTypeLabel, } from '../../../../utils/templateSlots';
+import { FormField, } from '../../forms';
+import { CommitInput, } from '../../forms/CommitInput';
 
 interface EntityCfg {
     templateId: string;
     entityType: string;
     binding: EntityBinding;
     layout?: 'stack' | 'carousel';
+    carouselPerPage?: number;
+    carouselGap?: string;
     slots?: Record<string, SlotBinding>;
+}
+
+/** Binding summary input for one binding (selected refs or the live query). */
+function summaryProps(b: SlotBinding | EntityBinding | undefined,): { refs?: string[]; query?: EntityQuery; } {
+    if (!b) return {};
+    if (b.mode === 'single') return { refs: b.ref ? [b.ref,] : undefined, };
+    if (b.mode === 'list') return { refs: b.refs, };
+    if (b.mode === 'query') return { query: b.query, };
+    return {};
 }
 
 const EntityBlockEdit: Component<{
@@ -28,6 +41,20 @@ const EntityBlockEdit: Component<{
         (props.data.entity ?? { templateId: '', entityType: '', binding: { mode: 'context' }, }) as EntityCfg;
     const setCfg = (patch: Partial<EntityCfg>,) => props.onUpdate({ ...props.data, entity: { ...cfg(), ...patch, }, },);
     const setBinding = (binding: EntityBinding,) => setCfg({ binding, },);
+
+    // A new TYPE invalidates everything bound to the old one: the binding holds
+    // the old type's record ids, and the slots are keyed by the old template's
+    // slot ids — keeping them ticked foreign ids in "Set data…" and saved
+    // orphan bindings into the page.
+    const changeType = (entityType: string,) =>
+        setCfg({ entityType, templateId: '', binding: { mode: 'context', }, slots: {}, },);
+    // A new TEMPLATE keeps only the slot bindings its own slots declare.
+    const changeTemplate = (templateId: string,) => {
+        const next = (templates() ?? []).find((t,) => t.id === templateId);
+        const keep = new Set((next?.slots ?? []).map((sl,) => sl.id),);
+        const slots = Object.fromEntries(Object.entries(cfg().slots ?? {},).filter(([id,],) => keep.has(id,)),);
+        setCfg({ templateId, slots, },);
+    };
 
     const [types] = createResource(async () => {
         try {
@@ -56,6 +83,8 @@ const EntityBlockEdit: Component<{
         return b.mode === 'single' || b.mode === 'list' || b.mode === 'query' ? b : null;
     };
     const isData = () => dataBinding() !== null;
+    /** True when more than one record can render (a list template, or a list/query binding). */
+    const rendersMany = () => template()?.mode === 'list' || cfg().binding.mode === 'list' || cfg().binding.mode === 'query';
 
     // ─── Template slots ──────────────────────────────────────────────
     // The chosen template's declared data inputs; this block fills each one.
@@ -93,31 +122,29 @@ const EntityBlockEdit: Component<{
     return (
         <Suspense fallback={<div class="block-edit-form entity-block-edit"><small class="form-help-muted">Loading…</small></div>}>
         <div class="block-edit-form entity-block-edit">
-            <label class="block-edit-form__field">
-                <span>Entity type</span>
+            <FormField label="Entity type">
                 <select
                     ref={typeSelect}
                     value={cfg().entityType}
-                    onChange={(e,) => setCfg({ entityType: e.currentTarget.value, templateId: '', },)}
+                    onChange={(e,) => changeType(e.currentTarget.value,)}
                 >
                     <option value="">— select —</option>
                     <For each={types() ?? []}>{(t,) => <option value={t.key}>{t.label}</option>}</For>
                 </select>
-            </label>
+            </FormField>
 
             <Show when={cfg().entityType}>
-                <label class="block-edit-form__field">
-                    <span>Template</span>
-                    <select ref={templateSelect} value={cfg().templateId} onChange={(e,) => setCfg({ templateId: e.currentTarget.value, },)}>
+                <FormField
+                    label="Template"
+                    hint={(templates() ?? []).length === 0 ? `No templates yet — create one in Entities → ${cfg().entityType} → Templates.` : undefined}
+                >
+                    <select ref={templateSelect} value={cfg().templateId} onChange={(e,) => changeTemplate(e.currentTarget.value,)}>
                         <option value="">— select —</option>
                         <For each={templates() ?? []}>
                             {(t,) => <option value={t.id}>{t.name} ({t.mode})</option>}
                         </For>
                     </select>
-                    <Show when={(templates() ?? []).length === 0}>
-                        <small class="form-help-muted">No templates yet — create one in Entities → {cfg().entityType} → Templates.</small>
-                    </Show>
-                </label>
+                </FormField>
                 {/* Outside the <label> so a click follows the link rather than
                     focusing the select. New tab, like the Component block's
                     "Edit Component", so the page being edited stays open. */}
@@ -133,8 +160,7 @@ const EntityBlockEdit: Component<{
             </Show>
 
             <Show when={cfg().templateId}>
-                <label class="block-edit-form__field">
-                    <span>Data source</span>
+                <FormField label="Data source">
                     <select
                         value={isData() ? 'data' : cfg().binding.mode}
                         onChange={(e,) => {
@@ -149,7 +175,7 @@ const EntityBlockEdit: Component<{
                         <option value="context">Current page entity</option>
                         <option value="data">Specific records or a live query</option>
                     </select>
-                </label>
+                </FormField>
 
                 {/* Set data… covers both: tick records for a fixed selection, or
                     tick none to save the filters/sort/limit as a live query. */}
@@ -165,32 +191,44 @@ const EntityBlockEdit: Component<{
                             and what a saved query matches right now. */}
                         <EntityBindingSummary
                             entityType={cfg().entityType ?? ''}
-                            refs={
-                                cfg().binding.mode === 'single'
-                                    ? ((cfg().binding as { ref?: string; }).ref ? [(cfg().binding as { ref: string; }).ref,] : undefined)
-                                    : cfg().binding.mode === 'list'
-                                    ? (cfg().binding as { refs?: string[]; }).refs
-                                    : undefined
-                            }
-                            query={cfg().binding.mode === 'query' ? (cfg().binding as { query?: EntityQuery; }).query : undefined}
+                            refs={summaryProps(cfg().binding,).refs}
+                            query={summaryProps(cfg().binding,).query}
                         />
                     </DataBindingField>
                 </Show>
 
-                <label class="block-edit-form__field">
-                    <span>Layout (multiple records)</span>
-                    <select
-                        value={cfg().layout ?? 'stack'}
-                        onChange={(e,) => setCfg({ layout: e.currentTarget.value as 'stack' | 'carousel', },)}
-                    >
-                        <option value="stack">Stack (vertical)</option>
-                        <option value="carousel">Carousel (swipeable)</option>
-                    </select>
-                </label>
+                {/* Layout only matters when more than one record can render. */}
+                <Show when={rendersMany()}>
+                    <FormField label="Layout (multiple records)">
+                        <select
+                            value={cfg().layout ?? 'stack'}
+                            onChange={(e,) => setCfg({ layout: e.currentTarget.value as 'stack' | 'carousel', },)}
+                        >
+                            <option value="stack">Stack (vertical)</option>
+                            <option value="carousel">Carousel (arrows, dots, swipe)</option>
+                        </select>
+                    </FormField>
+                    <Show when={cfg().layout === 'carousel'}>
+                        <div class="admin-form-row">
+                            <FormField label="Visible at once">
+                                <CommitInput
+                                    type="number"
+                                    min={1}
+                                    max={8}
+                                    value={cfg().carouselPerPage ?? 3}
+                                    onCommit={(v,) => setCfg({ carouselPerPage: Math.min(8, Math.max(1, Number(v,) || 3,),), },)}
+                                />
+                            </FormField>
+                            <FormField label="Gap" hint="Any CSS length">
+                                <CommitInput value={cfg().carouselGap ?? ''} placeholder="16px" onCommit={(v,) => setCfg({ carouselGap: v || undefined, },)} />
+                            </FormField>
+                        </div>
+                    </Show>
+                </Show>
 
                 <Show when={templateSlots().length > 0}>
                     <div class="block-edit-form__field entity-block-edit__slots">
-                        <span>Slots</span>
+                        <span class="admin-form-field__label">Slots</span>
                         <For each={templateSlots()}>
                             {(slot,) => {
                                 const binding = () => cfg().slots?.[slot.id];
@@ -205,7 +243,17 @@ const EntityBlockEdit: Component<{
                                             value={binding()}
                                             allowMultiple={slot.array}
                                             onChange={(b,) => setSlotBinding(slot.id, b ?? undefined,)}
-                                        />
+                                        >
+                                            {/* What the slot resolves to right now
+                                                (records, or a query's current matches). */}
+                                            <Show when={binding()}>
+                                                <EntityBindingSummary
+                                                    entityType={slot.entityType}
+                                                    refs={summaryProps(binding(),).refs}
+                                                    query={summaryProps(binding(),).query}
+                                                />
+                                            </Show>
+                                        </DataBindingField>
                                     </div>
                                 );
                             }}

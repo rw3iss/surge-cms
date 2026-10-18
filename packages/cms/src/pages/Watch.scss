@@ -18,9 +18,19 @@
     }
 
     &__loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
         aspect-ratio: 16 / 9;
         background: #000;
         border-radius: var(--site-radius, 6px);
+        color: #fff;
+    }
+
+    &__error {
+        text-align: center;
+        padding: 4rem 0;
+        color: var(--site-text, inherit);
     }
 
     &__missing {
