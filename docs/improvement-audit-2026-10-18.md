@@ -44,6 +44,7 @@ Applied in commit `ad4cd6f6` + the round-2 cross-area pass. Per-finding status i
 | Live + discussions + post types + help + misc | 41/41 | P1, A1, A2, S8 | discussion level-keyed caching (P1 — items carry per-viewer fields); full Settings.tsx split (A1) |
 
 Remaining follow-ups
-- Regenerate generated references: `npm run docs:api`, then `npm run docs:sdk` (packages/cms) and `npm run check:drift -w packages/cms-client`; `sdkModules.test.ts` / `apiReference.test.ts` fail until then.
+- DONE: references regenerated (`npm run docs:api` → 593 routes / SDK modules); `sdkModules.test.ts` + `apiReference.test.ts` pass. Round 2 deployed 2026-10-18 (no migrations); round 1 migrations 159, 167, 168, 171, 172, 175, 176 applied on production.
+- Event block SSR/mail render only heading + content (needs an event pre-pass like the gallery block).
 
 Docs updated: `CLAUDE.md` (affected bullets), `docs/sdk/entities.md` (public-read rules, `blocks` on template save, `usages`, template revisions), `packages/cms/src/components/admin/ADMIN_STYLES.md` (`CommitInput`, `useFocusTrap`), `docs/how-it-works/{LIVE-SHOWS,COMMENTS-AND-FORUM,GALLERY,shop-go-live-checklist}.md`.
