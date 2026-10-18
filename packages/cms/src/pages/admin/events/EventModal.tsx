@@ -234,7 +234,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
 
     const tabs = () => [
         { value: 'general' as const, label: 'General', dirty: generalDirty(), },
-        { value: 'tickets' as const, label: 'Tickets', dirty: ticketsDirty(), },
+        { value: 'tickets' as const, label: 'Tickets & Registration', dirty: ticketsDirty(), },
         { value: 'comments' as const, label: 'Comments', dirty: commentSwitches.isDirty(), },
     ];
 
