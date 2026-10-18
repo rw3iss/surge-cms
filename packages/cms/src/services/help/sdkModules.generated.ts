@@ -2720,7 +2720,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             {
                 "name": "printify.sync",
                 "signature": "printify.sync(): Promise<PrintifySyncResponse>",
-                "summary": "POST /shop/printify/sync — pull the latest products into the shop."
+                "summary": "POST /shop/printify/sync — pull the latest products into the shop, then reconcile Printify orders with ours (status + tracking)."
             },
             {
                 "name": "printify.syncOne",
