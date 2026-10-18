@@ -5,7 +5,7 @@ import type {
 } from '@sitesurge/types';
 import type { Paginated, } from '@sitesurge/types';
 import type {
-    EventsPushSubscribeBody, EventsPushSubscribeResponse, EventsUnsubscribeResponse,
+    EventsMyRegistrationResponse, EventsPushSubscribeBody, EventsPushSubscribeResponse, EventsUnregisterResponse, EventsUnsubscribeResponse,
 } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
@@ -95,6 +95,22 @@ export class EventsModule extends ModuleBase {
         website?: string;
     },): Promise<{ registration: unknown; }> {
         return this.mutate('POST', '/events/:id/register', { params: { id, }, body, },);
+    }
+
+    /** GET /events/:id/my-registration — the signed-in viewer's own registration for
+     *  an occurrence (default the next one); `registration: null` = not registered. */
+    myRegistration(id: string, occurrenceDate?: string,): Promise<EventsMyRegistrationResponse> {
+        return this.get<EventsMyRegistrationResponse>('/events/:id/my-registration', {
+            params: { id, }, query: occurrenceDate ? { occurrenceDate, } : undefined, options: { cache: false, },
+        },);
+    }
+
+    /** POST /events/:id/unregister — cancel the viewer's own FREE registration
+     *  (refused when a ticket was paid for or checked in). */
+    unregister(id: string, occurrenceDate?: string,): Promise<EventsUnregisterResponse> {
+        return this.mutate<EventsUnregisterResponse>('POST', '/events/:id/unregister', {
+            params: { id, }, body: occurrenceDate ? { occurrenceDate, } : {}, invalidates: ['events',],
+        },);
     }
 
     /** GET /events/:id/registrations — paged attendee list (staff). */

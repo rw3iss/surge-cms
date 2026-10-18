@@ -268,6 +268,32 @@ export interface EventTicket {
 }
 
 /**
+ * The signed-in viewer's own registration for one occurrence —
+ * `GET /events/:id/my-registration`. Matched by account OR account email.
+ */
+export interface EventMyRegistration {
+    id: string;
+    occurrenceDate: string;
+    name: string | null;
+    email: string;
+    phone: string | null;
+    createdAt: string;
+    /** Live tickets on the registration (cancelled / refunded left out). */
+    tickets: Array<{
+        code: string;
+        tierName: string;
+        status: EventTicket['status'];
+        priceCents: number;
+        currency: string;
+    }>;
+    /**
+     * True when the viewer may cancel it themselves: nothing was paid, no
+     * ticket is checked in, and the occurrence has not passed.
+     */
+    canUnregister: boolean;
+}
+
+/**
  * Public view of one ticket — `GET /events/tickets/:code`. The code is the
  * credential: whoever holds it sees the whole registration it belongs to,
  * with the attendee's email masked unless the viewer is that attendee or

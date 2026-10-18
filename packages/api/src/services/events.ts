@@ -66,6 +66,8 @@ export {
     registrantCount,
 } from './events/registration';
 
+export { canSelfUnregister, getMyRegistration, unregisterMine, } from './events/myRegistration';
+
 export { listTiers, replaceTiers, } from './events/tiers';
 
 export { purchaseTickets, sendTicketConfirmation, } from './events/purchase';

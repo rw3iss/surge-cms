@@ -167,6 +167,37 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
 
     const occurrenceDate = () => props.occurrenceDate
         || (String(props.event.startsAt as unknown as string,)).slice(0, 10,);
+
+    // ── The signed-in viewer's own registration for this date ──
+    const [mine, { refetch: refetchMine, mutate: setMine, },] = createResource(
+        () => (auth.user ? { id: props.event.id, date: occurrenceDate(), user: auth.user.id, } : null),
+        async (k,) => {
+            try {
+                return (await cms.events.myRegistration(k.id, k.date,)).registration;
+            } catch {
+                return null;
+            }
+        },
+    );
+    /** Registered already: a register-only event shows the registration instead of the form. */
+    const registered = () => Boolean(mine(),);
+    const [confirmUnregister, setConfirmUnregister,] = createSignal(false,);
+    const [unregistering, setUnregistering,] = createSignal(false,);
+    const unregister = async () => {
+        setUnregistering(true,);
+        try {
+            await cms.events.unregister(props.event.id, occurrenceDate(),);
+            setMine(null,);
+            setConfirmUnregister(false,);
+            setDone(false,);
+            toast.success("You're no longer registered for this event.",);
+            props.onClaimed?.();
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Could not cancel your registration.',);
+        } finally {
+            setUnregistering(false,);
+        }
+    };
     /** Organization / notes travel in `fields`; name, email and phone have columns. */
     const extraFields = () => {
         const out: Record<string, string> = {};
@@ -207,8 +238,15 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                 },);
                 if (res.status === 'confirmed') {
                     setTicketCodes(res.tickets ?? [],);
-                    setDone(true,);
                     props.onClaimed?.();
+                    if (auth.user) {
+                        // Shown in "Your registration" above the form.
+                        setQty({},);
+                        await refetchMine();
+                        toast.success('Your tickets are confirmed — we have emailed them to you.',);
+                    } else {
+                        setDone(true,);
+                    }
                 } else {
                     // The server priced it above zero (a tier changed since
                     // the page loaded) — take the paid route instead.
@@ -216,7 +254,13 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                 }
             } else {
                 await cms.events.register(props.event.id, { ...identity(), occurrenceDate: occurrenceDate(), website: honeypot(), },);
-                setDone(true,);
+                if (auth.user) {
+                    await refetchMine();
+                    toast.success("You're registered — we have emailed you the details.",);
+                    props.onClaimed?.();
+                } else {
+                    setDone(true,);
+                }
             }
         } catch (err) {
             const gate = accessErrorOf(err,);
@@ -281,7 +325,7 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
     return (
         <Show when={mode()}>
             <section class="event-detail__card event-signup">
-                <h2>{mode() === 'tickets' ? 'Tickets' : 'Register'}</h2>
+                <h2>{mode() === 'tickets' ? 'Tickets' : registered() ? 'Your registration' : 'Register'}</h2>
 
                 {/* Which date this is for — a series offers its upcoming dates. */}
                 <Show
@@ -303,6 +347,58 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                             </For>
                         </select>
                     </label>
+                </Show>
+
+                <Show when={mine()}>
+                    {(r,) => (
+                        <div class="event-signup__mine">
+                            <p class="event-signup__mine-status">
+                                <span class="event-signup__mine-check" aria-hidden="true">✓</span> You're registered
+                            </p>
+                            <CurrentUserCard size="sm" variant="plain" />
+                            <Show when={r().tickets.length > 0}>
+                                <ul class="event-signup__mine-tickets">
+                                    <For each={r().tickets}>
+                                        {(t,) => (
+                                            <li>
+                                                <span class="event-signup__mine-tier">{t.tierName}</span>
+                                                <span class="event-signup__mine-price">{money(t.priceCents, t.currency,)}</span>
+                                                <A href={`/tickets/${t.code}`} class="event-signup__code"><code>{t.code}</code></A>
+                                                <Show when={t.status === 'checked_in'}>
+                                                    <span class="event-signup__mine-flag">Checked in</span>
+                                                </Show>
+                                            </li>
+                                        )}
+                                    </For>
+                                </ul>
+                            </Show>
+                            <Show when={r().canUnregister}>
+                                <Show
+                                    when={confirmUnregister()}
+                                    fallback={
+                                        <button type="button" class="event-signup__login-link event-signup__unregister" onClick={() => setConfirmUnregister(true,)}>
+                                            Un-register
+                                        </button>
+                                    }
+                                >
+                                    <div class="event-signup__unregister-confirm">
+                                        <span>
+                                            Cancel your registration{r().tickets.length ? ' and free tickets' : ''}?
+                                        </span>
+                                        <button type="button" class="btn btn--secondary btn--sm" disabled={unregistering()} onClick={unregister}>
+                                            {unregistering() ? 'Cancelling…' : 'Yes, un-register'}
+                                        </button>
+                                        <button type="button" class="event-signup__login-link" onClick={() => setConfirmUnregister(false,)}>
+                                            Keep it
+                                        </button>
+                                    </div>
+                                </Show>
+                            </Show>
+                        </div>
+                    )}
+                </Show>
+                <Show when={registered() && mode() === 'tickets'}>
+                    <h3 class="event-signup__more">Get more tickets</h3>
                 </Show>
 
                 <Show when={props.event.showRegistrantCount && props.event.metadata?.registrantCount}>
@@ -372,7 +468,7 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                 </Show>
 
                 <Show
-                    when={!done() && inCart() === 0}
+                    when={!done() && inCart() === 0 && !(registered() && mode() === 'register')}
                     fallback={
                         <Show when={done()}>
                             <div class="event-detail__ok">
@@ -423,7 +519,9 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                             onInput={(e,) => setHoneypot(e.currentTarget.value,)}
                         />
                         {/* Signed in: name + email are the account's, shown as one user card. */}
-                        <CurrentUserCard label="Registering as" size="sm" showLogout class="event-signup__user" />
+                        <Show when={!registered()}>
+                            <CurrentUserCard label="Registering as" size="sm" showLogout class="event-signup__user" />
+                        </Show>
                         <For each={fields()}>
                             {(f,) => (
                                 <Show

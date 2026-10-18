@@ -8,6 +8,7 @@ import type {
     CalendarEvent,
     CalendarEventInput,
     EventPushSubscriptionInput,
+    EventMyRegistration,
     EventsSettings,
     EventStatus,
     EventSubscriber,
@@ -87,3 +88,20 @@ export type EventsSettingsResponse = EventsSettings;
 /** PUT /events/settings (admin). */
 export type EventsSettingsUpdateBody = Partial<EventsSettings>;
 export type EventsSettingsUpdateResponse = EventsSettings;
+
+/** GET /events/:id/my-registration — the signed-in viewer's registration (null = none). */
+export interface EventsMyRegistrationQuery {
+    /** `YYYY-MM-DD`; default the next upcoming occurrence. */
+    occurrenceDate?: string;
+}
+export interface EventsMyRegistrationResponse {
+    registration: EventMyRegistration | null;
+}
+
+/** POST /events/:id/unregister — cancel the viewer's own free registration. */
+export interface EventsUnregisterBody {
+    occurrenceDate?: string;
+}
+export interface EventsUnregisterResponse {
+    ok: true;
+}

@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-18T18:55:08.580Z",
+  "generatedAt": "2026-10-18T21:34:30.171Z",
   "totalModules": 55,
-  "totalRoutes": 593,
+  "totalRoutes": 595,
   "modules": [
     {
       "module": "admin-channel",
@@ -3338,6 +3338,52 @@
               },
               {
                 "name": "website",
+                "type": "string",
+                "required": false
+              }
+            ]
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/:id/my-registration",
+          "absolutePath": "/api/v1/events/:id/my-registration",
+          "auth": "user",
+          "summary": "The signed-in viewer's own registration for an occurrence (null = not registered).",
+          "input": {
+            "params": [
+              {
+                "name": "id",
+                "type": "string",
+                "required": true
+              }
+            ],
+            "query": [
+              {
+                "name": "occurrenceDate",
+                "type": "string",
+                "required": false
+              }
+            ]
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/:id/unregister",
+          "absolutePath": "/api/v1/events/:id/unregister",
+          "auth": "user",
+          "summary": "Cancel the signed-in viewer's own FREE registration (paid / checked-in tickets refuse).",
+          "input": {
+            "params": [
+              {
+                "name": "id",
+                "type": "string",
+                "required": true
+              }
+            ],
+            "body": [
+              {
+                "name": "occurrenceDate",
                 "type": "string",
                 "required": false
               }

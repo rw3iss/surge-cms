@@ -2231,6 +2231,27 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 ]
             },
             {
+                "name": "myRegistration",
+                "signature": "myRegistration(id: string, occurrenceDate?: string): Promise<EventsMyRegistrationResponse>",
+                "summary": "GET /events/:id/my-registration — the signed-in viewer's own registration for an occurrence (default the next one); `registration: null` = not registered.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "occurrenceDate",
+                        "type": "string",
+                        "optional": true
+                    }
+                ],
+                "returns": "Promise<EventsMyRegistrationResponse>",
+                "routes": [
+                    "GET /api/v1/events/:id/my-registration"
+                ]
+            },
+            {
                 "name": "purchaseTickets",
                 "signature": "purchaseTickets(body: { email: string; name?: string; phone?: string; /** The event's other requested details (organization, notes). */ fields?: Record<string, unknown>; lines: Array<{ eventId: string; occurrenceDate: string; tierId: string; quantity: number; }>; }): Promise<{ status: 'confirmed' | 'payment_required'; totalCents: number; currency: string; registrationId?: string; tickets?: Array<{ code: string; tierName: string; }>; }>",
                 "summary": "POST /events/tickets/purchase — free orders confirm immediately; paid ones come back with a total for the payment step. Price and inventory are re-resolved server-side, so the cart's figures are display-only.",
@@ -2461,6 +2482,27 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "returns": "Promise<EventTicketTier[]>",
                 "routes": [
                     "GET /api/v1/events/:id/tiers"
+                ]
+            },
+            {
+                "name": "unregister",
+                "signature": "unregister(id: string, occurrenceDate?: string): Promise<EventsUnregisterResponse>",
+                "summary": "POST /events/:id/unregister — cancel the viewer's own FREE registration (refused when a ticket was paid for or checked in).",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "occurrenceDate",
+                        "type": "string",
+                        "optional": true
+                    }
+                ],
+                "returns": "Promise<EventsUnregisterResponse>",
+                "routes": [
+                    "POST /api/v1/events/:id/unregister"
                 ]
             },
             {
@@ -10056,4 +10098,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 51;
-export const SDK_METHOD_COUNT = 588;
+export const SDK_METHOD_COUNT = 590;

@@ -360,6 +360,14 @@ export const FEATURE_PERMISSIONS: Record<string, PermissionRegistration[]> = {
         { key: 'events:read', feature: 'events', label: 'View events', action: 'read', defaultRoles: STAFF, },
         { key: 'events:write', feature: 'events', label: 'Create and edit events', action: 'write', defaultRoles: STAFF, },
         { key: 'events.registrations:read', feature: 'events', label: 'View event registrants', action: 'read', defaultRoles: STAFF, },
+        {
+            key: 'events.registrations:cancel_own',
+            feature: 'events',
+            label: 'Cancel own free event registration',
+            description: 'Un-register from a free event on its page. Paid tickets always need the organiser.',
+            action: 'delete',
+            defaultRoles: MEMBERS,
+        },
     ],
     mailing_lists: [
         { key: 'mailing_lists:read', feature: 'mailing_lists', label: 'View mailing lists', action: 'read', defaultRoles: STAFF, },

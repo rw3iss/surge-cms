@@ -40,6 +40,7 @@ export const EVENT_ROUTE_PERMISSIONS: Record<string, string> = {
     'PUT /:id/tiers': 'events:write',
     'PUT /:id/occurrences/:date': 'events:write',
     'GET /:id/registrations': 'events.registrations:read',
+    'POST /:id/unregister': 'events.registrations:cancel_own',
     'GET /:id/registrations/export': 'events.registrations:read',
     'PUT /tickets/:code/check-in': 'events:write',
     'POST /': 'events:write',
@@ -331,6 +332,35 @@ const allEventsRoutes = [
                 viewer: user ?? null,
             },),
             };
+        },
+    },),
+
+    defineRoute({
+        method: 'get',
+        path: '/:id/my-registration',
+        auth: 'user',
+        summary: "The signed-in viewer's own registration for an occurrence (null = not registered).",
+        input: {
+            params: z.object({ id: z.string().min(1,), },),
+            query: z.object({ occurrenceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/,).optional(), },),
+        },
+        handler: async ({ params, query: q, user, },) => ({
+            registration: await events.getMyRegistration(params.id, { id: user!.id, email: user!.email, }, q.occurrenceDate,),
+        }),
+    },),
+
+    defineRoute({
+        method: 'post',
+        path: '/:id/unregister',
+        auth: 'user',
+        summary: "Cancel the signed-in viewer's own FREE registration (paid / checked-in tickets refuse).",
+        input: {
+            params: z.object({ id: z.string().min(1,), },),
+            body: z.object({ occurrenceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/,).optional(), },),
+        },
+        handler: async ({ params, body, user, },) => {
+            await events.unregisterMine(params.id, { id: user!.id, email: user!.email, }, body.occurrenceDate,);
+            return { ok: true as const, };
         },
     },),
 

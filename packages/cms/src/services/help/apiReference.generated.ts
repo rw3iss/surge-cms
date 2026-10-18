@@ -3860,6 +3860,60 @@ export const API_MODULES: ApiModuleDoc[] = [
             },
             {
                 "method": "GET",
+                "path": "/:id/my-registration",
+                "absolutePath": "/api/v1/events/:id/my-registration",
+                "auth": "user",
+                "summary": "The signed-in viewer's own registration for an occurrence (null = not registered).",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string",
+                            "required": true
+                        }
+                    ],
+                    "query": [
+                        {
+                            "name": "occurrenceDate",
+                            "type": "string",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.events.myRegistration"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/:id/unregister",
+                "absolutePath": "/api/v1/events/:id/unregister",
+                "auth": "user",
+                "summary": "Cancel the signed-in viewer's own FREE registration (paid / checked-in tickets refuse).",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string",
+                            "required": true
+                        }
+                    ],
+                    "body": [
+                        {
+                            "name": "occurrenceDate",
+                            "type": "string",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.events.unregister"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
                 "path": "/:id/registrations",
                 "absolutePath": "/api/v1/events/:id/registrations",
                 "auth": "staff",
@@ -17156,4 +17210,4 @@ export const API_MODULES: ApiModuleDoc[] = [
 ];
 
 export const API_MODULE_COUNT = 55;
-export const API_ROUTE_COUNT = 593;
+export const API_ROUTE_COUNT = 595;

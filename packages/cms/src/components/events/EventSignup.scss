@@ -3,6 +3,82 @@
 .event-signup {
     &__user { margin-bottom: 0.25rem; }
 
+    // ── The viewer's own registration (replaces the register form) ──
+    &__mine {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        margin: 0.5rem 0 0.75rem;
+        padding: 0.85rem 1rem;
+        border: 1px solid color-mix(in srgb, #16a34a 35%, var(--site-border, #e5e7eb));
+        border-radius: var(--site-radius, 8px);
+        background: color-mix(in srgb, #16a34a 6%, var(--site-bg, #fff));
+    }
+
+    &__mine-status {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin: 0;
+        font-weight: 700;
+        color: #15803d;
+    }
+
+    &__mine-check {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.3rem;
+        height: 1.3rem;
+        border-radius: 50%;
+        background: #16a34a;
+        color: #fff;
+        font-size: 0.8rem;
+    }
+
+    &__mine-tickets {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        margin: 0;
+        padding: 0.6rem 0 0;
+        border-top: 1px solid var(--site-border, #e5e7eb);
+        list-style: none;
+
+        li {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 0.25rem 0.6rem;
+            font-size: 0.9rem;
+        }
+    }
+
+    &__mine-tier { flex: 1 1 auto; font-weight: 600; }
+    &__mine-price { color: var(--site-text-muted, #6b7280); }
+
+    &__mine-flag {
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: var(--site-border, #e5e7eb);
+        font-size: 0.75rem;
+    }
+
+    &__unregister { align-self: flex-start; font-size: 0.85rem; }
+
+    &__unregister-confirm {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    &__more {
+        margin: 0.25rem 0 0;
+        font-size: 1rem;
+    }
+
     // A detail the site already knows: shown, not asked for.
     &__known {
         display: flex;
