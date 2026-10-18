@@ -612,11 +612,12 @@
     position: relative;
   }
 
+  // Portaled to <body> and fixed-positioned by ContentBlock (top/bottom/left
+  // from computeMenuPlacement), so the block list's overflow never clips it.
   &__options-menu {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    z-index: 20;
+    position: fixed;
+    z-index: $z-index-popover;
+    overflow-y: auto;
     background: var(--admin-panel-bg, #fff);
     border: 1px solid $border-color;
     border-radius: $border-radius-md;

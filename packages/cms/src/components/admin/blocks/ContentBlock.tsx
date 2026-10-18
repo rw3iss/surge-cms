@@ -1,5 +1,7 @@
 import SaveAsComponentModal from './SaveAsComponentModal';
 import { Component, createEffect, createMemo, createSignal, For, type JSX, Match, onCleanup, Show, Switch, } from 'solid-js';
+import { Portal, } from 'solid-js/web';
+import { computeMenuPlacement, type MenuPlacement, } from '../../../utils/menuPlacement';
 import { type BlockType, getBlockLabel, } from '../../../config/blockTypes';
 import AddBlockMenu from './AddBlockMenu';
 import BlockPreview from './BlockPreview';
@@ -131,7 +133,8 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
             return;
         }
         const onDocPointerDown = (e: PointerEvent,) => {
-            if (optionsWrapRef && !optionsWrapRef.contains(e.target as Node,)) {
+            const t = e.target as Node;
+            if (optionsWrapRef && !optionsWrapRef.contains(t,) && !optionsMenuRef?.contains(t,)) {
                 setShowOptionsMenu(false,);
             }
         };
@@ -141,6 +144,32 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
     },);
 
     onCleanup(cancelHoverClose,);
+
+    // The options menu is PORTALED and fixed-positioned so it is never clipped
+    // by the block list's overflow (the last block's menu used to be cut off),
+    // and flips above its button when there is no room below (shared
+    // computeMenuPlacement, same rule as AddBlockMenu / MultiSelect).
+    let optionsBtnRef: HTMLButtonElement | undefined;
+    let optionsMenuRef: HTMLDivElement | undefined;
+    const OPTIONS_MENU_WIDTH = 200;
+    const [menuPos, setMenuPos,] = createSignal<MenuPlacement>({ placement: 'below', top: 0, bottom: 0, left: 0, maxHeight: 420, },);
+    const placeOptionsMenu = () => {
+        if (!optionsBtnRef) return;
+        const r = optionsBtnRef.getBoundingClientRect();
+        setMenuPos(computeMenuPlacement(
+            // Right-aligned to the button: start the panel one menu-width left of its right edge.
+            { top: r.top, bottom: r.bottom, left: r.right - OPTIONS_MENU_WIDTH, },
+            { viewportHeight: window.innerHeight, viewportWidth: window.innerWidth, offset: 4, minWidth: OPTIONS_MENU_WIDTH, maxHeightVh: 70, minUsable: 260, },
+        ),);
+    };
+    createEffect(() => {
+        if (!showOptionsMenu()) return;
+        placeOptionsMenu();
+        const onMove = () => placeOptionsMenu();
+        window.addEventListener('scroll', onMove, true,);
+        window.addEventListener('resize', onMove,);
+        onCleanup(() => { window.removeEventListener('scroll', onMove, true,); window.removeEventListener('resize', onMove,); },);
+    },);
 
     // BlockEditor's reconcile-backed store keeps each block's identity
     // stable across data updates. `<For>` therefore preserves this row
@@ -282,6 +311,7 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                     onMouseLeave={() => { if (showOptionsMenu()) scheduleHoverClose(); }}
                 >
                     <button type="button"
+                        ref={optionsBtnRef}
                         class="content-block__hover-btn content-block__hover-btn--options"
                         onClick={() => setShowOptionsMenu(!showOptionsMenu(),)}
                         title="Options"
@@ -305,7 +335,20 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                         </svg>
                     </button>
                     <Show when={showOptionsMenu()}>
-                        <div class="content-block__options-menu">
+                        <Portal>
+                        <div
+                            ref={optionsMenuRef}
+                            class="content-block__options-menu"
+                            role="menu"
+                            onMouseEnter={cancelHoverClose}
+                            onMouseLeave={scheduleHoverClose}
+                            style={{
+                                ...(menuPos().placement === 'above' ? { bottom: `${menuPos().bottom}px`, } : { top: `${menuPos().top}px`, }),
+                                left: `${menuPos().left}px`,
+                                width: `${OPTIONS_MENU_WIDTH}px`,
+                                'max-height': `${menuPos().maxHeight}px`,
+                            }}
+                        >
                             <button type="button" onClick={() => { props.onToggleEdit(props.block.id,); setShowOptionsMenu(false,); }}>
                                 Edit
                             </button>
@@ -349,6 +392,7 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                                 Delete
                             </button>
                         </div>
+                        </Portal>
                     </Show>
                 </div>
             </div>
