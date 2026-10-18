@@ -40,6 +40,7 @@ import LoginModal from '../auth/LoginModal';
 import AccessRequiredNotice from '../common/AccessRequiredNotice';
 import { accessErrorOf, tierRequirement, type AccessRequired, } from '../../utils/accessRequired';
 import { useToast, } from '../common/toast/Toast';
+import CurrentUserCard from '../user/CurrentUserCard';
 import './EventSignup.scss';
 
 /** Minor units → display; zero reads as "Free". */
@@ -421,11 +422,13 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                             value={honeypot()}
                             onInput={(e,) => setHoneypot(e.currentTarget.value,)}
                         />
-                        <Show when={auth.user}>
-                            <p class="event-signup__as">Signing up as:</p>
-                        </Show>
+                        {/* Signed in: name + email are the account's, shown as one user card. */}
+                        <CurrentUserCard label="Signing up as" size="sm" showLogout class="event-signup__user" />
                         <For each={fields()}>
                             {(f,) => (
+                                <Show
+                                    when={!(auth.user && (f === 'name' || f === 'email') && known()[f])}
+                                >
                                 <Show
                                     when={known()[f]}
                                     fallback={
@@ -467,6 +470,7 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                                         <span class="event-signup__known-label">{FIELD_META[f].label}</span>
                                         <span class="event-signup__known-value">{known()[f]}</span>
                                     </div>
+                                </Show>
                                 </Show>
                             )}
                         </For>

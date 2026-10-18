@@ -9,6 +9,9 @@
  *   a lock "Members" / "Subscribers (<tier>)"). A public event whose
  *   registration needs a sign-in adds a "Sign in to register" line.
  *
+ * The whole card is one link to the event page (the title link's `::after`
+ * covers the card; the button is the same link, kept out of the tab order).
+ *
  * Reads the record the events entity provider enriches (`EventCardRecord`);
  * every part has its own display toggle (`EventCardDisplay`). Colours,
  * radius and fonts come from the site tokens.
@@ -75,13 +78,14 @@ const EventCard: Component<EventCardProps> = (props,) => {
                 </span>
             </Show>
             <Show when={image()}>
-                <A href={href()} class="event-card__media" tabIndex={-1} aria-hidden="true">
+                <div class="event-card__media">
                     <img class="event-card__image" src={image()!} alt={alt()} loading="lazy" />
-                </A>
+                </div>
             </Show>
             <div class="event-card__body">
                 <h3 class="event-card__title">
-                    <A href={href()}>{props.event.title || 'Untitled event'}</A>
+                    {/* Its ::after covers the card, so the whole card opens the event. */}
+                    <A href={href()} class="event-card__link">{props.event.title || 'Untitled event'}</A>
                 </h3>
                 <Show when={dateLine()}>
                     <p class="event-card__when">{dateLine()}</p>
@@ -115,7 +119,7 @@ const EventCard: Component<EventCardProps> = (props,) => {
                 </Show>
                 <Show when={d().showButton}>
                     <div class="event-card__actions">
-                        <A href={href()} class="event-card__button">{d().buttonLabel}</A>
+                        <A href={href()} class="event-card__button" tabIndex={-1} aria-hidden="true">{d().buttonLabel}</A>
                     </div>
                 </Show>
             </div>

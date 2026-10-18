@@ -1,11 +1,7 @@
 // Sign-up card specifics. The card, form, tier list and states come from
 // EventDetail.scss (`.event-detail__*`), so both render identically.
 .event-signup {
-    &__as {
-        margin: 0;
-        font-size: 0.875rem;
-        color: var(--site-text-muted, #6b7280);
-    }
+    &__user { margin-bottom: 0.25rem; }
 
     // A detail the site already knows: shown, not asked for.
     &__known {

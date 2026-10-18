@@ -1,0 +1,111 @@
+// CurrentUserCard — the signed-in user (avatar + name + email). Public — site
+// tokens. The avatar is sized to the two text lines: name line + email line + gap.
+.current-user {
+  --cu-name-size: 1rem;
+  --cu-email-size: .85rem;
+  --cu-line: 1.3;
+  --cu-gap: 2px;
+  --cu-avatar: calc(var(--cu-name-size) * var(--cu-line) + var(--cu-email-size) * var(--cu-line) + var(--cu-gap));
+
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  font-family: var(--site-font, inherit);
+
+  &--sm {
+    --cu-name-size: .9rem;
+    --cu-email-size: .78rem;
+  }
+
+  &__label {
+    margin: 0;
+    font-size: .8rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--site-text-muted, #6b7280);
+  }
+
+  &__card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  &--card &__card {
+    padding: 10px 14px;
+    border: 1px solid var(--site-border, #e5e7eb);
+    border-radius: var(--site-radius, 10px);
+    background: color-mix(in srgb, var(--site-primary, #e63946) 4%, var(--site-bg, #fff));
+  }
+
+  &__avatar {
+    flex: none;
+    width: var(--cu-avatar);
+    height: var(--cu-avatar);
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 0 0 2px var(--site-bg, #fff), 0 0 0 3px color-mix(in srgb, var(--site-primary, #e63946) 35%, transparent);
+
+    &--initials {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--site-primary, #e63946);
+      color: var(--site-button-text, #fff);
+      font-size: calc(var(--cu-avatar) * .4);
+      font-weight: 700;
+      letter-spacing: .02em;
+      line-height: 1;
+      user-select: none;
+    }
+  }
+
+  &__text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cu-gap);
+    min-width: 0;
+  }
+
+  &__name,
+  &__email {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: var(--cu-line);
+  }
+
+  &__name {
+    font-size: var(--cu-name-size);
+    font-weight: 600;
+    color: var(--site-text, #1a1a1a);
+
+    &--link {
+      text-decoration: none;
+
+      &:hover, &:focus-visible { text-decoration: underline; }
+    }
+  }
+
+  &__email {
+    font-size: var(--cu-email-size);
+    color: var(--site-text-muted, #6b7280);
+  }
+
+  &__logout {
+    align-self: flex-start;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    font-size: .8rem;
+    color: var(--site-link, var(--site-primary, #e63946));
+    cursor: pointer;
+
+    &:hover, &:focus-visible { text-decoration: underline; }
+    &:disabled { opacity: .6; cursor: default; }
+  }
+}

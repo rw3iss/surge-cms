@@ -3,6 +3,7 @@
  * member page's Comments tab), staff / tier badges, activity count, joined.
  * Shared by Comments and the Forum.
  */
+import { userInitials, } from '../../utils/userInitials';
 import { A, } from '@solidjs/router';
 import type { CommentAuthor, } from '@sitesurge/types';
 import { isStaffRole, } from '@sitesurge/types';
@@ -20,8 +21,7 @@ export interface AuthorCardProps {
 
 export const memberUrl = (handle: string,): string => `/members/${encodeURIComponent(handle,)}?tab=comments`;
 
-const initials = (name: string,): string =>
-    name.split(/\s+/,).filter(Boolean,).slice(0, 2,).map((p,) => p[0]!.toUpperCase()).join('',) || '?';
+const initials = userInitials;
 
 const joined = (iso: string | null,): string =>
     iso ? new Date(iso,).toLocaleDateString(undefined, { month: 'short', year: 'numeric', },) : '';
