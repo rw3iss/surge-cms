@@ -5,7 +5,8 @@
  *
  * Layouts map onto what email can do (`galleryEmailPlan`): `grid` → a grid of
  * its columns, `column` → one per row, `row` / `carousel` / `stage` → a
- * centred wrapped grid. No autoplay, arrows or lightbox; every item links to
+ * centred wrapped grid, `masonry` → one row of ≤4 column stacks (items at
+ * their natural aspect, each placed in the shortest column). No autoplay, arrows or lightbox; every item links to
  * its gallery item page whatever the block's on-click option says.
  *
  * Block style: width / max-width (and the cell padding) size the gallery

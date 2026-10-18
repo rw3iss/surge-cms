@@ -6,9 +6,11 @@
  *          poster, alt text, a caption, a link to the item page). Crawlers
  *          care about words and links, not layout.
  *   Email  `galleryEmailHtml`: tables only (no CSS layout in mail clients).
- *          Two shapes: a GRID (`grid` → its columns, `column` → one per
- *          row) or a centred WRAPPED grid (`row` / `carousel` / `stage` —
- *          thumbnails flow left-to-right, each row centred). Every item links
+ *          Three shapes: a GRID (`grid` → its columns, `column` → one per
+ *          row), a centred WRAPPED grid (`row` / `carousel` / `stage` —
+ *          thumbnails flow left-to-right, each row centred) or MASONRY (one
+ *          row of N column cells, each a vertical stack of items at their
+ *          natural aspect, every item placed in the shortest column). Every item links
  *          to its gallery item page (the block's on-click option is ignored —
  *          an inbox has no lightbox); a video keeps the "▶ Watch" bar.
  *          Rows are placed by the block's Horizontal Alignment (`env.align`,
@@ -20,7 +22,7 @@
  * caller passes items already filtered for its audience (SSR: anonymous site
  * view; email: public media only).
  */
-import { galleryItemRadius, itemRadiusCss, } from '@sitesurge/types';
+import { galleryItemRadius, galleryMasonryColumns, itemRadiusCss, } from '@sitesurge/types';
 import type { GalleryAspect, GalleryBlockSettings, GalleryItem, } from '@sitesurge/types';
 import { EMAIL_CONTENT_WIDTH, pxValue, } from '../mail/blocks/_util';
 import { WATCH_BAR_HEIGHT, watchBarCell, } from '../mail/blocks/watchOverlay';
@@ -118,8 +120,9 @@ export function galleryEmailAlign(style: { horizontalAlign?: unknown; textAlign?
 
 /** The pixel geometry of one email gallery. Pure — unit-tested. */
 export interface GalleryEmailPlan {
-    /** `grid`: rows full width, left-aligned (last row padded); `wrap`: every row centred. */
-    mode: 'grid' | 'wrap';
+    /** `grid`: rows full width, left-aligned (last row padded); `wrap`: every row centred;
+     *  `masonry`: one row of `columns` stacks, items at their natural aspect. */
+    mode: 'grid' | 'wrap' | 'masonry';
     columns: number;
     /** Width of one column slot, px (item + its padding). */
     slotWidth: number;
@@ -154,11 +157,16 @@ export function galleryContainSize(maxW: number, maxH: number, ar: number,): { w
 /** A px length (`12px` / `12`), `0` allowed; anything else → null. */
 const px0 = (v: unknown,): number | null => (String(v ?? '',).trim().match(/^0+(\.0+)?(px)?$/i,) ? 0 : pxValue(v,));
 
+/** Most masonry columns in an email: keeps each item ≥ ~130px on a 600px body. */
+export const GALLERY_EMAIL_MASONRY_MAX_COLUMNS = 4;
+
 /**
  * Settings → email geometry. Only the DESKTOP options apply (an email has one
  * width). Columns: `grid` → `columns`, `column` → 1, `row` → `itemsPerPage`,
  * `carousel` / `stage` → `columns`, else `itemsPerPage`; a px `itemWidth`
  * instead fits as many as the width allows. Default 3, at most 6.
+ * `masonry`: `columns`, else as many px `itemWidth` columns as fit, else 3 —
+ * at most 4; items keep their natural aspect (no box: `itemHeight` null).
  */
 export function galleryEmailPlan(s: Partial<GalleryBlockSettings>, env: GalleryEmailEnv = {},): GalleryEmailPlan {
     const d = s.desktop ?? {};
@@ -169,12 +177,13 @@ export function galleryEmailPlan(s: Partial<GalleryBlockSettings>, env: GalleryE
     const fixedW = pxValue(d.itemWidth,);
     const fromWidth = fixedW ? Math.floor((width + gap) / (fixedW + gap),) : null;
     const n = (v: unknown,): number | null => (Number(v,) >= 1 ? Math.round(Number(v,),) : null);
+    const masonry = layout === 'masonry';
     const raw = layout === 'column'
         ? 1
-        : layout === 'grid'
+        : layout === 'grid' || masonry
             ? (n(d.columns,) ?? fromWidth ?? 3)
             : (fromWidth ?? (layout === 'row' ? n(d.itemsPerPage,) : (n(d.columns,) ?? n(d.itemsPerPage,))) ?? 3);
-    const columns = Math.min(6, Math.max(1, raw,),);
+    const columns = Math.min(masonry ? GALLERY_EMAIL_MASONRY_MAX_COLUMNS : 6, Math.max(1, raw,),);
     // A fixed Item width shrinks the slot to the item (+ its padding), so a
     // column / grid of fixed-width items is a narrower box the alignment places.
     const slotWidth = Math.min(Math.floor(width / columns,), fixedW ? fixedW + 2 * pad : Infinity,);
@@ -183,14 +192,14 @@ export function galleryEmailPlan(s: Partial<GalleryBlockSettings>, env: GalleryE
     const ratio = ASPECT_RATIOS[d.aspect ?? 'square'] ?? null;
     const fixedH = pxValue(d.itemHeight,);
     return {
-        mode: layout === 'grid' || layout === 'column' ? 'grid' : 'wrap',
+        mode: masonry ? 'masonry' : layout === 'grid' || layout === 'column' ? 'grid' : 'wrap',
         columns,
         slotWidth,
         width: columns * slotWidth,
         pad,
         itemWidth,
-        itemHeight: fixedH ?? (ratio ? Math.round(itemWidth / ratio,) : null),
-        fit: d.fit === 'contain' ? 'contain' : 'cover',
+        itemHeight: masonry ? null : fixedH ?? (ratio ? Math.round(itemWidth / ratio,) : null),
+        fit: masonry ? 'cover' : d.fit === 'contain' ? 'contain' : 'cover',
         radius: galleryItemRadius(s,) ?? itemRadiusCss(env.siteRadius,) ?? GALLERY_EMAIL_FALLBACK_RADIUS,
     };
 }
@@ -270,6 +279,14 @@ export function galleryEmailHtml(
             // A shrink-wrapped table: the Watch bar is as wide as the picture above it.
             return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:${placeMargin};border-collapse:separate"><tr><td style="padding:0"><a href="${href}" style="text-decoration:none;">${img}border-radius:${r} ${r} 0 0;" /></a></td></tr><tr>${watchBarCell(radius, href,)}</tr></table>`;
         }
+        // Masonry: the item at its natural aspect, width = the column width,
+        // the height known up front (width/height attributes for Outlook).
+        const ar = plan.mode === 'masonry' ? mediaAspect(i,) : null;
+        if (ar) {
+            const nh = Math.max(1, Math.round(w / ar,),);
+            if (isVideo) return bgCell(src, href, alt, true, w, nh, 'cover',);
+            return `<a href="${href}" style="display:block;text-decoration:none;">${plain(w, r, nh,)}</a>`;
+        }
         // Natural height: the picture itself, scaled to the item width.
         if (isVideo) {
             // A video's poster gets the "▶ Watch" bar right under it (no fixed
@@ -279,11 +296,38 @@ export function galleryEmailHtml(
         return `<a href="${href}" style="display:block;text-decoration:none;">${plain(w, r,)}</a>`;
     };
 
-    const cell = (i: GalleryItem, pct: string,): string => {
+    const textOf = (i: GalleryItem,): string => {
         const title = settings.showTitles && i.title ? `<div style="padding-top:4px;font-size:14px;font-weight:bold;color:${text};text-align:${align};">${esc(i.title,)}</div>` : '';
         const caption = settings.showCaptions && i.caption ? `<div style="padding-top:2px;font-size:13px;color:${text};text-align:${align};">${esc(i.caption,)}</div>` : '';
-        return `<td width="${slotWidth}" align="${rowAlign}" valign="top" style="width:${pct};padding:${pad}px;vertical-align:top;">${visualOf(i,)}${title}${caption}</td>`;
+        return title + caption;
     };
+
+    const cell = (i: GalleryItem, pct: string,): string =>
+        `<td width="${slotWidth}" align="${rowAlign}" valign="top" style="width:${pct};padding:${pad}px;vertical-align:top;">${visualOf(i,)}${textOf(i,)}</td>`;
+
+    if (plan.mode === 'masonry') {
+        // One row of column cells; each a stack of items, every item in the
+        // currently-shortest column (estimated px: the media at the column
+        // width + the title / caption lines + the padding).
+        const est = (i: GalleryItem,): number => {
+            const ar = mediaAspect(i,) ?? 1;
+            return w / ar + 2 * pad + (settings.showTitles && i.title ? 22 : 0) + (settings.showCaptions && i.caption ? 20 : 0);
+        };
+        const cols = galleryMasonryColumns(list, plan.columns, est,);
+        const pct = `${Math.floor(10000 / plan.columns,) / 100}%`;
+        const cells = cols.map((idx,) => {
+            const stack = idx.map((k,) => {
+                const i = list[k]!;
+                return `<tr><td align="${rowAlign}" style="padding:${pad}px;vertical-align:top;">${visualOf(i,)}${textOf(i,)}</td></tr>`;
+            },).join('',);
+            return `<td class="gallery-masonry-col" width="${slotWidth}" valign="top" style="width:${pct};padding:0;vertical-align:top;">`
+                + (stack ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;">${stack}</table>` : '')
+                + '</td>';
+        },);
+        return `<table role="presentation" class="gallery-grid gallery-grid--masonry" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;"><tr><td align="${rowAlign}" style="padding:0;">`
+            + `<table role="presentation" align="${rowAlign}" width="${plan.width}" cellpadding="0" cellspacing="0" border="0" style="width:${plan.width}px;max-width:100%;margin:${rowMargin};border-collapse:collapse;"><tr>${cells.join('',)}</tr></table>`
+            + '</td></tr></table>';
+    }
 
     const rows: string[] = [];
     for (let at = 0; at < list.length; at += plan.columns) {

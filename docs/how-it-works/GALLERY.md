@@ -257,11 +257,24 @@ The audience is passed to the shared backend runtime as
 
 Settings = `GalleryBlockSettings`: `source` `items` (`itemIds`) | `query`
 (`GalleryQuery`), `desktop` / `mobile` layout options (`layout` grid | row |
-column | carousel | stage, `columns`, `itemsPerPage`, `scrollBy`, `gap`,
+column | carousel | stage | masonry, `columns`, `itemsPerPage`, `scrollBy`, `gap`,
 `itemWidth`, `itemHeight`, `aspect`, `fit`, `rows`; mobile falls back per
 key), `autoplay` + `autoplayInterval`, `pauseOnHover`, `loop`, arrows, dots,
 titles, captions, `open`, `thumbStrip`, `itemRadius` (the legacy `radius` key is still read). The block type name reuses the retired
 legacy `gallery` enum value (its rows were deleted by migration 027).
+
+**Masonry** (`layout: 'masonry'`): every item at its media's own aspect (no
+box — Item height / Aspect / Fit are hidden in the editor and ignored), in
+columns. With **Columns** set, each item goes to the currently-shortest
+column (`galleryMasonryColumns` in `@sitesurge/types`, height = `1 / aspect`,
+unknown aspect = square), so items read left-to-right — the same placement as
+the email; **Item width** is then each column's maximum width and a narrower
+box is placed by the alignment. Without Columns it is a CSS multi-column flow
+at the Item width (else ~220px) per column — the /gallery page's masonry.
+Mobile Columns fall back to desktop (block default: 4 desktop, 2 mobile).
+Gap, item radius, titles / captions and the on-click action (lightbox / page)
+work as in the other layouts; no paging or autoplay. Web: `masonryPlan()` +
+`masonryTileAspect()` in `galleryLayout.ts`.
 
 Server emitters are synchronous, so a **pre-pass** resolves each block's
 items and stashes them on `settings.__galleryItems`
@@ -277,6 +290,7 @@ items and stashes them on `settings.__galleryItems`
   | `grid` | grid of `columns` (≤6; a px `itemWidth` fits as many as the width allows; default 3), last row padded, left-aligned |
   | `column` | one item per row, full width |
   | `row` / `carousel` / `stage` | wrapped grid: thumbnails flow left-to-right, each row centred; columns = `itemsPerPage` (row) / `columns` else `itemsPerPage` (carousel, stage), or a px `itemWidth` vs the body width |
+  | `masonry` | ONE row of N column cells (`<td valign="top" width=…>`), each a stack of items; every item goes to the currently-shortest column (estimated px: media height at the column width + title/caption lines + padding; unknown aspect = square). Items keep their natural aspect (width = column width, `width`/`height` attributes from the media size; a video is a cover cell of that size with the Watch bar on it). Columns = `columns`, else as many px `itemWidth` as fit, else 3 — at most 4 so items stay ≥ ~130px. Aspect / Item height / Fit do not apply |
 
   Width = the 600px body minus the block's px padding. The box limits are
   `itemHeight` (px), else the `aspect` (`original` = the picture at its

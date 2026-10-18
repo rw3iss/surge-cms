@@ -281,12 +281,18 @@ export interface GalleryPublicConfig {
 
 // ─── Gallery content block ───────────────────────────────────────────────
 
-export type GalleryBlockLayout = 'grid' | 'row' | 'column' | 'carousel' | 'stage';
+/**
+ * `masonry` = N columns of items at their natural aspect, each item placed in
+ * the currently-shortest column. Uses `columns` (else `itemWidth` as the
+ * column width, else auto columns), `gap`; aspect / item height / paging do
+ * not apply.
+ */
+export type GalleryBlockLayout = 'grid' | 'row' | 'column' | 'carousel' | 'stage' | 'masonry';
 
 /** Per-breakpoint layout knobs (mobile falls back to desktop per key). */
 export interface GalleryBlockLayoutOptions {
     layout?: GalleryBlockLayout;
-    /** Grid columns (grid). */
+    /** Grid / masonry columns. */
     columns?: number;
     /** Items visible at once (row / carousel). */
     itemsPerPage?: number;
@@ -376,4 +382,37 @@ export function galleryItemPath(baseUrl: string, id: string,): string {
  */
 export function galleryItemRadius(s: { itemRadius?: unknown; radius?: unknown; } | null | undefined,): string | undefined {
     return itemRadiusCss(s?.itemRadius,) ?? itemRadiusCss(s?.radius,);
+}
+
+// ─── Masonry (block layout `masonry`, web + email) ────────────────────────
+
+/** A gallery item's media aspect (width / height); unknown → 1 (square). */
+export function galleryItemAspect(item: { media?: { width?: number | null; height?: number | null; } | null; } | null | undefined,): number {
+    const w = Number(item?.media?.width,);
+    const h = Number(item?.media?.height,);
+    return w > 0 && h > 0 ? w / h : 1;
+}
+
+/**
+ * Masonry distribution: each item, in order, goes to the currently-SHORTEST
+ * column (ties → the leftmost), so the reading order runs left-to-right and
+ * the columns end close together. `heightOf` is an item's height in any unit
+ * consistent across items (all columns are the same width); the default is
+ * `1 / aspect` (unknown aspect = square). Returns the item INDEXES per column.
+ * Shared by the web view and the email renderer so both place items alike.
+ */
+export function galleryMasonryColumns<T,>(
+    items: readonly T[], columns: number, heightOf: (item: T,) => number = (i,) => 1 / galleryItemAspect(i as never,),
+): number[][] {
+    const n = Math.max(1, Math.round(Number(columns,) || 1,),);
+    const cols: number[][] = Array.from({ length: n, }, () => [],);
+    const heights = new Array<number>(n,).fill(0,);
+    items.forEach((item, index,) => {
+        let best = 0;
+        for (let c = 1; c < n; c++) if (heights[c]! < heights[best]!) best = c;
+        cols[best]!.push(index,);
+        const h = Number(heightOf(item,),);
+        heights[best] = heights[best]! + (Number.isFinite(h,) && h > 0 ? h : 1);
+    },);
+    return cols;
 }

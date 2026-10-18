@@ -34,6 +34,7 @@ const LAYOUTS: { value: GalleryBlockLayout; label: string; }[] = [
     { value: 'column', label: 'Column (vertical list)', },
     { value: 'carousel', label: 'Carousel (one at a time)', },
     { value: 'stage', label: 'Stage (large + thumbnails)', },
+    { value: 'masonry', label: 'Masonry (columns, natural heights)', },
 ];
 
 const GalleryBlockEdit: Component<{
@@ -244,6 +245,20 @@ const GalleryBlockEdit: Component<{
                         <input type="number" min={1} max={12} value={opts().columns ?? ''} placeholder={ph('columns', 'auto',)} onChange={(e,) => setOpt({ columns: num(e.currentTarget.value,), },)} />
                     </FormField>
                 </Show>
+                <Show when={layout() === 'masonry'}>
+                    <FormField
+                        label="Columns"
+                        tooltip="Number of columns; each item goes to the shortest one. Empty = as many as fit at the Item width (else ~220px). Email uses at most 4."
+                    >
+                        <input type="number" min={1} max={12} value={opts().columns ?? ''} placeholder={ph('columns', 'auto',)} onChange={(e,) => setOpt({ columns: num(e.currentTarget.value,), },)} />
+                    </FormField>
+                    <FormField
+                        label="Item width"
+                        tooltip="Column width (e.g. 240px). With Columns set it is each column's maximum width — a narrower gallery is placed by the block's Horizontal Alignment; without Columns it decides how many columns fit."
+                    >
+                        <input type="text" value={opts().itemWidth ?? ''} placeholder={ph('itemWidth', 'auto',)} onChange={(e,) => setOpt({ itemWidth: e.currentTarget.value.trim() || undefined, },)} />
+                    </FormField>
+                </Show>
                 <Show when={layout() === 'row'}>
                     <FormField label="Items per page">
                         <input type="number" min={1} max={12} value={opts().itemsPerPage ?? ''} placeholder={ph('itemsPerPage', '3',)} onChange={(e,) => setOpt({ itemsPerPage: num(e.currentTarget.value,), },)} />
@@ -265,6 +280,8 @@ const GalleryBlockEdit: Component<{
                         <input type="text" value={opts().itemWidth ?? ''} placeholder={ph('itemWidth', 'auto',)} onChange={(e,) => setOpt({ itemWidth: e.currentTarget.value.trim() || undefined, },)} />
                     </FormField>
                 </Show>
+                {/* Masonry shows every item at its own aspect: no box height, aspect or fit. */}
+                <Show when={layout() !== 'masonry'}>
                 <FormField label="Item height" tooltip="A fixed height (e.g. 240px). Overrides the aspect ratio.">
                     <input type="text" value={opts().itemHeight ?? ''} placeholder={ph('itemHeight', 'auto',)} onChange={(e,) => setOpt({ itemHeight: e.currentTarget.value.trim() || undefined, },)} />
                 </FormField>
@@ -285,6 +302,7 @@ const GalleryBlockEdit: Component<{
                         <option value="contain">Fit (no crop)</option>
                     </select>
                 </FormField>
+                </Show>
                 <FormField
                     label="Item border radius"
                     tooltip="Corners of every item — tiles, the stage picture / video and the email thumbnails. Any CSS length (a bare number = px). Empty = the site's Border Radius (Settings → Appearance); 0 = square. Same on desktop and mobile."

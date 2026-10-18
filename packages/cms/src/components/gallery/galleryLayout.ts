@@ -7,9 +7,9 @@ import type {
     GalleryAppearance, GalleryAspect, GalleryBlockLayout, GalleryBlockLayoutOptions, GalleryBlockSettings, GalleryQuery,
 } from '@sitesurge/types';
 
-/** The block layouts + the page-only `masonry`. */
-export type GalleryViewLayout = GalleryBlockLayout | 'masonry';
-/** Block layout options, allowing the page-only `masonry`. */
+/** The layouts GalleryView renders (block layouts; the page uses a subset). */
+export type GalleryViewLayout = GalleryBlockLayout;
+/** Block layout options. */
 export type GalleryViewLayoutOptions = Omit<GalleryBlockLayoutOptions, 'layout'> & { layout?: GalleryViewLayout; };
 /** What GalleryView renders from: GalleryBlockSettings minus the data source. */
 export type GalleryViewSettings = Omit<GalleryBlockSettings, 'source' | 'itemIds' | 'query' | 'desktop' | 'mobile'> & {
@@ -140,6 +140,33 @@ export function gridTemplateColumns(columns: number | null, itemWidth: string | 
         return columns ? `repeat(${columns}, minmax(0, ${itemWidth}))` : `repeat(auto-fit, min(${itemWidth}, 100%))`;
     }
     return columns ? `repeat(${columns}, minmax(0, 1fr))` : `repeat(auto-fill, minmax(min(${thumbSize}px, 100%), 1fr))`;
+}
+
+// ─── Masonry ──────────────────────────────────────────────────────────────
+
+/**
+ * How the masonry layout is built.
+ *
+ *   columns set   `columns` stacks, each item in the currently-shortest one
+ *                 (`galleryMasonryColumns` — the same placement as the email,
+ *                 so items read left-to-right). With an itemWidth each stack
+ *                 is at most that wide and the narrower box is placed by the
+ *                 alignment (`--gv-justify`).
+ *   no columns    CSS multi-column flow at `itemWidth` (else `thumbSize` px)
+ *                 per column — as many as fit (the /gallery page's masonry).
+ */
+export type MasonryPlan = { kind: 'stacks'; columns: number; } | { kind: 'flow'; columnWidth: string; };
+
+export function masonryPlan(columns: number | null, itemWidth: string | null, thumbSize = 220,): MasonryPlan {
+    if (columns && columns >= 1) return { kind: 'stacks', columns: Math.round(columns,), };
+    return { kind: 'flow', columnWidth: itemWidth || `${thumbSize}px`, };
+}
+
+/** A masonry tile's CSS aspect-ratio from its media (reserves the space before the image loads); unknown → natural. */
+export function masonryTileAspect(m: { width?: number | null; height?: number | null; } | null | undefined,): string | undefined {
+    const w = Number(m?.width,);
+    const h = Number(m?.height,);
+    return w > 0 && h > 0 ? `${Math.round(w,)} / ${Math.round(h,)}` : undefined;
 }
 
 // ─── Paging (row / carousel / paged grid + column) ────────────────────────

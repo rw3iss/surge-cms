@@ -1167,6 +1167,7 @@ export const GALLERY_DOC: SdkDoc = {
 {{gallery(type='image', tag='featured', sort='newest', limit=12)}}
 {{gallery(layout='grid', columns=4, gap='8px', aspect='square', mobileColumns=2)}}
 {{gallery(layout='carousel', itemsPerPage=3, autoplay=true, interval=4, mobileItemsPerPage=1)}}
+{{gallery(layout='masonry', columns=3, mobileColumns=2)}}   natural heights, each item in the shortest column
 {{gallery(limit=6, titles=true, captions=true, open='page')}}
 {{gallery(limit=24, thumbs=true)}}             lightbox with a thumbnail strip
 

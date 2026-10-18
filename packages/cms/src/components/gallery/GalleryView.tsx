@@ -6,7 +6,8 @@
  *
  * Layouts:
  *   grid      fixed `columns`, else auto-fill at `thumbSize` px; `rows` pages it
- *   masonry   CSS columns (page only)
+ *   masonry   `columns` stacks, each item in the shortest (same placement as
+ *             email); no columns → CSS multi-column flow at itemWidth / thumbSize
  *   row       horizontal track: itemsPerPage, scrollBy, gap, arrows, dots, autoplay
  *   column    vertical list; `rows` (or itemsPerPage) per page with paging
  *   carousel  one-up slides (a row with one per page)
@@ -20,10 +21,12 @@
  * captions inherit the block's text-align. `itemWidth` → `--gv-item-width`
  * (column / stage tile width; grid track cap; row slide width).
  */
-import { type GalleryItem, galleryItemRadius, } from '@sitesurge/types';
+import { type GalleryItem, galleryItemRadius, galleryMasonryColumns, } from '@sitesurge/types';
 import { Component, createEffect, createMemo, createSignal, For, Match, onCleanup, Show, Switch, } from 'solid-js';
 import MediaVideo from '../blocks/media/MediaVideo';
-import { activePage, aspectRatio, type GalleryViewSettings, gridTemplateColumns, nextStart, pageStarts, prevStart, resolveLayout, } from './galleryLayout';
+import {
+    activePage, aspectRatio, type GalleryViewSettings, gridTemplateColumns, masonryPlan, masonryTileAspect, nextStart, pageStarts, prevStart, resolveLayout,
+} from './galleryLayout';
 import GalleryLightbox from './GalleryLightbox';
 import GalleryTile from './GalleryTile';
 import { useIsMobile, } from './useIsMobile';
@@ -64,6 +67,16 @@ const GalleryView: Component<GalleryViewProps> = (props,) => {
         href: open() === 'page' ? item.url : null,
         onOpen: open() === 'lightbox' ? () => setLightbox(index,) : undefined,
     });
+
+    // ─── Masonry: items at their natural aspect (no box height / fixed aspect) ───
+    const masonry = () => masonryPlan(L().columns, L().itemWidth, props.thumbSize ?? 220,);
+    const masonryStacks = () => {
+        const m = masonry();
+        return m.kind === 'stacks' ? galleryMasonryColumns(items(), m.columns,) : [];
+    };
+    const masonryTile = (item: GalleryItem, index: number,) => (
+        <GalleryTile {...tileProps(item, index,)} aspect={masonryTileAspect(item.media,)} fit="cover" height={null} class="gallery-view__masonry-item" />
+    );
 
     // ─── Paging (row / carousel / column / paged grid / stage) ───
     const isRowLike = () => L().layout === 'row' || L().layout === 'carousel';
@@ -246,11 +259,24 @@ const GalleryView: Component<GalleryViewProps> = (props,) => {
                         </div>
                     </Match>
                     <Match when={L().layout === 'masonry'}>
-                        <div class="gallery-view__masonry" style={{ 'column-width': `${props.thumbSize ?? 220}px`, }}>
-                            <For each={items()}>
-                                {(item, i,) => <GalleryTile {...tileProps(item, i(),)} aspect={undefined} class="gallery-view__masonry-item" />}
-                            </For>
-                        </div>
+                        <Show
+                            when={masonry().kind === 'stacks'}
+                            fallback={
+                                <div class="gallery-view__masonry" style={{ 'column-width': (masonry() as { columnWidth: string; }).columnWidth, }}>
+                                    <For each={items()}>{(item, i,) => masonryTile(item, i(),)}</For>
+                                </div>
+                            }
+                        >
+                            <div class="gallery-view__masonry-stacks">
+                                <For each={masonryStacks()}>
+                                    {(stack,) => (
+                                        <div class="gallery-view__masonry-col">
+                                            <For each={stack}>{(index,) => masonryTile(items()[index]!, index,)}</For>
+                                        </div>
+                                    )}
+                                </For>
+                            </div>
+                        </Show>
                     </Match>
                     <Match when={L().layout === 'column'}>
                         <div class="gallery-view__column">

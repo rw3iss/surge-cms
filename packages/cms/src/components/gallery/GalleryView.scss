@@ -39,6 +39,23 @@
     }
   }
 
+  // Masonry with a column count: one flex column per stack, equal widths (at
+  // most the Item width — the narrower box is placed by the alignment).
+  &__masonry-stacks {
+    display: flex;
+    align-items: flex-start;
+    justify-content: var(--gv-justify);
+    gap: var(--gv-gap);
+  }
+
+  &__masonry-col {
+    display: flex;
+    flex: 0 1 var(--gv-item-width, 100%);
+    flex-direction: column;
+    gap: var(--gv-gap);
+    min-width: 0;
+  }
+
   &__column {
     display: flex;
     flex-direction: column;

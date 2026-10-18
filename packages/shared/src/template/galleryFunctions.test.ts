@@ -30,6 +30,11 @@ describe('galleryDisplayFrom', () => {
         expect(d.autoplay,).toBe(true,);
         expect(d.autoplayInterval,).toBe(4,);
     },);
+    it('accepts the masonry layout on both breakpoints', () => {
+        const d = galleryDisplayFrom({ layout: 'masonry', columns: 3, mobileLayout: 'masonry', mobileColumns: 2, },);
+        expect(d.desktop,).toMatchObject({ layout: 'masonry', columns: 3, },);
+        expect(d.mobile,).toMatchObject({ layout: 'masonry', columns: 2, },);
+    },);
     it('refuses CSS that could escape a declaration', () => {
         expect(galleryDisplayFrom({ gap: '1px;}body{x', radius: '4px"', },).desktop?.gap,).toBe('12px',);
     },);

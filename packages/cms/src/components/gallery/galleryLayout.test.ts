@@ -1,7 +1,7 @@
 import { describe, expect, it, } from 'vitest';
-import { DEFAULT_GALLERY_APPEARANCE, } from '@sitesurge/types';
+import { DEFAULT_GALLERY_APPEARANCE, galleryMasonryColumns, } from '@sitesurge/types';
 import {
-    activePage, aspectRatio, entityQueryToGalleryQuery, galleryQueryToEntityQuery, gridTemplateColumns, maxStart, mediaAspectOf, nextStart, pageStarts, pageStyle, prevStart, ratioOf, resolveLayout, tileFrame,
+    activePage, aspectRatio, entityQueryToGalleryQuery, galleryQueryToEntityQuery, gridTemplateColumns, masonryPlan, masonryTileAspect, maxStart, mediaAspectOf, nextStart, pageStarts, pageStyle, prevStart, ratioOf, resolveLayout, tileFrame,
 } from './galleryLayout';
 
 describe('resolveLayout', () => {
@@ -89,5 +89,30 @@ describe('tileFrame (Fit = contain hugs the media)', () => {
         expect(ratioOf(undefined,),).toBeNull();
         expect(mediaAspectOf({ width: 1080, height: 1920, },),).toBe(0.5625,);
         expect(mediaAspectOf({ width: null, height: 10, },),).toBeNull();
+    },);
+},);
+
+describe('masonry', () => {
+    it('masonryPlan: a column count → stacks; else a CSS column flow at item width / thumb size', () => {
+        expect(masonryPlan(3, null,),).toEqual({ kind: 'stacks', columns: 3, },);
+        expect(masonryPlan(2, '240px',),).toEqual({ kind: 'stacks', columns: 2, },);
+        expect(masonryPlan(null, '240px',),).toEqual({ kind: 'flow', columnWidth: '240px', },);
+        expect(masonryPlan(null, null, 180,),).toEqual({ kind: 'flow', columnWidth: '180px', },);
+    },);
+    it('masonryTileAspect: the media aspect, unknown → natural', () => {
+        expect(masonryTileAspect({ width: 800, height: 600, },),).toBe('800 / 600',);
+        expect(masonryTileAspect({ width: null, height: 600, },),).toBeUndefined();
+        expect(masonryTileAspect(null,),).toBeUndefined();
+    },);
+    it('mobile masonry columns fall back to desktop per key', () => {
+        expect(resolveLayout({ layout: 'masonry', columns: 4, }, { columns: 2, }, true,),).toMatchObject({ layout: 'masonry', columns: 2, },);
+        expect(resolveLayout({ layout: 'masonry', columns: 4, }, {}, true,),).toMatchObject({ layout: 'masonry', columns: 4, },);
+    },);
+    it('galleryMasonryColumns: each item to the shortest column (ties → leftmost), unknown aspect = square', () => {
+        const m = (w: number, h: number,) => ({ media: { width: w, height: h, }, });
+        // heights: a 2, b 0.5 → col1, c 0.5 → col1 (0.5<2), d 1 (unknown) → col1 (1<2), e → col0? col1 = 2 = col0 → leftmost.
+        const cols = galleryMasonryColumns([m(1, 2,), m(2, 1,), m(2, 1,), m(0, 0,), m(1, 1,),], 2,);
+        expect(cols,).toEqual([[0, 4,], [1, 2, 3,],],);
+        expect(galleryMasonryColumns([m(1, 1,),], 3,),).toEqual([[0,], [], [],],);
     },);
 },);

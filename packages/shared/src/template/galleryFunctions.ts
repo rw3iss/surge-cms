@@ -69,7 +69,7 @@ export function galleryCallFor(name: string, args: unknown[], named: Record<stri
     return { query: q, single, };
 }
 
-const LAYOUTS: GalleryBlockLayout[] = ['grid', 'row', 'column', 'carousel', 'stage',];
+const LAYOUTS: GalleryBlockLayout[] = ['grid', 'row', 'column', 'carousel', 'stage', 'masonry',];
 
 function layoutOpts(o: Record<string, unknown>, prefix: '' | 'mobile',): GalleryBlockLayoutOptions {
     const k = (base: string,) => (prefix ? `${prefix}${base[0].toUpperCase()}${base.slice(1,)}` : base);

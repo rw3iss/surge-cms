@@ -292,3 +292,61 @@ describe('gallery email: contain items hug their media', () => {
         expect(html,).toMatch(/<table role="presentation" width="168"[^>]*margin:0 0 0 auto/,);
     },);
 },);
+
+describe('gallery email: masonry', () => {
+    /** An item with its own media size (`w`×`h`; 0 = unknown). */
+    const sized = (id: string, w: number, h: number, over: Partial<GalleryItem> & { mediaType?: 'image' | 'video'; } = {},) => {
+        const i = item({ id, ...over, },);
+        return { ...i, media: { ...i.media!, width: w || null, height: h || null, }, } as GalleryItem;
+    };
+    const masonry = (over: Record<string, unknown> = {},) => ({ desktop: { layout: 'masonry' as const, gap: '0px', ...over, }, });
+    /** Item ids per column cell, in order. */
+    const columnsOf = (html: string,) =>
+        html.split('class="gallery-masonry-col"',).slice(1,).map((c,) => [...c.matchAll(/\/gallery\/([a-z0-9]+)"/g,),].map((m,) => m[1],).filter((v, k, a,) => a.indexOf(v,) === k,),);
+
+    it('plan: columns (default 3, at most 4), natural height, no box', () => {
+        expect(galleryEmailPlan(masonry(),),).toMatchObject({ mode: 'masonry', columns: 3, itemHeight: null, fit: 'cover', },);
+        expect(galleryEmailPlan(masonry({ columns: 2, },),).columns,).toBe(2,);
+        expect(galleryEmailPlan(masonry({ columns: 6, },),).columns,).toBe(4,);
+        expect(galleryEmailPlan(masonry({ itemWidth: '180px', },),).columns,).toBe(3,);
+        expect(galleryEmailPlan(masonry({ columns: 3, itemHeight: '200px', aspect: 'square', },),).itemHeight,).toBeNull();
+    },);
+
+    it('one row of N column cells, each item in the currently-shortest column', () => {
+        // 2 columns of 300px: a (tall 1:2 → 600) left, b (2:1 → 150) right,
+        // c right (150 < 600), d right (300 < 600), e right (450 < 600), f right? 600 = 600 → leftmost.
+        const list = [sized('a', 100, 200,), sized('b', 200, 100,), sized('c', 200, 100,), sized('d', 200, 100,), sized('e', 200, 100,), sized('f', 200, 100,),];
+        const html = galleryEmailHtml(list, 'https://s', masonry({ columns: 2, },),);
+        expect(html,).toContain('gallery-grid--masonry',);
+        expect(columnsOf(html,),).toEqual([['a', 'f',], ['b', 'c', 'd', 'e',],],);
+        expect((html.match(/class="gallery-masonry-col" width="300" valign="top"/g,) ?? []).length,).toBe(2,);
+    },);
+
+    it('items at their natural aspect: width = column width, height from the aspect (Outlook attributes)', () => {
+        const html = galleryEmailHtml([sized('a', 400, 600,), sized('b', 800, 400,),], 'https://s', masonry({ columns: 2, },),);
+        expect(html,).toContain('width="300" height="450"',);
+        expect(html,).toContain('width="300" height="150"',);
+    },);
+
+    it('unknown aspect counts as square for placement and keeps a natural-height picture', () => {
+        const list = [sized('a', 0, 0,), sized('b', 300, 300,), sized('c', 300, 600,),];
+        const html = galleryEmailHtml(list, 'https://s', masonry({ columns: 2, },),);
+        expect(columnsOf(html,),).toEqual([['a', 'c',], ['b',],],);
+        expect(html,).toMatch(/src="https:\/\/s\/uploads\/a\.jpg" alt="[^"]*" width="300" style/,);
+    },);
+
+    it('videos carry the Watch bar; radius, titles and links like the other modes', () => {
+        const html = galleryEmailHtml([sized('v', 1600, 900, { mediaType: 'video', },),], 'https://s', { ...masonry({ columns: 1, },), itemRadius: '10px', showTitles: true, },);
+        expect(html,).toContain('Watch',);
+        expect(html,).toContain('height="338"',);
+        expect(html,).toContain('border-radius:10px',);
+        expect(html,).toContain('href="https://s/gallery/v"',);
+        expect(html,).toContain('Sunset &lt;b&gt;',);
+    },);
+
+    it('gap becomes item padding; a narrower box is placed by the alignment', () => {
+        const html = galleryEmailHtml([sized('a', 100, 100,),], 'https://s', masonry({ columns: 2, gap: '20px', itemWidth: '150px', },), { align: 'right', },);
+        expect(html,).toContain('padding:10px;vertical-align:top',);
+        expect(html,).toContain('align="right" width="340"',);
+    },);
+},);
