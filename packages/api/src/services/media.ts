@@ -35,21 +35,31 @@ export const multerDestDir = config.upload.storageProvider === 'local' ?
     config.upload.dir :
     (process.env.UPLOAD_TEMP_DIR || '/var/tmp/sitesurge-uploads');
 
+/** Thumbnail width (px). Gallery tiles are ~300 CSS px, so 600 stays sharp on 2× screens. */
+export const THUMBNAIL_WIDTH = 600;
+
 /**
- * A 300px thumbnail. Images with an alpha channel (PNG/WebP/AVIF logos,
- * cut-outs) get a PNG thumbnail — JPEG has no transparency, so their clear
- * areas used to come out BLACK. Everything else stays JPEG (smaller).
+ * A THUMBNAIL_WIDTH-wide thumbnail. Images with an alpha channel (PNG/WebP/AVIF
+ * logos, cut-outs) get a PNG thumbnail — JPEG has no transparency, so their
+ * clear areas used to come out BLACK. Everything else is JPEG.
+ *
+ * Quality: EXIF orientation applied (`rotate()`), Lanczos downscale, a light
+ * unsharp mask to restore the edge contrast a downscale softens, mozjpeg at
+ * q84 with full-resolution colour (4:4:4) and progressive encoding. The old
+ * 300px / q80 thumbnails looked blurry once a tile was ~300 CSS px on a retina screen.
  * Returns the thumbnail's MIME type.
  */
-export async function createThumbnail(filePath: string, thumbnailPath: string, width = 300,): Promise<string> {
-    const img = sharp(filePath,);
-    const { hasAlpha, } = await img.metadata();
-    const resized = img.resize(width, null, { withoutEnlargement: true, },);
+export async function createThumbnail(filePath: string, thumbnailPath: string, width = THUMBNAIL_WIDTH,): Promise<string> {
+    const { hasAlpha, } = await sharp(filePath,).metadata();
+    const resized = sharp(filePath,)
+        .rotate()
+        .resize(width, null, { withoutEnlargement: true, kernel: 'lanczos3', },)
+        .sharpen({ sigma: 0.6, m1: 0.8, m2: 1.5, },);
     if (hasAlpha) {
         await resized.png({ compressionLevel: 9, adaptiveFiltering: true, },).toFile(thumbnailPath,);
         return 'image/png';
     }
-    await resized.jpeg({ quality: 80, },).toFile(thumbnailPath,);
+    await resized.jpeg({ quality: 84, mozjpeg: true, chromaSubsampling: '4:4:4', progressive: true, },).toFile(thumbnailPath,);
     return 'image/jpeg';
 }
 

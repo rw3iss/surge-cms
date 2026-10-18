@@ -14,6 +14,7 @@
     "seed:fonts": "tsx scripts/seed-fonts.ts",
     "media:regenerate-thumbnails": "tsx scripts/regenerate-thumbnails.ts",
     "media:dimensions": "tsx scripts/backfill-media-dimensions.ts",
+    "media:rebuild-thumbnails": "tsx scripts/rebuild-thumbnails.ts",
     "smoke:discussions": "tsx scripts/smoke-discussions.ts",
     "smoke:forum": "tsx scripts/smoke-forum.ts",
     "smoke:discovery": "tsx scripts/smoke-discovery.ts",
