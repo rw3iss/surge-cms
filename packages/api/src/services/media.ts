@@ -117,6 +117,23 @@ async function encodeIfVideo(item: Media, file: UploadFile, storageProvider: unk
     }
 }
 
+/**
+ * An image's displayed size (EXIF orientation applied — a portrait phone photo
+ * is stored landscape with orientation 6/8). null for non-images or on error;
+ * the gallery masonry / email sizing use it, so a failure must not block an upload.
+ */
+export async function imageDimensions(filePath: string, mimeType: string,): Promise<{ width: number; height: number; } | null> {
+    if (!/^image\//.test(mimeType,) || mimeType === 'image/svg+xml') return null;
+    try {
+        const m = await sharp(filePath,).metadata();
+        if (!m.width || !m.height) return null;
+        const rotated = (m.orientation ?? 1) >= 5;
+        return rotated ? { width: m.height, height: m.width, } : { width: m.width, height: m.height, };
+    } catch {
+        return null;
+    }
+}
+
 async function uploadOne(
     file: UploadFile,
     ctx: AuditContext,
@@ -150,23 +167,25 @@ async function uploadOne(
         // uploaded_by is a UUID FK — synthetic actors (API keys / system)
         // become NULL rather than violating the column type.
         const uploadedBy = uuidOrNull(ctx.userId,);
+        const dims = await imageDimensions(file.path, file.mimetype,);
         const title = extra.title?.trim() ? extra.title.trim().slice(0, 255,) : undefined;
         const hasMeta = extra.alt !== undefined || extra.caption !== undefined || title !== undefined;
         const result = hasMeta
             ? await query(
-                `INSERT INTO media (filename, original_name, mime_type, size, url, thumbnail_url, alt, caption, title, uploaded_by)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                `INSERT INTO media (filename, original_name, mime_type, size, url, thumbnail_url, alt, caption, title, uploaded_by, width, height)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                  RETURNING *`,
                 [
                     file.filename, file.originalname, file.mimetype, file.size,
                     url, thumbnailUrl, extra.alt, extra.caption, title ?? null, uploadedBy,
+                    dims?.width ?? null, dims?.height ?? null,
                 ],
             )
             : await query(
-                `INSERT INTO media (filename, original_name, mime_type, size, url, thumbnail_url, uploaded_by)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7)
+                `INSERT INTO media (filename, original_name, mime_type, size, url, thumbnail_url, uploaded_by, width, height)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                  RETURNING *`,
-                [file.filename, file.originalname, file.mimetype, file.size, url, thumbnailUrl, uploadedBy,],
+                [file.filename, file.originalname, file.mimetype, file.size, url, thumbnailUrl, uploadedBy, dims?.width ?? null, dims?.height ?? null,],
             );
 
         inserted = true;
