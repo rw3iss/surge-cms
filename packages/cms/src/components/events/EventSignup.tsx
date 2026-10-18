@@ -169,7 +169,7 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
         || (String(props.event.startsAt as unknown as string,)).slice(0, 10,);
 
     // ── The signed-in viewer's own registration for this date ──
-    const [mine, { refetch: refetchMine, mutate: setMine, },] = createResource(
+    const [mineRes, { refetch: refetchMine, mutate: setMine, },] = createResource(
         () => (auth.user ? { id: props.event.id, date: occurrenceDate(), user: auth.user.id, } : null),
         async (k,) => {
             try {
@@ -179,6 +179,9 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
             }
         },
     );
+    // A resource whose source turns null (sign-out) keeps its LAST value, so
+    // gate the read on the session — signing out hides the panel at once.
+    const mine = () => (auth.user ? mineRes() : null);
     /** Registered already: a register-only event shows the registration instead of the form. */
     const registered = () => Boolean(mine(),);
     const [confirmUnregister, setConfirmUnregister,] = createSignal(false,);
