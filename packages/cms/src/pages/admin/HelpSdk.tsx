@@ -11,6 +11,7 @@ import { COMPONENT_JS_DOC, DISCUSSIONS_DOC, GALLERY_DOC, HEADLESS_DOC, LIVE_SHOW
 import { inlineCode, } from '../../components/admin/help/inlineCode';
 import './Help.scss';
 import AdminTitle from '../../components/admin/common/AdminTitle';
+import HelpContents from '../../components/admin/help/HelpContents';
 
 const DocPage: Component<{ doc: SdkDoc; }> = (props,) => (
     <div class="help-doc">
@@ -18,6 +19,7 @@ const DocPage: Component<{ doc: SdkDoc; }> = (props,) => (
         <A href="/admin/help" class="help-doc__back">← Help</A>
         <div class="admin-header">
             <h1>{props.doc.title}</h1>
+            <HelpContents />
         </div>
 
         <p class="help-doc__lead">{props.doc.lead}</p>

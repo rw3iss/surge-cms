@@ -10,6 +10,7 @@ import AdminTitle from '../../components/admin/common/AdminTitle';
 import SdkModuleBrowser from '../../components/admin/help/SdkModuleBrowser';
 import { API_REFERENCE_PATH, } from '../../components/admin/help/anchors';
 import './Help.scss';
+import HelpContents from '../../components/admin/help/HelpContents';
 
 const HelpSdkReference: Component = () => {
     const [data,] = createResource(() => import('../../services/help/sdkModules.generated'),);
@@ -20,6 +21,7 @@ const HelpSdkReference: Component = () => {
             <A href="/admin/help" class="help-doc__back">← Help</A>
             <div class="admin-header">
                 <h1>SDK Reference</h1>
+            <HelpContents />
             </div>
             <p class="help-doc__lead">
                 Every namespace and method of <code>@sitesurge/client</code>

@@ -11,6 +11,7 @@ import {
 } from '../../services/template/reference';
 import './Help.scss';
 import AdminTitle from '../../components/admin/common/AdminTitle';
+import HelpContents from '../../components/admin/help/HelpContents';
 
 const EntitySection: Component<{ entity: EntityDoc; }> = (props,) => {
     const [open, setOpen,] = createSignal(false,);
@@ -55,6 +56,7 @@ const HelpVariables: Component = () => (
         <div class="admin-header">
             <A href="/admin/help" class="help-doc__back">&larr; Help</A>
             <h1>Variables &amp; Functions</h1>
+            <HelpContents />
         </div>
 
         <p class="help-doc__lead">{OVERVIEW}</p>

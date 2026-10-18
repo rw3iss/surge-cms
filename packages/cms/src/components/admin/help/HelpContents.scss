@@ -1,0 +1,58 @@
+// "Help contents" dropdown — help page headers (right side).
+.help-contents {
+  position: relative;
+  flex: 0 0 auto;
+  margin-left: auto;
+
+  &__panel {
+    position: absolute;
+    top: calc(100% + #{$spacing-xs});
+    right: 0;
+    z-index: $z-index-popover;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(200px, 1fr));
+    gap: $spacing-md $spacing-lg;
+    width: min(560px, calc(100vw - #{$spacing-lg * 2}));
+    max-height: min(70vh, 560px);
+    overflow-y: auto;
+    padding: $spacing-md;
+    background: var(--admin-panel-bg, #{$background});
+    border: 1px solid var(--admin-border, #{$border-color});
+    border-radius: $border-radius-md;
+    box-shadow: $shadow-lg;
+
+    @media (max-width: 640px) { grid-template-columns: 1fr; }
+  }
+
+  &__heading {
+    margin: 0 0 $spacing-xs;
+    font-size: $font-size-xs;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--admin-text-muted);
+  }
+
+  &__list { margin: 0; padding: 0; list-style: none; }
+
+  &__link {
+    display: block;
+    padding: 4px $spacing-sm;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+    color: var(--admin-text);
+    text-decoration: none;
+
+    &:hover, &:focus-visible { background: var(--admin-bg-subtle); }
+    &.is-current { font-weight: 700; background: var(--admin-bg-subtle); box-shadow: inset 3px 0 0 var(--site-primary, #{$primary-color}); }
+    &.is-off { color: var(--admin-text-muted); }
+  }
+
+  &__off { font-size: $font-size-xs; }
+
+  &__all {
+    grid-column: 1 / -1;
+    justify-self: end;
+    font-size: $font-size-sm;
+  }
+}

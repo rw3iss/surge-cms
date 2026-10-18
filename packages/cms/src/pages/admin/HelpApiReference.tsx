@@ -10,6 +10,7 @@ import AdminTitle from '../../components/admin/common/AdminTitle';
 import ApiRouteBrowser from '../../components/admin/help/ApiRouteBrowser';
 import { SDK_REFERENCE_PATH, } from '../../components/admin/help/anchors';
 import './Help.scss';
+import HelpContents from '../../components/admin/help/HelpContents';
 
 const HelpApiReference: Component = () => {
     const [data,] = createResource(() => import('../../services/help/apiReference.generated'),);
@@ -20,6 +21,7 @@ const HelpApiReference: Component = () => {
             <A href="/admin/help" class="help-doc__back">← Help</A>
             <div class="admin-header">
                 <h1>API Reference</h1>
+            <HelpContents />
             </div>
             <p class="help-doc__lead">
                 Every REST route this site serves
