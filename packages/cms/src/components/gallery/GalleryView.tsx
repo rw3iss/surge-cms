@@ -75,7 +75,17 @@ const GalleryView: Component<GalleryViewProps> = (props,) => {
         return m.kind === 'stacks' ? galleryMasonryColumns(items(), m.columns,) : [];
     };
     const masonryTile = (item: GalleryItem, index: number,) => (
-        <GalleryTile {...tileProps(item, index,)} aspect={masonryTileAspect(item.media,)} fit="cover" height={null} class="gallery-view__masonry-item" />
+        <GalleryTile
+            {...tileProps(item, index,)}
+            // '' (not undefined): Solid's prop merge skips `undefined`, so the
+            // block's own aspect (e.g. square) from tileProps would win and
+            // every tile became a cropped square. '' = natural height when the
+            // media's size is unknown (many library images store none).
+            aspect={masonryTileAspect(item.media,) ?? ''}
+            fit="cover"
+            height={null}
+            class="gallery-view__masonry-item"
+        />
     );
 
     // ─── Paging (row / carousel / column / paged grid / stage) ───
