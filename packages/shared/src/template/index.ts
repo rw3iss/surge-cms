@@ -34,6 +34,11 @@ export {
 export {
     GALLERY_FUNCTION_NAMES, GALLERY_ITEM_KIND, GALLERY_LIST_KIND, galleryCallFor, galleryDisplayFrom,
 } from './galleryFunctions';
+/** `{{event(...)}}` / `{{events(...)}}` call → binding + display options (shared with the Events block). */
+export {
+    DEFAULT_EVENTS_LIMIT, EVENT_FUNCTION_NAMES, EVENT_KIND, EVENT_LIST_KIND, eventDisplayFrom, eventsCallFor, MAX_EVENTS_LIMIT,
+    type EventDisplayOptions, type EventsCall,
+} from './eventFunctions';
 
 const astCache = new Map<string, Node[]>();
 

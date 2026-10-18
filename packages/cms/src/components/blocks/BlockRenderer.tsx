@@ -36,7 +36,7 @@ import { CarouselBlockRenderer, } from './types/CarouselBlock';
 import { TemplateBlock, } from './types/TemplateBlock';
 import { EntityBlock, } from './types/EntityBlock';
 import { GalleryBlock, } from './types/GalleryBlock';
-import { EventBlock, } from './types/EventBlock';
+import { EventsBlock, } from './types/EventsBlock';
 import { GroupBlock, GroupItemBlock, } from './types/GroupBlock';
 import './BlockRenderer.scss';
 
@@ -111,8 +111,10 @@ const WEB_BLOCK_RENDERERS: Record<BlockType, Component<WebBlockProps> | null> = 
     // Gallery (feature `gallery`) — published media items. The legacy
     // `gallery` rows were deleted by migration 027.
     gallery: (p,) => <GalleryBlock block={p.block} />,
-    // Event teaser card (feature `events`).
-    event: (p,) => <EventBlock block={p.block} preview={p.preview} />,
+    // Events (feature `events`) — a grid / row / column of event cards.
+    // `event` is the legacy name, rendered by the same block.
+    events: (p,) => <EventsBlock block={p.block} preview={p.preview} />,
+    event: (p,) => <EventsBlock block={p.block} preview={p.preview} />,
 };
 
 export const BlockRenderer: Component<BlockRendererProps> = (props,) => {

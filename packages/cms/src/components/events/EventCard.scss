@@ -1,69 +1,151 @@
-// Event teaser card (the `event` content block). Public — colours read the
-// site tokens so an operator's theme applies.
-.event-card-block {
-    &__heading {
-        margin: 0 0 12px;
-    }
-}
-
+// The default event card (Events block). Public — colours, radius and fonts
+// read the site tokens so an operator's theme applies.
 .event-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--site-border, #e5e7eb);
+  border-radius: var(--site-radius, 12px);
+  background: var(--site-bg, #fff);
+  color: var(--site-text, inherit);
+  font-family: var(--site-font, inherit);
+  transition: box-shadow .15s ease;
+
+  &:hover { box-shadow: 0 4px 16px rgba(0, 0, 0, .08); }
+
+  // ── Access badge (floats over the image / body, upper right) ──
+  &__badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .92);
+    color: var(--site-text, #1f2937);
+    font-size: .75rem;
+    font-weight: 600;
+    line-height: 1.4;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .15);
+
+    svg { flex: none; }
+
+    &--locked {
+      background: var(--site-primary, #e63946);
+      color: var(--site-button-text, #fff);
+    }
+  }
+
+  &__media { display: block; }
+
+  &__image {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+  }
+
+  &__body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px 20px 20px;
+  }
+
+  // No image: keep the title clear of the floating badge.
+  &:not(&--with-image) &__title { padding-right: 96px; }
+
+  &__title {
+    margin: 0;
+    font-family: var(--site-heading-font, inherit);
+    font-size: 1.2rem;
+    font-weight: var(--site-heading-weight, 700);
+    line-height: 1.25;
+    color: var(--site-heading, inherit);
+
+    a {
+      color: inherit;
+      text-decoration: none;
+
+      &:hover, &:focus-visible { text-decoration: underline; }
+    }
+  }
+
+  &__when {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  &__meta {
+    margin: 0;
+    font-size: .9rem;
+    color: var(--site-text-muted, #6b7280);
+  }
+
+  &__excerpt {
+    margin: 4px 0 0;
+    line-height: 1.5;
+  }
+
+  // ── Ticket tiers ──
+  &__tiers {
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    border: 1px solid var(--site-border, #e5e7eb);
-    border-radius: var(--site-radius, 12px);
-    background: var(--site-bg, #fff);
-    color: inherit;
+    gap: 4px;
+    margin: 6px 0 0;
+    padding: 8px 0 0;
+    border-top: 1px solid var(--site-border, #e5e7eb);
+    list-style: none;
+  }
+
+  &__tier {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 8px;
+    font-size: .9rem;
+
+    &.is-sold-out { color: var(--site-text-muted, #6b7280); }
+  }
+
+  &__tier-name { flex: 1 1 auto; min-width: 0; }
+  &__tier-price { font-weight: 600; }
+
+  &__tier-left {
+    font-size: .8rem;
+    color: var(--site-text-muted, #6b7280);
+
+    .is-sold-out & { font-weight: 600; }
+  }
+
+  &__signin {
+    margin: 4px 0 0;
+    font-size: .85rem;
+    color: var(--site-text-muted, #6b7280);
+  }
+
+  // ── Button (pushed to the bottom so a row of cards lines up) ──
+  &__actions {
+    margin-top: auto;
+    padding-top: 10px;
+  }
+
+  &__button {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: var(--site-button-radius, var(--site-radius, 6px));
+    background: var(--site-primary, #e63946);
+    color: var(--site-button-text, #fff);
+    font-weight: 600;
     text-decoration: none;
-    transition: box-shadow 0.15s ease;
+    transition: filter .15s ease;
 
-    &:hover {
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-    }
-
-    &:hover &__link {
-        text-decoration: underline;
-    }
-
-    &__image {
-        display: block;
-        width: 100%;
-        aspect-ratio: 16 / 9;
-        object-fit: cover;
-    }
-
-    &__body {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        padding: 16px 20px 20px;
-    }
-
-    &__title {
-        margin: 0;
-        font-size: 1.25rem;
-        color: var(--site-heading, inherit);
-    }
-
-    &__when {
-        margin: 0;
-        font-weight: 600;
-    }
-
-    &__meta {
-        margin: 0;
-        font-size: 0.9rem;
-        color: var(--site-text-muted, #6b7280);
-    }
-
-    &__excerpt {
-        margin: 8px 0 0;
-        line-height: 1.5;
-    }
-
-    &__link {
-        margin-top: 8px;
-        font-weight: 600;
-        color: var(--site-link, var(--site-primary, #e63946));
-    }
+    &:hover, &:focus-visible { filter: brightness(.92); }
+  }
 }

@@ -1,0 +1,18 @@
+// A grid / column of EventCard (the row layout is PagedRow). Public — site tokens.
+.event-card-list {
+  &__grid {
+    display: grid;
+    gap: var(--events-gap, 16px);
+    // A grid narrower than the block (Item width) is placed by the block's alignment.
+    justify-content: var(--block-h-align, center);
+  }
+
+  &__column {
+    display: flex;
+    flex-direction: column;
+    align-items: var(--block-h-align, stretch);
+    gap: var(--events-gap, 16px);
+
+    > * { width: 100%; max-width: var(--events-item-width, none); }
+  }
+}

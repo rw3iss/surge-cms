@@ -543,3 +543,41 @@ describe('expandDynamicBlocks options (SSR reuse)', () => {
         expect(out.find((b,) => b.parentBlockId === 'e1',)?.settings.content,).toBe('SSR:<p>{{post.title}}</p>',);
     },);
 },);
+
+describe('expandDynamicBlocks — events blocks', () => {
+    const eventsBlock = (settings: Record<string, unknown>, blockType = 'events',): FlatMailBlock => ({
+        id: 'ev', parentBlockId: null, blockType, position: 0, settings, style: {},
+    });
+
+    it('the default live query is read with the email audience and stashed on the block', async () => {
+        entityList.mockResolvedValue({ items: [{ id: 'a', }, { id: 'b', },], total: 2, },);
+        const out = await expandDynamicBlocks([eventsBlock({},),],);
+        expect(entityList,).toHaveBeenCalledWith('event', expect.objectContaining({ filter: { upcoming: true, }, sortBy: 'startsAt', limit: 6, },), { audience: 'email', },);
+        expect(out[0].settings.__eventRecords,).toEqual([{ id: 'a', }, { id: 'b', },],);
+    });
+
+    it('a legacy `event` block (eventId) reads that one event', async () => {
+        entityList.mockResolvedValue({ items: [], total: 0, },);
+        entityGet.mockResolvedValue({ id: 'x', slug: 'gala', },);
+        const out = await expandDynamicBlocks([eventsBlock({ eventId: 'gala', }, 'event',),],);
+        expect(entityGet,).toHaveBeenCalledWith('event', 'gala',);
+        expect(out[0].settings.__eventRecords,).toEqual([{ id: 'x', slug: 'gala', },],);
+    });
+
+    it('SSR (site audience) reads without the email hint', async () => {
+        entityList.mockResolvedValue({ items: [], total: 0, },);
+        await expandDynamicBlocks([eventsBlock({},),], 0, new Set(), { audience: 'site', feeds: false, videoSize: false, },);
+        expect(entityList.mock.calls[0]![2],).toEqual({},);
+    });
+
+    it('inside an event template, `source: template` gets the record being rendered', async () => {
+        findTemplate.mockResolvedValue({ id: 'tpl-e', mode: 'list', listRender: 'each', slots: [], },);
+        findBlocksResolved.mockResolvedValue([{ id: 'c', parentBlockId: null, blockType: 'events', position: 0, settings: { source: 'template', }, style: {}, },],);
+        entityGet.mockImplementation((_t: string, ref: string,) => Promise.resolve({ id: ref, title: ref, },),);
+        const out = await expandDynamicBlocks([entityBlock({
+            settings: { entity: { entityType: 'event', templateId: 'tpl-e', binding: { mode: 'list', refs: ['e1', 'e2',], }, }, },
+        },),],);
+        const cards = out.filter((b,) => b.blockType === 'events');
+        expect(cards.map((b,) => b.settings.__eventRecords),).toEqual([[{ id: 'e1', title: 'e1', },], [{ id: 'e2', title: 'e2', },],],);
+    });
+});

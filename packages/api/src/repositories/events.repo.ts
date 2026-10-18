@@ -105,6 +105,13 @@ export async function findById(id: string,): Promise<CalendarEvent | null> {
     return res.rows[0] ? toIsoFields(mapRow<CalendarEvent>(res.rows[0],),) : null;
 }
 
+/** Many events by id (any order; missing ids are simply absent). */
+export async function findByIds(ids: string[],): Promise<CalendarEvent[]> {
+    if (ids.length === 0) return [];
+    const res = await query(`SELECT ${SELECT} FROM events WHERE id = ANY($1::uuid[])`, [ids,],);
+    return mapRows<CalendarEvent>(res.rows,).map((r,) => toIsoFields(r,));
+}
+
 export async function findBySlug(slug: string,): Promise<CalendarEvent | null> {
     const res = await query(`SELECT ${SELECT} FROM events WHERE slug = $1`, [slug,],);
     return res.rows[0] ? toIsoFields(mapRow<CalendarEvent>(res.rows[0],),) : null;
@@ -409,7 +416,7 @@ export async function deleteOverride(eventId: string, occurrenceDate: string,): 
 
 // ─── Ticket tiers ─────────────────────────────────────────────────
 
-const TIER_SELECT = `id, event_id, name, price_cents, currency, quantity_available, position, required_tier_id, max_per_order`;
+const TIER_SELECT = `id, event_id, name, description, price_cents, currency, quantity_available, position, required_tier_id, max_per_order`;
 
 export async function findTiers(eventId: string,): Promise<EventTicketTier[]> {
     const res = await query(
@@ -417,6 +424,22 @@ export async function findTiers(eventId: string,): Promise<EventTicketTier[]> {
         [eventId,],
     );
     return mapRows<EventTicketTier>(res.rows,);
+}
+
+/** Tiers of many events, grouped by event id (ordered by position) — one query per list. */
+export async function findTiersForEvents(eventIds: string[],): Promise<Map<string, EventTicketTier[]>> {
+    const out = new Map<string, EventTicketTier[]>();
+    if (eventIds.length === 0) return out;
+    const res = await query(
+        `SELECT ${TIER_SELECT} FROM event_ticket_tiers WHERE event_id = ANY($1::uuid[]) ORDER BY event_id, position, name`,
+        [eventIds,],
+    );
+    for (const t of mapRows<EventTicketTier>(res.rows,)) {
+        const list = out.get(t.eventId,);
+        if (list) list.push(t,);
+        else out.set(t.eventId, [t,],);
+    }
+    return out;
 }
 
 export async function findTierById(id: string,): Promise<EventTicketTier | null> {
@@ -437,6 +460,8 @@ export async function replaceTiers(
         id?: string; name: string; priceCents: number; currency: string;
         quantityAvailable: number | null; position: number; requiredTierId?: string | null;
         maxPerOrder?: number | null;
+        /** undefined = keep the stored blurb; null / '' = clear it. */
+        description?: string | null;
     }>,
 ): Promise<EventTicketTier[]> {
     const keptIds = tiers.map((t,) => t.id).filter(Boolean,) as string[];
@@ -452,16 +477,20 @@ export async function replaceTiers(
             await query(
                 `UPDATE event_ticket_tiers
                     SET name = $1, price_cents = $2, currency = $3,
-                        quantity_available = $4, position = $5, required_tier_id = $8, max_per_order = $9, updated_at = NOW()
+                        quantity_available = $4, position = $5, required_tier_id = $8, max_per_order = $9,
+                        description = CASE WHEN $11::boolean THEN $10 ELSE description END, updated_at = NOW()
                   WHERE id = $6 AND event_id = $7`,
-                [t.name, t.priceCents, t.currency, t.quantityAvailable, i, t.id, eventId, t.requiredTierId ?? null, t.maxPerOrder ?? null,],
+                [
+                    t.name, t.priceCents, t.currency, t.quantityAvailable, i, t.id, eventId, t.requiredTierId ?? null, t.maxPerOrder ?? null,
+                    t.description?.trim() || null, t.description !== undefined,
+                ],
             );
         } else {
             await query(
                 `INSERT INTO event_ticket_tiers
-                    (event_id, name, price_cents, currency, quantity_available, position, required_tier_id, max_per_order)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-                [eventId, t.name, t.priceCents, t.currency, t.quantityAvailable, i, t.requiredTierId ?? null, t.maxPerOrder ?? null,],
+                    (event_id, name, price_cents, currency, quantity_available, position, required_tier_id, max_per_order, description)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+                [eventId, t.name, t.priceCents, t.currency, t.quantityAvailable, i, t.requiredTierId ?? null, t.maxPerOrder ?? null, t.description?.trim() || null,],
             );
         }
     }
@@ -498,6 +527,29 @@ export async function countSoldByTier(
         [eventId, occurrenceDate,],
     );
     const out: Record<string, number> = {};
+    for (const r of res.rows) if (r.tier_id) out[r.tier_id] = Number(r.sold,);
+    return out;
+}
+
+/**
+ * Tickets issued per tier for several (event, occurrence date) pairs at once —
+ * `countSoldByTier` for a whole list. Keyed by tier id (a tier belongs to one
+ * event, and each event is asked about one date).
+ */
+export async function countSoldForOccurrences(
+    pairs: Array<{ eventId: string; occurrenceDate: string; }>,
+): Promise<Record<string, number>> {
+    const out: Record<string, number> = {};
+    if (pairs.length === 0) return out;
+    const res = await query<{ tier_id: string; sold: number; }>(
+        `SELECT t.tier_id, COUNT(*)::int AS sold
+           FROM event_tickets t
+           JOIN unnest($1::uuid[], $2::date[]) AS p(event_id, occurrence_date)
+             ON p.event_id = t.event_id AND p.occurrence_date = t.occurrence_date
+          WHERE t.status IN ('valid', 'checked_in')
+          GROUP BY t.tier_id`,
+        [pairs.map((p,) => p.eventId,), pairs.map((p,) => p.occurrenceDate,),],
+    );
     for (const r of res.rows) if (r.tier_id) out[r.tier_id] = Number(r.sold,);
     return out;
 }

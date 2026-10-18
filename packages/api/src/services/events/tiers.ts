@@ -46,6 +46,7 @@ export async function replaceTiers(
         id?: string; name: string; priceCents: number; currency: string;
         quantityAvailable: number | null; position: number; requiredTierId?: string | null;
         maxPerOrder?: number | null;
+        description?: string | null;
     }>,
     ctx: AuditContext,
 ): Promise<EventTicketTier[]> {

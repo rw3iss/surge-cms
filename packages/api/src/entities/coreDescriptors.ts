@@ -257,6 +257,62 @@ function galleryItemDescriptor(): EntityTypeDef {
     };
 }
 
+/** Build one event field def (core, describing an `events` column). */
+function ef(key: string, type: EntityFieldType, label: string, position: number, extra: Partial<EntityFieldDef> = {},): EntityFieldDef {
+    return {
+        id: `core:event:${key}`, key, label, type, core: true,
+        required: false, unique: false, indexed: false, searchable: false, filterable: false, position, ...extra,
+    };
+}
+
+/** Access-rule values of `events.view_access` / `register_access`. */
+const EVENT_ACCESS_OPTIONS = [
+    { label: 'Inherit (Settings → Events)', value: 'inherit', }, { label: 'Public', value: 'public', },
+    { label: 'Members', value: 'members', }, { label: 'Subscription tier', value: 'tier', },
+];
+
+/**
+ * The `event` entity type — adopts the `events` table (owned by the events
+ * feature). Admin-extensible: operators may add fields (→ columns on `events`);
+ * these core fields are locked. Records are ENRICHED by the events data
+ * provider (services/events/entityProvider.ts) with everything a card needs —
+ * `url`, `when`/`dateLabel`/`timeLabel`, `nextOccurrence`, `access`, `tiers[]`
+ * with live availability … (see `EventRecord` in `@sitesurge/types`). The
+ * column `url` (the event's own external link) is exposed as `externalUrl`;
+ * `url` on a record is the event page. Status: live = `published`.
+ */
+export function eventDescriptor(detailPrefix = '/events',): EntityTypeDef {
+    const fields: EntityFieldDef[] = [
+        ef('title', 'text', 'Title', 0, { required: true, searchable: true, indexed: true, },),
+        ef('description', 'markdown', 'Description (Markdown)', 1, { searchable: true, },),
+        ef('startsAt', 'datetime', 'Starts', 2, { indexed: true, },),
+        ef('endsAt', 'datetime', 'Ends', 3,),
+        ef('allDay', 'boolean', 'All day', 4, { filterable: true, },),
+        ef('location', 'text', 'Location', 5, { searchable: true, filterable: true, },),
+        ef('url', 'text', 'External link', 6,),
+        ef('featuredImage', 'text', 'Image', 7,),
+        ef('timezone', 'text', 'Time zone', 8,),
+        ef('recurrenceRule', 'text', 'Repeats', 9,),
+        ef('recurrenceUntil', 'datetime', 'Repeats until', 10,),
+        ef('registrationEnabled', 'boolean', 'Registration', 11, { filterable: true, },),
+        ef('ticketingEnabled', 'boolean', 'Ticketing', 12, { filterable: true, },),
+        ef('viewAccess', 'enum', 'Who can see', 13, { filterable: true, options: { values: EVENT_ACCESS_OPTIONS.map((o,) => o.value,), enumOptions: EVENT_ACCESS_OPTIONS, }, },),
+        ef('registerAccess', 'enum', 'Who can register', 14, { filterable: true, options: { values: EVENT_ACCESS_OPTIONS.map((o,) => o.value,), enumOptions: EVENT_ACCESS_OPTIONS, }, },),
+    ];
+    return {
+        id: '', key: 'event', label: 'Event', labelPlural: 'Events', singularVar: 'event', pluralVar: 'events',
+        description: 'A calendar event (managed by the Events feature). Records include `url`, `when`, `dateLabel`, `timeLabel`, `nextOccurrence`, `location`, `excerpt`, `description` (HTML), `access` (badge, rules), `priceFrom`, `remaining`, `soldOut` and `tiers` (array; each has `name`, `price`, `remaining`, `soldOut`) — e.g. `{{event.tiers[0].price}}`. Query with `upcoming`, `access`.',
+        origin: 'core', internal: true, ownerFeature: 'events', tableName: 'events',
+        hasSlug: true, hasStatus: true, searchable: false, revisioned: false,
+        routing: { detailEnabled: true, detailPrefix, indexEnabled: true, indexPrefix: detailPrefix, },
+        // Off at the entity layer: lists are filtered per viewer and carry live
+        // ticket availability, so one cached list must not serve every viewer.
+        caching: { indexEnabled: false, indexTtlSeconds: 60, recordEnabled: false, recordTtlSeconds: 60, },
+        adminListRoute: '/admin/events', adminEditRoute: '/admin/events/:id',
+        fields, createdAt: '', updatedAt: '',
+    };
+}
+
 /** All core descriptors (built fresh each call). */
 export function coreDescriptors(): EntityTypeDef[] {
     return [
@@ -279,6 +335,7 @@ export function coreDescriptors(): EntityTypeDef[] {
         discussionDescriptor('comment',),
         discussionDescriptor('forum_thread',),
         galleryItemDescriptor(),
+        eventDescriptor(),
     ].filter((d,): d is EntityTypeDef => d !== null);
 }
 
@@ -304,6 +361,17 @@ async function isFeatureEnabled(feature: string,): Promise<boolean> {
     }
 }
 
+/** Settings → Events → URL (`/events` when unset / unreadable). */
+async function eventsBasePath(): Promise<string> {
+    try {
+        const r = await query<{ value: { eventsUrl?: unknown; } | null; }>(`SELECT value FROM site_settings WHERE key = 'events'`,);
+        const url = r.rows[0]?.value?.eventsUrl;
+        return typeof url === 'string' && url.startsWith('/',) ? url.replace(/\/+$/, '',) || '/events' : '/events';
+    } catch {
+        return '/events';
+    }
+}
+
 /**
  * Idempotently register the core entity types whose owning feature is enabled
  * (pages have no feature → always). Called at boot after migrations; reloads
@@ -311,8 +379,10 @@ async function isFeatureEnabled(feature: string,): Promise<boolean> {
  */
 export async function seedCoreEntityTypes(): Promise<void> {
     let seeded = 0;
-    for (const def of coreDescriptors()) {
+    for (let def of coreDescriptors()) {
         if (def.ownerFeature && !(await isFeatureEnabled(def.ownerFeature,))) continue;
+        // The event page lives under the configurable calendar URL (Settings → Events).
+        if (def.key === 'event') def = eventDescriptor(await eventsBasePath(),);
         await scaffoldCoreType(def,);
         seeded++;
     }

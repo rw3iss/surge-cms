@@ -1,71 +1,125 @@
 /**
- * Event teaser card — image, title, date/time (in the event's time zone),
- * location, a short excerpt and a link to the event page. Rendered by the
- * `event` content block.
+ * The default event card — used by the Events content block (grid / row /
+ * column) and anywhere an enriched `event` entity record is shown.
+ *
+ *   title (linked) · image · date + time (event time zone) · location ·
+ *   description (plain text, cut at `descriptionLength`) · ticket tiers
+ *   (name · price · "N left" / "Sold out" — only when the event sells tickets)
+ *   · View event button · access badge floating top-right (globe "Public", or
+ *   a lock "Members" / "Subscribers (<tier>)"). A public event whose
+ *   registration needs a sign-in adds a "Sign in to register" line.
+ *
+ * Reads the record the events entity provider enriches (`EventCardRecord`);
+ * every part has its own display toggle (`EventCardDisplay`). Colours,
+ * radius and fonts come from the site tokens.
  */
-import type { CalendarEvent, } from '@sitesurge/types';
-import { describeRecurrence, featuredImageAlt, featuredImagePath, parseRecurrenceRule, stripMarkdown, } from '@sitesurge/types';
+import { DEFAULT_EVENT_CARD_DISPLAY, type EventCardDisplay, } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
-import { Component, Show, } from 'solid-js';
-import { excerptText, formatEventWhen, } from '../../utils/eventFormat';
+import { Component, For, Show, } from 'solid-js';
+import { useAuth, } from '../../stores/auth';
+import {
+    eventAccessBadge, eventDateTime, eventExcerpt, eventRecordHref, tierAvailability, tierPrice, visibleTiers, type EventCardRecord,
+} from './eventsLayout';
 import './EventCard.scss';
 
 export interface EventCardProps {
-    event: CalendarEvent;
-    /** The occurrence shown (a recurring series' next date); default = the event's start. */
-    occurrence?: { startsAt: string; occurrenceDate: string; } | null;
-    /** Optional heading above the card. */
-    heading?: string;
-    showImage?: boolean;
-    showDescription?: boolean;
-    showLocation?: boolean;
+    event: EventCardRecord;
+    /** Display toggles; omitted keys use the defaults. */
+    display?: Partial<EventCardDisplay>;
+    class?: string;
 }
 
-/** `/events/<slug>` — the date rides along for a recurring series, so the
- *  sign-up card opens on the date the visitor saw. */
-export function eventHref(event: Pick<CalendarEvent, 'id' | 'slug'>, occurrenceDate?: string | null,): string {
-    const base = `/events/${encodeURIComponent(event.slug || event.id,)}`;
-    return occurrenceDate ? `${base}?date=${encodeURIComponent(occurrenceDate,)}` : base;
-}
+const GlobeIcon = () => (
+    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
+    </svg>
+);
+
+const LockIcon = () => (
+    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <rect x="5" y="11" width="14" height="10" rx="2" />
+        <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </svg>
+);
 
 const EventCard: Component<EventCardProps> = (props,) => {
-    const image = () => (props.showImage !== false ? featuredImagePath(props.event,) : null);
-    const when = () =>
-        formatEventWhen(new Date(props.occurrence?.startsAt ?? props.event.startsAt,), props.event.allDay, props.event.timezone,);
-    const repeat = () =>
-        props.event.recurrenceRule
-            ? describeRecurrence(parseRecurrenceRule(props.event.recurrenceRule,), props.event.recurrenceUntil,)
-            : '';
-    // A plain-text excerpt: the description is Markdown, and block HTML inside
-    // a link is invalid.
-    const excerpt = () => (props.showDescription !== false ? excerptText(stripMarkdown(props.event.description,), 220,) : '');
-    const href = () => eventHref(props.event, props.event.recurrenceRule ? props.occurrence?.occurrenceDate : null,);
+    const auth = useAuth();
+    const d = (): EventCardDisplay => ({ ...DEFAULT_EVENT_CARD_DISPLAY, ...(props.display ?? {}), });
+    const href = () => eventRecordHref(props.event,);
+    const image = () => {
+        if (!d().showImage) return null;
+        return props.event.featuredMedia?.url || props.event.featuredMedia?.path || props.event.featuredImage || null;
+    };
+    const alt = () => props.event.featuredMedia?.alt || props.event.title || '';
+    const when = () => eventDateTime(props.event,);
+    const dateLine = () => {
+        const w = when();
+        const parts = [d().showDate ? w.date : '', d().showTime ? w.time : '',].filter(Boolean,);
+        return parts.join(' · ',);
+    };
+    const excerpt = () => (d().showDescription ? eventExcerpt(props.event, d().descriptionLength,) : '');
+    const tiers = () => (d().showTickets ? visibleTiers(props.event,) : []);
+    const badge = () => eventAccessBadge(props.event,);
+    const signInLine = () => badge().signInToRegister && !auth.user;
 
     return (
-        <div class="event-card-block">
-            <Show when={props.heading}>
-                <h2 class="event-card-block__heading">{props.heading}</h2>
+        <article class={`event-card${image() ? ' event-card--with-image' : ''}${props.class ? ` ${props.class}` : ''}`}>
+            <Show when={d().showAccessBadge}>
+                <span
+                    class={`event-card__badge event-card__badge--${badge().kind}`}
+                    title={badge().kind === 'public' ? 'Open to everyone' : `${badge().label} only`}
+                >
+                    {badge().kind === 'public' ? <GlobeIcon /> : <LockIcon />}
+                    <span>{badge().label}</span>
+                </span>
             </Show>
-            <A href={href()} class="event-card" classList={{ 'event-card--with-image': !!image(), }}>
-                <Show when={image()}>
-                    <img class="event-card__image" src={image()!} alt={featuredImageAlt(props.event, props.event.title,)} loading="lazy" />
+            <Show when={image()}>
+                <A href={href()} class="event-card__media" tabIndex={-1} aria-hidden="true">
+                    <img class="event-card__image" src={image()!} alt={alt()} loading="lazy" />
+                </A>
+            </Show>
+            <div class="event-card__body">
+                <h3 class="event-card__title">
+                    <A href={href()}>{props.event.title || 'Untitled event'}</A>
+                </h3>
+                <Show when={dateLine()}>
+                    <p class="event-card__when">{dateLine()}</p>
                 </Show>
-                <div class="event-card__body">
-                    <h3 class="event-card__title">{props.event.title}</h3>
-                    <p class="event-card__when">{when()}</p>
-                    <Show when={repeat()}>
-                        <p class="event-card__meta">{repeat()}</p>
-                    </Show>
-                    <Show when={props.showLocation !== false && props.event.location}>
-                        <p class="event-card__meta">{props.event.location}</p>
-                    </Show>
-                    <Show when={excerpt()}>
-                        <p class="event-card__excerpt">{excerpt()}</p>
-                    </Show>
-                    <span class="event-card__link">View event →</span>
-                </div>
-            </A>
-        </div>
+                <Show when={d().showDate && props.event.recurrenceLabel}>
+                    <p class="event-card__meta">{props.event.recurrenceLabel}</p>
+                </Show>
+                <Show when={d().showLocation && props.event.location}>
+                    <p class="event-card__meta event-card__location">{props.event.location}</p>
+                </Show>
+                <Show when={excerpt()}>
+                    <p class="event-card__excerpt">{excerpt()}</p>
+                </Show>
+                <Show when={tiers().length > 0}>
+                    <ul class="event-card__tiers">
+                        <For each={tiers()}>
+                            {(t,) => (
+                                <li class="event-card__tier" classList={{ 'is-sold-out': tierAvailability(t,) === 'Sold out', }}>
+                                    <span class="event-card__tier-name">{t.name}</span>
+                                    <span class="event-card__tier-price">{tierPrice(t,)}</span>
+                                    <Show when={tierAvailability(t,)}>
+                                        <span class="event-card__tier-left">{tierAvailability(t,)}</span>
+                                    </Show>
+                                </li>
+                            )}
+                        </For>
+                    </ul>
+                </Show>
+                <Show when={signInLine()}>
+                    <p class="event-card__signin">Sign in to register</p>
+                </Show>
+                <Show when={d().showButton}>
+                    <div class="event-card__actions">
+                        <A href={href()} class="event-card__button">{d().buttonLabel}</A>
+                    </div>
+                </Show>
+            </div>
+        </article>
     );
 };
 

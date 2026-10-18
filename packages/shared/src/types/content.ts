@@ -52,7 +52,10 @@ export interface Page {
 }
 
 export type BlockType =
+    /** Legacy name of `events` (never stored — read as an alias). */
     | 'event'
+    /** A list of events (grid / row / column of event cards). */
+    | 'events'
     | 'rich_text'
     | 'text'
     | 'post'

@@ -18,7 +18,10 @@ describe('BLOCK_CONFIGURED', () => {
         expect(isBlockConfigured('gallery', { source: 'query', },),).toBe(true,);
         expect(isBlockConfigured('image', { images: [{ url: 'a.jpg', },], },),).toBe(true,);
         expect(isBlockConfigured('rich_text', {},),).toBe(false,);
-        expect(isBlockConfigured('event', { showImage: true, },),).toBe(false,);
+        // Events: the default upcoming query always draws; only an empty selection is "not configured".
+        expect(isBlockConfigured('events', {},),).toBe(true,);
+        expect(isBlockConfigured('events', { binding: { mode: 'list', refs: [], }, },),).toBe(false,);
+        expect(isBlockConfigured('events', { binding: { mode: 'list', refs: ['e1',], }, },),).toBe(true,);
         expect(isBlockConfigured('event', { eventId: 'e1', },),).toBe(true,);
     },);
 },);

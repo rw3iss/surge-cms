@@ -12,6 +12,7 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:reset": "tsx src/db/reset.ts",
     "seed:fonts": "tsx scripts/seed-fonts.ts",
+    "seed:event-template": "tsx scripts/seed-event-card-template.ts",
     "media:dimensions": "tsx scripts/backfill-media-dimensions.ts",
     "media:rebuild-thumbnails": "tsx scripts/rebuild-thumbnails.ts",
     "media:orphan-thumbnails": "tsx scripts/list-orphan-thumbnails.ts",

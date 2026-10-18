@@ -17,7 +17,7 @@
  * disagree about what an email contains.
  */
 import {
-    bindingIdsIfStatic, isSocialAutoFeed, resolveSocialCount, templateDataFor, templateDataIds, templateDataOf, templateRenderGroups, rendersOnce,
+    bindingIdsIfStatic, isEventsBlockType, isSocialAutoFeed, resolveSocialCount, templateDataFor, templateDataIds, templateDataOf, templateRenderGroups, rendersOnce,
     slotFor, type ContentBlockTemplate, type SlotBinding, type TemplateSlotContext,
 } from '@sitesurge/types';
 import * as entityManager from '../../entities/entityManager';
@@ -25,6 +25,7 @@ import * as contentBlockTemplates from '../../repositories/contentBlockTemplates
 import * as socialFeed from '../socialFeed';
 import { logger, } from '../../utils/logger';
 import { GALLERY_RESOLVED_KEY, resolveGalleryBlockItems, } from '../gallery/serverRender';
+import { EVENTS_RESOLVED_KEY, resolveEventsBlockRecords, } from '../events/serverRender';
 import { resolveMailTemplate, } from './templateRuntime';
 import { attachVideoMediaSize, } from './videoMediaSize';
 import { MAX_BINDING_RECORDS, recordIds, resolveBindingRecords, resolveSlotRecords, SLOT_CONTEXT_KEY, } from '../templateSlots';
@@ -312,6 +313,26 @@ async function resolveSlotGallery(settings: Record<string, unknown>, audience: '
 }
 
 /**
+ * An Events block's records → `settings[EVENTS_RESOLVED_KEY]`: its own binding
+ * (`source: 'data'`), the enclosing template's slot (`slot`, type `event`) or
+ * the event record(s) the enclosing template is rendering (`template`). Read
+ * as the anonymous visitor — public-view events only (SSR and email alike).
+ */
+async function resolveEventsBlock(settings: Record<string, unknown>, audience: 'email' | 'site' = 'email',): Promise<Record<string, unknown>> {
+    const ctx = settings[SLOT_CONTEXT_KEY] as TemplateSlotContext | undefined;
+    let records: unknown[] = [];
+    if (settings.source === 'slot') {
+        records = await resolveSlotRecords(ctx, settings.slotId as string | undefined, 'event', MAX_RECORDS, audience === 'email' ? { audience: 'email', } : {},);
+    } else if (settings.source === 'template') {
+        const found = templateDataFor(ctx?.templateData, 'event',);
+        records = found.ok ? found.records : [];
+    } else {
+        records = await resolveEventsBlockRecords(settings, audience,);
+    }
+    return { ...settings, [EVENTS_RESOLVED_KEY]: records, };
+}
+
+/**
  * Materialise an auto-feed social block's posts into `settings.items`.
  *
  * The email renderer reads pinned `items` and nothing else — it is synchronous
@@ -406,7 +427,7 @@ async function expandPass(
         return blocks;
     }
     const pending = blocks.filter(
-        (b,) => (b.blockType === 'entity' || b.blockType === 'template' || b.blockType === 'gallery'
+        (b,) => (b.blockType === 'entity' || b.blockType === 'template' || b.blockType === 'gallery' || isEventsBlockType(b.blockType,)
             || (opts.feeds && (b.blockType === 'social' || (b.blockType === 'post_list' && b.settings?.source === 'slot'))))
             && !done.has(b.id,),
     );
@@ -478,6 +499,11 @@ async function expandPass(
                 }
                 const items = await resolveGalleryBlockItems(block.settings as never, opts.audience,);
                 out[idx] = { ...out[idx], settings: { ...out[idx].settings, [GALLERY_RESOLVED_KEY]: items, }, };
+            } else if (isEventsBlockType(block.blockType,)) {
+                // Not an expansion: the block's event records ride on its settings.
+                const idx = out.findIndex((b,) => b.id === block.id);
+                if (idx < 0) continue;
+                out[idx] = { ...out[idx], settings: await resolveEventsBlock(out[idx].settings, opts.audience,), };
             } else if (block.blockType === 'post_list') {
                 // Posts from the enclosing template's slot (only slot sources are pending).
                 const idx = out.findIndex((b,) => b.id === block.id);

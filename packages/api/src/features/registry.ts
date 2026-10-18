@@ -322,6 +322,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
             '111_event_ticket_order.sql',
             '141_event_access.sql',
             '172_event_subscriber_confirm_ticket_caps.sql',
+            '180_event_tier_description.sql',
         ],
         // Reverse-dropped on uninstall, so children first.
         // Reverse-dropped on uninstall, so parents last.
@@ -336,7 +337,11 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
             'event_tickets',
         ],
         settingsKeys: ['events'],
-        onEnable: async () => {},
+        // The `event` entity type (records enriched by services/events/entityProvider.ts).
+        onEnable: async (client) => {
+            const { scaffoldCoreType, eventDescriptor, } = await import('../entities/coreDescriptors.js');
+            await scaffoldCoreType(eventDescriptor(), client,);
+        },
         onUninstall: async () => {},
     },
 };

@@ -1,5 +1,5 @@
 /**
- * SSR pre-pass for the DYNAMIC block types (`entity`, `template`, `gallery`).
+ * SSR pre-pass for the DYNAMIC block types (`entity`, `template`, `gallery`, `events`).
  *
  * The SEO emitters are synchronous, so an entity or component block used to
  * reach the crawler as a naming comment only. This runs the SAME expansion the
@@ -19,7 +19,7 @@ import type { SsrBlockInput, } from './blocks';
 import { resolveContentForSsr, } from './templateRuntime';
 import { logger, } from '../../utils/logger';
 
-const DYNAMIC = new Set(['entity', 'template', 'gallery',],);
+const DYNAMIC = new Set(['entity', 'template', 'gallery', 'events', 'event',],);
 
 /** Expand the dynamic blocks of a FLAT SSR list (before `assembleSsrBlockTree`). */
 export async function expandSsrDynamicBlocks(flat: SsrBlockInput[],): Promise<SsrBlockInput[]> {

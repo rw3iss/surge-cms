@@ -55,7 +55,19 @@ export async function updateSettings(
     }
     // settingsService.set() already audit-logs and busts the settings cache.
     await settingsService.set(SETTINGS_KEY, next, ctx,);
+    // The `event` entity type's detail prefix follows the calendar URL.
+    if (patch.eventsUrl !== undefined) await syncEventTypeRouting(next.eventsUrl,);
     return next;
+}
+
+/** Re-scaffold the `event` entity type with the new calendar URL. Best-effort. */
+async function syncEventTypeRouting(eventsUrl: string,): Promise<void> {
+    try {
+        const { eventDescriptor, scaffoldCoreType, } = await import('../../entities/coreDescriptors.js');
+        const entityManager = await import('../../entities/entityManager.js');
+        await scaffoldCoreType(eventDescriptor(eventsUrl || '/events',),);
+        if (entityManager.isLoaded()) await entityManager.invalidate();
+    } catch { /* the type is re-seeded at the next boot anyway */ }
 }
 
 /**

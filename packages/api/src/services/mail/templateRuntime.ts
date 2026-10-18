@@ -21,6 +21,10 @@
 import {
     DISCUSSION_LIST_KIND,
     type DiscussionItem,
+    EVENT_KIND,
+    EVENT_LIST_KIND,
+    eventDisplayFrom,
+    type EventRecord,
     FORUM_THREAD_KIND,
     GALLERY_ITEM_KIND,
     GALLERY_LIST_KIND,
@@ -37,6 +41,7 @@ import { escapeHtml, } from './blocks/_util';
 import { config, } from '../../config';
 import { discussionListHtml, forumThreadHtml, } from '../discussions/templateFunctions';
 import { galleryEmailHtml, } from '../gallery/render';
+import { eventCardsEmailHtml, } from '../events/render';
 import { get as settingsGet, } from '../settings';
 
 /** Site origin for absolute links in email (`https://site`), no trailing slash. */
@@ -60,7 +65,6 @@ import {
 const MAIL_SINGLE_KINDS: ReadonlySet<string> = new Set([
     'post',
     'campaign',
-    'event',
     'form',
 ]);
 
@@ -104,6 +108,14 @@ function entityToMailHtml(kind: string, data: Rec | null, options?: Record<strin
             else if (options?.columns == null) desktop.columns = 3;
             return galleryEmailHtml(items, siteBase(), { ...d, desktop, }, { siteRadius, },);
         }
+        // `{{event('x')}}` / `{{events(...)}}` — email-safe event cards (public
+        // events only: the runtime reads as the anonymous visitor).
+        case EVENT_KIND:
+        case EVENT_LIST_KIND: {
+            const records = (kind === EVENT_KIND ? [data,] : data) as unknown as EventRecord[];
+            const d = eventDisplayFrom(options ?? {},);
+            return eventCardsEmailHtml(records, d, { radius: siteRadius, },);
+        }
         default: {
             const title = g('title',) || g('name',);
             return title ? `<strong>${title}</strong>` : '';
@@ -145,8 +157,8 @@ export async function resolveMailTemplate(
     if (!src || !hasTemplateSyntax(src,)) return src ?? '';
     try {
         const rt = { ...buildMailRuntime(context,), raw: !opts.html, };
-        // `{{gallery()}}` items default to the site's border radius — read only when one is used.
-        const siteRadius = /\bgallery\s*\(/.test(src,) ? await siteBorderRadius() : undefined;
+        // `{{gallery()}}` items / event cards default to the site's border radius — read only when one is used.
+        const siteRadius = /\b(gallery|events?)\s*\(/.test(src,) ? await siteBorderRadius() : undefined;
         return await renderTemplateToString(src, rt, (kind, data, options,) => entityToMailHtml(kind, data as Rec | null, options, siteRadius,),);
     } catch (e) {
         logger.warn('Mail template resolution failed', { error: (e as Error).message, },);

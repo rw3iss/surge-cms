@@ -95,8 +95,11 @@ export const SSR_BLOCK_RENDERERS: Record<BlockType, SsrBlockRenderer> = {
     gallery: renderGalleryBlock,
     campaign: notIndexable,
     // An events block carries title/date/location — strong local-relevance
-    // signal, so it IS indexed rather than treated as a dynamic shell.
+    // signal, so it IS indexed rather than treated as a dynamic shell. Its
+    // records are resolved by the SSR pre-pass (anonymous: public events).
+    // `event` is the legacy name, read as an alias.
     event: renderEventBlock,
+    events: renderEventBlock,
     post: notIndexable,
     spacer: notIndexable,
     // Poster + title (the player is client-side).

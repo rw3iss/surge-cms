@@ -87,8 +87,10 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
         return {
             reason,
             requiredTier: a.requiredTier,
+            // A sign-in gate reads "Registration needs an account. [Sign in to
+            // register] (or create an account)" — the button opens LoginModal.
             message: reason === 'signin'
-                ? 'Sign in to register for this event.'
+                ? 'Registration needs an account.'
                 : `Registration requires ${tierRequirement(a.requiredTier,)}.`,
         };
     };
@@ -400,6 +402,8 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                                 reason={g().reason}
                                 requiredTier={g().requiredTier}
                                 message={g().message}
+                                signInLabel={mode() === 'tickets' ? 'Sign in to get tickets' : 'Sign in to register'}
+                                offerJoin
                                 onLoggedIn={() => props.onAccessChanged?.()}
                             />
                         )}

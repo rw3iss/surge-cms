@@ -1,0 +1,10 @@
+// Events block editor (admin).
+@use '../../../../styles/variables' as *;
+
+.events-block-edit {
+  &__toggles {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+  }
+}

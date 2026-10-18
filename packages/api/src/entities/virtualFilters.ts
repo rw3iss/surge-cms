@@ -37,6 +37,29 @@ export function virtualFilterDefs(typeKey: string,): EntityVirtualFilterDef[] {
     return [...(registry.get(typeKey,)?.values() ?? []),].map(({ key, label, description, },) => ({ key, label, description, }));
 }
 
+/**
+ * Pull a query's virtual-filter keys out of `filter` and resolve each into a
+ * SQL condition for the generic repo. A bare value is equality; `{ op, value }`
+ * any operator the filter supports. Used by `services/entities.ts` and by data
+ * providers that read through the generic repo (they receive the full query).
+ */
+export async function splitVirtualFilters<Q extends { filter?: Record<string, unknown>; },>(
+    typeKey: string, q: Q,
+): Promise<{ query: Q; conditions: SqlCondition[]; }> {
+    if (!q.filter) return { query: q, conditions: [], };
+    const rest: Record<string, unknown> = {};
+    const conditions: SqlCondition[] = [];
+    for (const [key, raw,] of Object.entries(q.filter,)) {
+        const vf = getVirtualFilter(typeKey, key,);
+        if (!vf) { rest[key] = raw; continue; }
+        const { op, value, } = raw !== null && typeof raw === 'object' && 'op' in (raw as object)
+            ? raw as { op: string; value: unknown; }
+            : { op: 'eq', value: raw, };
+        conditions.push(await vf.resolve(op, value,),);
+    }
+    return { query: { ...q, filter: rest, }, conditions, };
+}
+
 const NOTHING: SqlCondition = () => 'FALSE';
 const CMP: Record<string, string> = { eq: '=', ne: '<>', gt: '>', gte: '>=', lt: '<', lte: '<=', like: '=', };
 

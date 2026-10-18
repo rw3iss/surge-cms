@@ -106,7 +106,9 @@ export const RENDERERS: Record<BlockType, BlockEmailRenderer> = {
     social: renderSocial,
     form: renderForm,
     campaign: renderCampaign,
+    // Events cards, resolved ahead of time by `expandDynamicBlocks` (`event` = legacy alias).
     event: renderEvent,
+    events: renderEvent,
     post: renderPostList,
     post_list: renderPostList,
     carousel: renderCarousel,

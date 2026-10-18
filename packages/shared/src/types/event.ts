@@ -206,6 +206,8 @@ export interface EventTicketTier {
     id: string;
     eventId: string;
     name: string;
+    /** Optional blurb shown under the tier name. */
+    description?: string | null;
     priceCents: number;
     currency: string;
     /** null = unlimited. */

@@ -111,6 +111,9 @@ async function bootRunningMode(
         await entityManager.load();
         // Feature-provided entity data layers (e.g. Shop → product media/tags).
         const { isFeatureEnabledServer, } = await import('./services/settings.js');
+        // Events → `event` records (tiers, access, next occurrence). Registered
+        // whatever the feature state: the type only exists while events is on.
+        await import('./services/events/entityProvider.js');
         if (await isFeatureEnabledServer('shop',)) {
             const { registerEntityDataProvider, } = await import('./entities/dataProviders.js');
             const { productEntityProvider, } = await import('./services/shop/productEntityProvider.js');

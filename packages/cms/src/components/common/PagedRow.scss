@@ -1,0 +1,67 @@
+// Horizontal paged track (PagedRow). Public — colours read the site tokens.
+.paged-row {
+  position: relative;
+
+  &__viewport {
+    position: relative;
+    overflow: hidden;
+    touch-action: pan-y;
+  }
+
+  &__track {
+    display: flex;
+    gap: var(--pr-gap, 16px);
+    transition: transform .45s cubic-bezier(.4, 0, .2, 1);
+    will-change: transform;
+  }
+
+  &__slide {
+    display: flex;
+    min-width: 0;
+
+    > * { flex: 1 1 auto; min-width: 0; }
+  }
+
+  &__arrow {
+    position: absolute;
+    top: 50%;
+    z-index: 2;
+    width: 40px;
+    height: 40px;
+    transform: translateY(-50%);
+    border: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, .5);
+    color: #fff;
+    font-size: 1.6rem;
+    line-height: 1;
+    cursor: pointer;
+    opacity: .85;
+    transition: opacity .15s ease, background .15s ease;
+
+    &:hover,
+    &:focus-visible { opacity: 1; background: rgba(0, 0, 0, .72); }
+    &--prev { left: 8px; }
+    &--next { right: 8px; }
+  }
+
+  &__dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 12px;
+  }
+
+  &__dot {
+    width: 8px;
+    height: 8px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--site-border, #d1d5db);
+    cursor: pointer;
+    transition: width .2s ease;
+
+    &.is-active { background: var(--site-primary, #e63946); width: 20px; border-radius: 4px; }
+  }
+}

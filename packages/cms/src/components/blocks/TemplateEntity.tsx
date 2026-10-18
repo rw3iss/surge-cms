@@ -1,11 +1,14 @@
 import {
-    DISCUSSION_LIST_KIND, type DiscussionItem, FORUM_THREAD_KIND, featuredImagePath, GALLERY_ITEM_KIND, GALLERY_LIST_KIND, galleryDisplayFrom,
+    DISCUSSION_LIST_KIND, type DiscussionItem, EVENT_KIND, EVENT_LIST_KIND, eventDisplayFrom, FORUM_THREAD_KIND, featuredImagePath, GALLERY_ITEM_KIND, GALLERY_LIST_KIND, galleryDisplayFrom,
     type GalleryItem,
 } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
 import type { Campaign, Form, Media, Post, } from '@sitesurge/types';
 import { Component, For, Match, Show, Switch, } from 'solid-js';
 import DiscussionList from '../discussions/DiscussionList';
+import EventCard from '../events/EventCard';
+import EventCardList from '../events/EventCardList';
+import type { EventCardRecord, } from '../events/eventsLayout';
 import GalleryView from '../gallery/GalleryView';
 import MediaVideo from './media/MediaVideo';
 import FormRenderer from '../forms/FormRenderer';
@@ -58,6 +61,24 @@ const TemplateEntity: Component<{
             </Match>
             <Match when={props.kind === FORUM_THREAD_KIND}>
                 <DiscussionList items={[{ kind: 'thread', ...props.data, } as unknown as DiscussionItem,]} excerpts={props.options?.excerpts !== false} />
+            </Match>
+            {/* `{{events(...)}}` — event cards in a grid / column; `{{event('x')}}` — one card. Render options = the call's named args. */}
+            <Match when={props.kind === EVENT_LIST_KIND}>
+                {(() => {
+                    const o = eventDisplayFrom(props.options,);
+                    return (
+                        <EventCardList
+                            events={(props.data as unknown as EventCardRecord[]) ?? []}
+                            layout={o.layout}
+                            display={o}
+                            columns={o.columns}
+                            gap={o.gap}
+                        />
+                    );
+                })()}
+            </Match>
+            <Match when={props.kind === EVENT_KIND}>
+                <EventCard event={props.data as EventCardRecord} display={eventDisplayFrom(props.options,)} class="event-card--template" />
             </Match>
             {/* `{{gallery(...)}}` — a list through the shared GalleryView (render options = the call's named args), or one item's media. */}
             <Match when={props.kind === GALLERY_LIST_KIND}>

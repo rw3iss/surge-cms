@@ -131,7 +131,7 @@ export interface BackendRuntimeOptions {
      *  `undefined` for an unresolved name. */
     resolveExtra?: (name: string, args: unknown[], memo: AsyncMemo,) => Promise<unknown>;
     /**
-     * Who `{{gallery(...)}}` resolves for: `site` (SSR — the anonymous
+     * Who `{{gallery(...)}}` (and `{{events(...)}}`) resolves for: `site` (SSR — the anonymous
      * visitor, gated items hidden) or `email` (public MEDIA only, ignoring the
      * in-site gate). Default `site`.
      */
@@ -152,6 +152,14 @@ export function buildBackendRuntime(opts: BackendRuntimeOptions,): TemplateRunti
         // default, now, …).
         const vf = resolveValueFunction(name, args,);
         if (vf !== UNRESOLVED) return vf;
+
+        // Events (`event('x')`, `events(...)`) → full EventRecords through the
+        // events data provider, as the anonymous reader (public-view events only).
+        if (name === 'event' || name === 'events') {
+            const { resolveEventFunction, } = await import('../events/serverRender.js');
+            const r = await resolveEventFunction(name, args, named, memo, opts.galleryAudience ?? 'site',);
+            if (r !== UNRESOLVED) return r;
+        }
 
         if (opts.singleKinds.has(name,)) {
             const ref = s(args[0],).trim();

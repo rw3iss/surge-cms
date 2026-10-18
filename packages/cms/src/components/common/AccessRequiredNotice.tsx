@@ -18,6 +18,10 @@ export interface AccessRequiredNoticeProps {
     /** The sentence to show (the server's message, or the caller's own). */
     message: string;
     onLoggedIn?: () => void;
+    /** Label of the sign-in button (default "Sign in"). */
+    signInLabel?: string;
+    /** Signed out: add "(or create an account)" linking to /join. */
+    offerJoin?: boolean;
     /** Smaller, for a ticket row. */
     compact?: boolean;
     class?: string;
@@ -41,7 +45,10 @@ const AccessRequiredNotice: Component<AccessRequiredNoticeProps> = (props,) => {
                         when={!signedIn()}
                         fallback={<A class="access-required__link" href={upgradeHref(props.requiredTier, true,)}>Upgrade your membership</A>}
                     >
-                        <button type="button" class="access-required__link" onClick={() => setLoginOpen(true,)}>Sign in</button>
+                        <button type="button" class="access-required__link" onClick={() => setLoginOpen(true,)}>{props.signInLabel || 'Sign in'}</button>
+                        <Show when={props.offerJoin && props.reason === 'signin'}>
+                            {' '}(or <A class="access-required__link" href="/join">create an account</A>)
+                        </Show>
                         <Show when={props.reason === 'subscribe'}>
                             {' '}or <A class="access-required__link" href={upgradeHref(props.requiredTier, false,)}>see membership plans</A>
                         </Show>

@@ -5,7 +5,7 @@ describe('coreDescriptors', () => {
     const defs = coreDescriptors();
 
     it('registers the core types adopting existing tables', () => {
-        expect(defs.map((d,) => d.key,).sort(),).toEqual(['campaign', 'comment', 'contact', 'form', 'forum_thread', 'gallery_item', 'page', 'post', 'product', 'user',],);
+        expect(defs.map((d,) => d.key,).sort(),).toEqual(['campaign', 'comment', 'contact', 'event', 'form', 'forum_thread', 'gallery_item', 'page', 'post', 'product', 'user',],);
         // Read-only discussion types: served by the discovery provider, owned by their features.
         expect(defs.find((d,) => d.key === 'comment',)!.ownerFeature,).toBe('discussions',);
         expect(defs.find((d,) => d.key === 'forum_thread',)!.ownerFeature,).toBe('forum',);
@@ -25,6 +25,16 @@ describe('coreDescriptors', () => {
         expect(post.singularVar,).toBe('post',);
         expect(post.pluralVar,).toBe('posts',);
         expect(post.adminEditRoute,).toBe('/admin/posts/:id',);
+        // Events: adopts `events`, owned by the events feature, live = published.
+        const event = defs.find((d,) => d.key === 'event',)!;
+        expect(event.tableName,).toBe('events',);
+        expect(event.ownerFeature,).toBe('events',);
+        expect(event.hasStatus && event.hasSlug,).toBe(true,);
+        expect(event.routing.detailPrefix,).toBe('/events',);
+        expect(event.adminEditRoute,).toBe('/admin/events/:id',);
+        // Per-viewer lists with live availability: never cached at the entity layer.
+        expect(event.caching.indexEnabled || event.caching.recordEnabled,).toBe(false,);
+        expect(event.fields.every((f,) => f.core,)).toBe(true,);
     });
 
     it('marks all core fields as core (locked) and parses enum options', () => {

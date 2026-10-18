@@ -3,7 +3,7 @@
  * read caching (honoring each type's `caching` rules) over the generic repo.
  * The single business-logic home for CRUD on ANY entity type.
  */
-import { getVirtualFilter, type SqlCondition, } from '../entities/virtualFilters';
+import { getVirtualFilter, splitVirtualFilters as splitVirtual, type SqlCondition, } from '../entities/virtualFilters';
 import { createHash, } from 'crypto';
 import { type EntityFieldOption, type EntityQuery, type EntityRecord, generateSlug, } from '@sitesurge/types';
 import * as repo from '../repositories/genericEntity.repo';
@@ -131,24 +131,9 @@ export async function list(
     return res;
 }
 
-/**
- * Pull a query's virtual-filter keys (see entities/virtualFilters.ts) out of
- * `filter` and resolve each into a SQL condition for the repo. A bare value is
- * equality; `{ op, value }` any operator the filter supports.
- */
+/** Virtual-filter split for the generic repo (shared with data providers). */
 async function splitVirtualFilters(typeKey: string, q: EntityQuery,): Promise<{ query: EntityQuery; conditions: SqlCondition[]; }> {
-    if (!q.filter) return { query: q, conditions: [], };
-    const rest: Record<string, unknown> = {};
-    const conditions: SqlCondition[] = [];
-    for (const [key, raw,] of Object.entries(q.filter,)) {
-        const vf = getVirtualFilter(typeKey, key,);
-        if (!vf) { rest[key] = raw; continue; }
-        const { op, value, } = raw !== null && typeof raw === 'object' && 'op' in (raw as object)
-            ? raw as { op: string; value: unknown; }
-            : { op: 'eq', value: raw, };
-        conditions.push(await vf.resolve(op, value,),);
-    }
-    return { query: { ...q, filter: rest as EntityQuery['filter'], }, conditions, };
+    return splitVirtual(typeKey, q as EntityQuery & { filter?: Record<string, unknown>; },) as Promise<{ query: EntityQuery; conditions: SqlCondition[]; }>;
 }
 
 /** Get one record by id OR slug. Non-admin: hidden statuses 404, posts are gated. */
@@ -181,6 +166,9 @@ export async function get(typeKey: string, idOrSlug: string, opts: EntityReadOpt
         if (isAccessControlledType(typeKey,) && !(await pageAllows(rec, opts.viewer,))) {
             throw new NotFoundError(`${t.label} "${idOrSlug}"`,);
         }
+        // A provider's own read rule (e.g. an event's "who can see").
+        const allows = getEntityDataProvider(typeKey,)?.allows;
+        if (allows && !(await allows(rec, opts,))) throw new NotFoundError(`${t.label} "${idOrSlug}"`,);
     }
     return rec;
 }

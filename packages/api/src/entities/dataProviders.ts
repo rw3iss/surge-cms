@@ -10,10 +10,25 @@
  * the generic surface (`cms.entities.*`, `{{type(...)}}`) uniform.
  */
 import type { EntityQuery, EntityRecord, } from '@sitesurge/types';
+import type { EntityViewer, } from './publicRead';
+
+/** Read options a provider receives (mirrors `EntityReadOpts` in services/entities.ts). */
+export interface ProviderReadOpts {
+    /** A staff caller: every status, no gate. */
+    admin?: boolean;
+    /** `email` = rendered into a newsletter (see `EntityReadOpts.audience`). */
+    audience?: 'email';
+    /** The signed-in non-staff caller; omitted = anonymous (SSR, mail, backend runtime). */
+    viewer?: EntityViewer;
+}
 
 export interface EntityDataProvider {
-    /** `audience: 'email'` = rendered into a newsletter (see `EntityReadOpts.audience`). */
-    list?(query: EntityQuery, opts: { admin?: boolean; audience?: 'email'; },): Promise<{ items: EntityRecord[]; total: number; }>;
+    list?(query: EntityQuery, opts: ProviderReadOpts,): Promise<{ items: EntityRecord[]; total: number; }>;
+    /**
+     * Non-admin single reads: may this caller read `rec`? `false` → 404. For a
+     * provider whose type has its own visibility rule (an event's "who can see").
+     */
+    allows?(rec: EntityRecord, opts: ProviderReadOpts,): Promise<boolean>;
     getById?(id: string,): Promise<EntityRecord | null>;
     getBySlug?(slug: string,): Promise<EntityRecord | null>;
     create?(body: Record<string, unknown>, ctx: { userId?: string; },): Promise<EntityRecord>;

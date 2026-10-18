@@ -16,6 +16,10 @@
 import {
     DISCUSSION_LIST_KIND,
     type DiscussionItem,
+    EVENT_KIND,
+    EVENT_LIST_KIND,
+    eventDisplayFrom,
+    type EventRecord,
     FORUM_THREAD_KIND,
     GALLERY_ITEM_KIND,
     GALLERY_LIST_KIND,
@@ -34,6 +38,7 @@ import { getPublicSettings, } from '../settings';
 import { escapeHtml, } from './blocks/_util';
 import { discussionListHtml, forumThreadHtml, } from '../discussions/templateFunctions';
 import { galleryFiguresHtml, galleryItemHtml, } from '../gallery/render';
+import { eventCardsSsrHtml, } from '../events/render';
 import {
     type AsyncMemo,
     buildBackendRuntime,
@@ -47,7 +52,6 @@ import {
 const SSR_SINGLE_KINDS: ReadonlySet<string> = new Set([
     'post',
     'campaign',
-    'event',
     'form',
     'page',
     'media',
@@ -72,13 +76,13 @@ function entityToHtml(kind: string, data: Rec | null, options?: Record<string, u
         case 'post':
             return `<a class="ssr-entity ssr-entity--post" href="/posts/${g('slug',)}"><h3>${g('title',)}</h3>`
                 + (data.excerpt ? `<p>${g('excerpt',)}</p>` : '') + '</a>';
-        case 'event':
-            // Emits the indexable facts: title, when, where.
-            return `<a class="ssr-entity ssr-entity--event" href="/events/${g('slug',)}">`
-                + `<h3>${g('title',)}</h3>`
-                + (g('startsAt',) ? `<p class="ssr-entity__when">${g('startsAt',)}</p>` : '')
-                + (g('location',) ? `<p class="ssr-entity__where">${g('location',)}</p>` : '')
-                + `</a>`;
+        // `{{event('x')}}` / `{{events(...)}}` — indexable event cards (title,
+        // when, where, link); display toggles from the call's named args.
+        case EVENT_KIND:
+        case EVENT_LIST_KIND: {
+            const records = (kind === EVENT_KIND ? [data,] : data) as unknown as EventRecord[];
+            return eventCardsSsrHtml(records, eventDisplayFrom(options ?? {},),);
+        }
         case 'campaignStatus': {
             // Indexable figures only when the campaign shows them publicly.
             if (data.showRaisedAmount === false) return '';

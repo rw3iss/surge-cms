@@ -8,8 +8,8 @@
  * access is simply ignored (with a console warning).
  */
 import {
-    commentCountTarget, DISCUSSION_LIST_KIND, type DiscussionItem, discussionQueryFor, FORUM_THREAD_KIND,
-    GALLERY_ITEM_KIND, GALLERY_LIST_KIND, galleryCallFor, type GalleryItem, resolveValueFunction, UNRESOLVED,
+    commentCountTarget, DISCUSSION_LIST_KIND, type DiscussionItem, discussionQueryFor, EVENT_KIND, EVENT_LIST_KIND,
+    eventsCallFor, FORUM_THREAD_KIND, GALLERY_ITEM_KIND, GALLERY_LIST_KIND, galleryCallFor, type GalleryItem, resolveValueFunction, UNRESOLVED,
 } from '@sitesurge/types';
 import { cms, } from '../cmsClient';
 import { entityRef, type TemplateRuntime, } from './index';
@@ -63,11 +63,6 @@ async function fetchEntity(kind: string, ref: string): Promise<Record<string, un
                     return (mode === 'id' ? await cms.posts.getById(ref) : await cms.posts.getBySlug(ref)) as unknown as Record<string, unknown>;
                 case 'campaign':
                     return (mode === 'id' ? await cms.campaigns.getById(ref) : await cms.campaigns.getBySlug(ref)) as unknown as Record<string, unknown>;
-                case 'event':
-                    // The events endpoint resolves an id OR a slug on the same
-                    // path, so both modes hit it and the caller's fallback
-                    // ordering still applies.
-                    return (await cms.events.getOne(ref)) as unknown as Record<string, unknown>;
                 case 'form':
                     return (mode === 'id' ? await cms.forms.getById(ref) : await cms.forms.getBySlug(ref)) as unknown as Record<string, unknown>;
                 case 'page':
@@ -184,6 +179,30 @@ export function buildRuntime(opts: RuntimeOptions = {}): TemplateRuntime {
                 }
             });
             return entityRef(GALLERY_LIST_KIND, items as unknown as Record<string, unknown>);
+        }
+
+        // ── event('x') / events(...) ── full EventRecords (dates, access, tiers)
+        // through the generic entity endpoint, filtered server-side to the
+        // events THIS viewer may see. `event` → one card; `events` → a list
+        // (loopable). Display args ride on the ref's `options`. Feature off → empty.
+        const ec = eventsCallFor(name, args, named);
+        if (ec || name === 'event') {
+            if (!ec) return entityRef(EVENT_KIND, null);
+            const records = await memo(`events:${JSON.stringify(ec.binding)}`, async (): Promise<Record<string, unknown>[]> => {
+                try {
+                    const b = ec.binding;
+                    if (b.mode === 'single' || b.mode === 'list') {
+                        const refs = b.mode === 'single' ? [b.ref] : b.refs;
+                        const got = await Promise.all(refs.map((r) => cms.entities.getOne('event', r).catch(() => null)));
+                        return got.filter(Boolean) as unknown as Record<string, unknown>[];
+                    }
+                    return ((await cms.entities.list('event', b.query)).data ?? []) as unknown as Record<string, unknown>[];
+                } catch {
+                    return [];
+                }
+            });
+            if (ec.single) return entityRef(EVENT_KIND, records[0] ?? null, ec.binding.mode === 'single' ? ec.binding.ref : undefined);
+            return entityRef(EVENT_LIST_KIND, records as unknown as Record<string, unknown>);
         }
 
         switch (name) {

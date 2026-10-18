@@ -270,6 +270,8 @@ const allEventsRoutes = [
                     requiredTierId: z.string().uuid().nullable().optional(),
                     // Most of this ticket type one buyer may hold per date (null = no cap).
                     maxPerOrder: z.number().int().min(1,).max(1000,).nullable().optional(),
+                    // Optional plain-text blurb under the tier name (omitted = keep the stored one).
+                    description: z.string().max(500,).nullable().optional(),
                 },),),
             },),
         },

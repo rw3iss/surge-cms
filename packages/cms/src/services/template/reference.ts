@@ -103,7 +103,7 @@ export const FUNCTIONS: { group: string; items: FunctionDoc[] }[] = [
         group: 'Entity lookups (whole entity, or add .property)',
         items: [
             { sig: "post(idOrSlug)", desc: 'A post by id or slug.' },
-            { sig: "event(idOrSlug)", desc: 'An event by id or slug. Whole (no property) renders a compact event card — title, when, where, and a View Event link. With a property, reads that field: event(\'town-hall\').title, .startsAt, .location, .description. Only PUBLISHED events resolve.' },
+            { sig: "event(idOrSlug)", desc: 'An event by id or slug — see the Events group below for every property, the display arguments and examples.' },
             { sig: "campaign(idOrSlug, title?, slug?, shortDescription?, fullDescription?)", desc: 'A campaign by id or slug. Whole (no property) renders the FULL campaign — image, title, slug, descriptions, the status panel (campaignStatus: raised/goal + Recent Donors) and the donation form (campaignForm). Also takes image=false, raised=false, donors=true/false and form=false to drop a section, and statusPosition=\'above\'|\'below\' to place the status panel relative to the form (default: the campaign’s own Status position setting). Each field arg takes a boolean (false hides it) OR a string (overrides + shows it); omitted = the campaign’s own value — EXCEPT slug, which is opt-in (hidden unless slug=true or a string). E.g. campaign(\'x\', title=false, slug=true, shortDescription=\'Give today\').' },
             { sig: "campaignStatus(idOrSlug, raised?, donors?)", desc: 'Just the campaign\'s status panel — amount raised, goal + progress bar, donor count and dates, plus the Recent Donors list (most recent first, scrolls and loads more) when the campaign has "Show donors listing" on. raised=false / donors=true|false override the campaign\'s own settings. Donors appear by their chosen visibility: public → name, anonymous → "Anonymous", hidden → not listed (still counted in the total). E.g. campaignStatus(\'spring-drive\').' },
             { sig: "campaignForm(idOrSlug, title?, slug?, shortDescription?, fullDescription?)", desc: 'Just the campaign\'s donation form (the built-in card form, or GiveButter when the campaign uses it). The text fields are OPT-IN here: pass true to show the campaign\'s own value or a string to override, e.g. campaignForm(\'x\', title=true, shortDescription=\'Every dollar helps\'). In an email it becomes a "Donate to …" link.' },
@@ -152,6 +152,14 @@ export const FUNCTIONS: { group: string; items: FunctionDoc[] }[] = [
             { sig: 'gallery(limit?, …)', desc: 'A list of gallery items (default 12) — alone it renders a gallery; in a loop: {{ for gallery(tag=\'events\', limit=6) as g }}<img src="{{ g.media.thumbnailUrl }}">{{ endfor }}. Query: type=\'image\'|\'video\', tag=\'a,b\' (any of), search=, sort=\'order\'|\'newest\'|\'oldest\'|\'title\'|\'random\', limit=, page=, ids=\'<id>,<id>\'. Positional shortcuts: gallery(\'video\', 4).' },
             { sig: "gallery(layout='grid', …)", desc: 'Render options: layout=\'grid\'|\'row\'|\'column\'|\'carousel\'|\'stage\'|\'masonry\' (masonry = columns of items at their natural height, each in the shortest column), columns=, itemsPerPage=, scrollBy=, rows=, gap=\'8px\', itemWidth=, itemHeight=, aspect=\'square\'|\'4:3\'|\'3:2\'|\'16:9\'|\'original\', fit=\'cover\'|\'contain\', autoplay=true, interval=5 (seconds), loop=, arrows=, dots=, titles=true, captions=true, open=\'lightbox\'|\'page\'|\'none\', thumbs=true (thumbnail strip in the lightbox), itemRadius=\'0\' (item corners; empty = the site Border Radius; radius= also works). In email: grid/column stay a grid, row/carousel/stage become a centred wrapped grid, masonry stays masonry (at most 4 columns), and every item links to its gallery page. Prefix a layout option with mobile for ≤768px: mobileLayout=\'column\', mobileColumns=1, mobileItemsPerPage=1. E.g. gallery(type=\'image\', layout=\'row\', itemsPerPage=3, autoplay=true).' },
             { sig: '(visibility)', desc: 'On the site, gallery() shows only items the viewer may see (the gallery access rule and each item\'s visibility). In email only items whose MEDIA is public are used — by their CDN URL — whatever the gallery page\'s access.' },
+        ],
+    },
+    {
+        group: 'Events',
+        items: [
+            { sig: "event('idOrSlug')", desc: 'One event. Alone it renders the event card (image, title linked to the event page, date + time, location, description, access badge, View event button); with a property it reads that field: event(\'summer-gala\').when, .dateLabel, .timeLabel, .location, .url, .priceFrom, .remaining, .tiers[0].name. Display arguments: image=, date=, time=, location=, description=, descriptionLength=200, tickets=true (ticket types with price + "N left"), badge=, button=, buttonLabel=\'Get tickets\'.' },
+            { sig: 'events(limit?, …)', desc: 'A list of events (default 6, at most 50) — alone it renders cards in a grid; in a loop: {{ for events(4) as e }}<a href="{{ e.url }}">{{ e.title }}</a> {{ e.dateLabel }}{{ endfor }}. Query: upcoming=true (default; false = past events too), sort=\'startsAt\' (next date — default) | \'title\' | \'createdAt\', order=\'asc\'|\'desc\', access=\'public\'|\'members\'|\'tier\', search=, limit=, ids=\'summer-gala,winter-ball\' (these events in this order; ids or slugs). Layout: layout=\'grid\'|\'column\', columns=3, gap=\'16px\', plus every event() display argument.' },
+            { sig: '(visibility)', desc: 'On the site only events the viewer may SEE are returned (Settings → Events and each event\'s "Who can see"); in server-rendered HTML and in email the reader is anonymous, so only public events appear. A public event whose registration needs an account shows "Sign in to register" on its card.' },
         ],
     },
     {
@@ -226,3 +234,46 @@ export const FUNCTIONS: { group: string; items: FunctionDoc[] }[] = [
     },
 ];
 
+// ─── Events (the help page's Events section) ────────────────────────────────
+
+/** One named argument of `event()` / `events()`. */
+export interface EventArgDoc { name: string; appliesTo: 'event' | 'events' | 'both'; values: string; desc: string; }
+
+/**
+ * Every named argument of `{{ event(...) }}` / `{{ events(...) }}` — the
+ * mapping lives in `@sitesurge/types` (`eventsCallFor` + `eventDisplayFrom`),
+ * shared by the site, server-rendered HTML and email.
+ */
+export const EVENT_FUNCTION_ARGS: EventArgDoc[] = [
+    { name: 'limit', appliesTo: 'events', values: '1–50 (default 6)', desc: 'How many events. Also the first positional number: events(3).' },
+    { name: 'upcoming', appliesTo: 'events', values: 'true (default) | false', desc: 'Only events that are not over (a recurring series counts while it repeats). false includes past events.' },
+    { name: 'sort', appliesTo: 'events', values: "'startsAt' (default) | 'title' | 'createdAt'", desc: 'startsAt orders by each event\'s NEXT date, so a weekly series sorts by next week.' },
+    { name: 'order', appliesTo: 'events', values: "'asc' (default) | 'desc'", desc: 'Sort direction.' },
+    { name: 'access', appliesTo: 'events', values: "'public' | 'members' | 'tier'", desc: 'Only events with this "Who can see" rule (inherit → the Settings → Events default).' },
+    { name: 'ids', appliesTo: 'events', values: "'a,b,c'", desc: 'These events in this order (ids or slugs). Ignores the query arguments.' },
+    { name: 'search', appliesTo: 'events', values: 'text', desc: 'Title / description / location contains.' },
+    { name: 'layout', appliesTo: 'events', values: "'grid' (default) | 'column'", desc: 'How the cards are laid out when the list renders alone.' },
+    { name: 'columns', appliesTo: 'events', values: '1–6 (default 3)', desc: 'Grid columns (email: at most 3).' },
+    { name: 'gap', appliesTo: 'events', values: "CSS length (default '16px')", desc: 'Space between cards.' },
+    { name: 'image', appliesTo: 'both', values: 'true | false', desc: 'Show the event image (default on).' },
+    { name: 'date', appliesTo: 'both', values: 'true | false', desc: 'Show the date (default on).' },
+    { name: 'time', appliesTo: 'both', values: 'true | false', desc: 'Show the time (default on).' },
+    { name: 'location', appliesTo: 'both', values: 'true | false', desc: 'Show the location (default on).' },
+    { name: 'description', appliesTo: 'both', values: 'true | false', desc: 'Show the description, as plain text (default on).' },
+    { name: 'descriptionLength', appliesTo: 'both', values: 'characters (default 200)', desc: 'Cut the description at a word boundary with "…". 0 = no cut.' },
+    { name: 'tickets', appliesTo: 'both', values: 'true | false', desc: 'List the ticket types with price and "N left" when a capacity is set (default off).' },
+    { name: 'badge', appliesTo: 'both', values: 'true | false', desc: 'The Public / Members / Subscribers badge in the top-right corner (default on).' },
+    { name: 'button', appliesTo: 'both', values: 'true | false', desc: 'The button linking to the event page (default on).' },
+    { name: 'buttonLabel', appliesTo: 'both', values: 'text', desc: "Button text (default 'View event')." },
+];
+
+/** Worked examples for the Events section. */
+export const EVENT_EXAMPLES: SyntaxExample[] = [
+    { title: 'One event card', code: "{{ event('summer-gala') }}", desc: 'The default card: image, linked title, date + time, location, description, access badge and a View event button.' },
+    { title: 'Card with tickets', code: "{{ event('summer-gala', tickets=true, description=false, buttonLabel='Get tickets') }}", desc: 'Ticket types with price and how many are left; no description.' },
+    { title: 'Read properties', code: "<a href=\"{{ event('summer-gala').url }}\">{{ event('summer-gala').title }}</a> — {{ event('summer-gala').when }}", desc: 'Any property of the event, e.g. a sentence with a link.' },
+    { title: 'Upcoming events', code: "{{ events(3, layout='column') }}", desc: 'The next three events, stacked.' },
+    { title: 'Your own markup', code: "<ul>\n{{ for events(5) as e }}\n  <li><a href=\"{{ e.url }}\">{{ e.title }}</a> · {{ e.dateLabel }}{{ if e.soldOut }} · Sold out{{ endif }}</li>\n{{ endfor }}\n</ul>", desc: 'Loop the list and write the HTML yourself.' },
+    { title: 'Ticket types', code: "{{ for event.tiers as t }}\n  {{ t.name }}: {{ if t.isFree }}Free{{ else }}{{ formatCurrency(t.price) }}{{ endif }}{{ if t.remaining != null }} ({{ t.remaining }} left){{ endif }}\n{{ endfor }}", desc: 'Inside an event template (or with event(\'x\') in place of event): one line per ticket type.' },
+    { title: 'Access badge', code: "{{ if event.isPublic }}Public{{ else }}{{ event.access.badgeLabel }}{{ endif }}{{ if event.requiresSignIn }} · Sign in to register{{ endif }}", desc: 'Who can see the event, and whether registering needs an account.' },
+];

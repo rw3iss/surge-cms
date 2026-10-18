@@ -22,7 +22,8 @@
 // We now import + re-export it so the many admin call sites that pull
 // `BlockType` from this registry keep working, with ZERO drift risk.
 import type { BlockType, } from '@sitesurge/types';
-import { DEFAULT_GALLERY_BLOCK_SETTINGS, } from '@sitesurge/types';
+import { DEFAULT_EVENTS_BINDING, DEFAULT_GALLERY_BLOCK_SETTINGS, } from '@sitesurge/types';
+import { eventsBindingIsEmpty, } from '../components/events/eventsLayout';
 export type { BlockType, };
 
 /**
@@ -162,14 +163,16 @@ export const BLOCK_TYPES: BlockTypeConfig[] = [
         recentDataField: 'formId',
     },
     {
-        type: 'event',
-        label: 'Event',
-        description: 'An event card — date and time, location, excerpt — linking to the event page.',
+        type: 'events',
+        label: 'Events',
+        description: 'Event cards — picked events or a live query (upcoming by default) — as a grid, a row carousel or a list.',
         icon: '📅',
         category: 'blocks',
         gating: 'events',
-        defaultData: () => ({ showImage: true, showDescription: true, showLocation: true, }),
+        defaultData: () => ({ binding: DEFAULT_EVENTS_BINDING, layout: 'grid', }),
     },
+    // Legacy name of `events`: still renders + edits (as Events), never offered.
+    { type: 'event', label: 'Events', icon: '📅', category: 'blocks', gating: 'events', enabled: false, },
     { type: 'social', label: 'Social', icon: '⌘', category: 'blocks', },
     {
         type: 'template',
@@ -313,7 +316,10 @@ export const BLOCK_CONFIGURED: Record<BlockType, (d: BlockData,) => boolean> = {
     image: hasGenericContent,
     video: (d,) => hasGenericContent(d,) || Boolean(d.mediaId,),
     campaign: hasGenericContent,
-    event: (d,) => hasGenericContent(d,) || Boolean(d.eventId,),
+    // Empty only when "Set data…" holds an empty selection — the default
+    // (and any live query) always has something to draw.
+    events: (d,) => !eventsBindingIsEmpty(d,),
+    event: (d,) => !eventsBindingIsEmpty(d,),
     html: hasGenericContent,
     document: hasGenericContent,
     url_link: hasGenericContent,

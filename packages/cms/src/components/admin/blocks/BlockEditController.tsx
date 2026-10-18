@@ -12,7 +12,7 @@ import { useAppearance, } from '../../../hooks/useAppearance';
 import CampaignBlock from './types/CampaignBlock';
 import CarouselBlock from './types/CarouselBlock';
 import EntityBlockEdit from './types/EntityBlock';
-import EventBlockEdit from './types/EventBlock';
+import EventsBlockEdit from './types/EventsBlockEdit';
 import GalleryBlockEdit from './types/GalleryBlockEdit';
 import TemplateBlockEdit from './types/TemplateBlock';
 import DocumentBlock from './types/DocumentBlock';
@@ -492,7 +492,9 @@ const BLOCK_EDIT_FORMS: Record<BlockType, Component<EditFormProps> | null> = {
             onChange={(patch,) => p.onUpdate({ ...p.block.data, ...patch, },)}
         />
     ),
-    event: (p,) => <EventBlockEdit data={p.block.data} onUpdate={p.onUpdate} />,
+    events: (p,) => <EventsBlockEdit data={p.block.data} onUpdate={p.onUpdate} />,
+    // Legacy name of `events` — same panel; the first edit folds `eventId` into `binding`.
+    event: (p,) => <EventsBlockEdit data={p.block.data} onUpdate={p.onUpdate} />,
 };
 
 /**

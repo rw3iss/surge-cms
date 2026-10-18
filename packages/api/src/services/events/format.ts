@@ -15,7 +15,7 @@ import { getSettings, } from './settings';
 export const FALLBACK_TIME_ZONE = 'America/New_York';
 
 /** Is `tz` an IANA zone this runtime understands? */
-function validZone(tz: string | null | undefined,): tz is string {
+export function validZone(tz: string | null | undefined,): tz is string {
     if (!tz) return false;
     try {
         new Intl.DateTimeFormat('en-US', { timeZone: tz, },);
