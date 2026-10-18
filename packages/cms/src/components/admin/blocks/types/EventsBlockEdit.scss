@@ -2,9 +2,23 @@
 @use '../../../../styles/variables' as *;
 
 .events-block-edit {
-  &__toggles {
+  // Two fields per row (the block panel is narrow, so the shared auto-fit
+  // row would stack them).
+  &__row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  // Heading input + its alignment buttons on one line.
+  &__heading {
     display: flex;
-    flex-direction: column;
+    align-items: center;
     gap: $spacing-sm;
+
+    > input { flex: 1 1 auto; min-width: 0; }
+    > .align-buttons { flex: 0 0 auto; }
+  }
+
+  &__toggles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $spacing-sm $spacing-md;
   }
 }

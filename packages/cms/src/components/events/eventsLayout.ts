@@ -16,14 +16,19 @@ export type EventCardTier = Partial<EventRecordTier> & { name: string; };
 
 // ─── Layout ───────────────────────────────────────────────────────────────
 
-/** Grid columns for the current breakpoint. */
-export function eventsGridColumns(columns: number, columnsMobile: number, isMobile: boolean,): number {
-    return Math.max(1, Math.round(isMobile ? columnsMobile : columns,) || 1,);
+/**
+ * Grid columns for the current breakpoint — never more than there are events,
+ * so 1 event in a 3-column grid is ONE column the block's alignment can place
+ * (empty tracks would pin it to the left). `count` omitted = no cap.
+ */
+export function eventsGridColumns(columns: number, columnsMobile: number, isMobile: boolean, count?: number,): number {
+    const n = Math.max(1, Math.round(isMobile ? columnsMobile : columns,) || 1,);
+    return count && count > 0 ? Math.min(n, count,) : n;
 }
 
-/** `grid-template-columns` — equal columns, or columns capped at `itemWidth`. */
-export function eventsGridTemplate(columns: number, itemWidth?: string | null,): string {
-    return itemWidth ? `repeat(${columns}, minmax(0, ${itemWidth}))` : `repeat(${columns}, minmax(0, 1fr))`;
+/** `grid-template-columns` — equal columns that fill, each capped at `itemMaxWidth` when set. */
+export function eventsGridTemplate(columns: number, itemMaxWidth?: string | null,): string {
+    return itemMaxWidth ? `repeat(${columns}, minmax(0, ${itemMaxWidth}))` : `repeat(${columns}, minmax(0, 1fr))`;
 }
 
 /** Row cards per page for the current breakpoint; never more than there are. */

@@ -32,7 +32,7 @@ describe('formatEventPrice', () => {
 describe('eventCardsSsrHtml', () => {
     it('indexable article: linked + escaped title, time, location, button, sign-in line', () => {
         const html = eventCardsSsrHtml([rec(),], { ...display, showTickets: true, heading: 'Upcoming', },);
-        expect(html,).toContain('<h2>Upcoming</h2>',);
+        expect(html,).toContain('<h2 style="text-align:center">Upcoming</h2>',);
         expect(html,).toContain('<a href="https://site.test/events/gala">Gala &lt;night&gt;</a>',);
         expect(html,).toContain('<time datetime="2026-10-25T23:00:00.000Z">Sun, Oct 25, 2026 · 7:00 PM EDT</time>',);
         expect(html,).toContain('Town Hall',);

@@ -25,12 +25,15 @@ import { escapeHtml, } from '../../utils/html';
 import { EMAIL_CONTENT_WIDTH, } from '../mail/blocks/_util';
 
 const esc = (v: unknown,): string => escapeHtml(String(v ?? '',),);
+const headingAlign = (o: { headingAlign?: string; },): string => (o.headingAlign === 'left' || o.headingAlign === 'right' ? o.headingAlign : 'center');
 
 export interface EventCardsOptions extends EventCardDisplay {
     layout?: EventsBlockLayout;
     /** Grid columns (row: cards per page). */
     columns?: number;
     heading?: string;
+    /** Heading alignment (default center). */
+    headingAlign?: 'left' | 'center' | 'right';
     /** Shown when there is no event; empty = render nothing. */
     emptyText?: string;
 }
@@ -81,7 +84,7 @@ function ssrCard(e: EventRecord, o: EventCardDisplay,): string {
 /** Indexable cards for SSR (heading + one article per event). */
 export function eventCardsSsrHtml(records: EventRecord[] | null | undefined, o: EventCardsOptions,): string {
     const list = (records ?? []).filter(Boolean,);
-    const heading = o.heading ? `<h2>${esc(o.heading,)}</h2>` : '';
+    const heading = o.heading ? `<h2 style="text-align:${headingAlign(o,)}">${esc(o.heading,)}</h2>` : '';
     if (!list.length) return o.emptyText ? `<section class="ssr-events">${heading}<p>${esc(o.emptyText,)}</p></section>` : '';
     return `<section class="ssr-events">${heading}${list.map((e,) => ssrCard(e, o,)).join('',)}</section>`;
 }
@@ -141,7 +144,7 @@ export function eventCardsEmailHtml(records: EventRecord[] | null | undefined, o
         textColor: envIn.textColor || '#111827',
         radius: envIn.radius || '8px',
     };
-    const heading = o.heading ? `<p style="margin:0 0 12px;font-size:20px;font-weight:700">${esc(o.heading,)}</p>` : '';
+    const heading = o.heading ? `<p style="margin:0 0 12px;font-size:20px;font-weight:700;text-align:${headingAlign(o,)}">${esc(o.heading,)}</p>` : '';
     if (!list.length) return o.emptyText ? `${heading}<p style="margin:0">${esc(o.emptyText,)}</p>` : '';
     const width = Math.max(200, Math.round(envIn.width ?? EMAIL_CONTENT_WIDTH,),);
     const cols = o.layout === 'column' ? 1 : Math.max(1, Math.min(EVENT_EMAIL_MAX_COLUMNS, Math.round(o.columns ?? 3,), list.length,),);

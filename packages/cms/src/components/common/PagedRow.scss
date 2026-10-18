@@ -15,6 +15,11 @@
     will-change: transform;
   }
 
+  // Everything fits (no paging): slides narrower than the row (a max width)
+  // are placed by the block's horizontal alignment. Never while paging — a
+  // centred overflowing track would break the translate offsets.
+  &--static &__track { justify-content: var(--block-h-align, flex-start); }
+
   &__slide {
     display: flex;
     min-width: 0;

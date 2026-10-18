@@ -146,6 +146,8 @@ export interface EventRecord {
 /** `grid` = columns · `row` = a horizontal carousel (paging / swipe) · `column` = a stacked list. */
 export type EventsBlockLayout = 'grid' | 'row' | 'column';
 
+export type EventsHeadingAlign = 'left' | 'center' | 'right';
+
 /** Which parts of an event card are shown (shared by the block, `{{event()}}` and `{{events()}}`). */
 export interface EventCardDisplay {
     showImage: boolean;
@@ -185,10 +187,19 @@ export interface EventsBlockSettings extends Partial<EventCardDisplay> {
     itemsPerPageMobile?: number;
     /** CSS length between cards (default 16px). */
     gap?: string;
-    /** Optional fixed card width (CSS length) — grid/row. */
+    /**
+     * Optional MAXIMUM card width (CSS length). Unset = cards fill their
+     * column / page share. Grid: each column's max width · row: each slide's
+     * max width (still `itemsPerPage` per page) · column: the card's max width.
+     * Desktop only — on mobile cards always fill.
+     */
+    itemMaxWidth?: string;
+    /** @deprecated read as `itemMaxWidth` (the editor rewrites it on save). */
     itemWidth?: string;
     /** Optional heading above the cards. */
     heading?: string;
+    /** Heading alignment (default center). */
+    headingAlign?: EventsHeadingAlign;
     /** Text shown when no event matches (empty = render nothing on the site). */
     emptyText?: string;
 }
@@ -227,7 +238,7 @@ export const DEFAULT_EVENTS_BLOCK_SETTINGS: Required<Pick<EventsBlockSettings,
 };
 
 /** Fully-resolved block settings (every knob has a value). */
-export type ResolvedEventsBlockSettings = typeof DEFAULT_EVENTS_BLOCK_SETTINGS & Pick<EventsBlockSettings, 'slotId' | 'itemWidth' | 'heading' | 'emptyText'>;
+export type ResolvedEventsBlockSettings = typeof DEFAULT_EVENTS_BLOCK_SETTINGS & Pick<EventsBlockSettings, 'slotId' | 'itemMaxWidth' | 'heading' | 'emptyText'> & { headingAlign: EventsHeadingAlign; };
 
 const LAYOUTS: readonly EventsBlockLayout[] = ['grid', 'row', 'column',];
 
@@ -269,8 +280,9 @@ export function normalizeEventsBlockSettings(raw: unknown,): ResolvedEventsBlock
         itemsPerPage: posInt(s.itemsPerPage, d.itemsPerPage, 6,),
         itemsPerPageMobile: posInt(s.itemsPerPageMobile, d.itemsPerPageMobile, 4,),
         gap: cssLen(s.gap,) ?? d.gap,
-        itemWidth: cssLen(s.itemWidth,),
+        itemMaxWidth: cssLen(s.itemMaxWidth,) ?? cssLen(s.itemWidth,),
         heading: typeof s.heading === 'string' && s.heading.trim() ? s.heading : undefined,
+        headingAlign: s.headingAlign === 'left' || s.headingAlign === 'right' ? s.headingAlign : 'center',
         emptyText: typeof s.emptyText === 'string' && s.emptyText.trim() ? s.emptyText : undefined,
         showImage: bool(s.showImage, d.showImage,),
         showDate: bool(s.showDate, d.showDate,),

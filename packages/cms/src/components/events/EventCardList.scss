@@ -3,7 +3,7 @@
   &__grid {
     display: grid;
     gap: var(--events-gap, 16px);
-    // A grid narrower than the block (Item width) is placed by the block's alignment.
+    // A grid narrower than the block (fewer events than columns, or Item max width) is placed by the block's alignment.
     justify-content: var(--block-h-align, center);
   }
 
@@ -13,6 +13,6 @@
     align-items: var(--block-h-align, stretch);
     gap: var(--events-gap, 16px);
 
-    > * { width: 100%; max-width: var(--events-item-width, none); }
+    > * { width: 100%; max-width: var(--events-item-max-width, none); }
   }
 }

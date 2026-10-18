@@ -25,6 +25,8 @@ export interface PagedRowProps<T,> {
     gap?: string;
     /** A fixed width per item instead of fitting `perPage`. */
     itemWidth?: string | null;
+    /** Fit `perPage`, but never wider than this per item. Ignored with `itemWidth`. */
+    itemMaxWidth?: string | null;
     /** Wrap at the ends. Default true. */
     loop?: boolean;
     showArrows?: boolean;
@@ -55,15 +57,16 @@ export function PagedRow<T,>(props: PagedRowProps<T>,): JSX.Element {
         if (paged() && Math.abs(dx,) > 40) (dx < 0 ? next : prev)();
     };
 
-    const basis = () => props.itemWidth || `calc((100% - (${perPage()} - 1) * var(--pr-gap)) / ${perPage()})`;
-    const transform = () => {
-        if (!paged()) return undefined;
-        if (props.itemWidth) return `translateX(calc(-${start()} * (${props.itemWidth} + var(--pr-gap))))`;
-        return `translateX(calc(-${start()} * ((100% - (${perPage()} - 1) * var(--pr-gap)) / ${perPage()} + var(--pr-gap))))`;
+    const basis = () => {
+        if (props.itemWidth) return props.itemWidth;
+        const fit = `calc((100% - (${perPage()} - 1) * var(--pr-gap)) / ${perPage()})`;
+        return props.itemMaxWidth ? `min(${props.itemMaxWidth}, ${fit})` : fit;
     };
+    // One step = a slide's width + the gap (same expression as the slide basis).
+    const transform = () => (paged() ? `translateX(calc(-${start()} * (${basis()} + var(--pr-gap))))` : undefined);
 
     return (
-        <div class={`paged-row${props.class ? ` ${props.class}` : ''}`} style={{ '--pr-gap': props.gap || '16px', }}>
+        <div class={`paged-row${paged() ? '' : ' paged-row--static'}${props.class ? ` ${props.class}` : ''}`} style={{ '--pr-gap': props.gap || '16px', }}>
             <div class="paged-row__viewport" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
                 <div class="paged-row__track" style={{ transform: transform(), }}>
                     <For each={props.items}>

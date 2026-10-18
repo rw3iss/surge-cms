@@ -5,17 +5,19 @@
  * (default: upcoming, soonest first, 6) — or, inside a template,
  * **Template data** (the event record(s) the template renders; offered only
  * when the template binds `event`) or **Slot**. Then layout (grid / row /
- * column + its sizes), what each card shows, a heading and the empty text.
+ * column + its sizes, two fields per row), a heading with its alignment
+ * buttons, what each card shows and the empty text.
  *
  * Text / number fields commit on blur (CommitInput); booleans are Toggles.
  */
 import type { EventCardDisplay, EventsBlockLayout, SlotBinding, } from '@sitesurge/types';
 import { DEFAULT_EVENTS_BINDING, normalizeEventsBlockSettings, } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
-import { Component, For, Show, } from 'solid-js';
+import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
 import { isFeatureEnabled, } from '../../../../stores/siteSettings';
 import { templateInfo, templateSlots, } from '../../../../stores/templateSlots';
 import { slotChoices, slotOptionLabel, templateDataSourceState, } from '../../../../utils/templateSlots';
+import AlignButtons from '../../common/AlignButtons';
 import Toggle from '../../common/Toggle';
 import DataBindingField from '../../entities/DataBindingField';
 import { FormField, } from '../../forms';
@@ -64,6 +66,10 @@ const EventsBlockEdit: Component<{
     const offerSource = () => offerSlot() || tplData().offer;
 
     const binding = (): SlotBinding => d().binding;
+
+    // The heading's draft (it commits on blur) so its alignment bar enables while typing.
+    const [headingDraft, setHeadingDraft,] = createSignal(d().heading ?? '',);
+    createEffect(() => setHeadingDraft(d().heading ?? '',),);
 
     return (
         <div class="events-block-edit block-edit-form">
@@ -130,38 +136,62 @@ const EventsBlockEdit: Component<{
                 </DataBindingField>
             </Show>
 
-            <div class="admin-form-row">
+            <div class="admin-form-row events-block-edit__row">
                 <FormField label="Layout">
                     <select value={d().layout} onChange={(e,) => set({ layout: e.currentTarget.value as EventsBlockLayout, },)}>
                         <For each={LAYOUTS}>{(l,) => <option value={l.value}>{l.label}</option>}</For>
                     </select>
                 </FormField>
-                <Show when={d().layout === 'grid'}>
-                    <FormField label="Columns" tooltip="Cards per row on desktop.">
+                <FormField label="Heading" tooltip="Optional title above the cards. The buttons set its alignment (default center).">
+                    <div class="events-block-edit__heading">
+                        <CommitInput
+                            value={d().heading ?? ''}
+                            placeholder="e.g. Upcoming events"
+                            onDraft={setHeadingDraft}
+                            onCommit={(v,) => set({ heading: v.trim() || undefined, },)}
+                        />
+                        <AlignButtons
+                            label="Heading alignment"
+                            value={d().headingAlign}
+                            disabled={!headingDraft().trim()}
+                            onChange={(v,) => set({ headingAlign: v === 'center' ? undefined : v, },)}
+                        />
+                    </div>
+                </FormField>
+            </div>
+            <Show when={d().layout === 'grid'}>
+                <div class="admin-form-row events-block-edit__row">
+                    <FormField label="Columns" tooltip="Cards per row on desktop. Fewer events than columns → one column per event, so the block's alignment can center them.">
                         <CommitInput type="number" min={1} max={6} value={d().columns} onCommit={(v,) => set({ columns: num(v,), },)} />
                     </FormField>
                     <FormField label="Columns (mobile)" tooltip="Cards per row at ≤768px wide.">
                         <CommitInput type="number" min={1} max={4} value={d().columnsMobile} onCommit={(v,) => set({ columnsMobile: num(v,), },)} />
                     </FormField>
-                </Show>
-                <Show when={d().layout === 'row'}>
+                </div>
+            </Show>
+            <Show when={d().layout === 'row'}>
+                <div class="admin-form-row events-block-edit__row">
                     <FormField label="Items per page" tooltip="Cards visible at once on desktop; arrows, dots and swipe page through the rest.">
                         <CommitInput type="number" min={1} max={6} value={d().itemsPerPage} onCommit={(v,) => set({ itemsPerPage: num(v,), },)} />
                     </FormField>
                     <FormField label="Items per page (mobile)" tooltip="Cards visible at once at ≤768px wide.">
                         <CommitInput type="number" min={1} max={4} value={d().itemsPerPageMobile} onCommit={(v,) => set({ itemsPerPageMobile: num(v,), },)} />
                     </FormField>
-                </Show>
-            </div>
-            <div class="admin-form-row">
+                </div>
+            </Show>
+            <div class="admin-form-row events-block-edit__row">
                 <FormField label="Gap" tooltip="Space between cards — any CSS length.">
                     <CommitInput value={(props.data.gap as string) ?? ''} placeholder="16px" onCommit={(v,) => set({ gap: v.trim() || undefined, },)} />
                 </FormField>
                 <FormField
-                    label="Item width"
-                    tooltip="Optional fixed card width (e.g. 300px). Grid: each column's maximum width. Row: replaces 'items per page'. Column: the card's maximum width."
+                    label="Item max width"
+                    tooltip="Optional maximum card width (e.g. 300px). Empty = cards fill their column (grid), their page share (row) or the block (column). Desktop only — on mobile cards always fill."
                 >
-                    <CommitInput value={d().itemWidth ?? ''} placeholder="auto" onCommit={(v,) => set({ itemWidth: v.trim() || undefined, },)} />
+                    <CommitInput
+                        value={d().itemMaxWidth ?? ''}
+                        placeholder="fill"
+                        onCommit={(v,) => set({ itemMaxWidth: v.trim() || undefined, itemWidth: undefined, },)}
+                    />
                 </FormField>
             </div>
 
@@ -174,22 +204,21 @@ const EventsBlockEdit: Component<{
                     </For>
                 </div>
             </FormField>
-            <div class="admin-form-row">
-                <Show when={d().showDescription}>
-                    <FormField label="Description length" tooltip="Characters of the description to show; cut at a word boundary.">
-                        <CommitInput type="number" min={20} max={2000} value={d().descriptionLength} onCommit={(v,) => set({ descriptionLength: num(v,), },)} />
-                    </FormField>
-                </Show>
-                <Show when={d().showButton}>
-                    <FormField label="Button label">
-                        <CommitInput value={(props.data.buttonLabel as string) ?? ''} placeholder="View event" onCommit={(v,) => set({ buttonLabel: v.trim() || undefined, },)} />
-                    </FormField>
-                </Show>
-            </div>
+            <Show when={d().showDescription || d().showButton}>
+                <div class="admin-form-row events-block-edit__row">
+                    <Show when={d().showDescription}>
+                        <FormField label="Description length" tooltip="Characters of the description to show; cut at a word boundary.">
+                            <CommitInput type="number" min={20} max={2000} value={d().descriptionLength} onCommit={(v,) => set({ descriptionLength: num(v,), },)} />
+                        </FormField>
+                    </Show>
+                    <Show when={d().showButton}>
+                        <FormField label="Button label">
+                            <CommitInput value={(props.data.buttonLabel as string) ?? ''} placeholder="View event" onCommit={(v,) => set({ buttonLabel: v.trim() || undefined, },)} />
+                        </FormField>
+                    </Show>
+                </div>
+            </Show>
 
-            <FormField label="Heading" hint="Optional title above the cards.">
-                <CommitInput value={d().heading ?? ''} placeholder="e.g. Upcoming events" onCommit={(v,) => set({ heading: v.trim() || undefined, },)} />
-            </FormField>
             <FormField label="Empty text" hint="Shown on the site when there are no events. Empty = the block shows nothing.">
                 <CommitInput value={d().emptyText ?? ''} placeholder="No upcoming events — check back soon." onCommit={(v,) => set({ emptyText: v.trim() || undefined, },)} />
             </FormField>

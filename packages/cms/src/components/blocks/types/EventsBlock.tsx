@@ -83,7 +83,7 @@ export const EventsBlock: Component<{ block: Block; preview?: boolean; }> = (pro
     return (
         <div class={`events-block events-block--${display().layout}`}>
             <Show when={display().heading}>
-                <h2 class="events-block__heading">{display().heading}</h2>
+                <h2 class={`events-block__heading events-block__heading--${display().headingAlign}`}>{display().heading}</h2>
             </Show>
             <Show when={failedSlot()}>
                 {(r,) => <SlotPlaceholder slotId={display().slotId} reason={r().reason} />}
@@ -117,7 +117,7 @@ export const EventsBlock: Component<{ block: Block; preview?: boolean; }> = (pro
                     itemsPerPage={display().itemsPerPage}
                     itemsPerPageMobile={display().itemsPerPageMobile}
                     gap={display().gap}
-                    itemWidth={display().itemWidth}
+                    itemMaxWidth={display().itemMaxWidth}
                 />
             </Show>
         </div>

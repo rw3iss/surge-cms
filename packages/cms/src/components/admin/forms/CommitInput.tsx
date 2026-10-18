@@ -19,6 +19,8 @@ import './CommitInput.scss';
 export interface CommitInputProps {
     value: string | number | null | undefined;
     onCommit: (v: string,) => void;
+    /** Observes the DRAFT on each keystroke (nothing is committed) — e.g. to enable a related control while typing. */
+    onDraft?: (v: string,) => void;
     validate?: (v: string,) => string | null;
     /** Called with the validation message (null = valid) on each commit attempt. */
     onError?: (msg: string | null,) => void;
@@ -75,7 +77,7 @@ export const CommitInput: Component<CommitInputProps> = (p,) => {
                         aria-label={p['aria-label']}
                         aria-invalid={error() ? true : undefined}
                         style={p.style}
-                        onInput={(e,) => setLocal(e.currentTarget.value,)}
+                        onInput={(e,) => { setLocal(e.currentTarget.value,); p.onDraft?.(e.currentTarget.value,); }}
                         onBlur={commit}
                         onKeyDown={(e,) => {
                             if (p.commitOnEnter && e.key === 'Enter' && !e.shiftKey) {
@@ -101,7 +103,7 @@ export const CommitInput: Component<CommitInputProps> = (p,) => {
                         aria-label={p['aria-label']}
                         aria-invalid={error() ? true : undefined}
                         style={p.style}
-                        onInput={(e,) => setLocal(e.currentTarget.value,)}
+                        onInput={(e,) => { setLocal(e.currentTarget.value,); p.onDraft?.(e.currentTarget.value,); }}
                         onBlur={commit}
                         onKeyDown={(e,) => {
                             if (e.key === 'Enter') {

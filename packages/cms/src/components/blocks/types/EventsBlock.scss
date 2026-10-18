@@ -1,7 +1,13 @@
 // Events block (grid / column / row of EventCard). Public — site tokens.
 .events-block {
+  // Full width, so its alignment places the text across the whole block.
   &__heading {
+    width: 100%;
     margin: 0 0 12px;
+    text-align: center;
+
+    &--left { text-align: left; }
+    &--right { text-align: right; }
     font-family: var(--site-heading-font, inherit);
     color: var(--site-heading, inherit);
   }

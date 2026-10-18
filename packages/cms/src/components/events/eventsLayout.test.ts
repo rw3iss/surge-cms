@@ -9,6 +9,11 @@ describe('layout geometry', () => {
         expect(eventsGridColumns(3, 1, false,),).toBe(3,);
         expect(eventsGridColumns(3, 1, true,),).toBe(1,);
         expect(eventsGridColumns(3, 2, true,),).toBe(2,);
+        // Fewer events than columns → one column per event.
+        expect(eventsGridColumns(3, 1, false, 1,),).toBe(1,);
+        expect(eventsGridColumns(3, 1, false, 2,),).toBe(2,);
+        expect(eventsGridColumns(3, 1, false, 7,),).toBe(3,);
+        expect(eventsGridColumns(3, 2, true, 1,),).toBe(1,);
         expect(eventsGridTemplate(2,),).toBe('repeat(2, minmax(0, 1fr))',);
         expect(eventsGridTemplate(2, '300px',),).toBe('repeat(2, minmax(0, 300px))',);
     },);
