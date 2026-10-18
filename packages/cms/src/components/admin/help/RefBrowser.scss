@@ -1,0 +1,364 @@
+@use '../../../styles/variables' as *;
+
+// Generated reference pages (SDK / API). Wider than a prose help page: a TOC
+// column plus signatures that are long by nature.
+.help-ref {
+  max-width: 1240px;
+
+  .help-doc__lead { margin-bottom: $spacing-md; }
+}
+
+// The page header is sticky (≈ 80px); targets and the TOC sit below it.
+$ref-sticky-top: 96px;
+
+.ref-browser {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: $spacing-lg;
+  align-items: start;
+
+  @media (max-width: $breakpoint-lg) {
+    grid-template-columns: minmax(0, 1fr);
+
+    &__toc { display: none; }
+  }
+
+  // ── Table of contents ──
+  &__toc {
+    position: sticky;
+    top: $ref-sticky-top;
+    max-height: calc(100vh - #{$ref-sticky-top} - #{$spacing-md});
+    overflow-y: auto;
+    font-size: $font-size-sm;
+    border-right: 1px solid $border-color;
+    padding-right: $spacing-sm;
+
+    ul { list-style: none; margin: 0; padding: 0; }
+    ul ul { padding-left: $spacing-sm; margin-bottom: 4px; }
+  }
+
+  &__toc-link {
+    display: flex;
+    justify-content: space-between;
+    gap: $spacing-xs;
+    padding: 3px 6px;
+    border-radius: $border-radius-sm;
+    color: $text-color;
+    text-decoration: none;
+    font-family: var(--admin-font-mono, ui-monospace, monospace);
+    font-size: 12px;
+
+    &:hover { background: $background-dark; color: var(--site-primary, #{$primary-color}); }
+
+    &--open { font-weight: 700; }
+  }
+
+  &__toc-count { color: $text-light; font-weight: 400; }
+
+  &__toc-sub {
+    display: block;
+    padding: 2px 6px;
+    color: $text-light;
+    text-decoration: none;
+    font-family: var(--admin-font-mono, ui-monospace, monospace);
+    font-size: 11px;
+
+    &:hover { color: var(--site-primary, #{$primary-color}); }
+  }
+
+  // ── Toolbar ──
+  &__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-sm;
+    margin-bottom: $spacing-md;
+
+    select { width: auto; }
+  }
+
+  &__filter {
+    flex: 1 1 260px;
+    max-width: 420px;
+  }
+
+  &__total {
+    margin-left: auto;
+    color: $text-light;
+    font-size: $font-size-sm;
+  }
+
+  // ── Groups ──
+  &__group {
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    margin-bottom: $spacing-xs;
+    overflow: hidden;
+    scroll-margin-top: $ref-sticky-top;
+
+    &--target { border-color: var(--site-primary, #{$primary-color}); }
+  }
+
+  &__group-head {
+    display: flex;
+    align-items: stretch;
+    background: $background-dark;
+  }
+
+  &__toggle {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    flex: 1;
+    min-width: 0;
+    padding: 10px 14px;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+
+    &:hover { background: color.adjust($background-dark, $lightness: -3%); }
+
+    &:focus-visible {
+      outline: 2px solid $primary-color;
+      outline-offset: -2px;
+    }
+  }
+
+  &__chevron { color: $text-light; font-size: 0.7rem; width: 12px; flex-shrink: 0; }
+  &__label { font-weight: 700; color: $text-color; }
+
+  &__meta {
+    color: $text-light;
+    font-family: var(--admin-font-mono, ui-monospace, monospace);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__count {
+    margin-left: auto;
+    color: $text-light;
+    font-size: $font-size-sm;
+    white-space: nowrap;
+  }
+
+  &__hash {
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    color: $text-light;
+    text-decoration: none;
+
+    &:hover { color: var(--site-primary, #{$primary-color}); }
+  }
+
+  &__body {
+    padding: $spacing-xs 14px $spacing-sm;
+    border-top: 1px solid $border-color;
+  }
+
+  &__desc { margin: $spacing-xs 0; color: $text-light; font-size: $font-size-sm; line-height: 1.5; }
+
+  &__section {
+    margin: $spacing-md 0 0;
+    padding-bottom: 4px;
+    font-size: $font-size-sm;
+    border-bottom: 1px dashed $border-color;
+    scroll-margin-top: $ref-sticky-top;
+
+    &--target code { color: var(--site-primary, #{$primary-color}); }
+  }
+}
+
+// ── One method / route ──
+.ref-item {
+  padding: 10px 0;
+  border-bottom: 1px solid $border-color;
+  scroll-margin-top: $ref-sticky-top;
+
+  &:last-child { border-bottom: 0; }
+
+  &--target {
+    margin: 0 -8px;
+    padding: 10px 8px;
+    border-radius: $border-radius-sm;
+    background: $info-bg;
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px $spacing-sm;
+  }
+
+  &__name {
+    font-family: var(--admin-font-mono, ui-monospace, monospace);
+    font-size: 13px;
+    font-weight: 700;
+    color: $text-color;
+    overflow-wrap: anywhere;
+  }
+
+  &__hash {
+    color: $text-light;
+    text-decoration: none;
+    font-size: $font-size-sm;
+
+    &:hover { color: var(--site-primary, #{$primary-color}); }
+  }
+
+  &__sig {
+    display: block;
+    margin-top: 6px;
+    padding: 6px 8px;
+    background: $background-dark;
+    border-radius: $border-radius-sm;
+    font-family: var(--admin-font-mono, ui-monospace, monospace);
+    font-size: 12px;
+    color: $text-color;
+    overflow-wrap: anywhere;
+  }
+
+  &__summary { margin: 6px 0 0; color: $text-color; font-size: $font-size-sm; line-height: 1.5; }
+
+  &__label {
+    display: inline-block;
+    min-width: 64px;
+    color: $text-light;
+    font-size: $font-size-xs;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  &__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px $spacing-sm;
+    margin-top: 6px;
+    font-size: $font-size-sm;
+
+    code { font-family: var(--admin-font-mono, ui-monospace, monospace); font-size: 12px; }
+  }
+
+  &__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+    color: inherit;
+
+    code { color: var(--site-primary, #{$primary-color}); }
+    &:hover code { text-decoration: underline; }
+  }
+
+  &__muted { color: $text-light; font-size: $font-size-sm; }
+
+  &__fields {
+    width: 100%;
+    margin-top: 6px;
+    border-collapse: collapse;
+    font-size: $font-size-sm;
+
+    caption {
+      text-align: left;
+      color: $text-light;
+      font-size: $font-size-xs;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding-bottom: 2px;
+    }
+
+    td {
+      padding: 3px 8px 3px 0;
+      border-top: 1px solid rgba(0, 0, 0, 0.05);
+      vertical-align: top;
+    }
+
+    td:first-child { white-space: nowrap; width: 1%; }
+
+    code { font-family: var(--admin-font-mono, ui-monospace, monospace); font-size: 12px; }
+  }
+
+  &__type { color: var(--site-primary, #{$primary-color}); overflow-wrap: anywhere; }
+  &__req { color: $error-fg; font-size: $font-size-xs; }
+  &__opt { color: $text-light; font-size: $font-size-xs; }
+}
+
+// HTTP method badge.
+.ref-method {
+  display: inline-block;
+  min-width: 52px;
+  padding: 1px 6px;
+  border-radius: $border-radius-sm;
+  font-family: var(--admin-font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  color: #fff;
+  background: $text-light;
+
+  &--get { background: #2f7d4f; }
+  &--post { background: #2563a8; }
+  &--put { background: #9a6b00; }
+  &--patch { background: #7a4fb0; }
+  &--delete { background: #b3261e; }
+}
+
+// Small pill (auth tier, feature, raw).
+.ref-pill {
+  display: inline-block;
+  padding: 0 8px;
+  border: 1px solid $border-color;
+  border-radius: 999px;
+  color: $text-light;
+  font-size: 11px;
+  line-height: 18px;
+  white-space: nowrap;
+
+  &--public { border-color: $success-border; color: $success-fg; }
+  &--admin, &--apiKey { border-color: $error-border; color: $error-fg; }
+  &--staff { border-color: $warning-border; color: $warning-fg; }
+}
+
+.ref-copy {
+  padding: 0 8px;
+  border: 1px solid $border-color;
+  border-radius: $border-radius-sm;
+  background: transparent;
+  color: $text-light;
+  font-size: 11px;
+  line-height: 18px;
+  cursor: pointer;
+
+  &:hover { color: var(--site-primary, #{$primary-color}); border-color: var(--site-primary, #{$primary-color}); }
+
+  &--done { color: $success-fg; border-color: $success-border; }
+}
+
+// Prose notes above a reference (base URL, auth).
+.ref-notes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: $spacing-md;
+  margin-bottom: $spacing-lg;
+
+  &__card {
+    padding: $spacing-sm $spacing-md;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    font-size: $font-size-sm;
+    line-height: 1.55;
+
+    h2 { margin: 0 0 $spacing-xs; font-size: $font-size-base; border: 0; padding: 0; }
+    p { margin: 0 0 $spacing-xs; }
+    ul { margin: 0; padding-left: $spacing-lg; }
+    code { font-family: var(--admin-font-mono, ui-monospace, monospace); font-size: 12px; }
+  }
+}

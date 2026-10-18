@@ -19,7 +19,7 @@
     "migrate:status": "pnpm --filter ./packages/api run db:migrate:status",
     "db:seed": "pnpm --filter ./packages/api run db:seed",
     "seed": "pnpm --filter ./packages/api run db:seed",
-    "docs:api": "pnpm --filter ./packages/api run docs:api",
+    "docs:api": "pnpm --filter ./packages/api run docs:api && pnpm --filter ./packages/cms run docs:sdk && pnpm --filter ./packages/cms run docs:api-ref",
     "format": "npx dprint fmt --config config/dprint.json",
     "format:check": "npx dprint check --config config/dprint.json",
     "lint": "oxlint -c config/.oxlintrc.json packages/cms/src packages/api/src packages/shared/src",

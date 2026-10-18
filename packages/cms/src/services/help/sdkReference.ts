@@ -21,6 +21,8 @@ export interface DocBlock {
     table?: string[][];
     /** Callout — rendered with emphasis; use for the things that bite. */
     note?: string;
+    /** Links to other help pages (rendered as a short list of cards). */
+    links?: Array<{ href: string; label: string; desc: string; }>;
 }
 
 export interface DocSection {
@@ -30,15 +32,25 @@ export interface DocSection {
 
 export interface SdkDoc {
     id: string;
-    /** Render the generated SDK module browser after the sections. Only the
-     *  Component JavaScript doc sets it — the reference is what a script author
-     *  needs at hand, and it is 365 methods long. */
-    showModuleReference?: boolean;
     path: string;
     title: string;
     lead: string;
     sections: DocSection[];
 }
+
+/** The two generated reference pages, linked from the SDK docs. */
+export const REFERENCE_LINKS: Array<{ href: string; label: string; desc: string; }> = [
+    {
+        href: '/admin/help/sdk/reference',
+        label: 'SDK Reference',
+        desc: 'Every cms.* module and method — signature, parameters, return type — generated from the client source.',
+    },
+    {
+        href: '/admin/help/api',
+        label: 'API Reference',
+        desc: 'Every REST route — method, path, auth tier, input fields — generated from the route manifest, with the SDK method that calls it.',
+    },
+];
 
 export const HEADLESS_DOC: SdkDoc = {
     id: 'headless',
@@ -60,6 +72,17 @@ export const HEADLESS_DOC: SdkDoc = {
                         ['@sitesurge/mcp', 'MCP server wrapping the client', 'An AI agent should author the site',],
                     ],
                 },
+            ],
+        },
+        {
+            heading: 'Reference',
+            blocks: [
+                {
+                    p: 'Both references are generated — from the client source and from the server\'s route '
+                        + 'manifest — so they always describe what this site actually ships. Each SDK method '
+                        + 'links to the route it calls, and each route to its SDK method.',
+                },
+                { links: REFERENCE_LINKS, },
             ],
         },
         {
@@ -413,7 +436,6 @@ if (mine['recipes:write']) showEditButton();`,
 export const COMPONENT_JS_DOC: SdkDoc = {
     id: 'component-js',
     path: '/admin/help/sdk/component-js',
-    showModuleReference: true,
     title: 'Component JavaScript',
     lead:
         'A Component can carry a client script that runs where it renders, with the CMS SDK '
@@ -482,11 +504,12 @@ export const COMPONENT_JS_DOC: SdkDoc = {
             heading: 'Available modules',
             blocks: [
                 {
-                    p: '`ctx.cms` is the full `@sitesurge/client`. The complete reference is '
-                        + 'below — every namespace, every method, with its signature. It is '
-                        + "generated from the client's source, so it always matches the SDK "
-                        + 'actually shipped with this site.',
+                    p: '`ctx.cms` is the full `@sitesurge/client` — call any `cms.<module>.<method>()` '
+                        + 'the visitor is allowed to. Every namespace and method, with signatures, is in '
+                        + "the SDK Reference, generated from the client's source so it always matches the "
+                        + 'SDK shipped with this site.',
                 },
+                { links: [REFERENCE_LINKS[0],], },
                 {
                     table: [
                         ['Namespace', 'Typical use in a component',],
@@ -848,7 +871,7 @@ const pb = await cms.media.playback(media.id);
 const teaser = await cms.media.teaserUrl(media.id);`,
                 },
                 {
-                    p: 'The exact method names and shapes are in the SDK module reference (`cms.media`).',
+                    p: 'The exact method names and shapes are in the SDK Reference (`cms.media`).',
                 },
             ],
         },

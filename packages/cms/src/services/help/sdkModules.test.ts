@@ -1,12 +1,14 @@
 /**
  * Drift guard for the generated SDK module reference.
  *
- * The reference at /admin/help/sdk/component-js lists every namespace on `cms`
- * and every method on each. It is generated from the @sitesurge/client source
+ * The reference at /admin/help/sdk/reference lists every namespace on `cms`
+ * and every method on each (with params, return type and the API routes it
+ * calls, resolved against docs/api-manifest.json). It is generated from the @sitesurge/client source
  * precisely so it cannot go stale — but only if something notices when the
  * committed output no longer matches. That is this test.
  *
- * If it fails: `npm run docs:sdk -w @sitesurge/admin`, then commit the result.
+ * If it fails: `npm run docs:api` (root) or `npm run docs:sdk -w @sitesurge/admin`,
+ * then commit the result.
  */
 import { describe, expect, it, } from 'vitest';
 import { readFileSync, } from 'node:fs';
@@ -57,5 +59,26 @@ describe('generated SDK module reference', () => {
         const messy = SDK_MODULES.flatMap((m,) => m.methods)
             .filter((f,) => f.summary.includes('/**',) || f.summary.includes('*/',));
         expect(messy,).toEqual([],);
+    },);
+
+    it('resolves the API route of every network method', () => {
+        // Local helpers (cms.ui) and the auth-manager passthroughs make no
+        // request; everything else must name a manifest route, or the SDK ↔ API
+        // cross-links silently go missing.
+        const LOCAL = new Set(['ui', 'auth',],);
+        const missing = SDK_MODULES.filter((m,) => !LOCAL.has(m.namespace,),)
+            .flatMap((m,) => m.methods.filter((f,) => f.routes.length === 0,).map((f,) => `${m.namespace}.${f.name}`));
+        expect(missing,).toEqual([],);
+        const posts = SDK_MODULES.find((m,) => m.namespace === 'posts',)!;
+        expect(posts.methods.find((f,) => f.name === 'list',)?.routes,).toEqual(['GET /api/v1/posts',],);
+        // A `:id` call lands on the `:id` route, not a literal sibling.
+        expect(posts.methods.find((f,) => f.name === 'getById',)?.routes,).toEqual(['GET /api/v1/posts/:id',],);
+    },);
+
+    it('splits parameters and the return type out of the signature', () => {
+        const keys = SDK_MODULES.find((m,) => m.namespace === 'apiKeys',)!;
+        const create = keys.methods.find((f,) => f.name === 'create',)!;
+        expect(create.params,).toEqual([{ name: 'body', type: 'ApiKeyCreateBody', optional: false, },],);
+        expect(create.returns,).toBe('Promise<ApiKeyCreateResponse>',);
     },);
 },);

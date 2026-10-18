@@ -8,12 +8,14 @@ import type { ApiKeyRequest, } from './apiKeyAuth';
 import { isReply, } from './types';
 import type { RouteDef, } from './types';
 import { requireFeature, } from './requireFeature';
+import { describeInput, } from './describeInput';
 import type { FeatureKey, } from '../features/registry';
 
 interface ModuleEntry {
     module: string;
     mountPath: string;
     defs: RouteDef[];
+    feature?: FeatureKey;
 }
 
 const registry: ModuleEntry[] = [];
@@ -103,7 +105,7 @@ export function registerModule(
     defs: RouteDef[],
     opts: { mountPath: string, feature?: FeatureKey, },
 ): Router {
-    const entry: ModuleEntry = { module, mountPath: opts.mountPath, defs, };
+    const entry: ModuleEntry = { module, mountPath: opts.mountPath, defs, ...(opts.feature ? { feature: opts.feature, } : {}), };
     const existing = registry.findIndex((e,) => e.module === module,);
     if (existing >= 0) {
         registry[existing] = entry;
@@ -123,26 +125,32 @@ export function registerModule(
     return router;
 }
 
-/** Machine-readable manifest — consumed by the docs generator (Phase 4)
- *  and the client SDK generator (follow-up project). Input schemas are
- *  intentionally omitted from the emitted shape for now, but the registry
- *  retains the full RouteDefs (including live zod schemas), so those
- *  generators can read them later without rework. */
+/** Machine-readable manifest — consumed by the docs generator, the client
+ *  drift check and the in-admin API reference. Optional keys appear only when
+ *  set, so a plain route's entry is unchanged: `feature` (the module is gated
+ *  behind it), `raw` (outside the JSON envelope) and `input` (a compact field
+ *  list per channel, derived from the zod schemas — documentation only). */
 export function manifest() {
     return registry.map((entry,) => ({
         module: entry.module,
         mountPath: entry.mountPath,
-        routes: entry.defs.map((d,) => ({
-            method: d.method.toUpperCase(),
-            path: d.path,
-            // Absolute path = mountPath + the route's own path. A route
-            // path of '/' contributes nothing (so a module mounted at
-            // '/api/v1/posts' with a '/' route yields '/api/v1/posts',
-            // not '/api/v1/posts/'); every other path appends verbatim
-            // ('/slug/:slug' → '/api/v1/posts/slug/:slug').
-            absolutePath: entry.mountPath + (d.path === '/' ? '' : d.path),
-            auth: d.auth,
-            summary: d.summary,
-        })),
+        ...(entry.feature ? { feature: entry.feature, } : {}),
+        routes: entry.defs.map((d,) => {
+            const input = describeInput(d.input,);
+            return {
+                method: d.method.toUpperCase(),
+                path: d.path,
+                // Absolute path = mountPath + the route's own path. A route
+                // path of '/' contributes nothing (so a module mounted at
+                // '/api/v1/posts' with a '/' route yields '/api/v1/posts',
+                // not '/api/v1/posts/'); every other path appends verbatim
+                // ('/slug/:slug' → '/api/v1/posts/slug/:slug').
+                absolutePath: entry.mountPath + (d.path === '/' ? '' : d.path),
+                auth: d.auth,
+                summary: d.summary,
+                ...(d.raw ? { raw: true, } : {}),
+                ...(input ? { input, } : {}),
+            };
+        },),
     }));
 }

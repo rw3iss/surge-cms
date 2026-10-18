@@ -70,6 +70,8 @@ const AdminSettings = lazy(() => import('./pages/admin/Settings'));
 const AdminHelp = lazy(() => import('./pages/admin/Help'));
 const AdminHelpVariables = lazy(() => import('./pages/admin/HelpVariables'));
 const AdminHelpSdk = lazy(() => import('./pages/admin/HelpSdk'));
+const AdminHelpSdkReference = lazy(() => import('./pages/admin/HelpSdkReference'));
+const AdminHelpApiReference = lazy(() => import('./pages/admin/HelpApiReference'));
 const AdminHelpSdkModules = lazy(() =>
     import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpSdkModules, })));
 const AdminHelpSdkPermissions = lazy(() =>
@@ -296,6 +298,8 @@ const App: Component = () => {
 										<Route path="/help/sdk/modules" component={AdminHelpSdkModules} />
 										<Route path="/help/sdk/permissions" component={AdminHelpSdkPermissions} />
 										<Route path="/help/sdk/component-js" component={AdminHelpSdkComponentJs} />
+										<Route path="/help/sdk/reference" component={AdminHelpSdkReference} />
+										<Route path="/help/api" component={AdminHelpApiReference} />
 										<Route path="/help/releases" component={AdminHelpReleases} />
 										<Route path="/help/video" component={AdminHelpVideo} />
 										<Route path="/help/post-types" component={AdminHelpPostTypes} />

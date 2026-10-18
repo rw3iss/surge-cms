@@ -3,15 +3,30 @@
 .admin-help {
   &__intro { margin: 0 0 $spacing-lg; }
 
-  &__topics {
+  // Sections (left) + Developer References (right); one column below 900px,
+  // references after sections (source order).
+  &__columns {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: $spacing-md;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: $spacing-xl;
+    align-items: start;
+
+    @media (max-width: 900px) { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  // Each column is a standard admin section; the grid gap separates them, so
+  // drop the stacked-section top margin inside the grid row.
+  &__group.admin-section { margin-top: 0; }
+
+  &__topics {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
   }
 
   &__card {
     display: block;
-    padding: $spacing-lg;
+    padding: $spacing-md $spacing-lg;
     background: var(--admin-panel-bg, #{$background});
     border: 1px solid $border-color;
     border-radius: $border-radius-lg;
@@ -213,93 +228,16 @@
   }
 }
 
-// ── Generated SDK module browser ─────────────────────────────────────────
-// One collapsible row per cms.* namespace. Collapsed by default: the full
-// surface is ~365 methods, which is a reference to consult, not to read.
-.sdk-modules {
-    &__filter {
-        width: 100%;
-        max-width: 420px;
-        margin-bottom: $spacing-md;
-    }
+// Link cards inside a doc section (e.g. the SDK / API references).
+.help-doc {
+  &__links {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: $spacing-sm;
+    margin: $spacing-sm 0;
+  }
 
-    &__module {
-        border: 1px solid $border-color;
-        border-radius: $border-radius-md;
-        margin-bottom: $spacing-xs;
-        overflow: hidden;
-    }
+  &__link-card { padding: $spacing-md; }
 
-    &__toggle {
-        display: flex;
-        align-items: center;
-        gap: $spacing-sm;
-        width: 100%;
-        padding: 10px 14px;
-        background: $background-dark;
-        border: 0;
-        cursor: pointer;
-        text-align: left;
-        font: inherit;
-
-        &:hover { background: color.adjust($background-dark, $lightness: -3%); }
-
-        // Keyboard users get nothing from :hover, and the row has a custom
-        // background that swallows the UA default ring.
-        &:focus-visible {
-            outline: 2px solid $primary-color;
-            outline-offset: -2px;
-        }
-    }
-
-    &__chevron {
-        color: $text-light;
-        font-size: 0.7rem;
-        width: 12px;
-    }
-
-    &__ns {
-        font-weight: 700;
-        color: $text-color;
-    }
-
-    &__count {
-        margin-left: auto;
-        color: $text-light;
-        font-size: $font-size-sm;
-    }
-
-    &__body {
-        padding: $spacing-md 14px;
-        border-top: 1px solid $border-color;
-    }
-
-    &__methods {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-
-        li {
-            padding: 8px 0;
-            border-bottom: 1px solid $border-color;
-
-            &:last-child { border-bottom: 0; }
-        }
-    }
-
-    &__sig {
-        display: block;
-        font-family: var(--admin-font-mono);
-        font-size: 0.82rem;
-        color: $text-color;
-        // Long generic return types are common; wrap rather than scroll.
-        overflow-wrap: anywhere;
-    }
-
-    &__summary {
-        display: block;
-        margin-top: 3px;
-        color: $text-light;
-        font-size: $font-size-sm;
-    }
+  &__sibling--ref { border-style: dashed; }
 }

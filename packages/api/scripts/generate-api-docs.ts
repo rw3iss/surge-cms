@@ -32,11 +32,14 @@ interface ManifestRoute {
     absolutePath: string;
     auth: string;
     summary: string;
+    raw?: boolean;
+    input?: Record<string, Array<{ name: string; type: string; required: boolean; description?: string; }>>;
 }
 
 interface ManifestModule {
     module: string;
     mountPath: string;
+    feature?: string;
     routes: ManifestRoute[];
 }
 

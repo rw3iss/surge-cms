@@ -26,12 +26,29 @@ import { join, resolve, } from 'node:path';
 const MODULES_DIR = resolve(import.meta.dirname, '../../cms-client/src/modules',);
 const OUT_FILE = resolve(import.meta.dirname, '../src/services/help/sdkModules.generated.ts',);
 
+export interface SdkParam {
+    /** Parameter name (a destructuring pattern is kept verbatim). */
+    name: string;
+    type: string;
+    optional: boolean;
+    /** Default value as written, if any. */
+    default?: string;
+    /** `@param` text from the JSDoc, if any. */
+    doc?: string;
+}
+
 export interface SdkMethod {
     name: string;
     /** Rendered signature, e.g. `list(query?: PostListQuery): Promise<…>`. */
     signature: string;
-    /** First line of the method's JSDoc, if any. */
+    /** The method's JSDoc prose (tags removed), if any. */
     summary: string;
+    params: SdkParam[];
+    /** Declared return type, e.g. `Promise<PostListResponse>`; '' when inferred. */
+    returns: string;
+    /** API routes the method calls, in manifest form (`GET /api/v1/posts`),
+     *  resolved against docs/api-manifest.json. */
+    routes: string[];
 }
 
 export interface SdkModuleDoc {
@@ -58,15 +75,215 @@ function cleanDoc(block: string,): string {
         .trim();
 }
 
-/** The JSDoc block immediately above `index`, if there is one. */
-function docAbove(lines: string[], index: number,): string {
+/** The raw JSDoc block immediately above `index`, if there is one. */
+function rawDocAbove(lines: string[], index: number,): string {
     let i = index - 1;
     while (i >= 0 && lines[i].trim() === '') i--;
     if (i < 0 || !lines[i].trim().endsWith('*/',)) return '';
     const endLine = i;
     while (i >= 0 && !lines[i].trim().startsWith('/**',)) i--;
     if (i < 0) return '';
-    return cleanDoc(lines.slice(i, endLine + 1,).join('\n',),);
+    return lines.slice(i, endLine + 1,).join('\n',);
+}
+
+/** The JSDoc block immediately above `index`, as one line of prose. */
+function docAbove(lines: string[], index: number,): string {
+    const raw = rawDocAbove(lines, index,);
+    return raw ? cleanDoc(raw,) : '';
+}
+
+/** `@param name text` tags of a raw JSDoc block. */
+function paramDocs(raw: string,): Map<string, string> {
+    const out = new Map<string, string>();
+    for (const m of raw.matchAll(/@param\s+(?:\{[^}]*\}\s+)?\[?([A-Za-z_$][\w$]*)\]?\s*-?\s*([^@]*)/g,)) {
+        const text = m[2].split('\n',).map((l,) => l.replace(/^\s*\*\/?\s?/, '',).trim()).join(' ',)
+            .replace(/\*\/$/, '',).replace(/\s+/g, ' ',).trim();
+        if (text) out.set(m[1], text,);
+    }
+    return out;
+}
+
+/** Split on commas at nesting depth 0 (generics, object types, tuples, calls). */
+function splitTopLevel(text: string,): string[] {
+    const parts: string[] = [];
+    let depth = 0;
+    let cur = '';
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (ch === '<' || ch === '{' || ch === '[' || ch === '(') depth++;
+        else if ((ch === '>' && text[i - 1] !== '=') || ch === '}' || ch === ']' || ch === ')') depth--;
+        if (ch === ',' && depth === 0) { parts.push(cur,); cur = ''; continue; }
+        cur += ch;
+    }
+    if (cur.trim()) parts.push(cur,);
+    return parts.map((p,) => p.trim()).filter(Boolean,);
+}
+
+/** Index of the first `:` or `=` at depth 0 (a param's name/type boundary). */
+function topLevelIndex(text: string, chars: string,): number {
+    let depth = 0;
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (ch === '<' || ch === '{' || ch === '[' || ch === '(') depth++;
+        else if ((ch === '>' && text[i - 1] !== '=') || ch === '}' || ch === ']' || ch === ')') depth--;
+        else if (depth === 0 && chars.includes(ch,) && !(ch === '=' && text[i + 1] === '>')) return i;
+    }
+    return -1;
+}
+
+/** Type of an un-annotated param, read off its default (`= false` → boolean). */
+function inferType(def: string | undefined,): string {
+    if (def === undefined) return 'unknown';
+    if (def === 'true' || def === 'false') return 'boolean';
+    if (/^-?\d+(\.\d+)?$/.test(def,)) return 'number';
+    if (/^['"`]/.test(def,)) return 'string';
+    if (def.startsWith('[',)) return 'unknown[]';
+    if (def.startsWith('{',)) return 'object';
+    return 'unknown';
+}
+
+/** `(a: T, b?: U = x)` parameter text → structured params. */
+function parseParams(text: string, docs: Map<string, string>,): SdkParam[] {
+    return splitTopLevel(text,).map((raw,) => {
+        let rest = raw;
+        let def: string | undefined;
+        const eq = (() => {
+            // `=` that is not part of `=>` and sits at depth 0.
+            let depth = 0;
+            for (let i = 0; i < rest.length; i++) {
+                const ch = rest[i];
+                if (ch === '<' || ch === '{' || ch === '[' || ch === '(') depth++;
+                else if ((ch === '>' && rest[i - 1] !== '=') || ch === '}' || ch === ']' || ch === ')') depth--;
+                else if (depth === 0 && ch === '=' && rest[i + 1] !== '>') return i;
+            }
+            return -1;
+        })();
+        if (eq !== -1) { def = rest.slice(eq + 1,).trim(); rest = rest.slice(0, eq,).trim(); }
+        const colon = topLevelIndex(rest, ':',);
+        let name = (colon === -1 ? rest : rest.slice(0, colon,)).trim();
+        const type = colon === -1 ? inferType(def,) : rest.slice(colon + 1,).trim();
+        let optional = def !== undefined;
+        if (name.endsWith('?',)) { optional = true; name = name.slice(0, -1,).trim(); }
+        if (name.startsWith('...',)) optional = true;
+        const p: SdkParam = { name, type, optional, };
+        if (def !== undefined) p.default = def;
+        const doc = docs.get(name.replace(/^\.\.\./, '',),);
+        if (doc) p.doc = doc;
+        return p;
+    },);
+}
+
+/** Collapse a multi-line type to one line, as the signature does. */
+function oneLine(text: string,): string {
+    return text.replace(/\s+/g, ' ',).replace(/,\s*([)}\]>])/g, ' $1',).replace(/\s+([)}\]>])/g, '$1',)
+        .replace(/([({\[<])\s+/g, '$1',).replace(/\{(\S)/g, '{ $1',).replace(/(\S)\}/g, '$1 }',).trim();
+}
+
+// ── Route resolution ──────────────────────────────────────────────────────
+// Each method's body names the path it calls (`this.get('/posts/:id', …)`,
+// `this.mutate('POST', \`/posts/${id}\`, …)`). Resolving that against the
+// route manifest gives a CANONICAL route string, so the SDK reference can link
+// to the API reference and the API reference can name the SDK method.
+
+const MANIFEST_FILE = resolve(import.meta.dirname, '../../../docs/api-manifest.json',);
+
+interface ManifestRouteRef { method: string; absolutePath: string; }
+
+let manifestRoutes: ManifestRouteRef[] | null = null;
+function loadManifestRoutes(): ManifestRouteRef[] {
+    if (manifestRoutes) return manifestRoutes;
+    const doc = JSON.parse(readFileSync(MANIFEST_FILE, 'utf8',),) as {
+        modules: Array<{ routes: ManifestRouteRef[]; }>;
+    };
+    manifestRoutes = doc.modules.flatMap((m,) => m.routes.map((r,) => ({ method: r.method, absolutePath: r.absolutePath, })),);
+    return manifestRoutes;
+}
+
+/** Best manifest route for (method, path): literal segments must agree, `:x`
+ *  matches anything, and the route with the most literal matches wins (so
+ *  `/posts/types` beats `/posts/:id`). */
+export function resolveRoute(method: string, path: string,): string | null {
+    const segs = path.split('/',);
+    let best: { route: string; score: number; } | null = null;
+    for (const r of loadManifestRoutes()) {
+        if (r.method !== method) continue;
+        const rs = r.absolutePath.split('/',);
+        if (rs.length !== segs.length) continue;
+        let score = 0;
+        let ok = true;
+        for (let i = 0; i < rs.length; i++) {
+            const a = rs[i];
+            const b = segs[i];
+            const ap = a.startsWith(':',);
+            const bp = b.startsWith(':',);
+            // Same kind scores: literal = literal, or param = param (so a call
+            // to `/posts/:id` lands on the `:id` route, not `/posts/types`).
+            if ((a === b && !ap) || (ap && bp)) score++;
+            else if (ap || bp) continue;
+            else { ok = false; break; }
+        }
+        if (ok && (!best || score > best.score)) best = { route: `${r.method} ${r.absolutePath}`, score, };
+    }
+    return best?.route ?? null;
+}
+
+const HELPER_METHOD: Record<string, string> = { get: 'GET', getPaged: 'GET', rawGet: 'GET', url: 'GET', uploadForm: 'POST', };
+
+/** Normalise a path literal from the source: template holes → `:p`, no query. */
+function normalisePath(p: string, rootMounted: boolean,): string {
+    const path = p.replace(/\$\{[^}]*\}/g, ':p',).split('?',)[0].replace(/\/$/, '',) || '/';
+    return rootMounted || path.startsWith('/api/',) ? path : `/api/v1${path === '/' ? '' : path}`;
+}
+
+/** Routes a method calls: from the HTTP helper calls in its body, else from a
+ *  `GET /x — …` style summary. */
+function routesOf(body: string, summary: string,): string[] {
+    const found: string[] = [];
+    const rootMounted = /rootMounted:\s*true/.test(body,);
+    const helper = /(?:this|super)\.(get|getPaged|rawGet|url|uploadForm|mutate)\b/g;
+    for (const m of body.matchAll(helper,)) {
+        let i = (m.index ?? 0) + m[0].length;
+        // Skip an explicit generic argument, balancing <> (but not `=>`).
+        if (body[i] === '<') {
+            let depth = 0;
+            for (; i < body.length; i++) {
+                if (body[i] === '<') depth++;
+                else if (body[i] === '>' && body[i - 1] !== '=') { depth--; if (depth === 0) { i++; break; } }
+            }
+        }
+        if (body[i] !== '(') continue;
+        const args = body.slice(i + 1,);
+        let method = HELPER_METHOD[m[1]];
+        let rest = args;
+        if (m[1] === 'mutate') {
+            const mm = /^\s*'(POST|PUT|PATCH|DELETE)'\s*,\s*/.exec(args,);
+            if (!mm) continue;
+            method = mm[1];
+            rest = args.slice(mm[0].length,);
+        }
+        const lit = /^\s*(['`])((?:(?!\1).)*)\1/.exec(rest,);
+        if (!lit || !lit[2].startsWith('/',)) continue;
+        // A path the client prefixes with /api/v1 may be a root-mounted route
+        // (`/admin/sitemap/regenerate`); try the literal path second.
+        const route = resolveRoute(method, normalisePath(lit[2], rootMounted,),)
+            ?? resolveRoute(method, normalisePath(lit[2], true,),);
+        if (route && !found.includes(route,)) found.push(route,);
+    }
+    // URL builders: `${this.core.config.apiBase}/settings/backup?…` or a
+    // literal `/api/v1/…` string — a GET the caller navigates to.
+    for (const m of body.matchAll(/`(?:\$\{[^}]*(?:apiBase|baseUrl)[^}]*\})?(\/[^`\s]*)`/g,)) {
+        const raw = m[1];
+        const isAbsolute = raw.startsWith('/api/',);
+        if (!isAbsolute && !/apiBase|baseUrl/.test(m[0],)) continue;
+        const route = resolveRoute('GET', normalisePath(raw, isAbsolute,),);
+        if (route && !found.includes(route,)) found.push(route,);
+    }
+    if (found.length) return found;
+    for (const m of summary.matchAll(/\b(GET|POST|PUT|PATCH|DELETE)\s+(\/[^\s,;—)]*)/g,)) {
+        const route = resolveRoute(m[1], normalisePath(m[2], m[2].startsWith('/feed',) || m[2].startsWith('/sitemap',),),);
+        if (route && !found.includes(route,)) found.push(route,);
+    }
+    return found;
 }
 
 /** namespace → class name, read from the assignments in modules/index.ts. */
@@ -105,8 +322,9 @@ function collectSignature(
     start: number,
     limit: number,
     body: 'brace' | 'arrow',
-): { sig: string; cut: number; end: number; } {
+): { sig: string; cut: number; end: number; paramsStart: number; paramsEnd: number; } {
     let sig = '';
+    let paramsStart = -1;
     let parens = 0;
     let opened = false;
     let paramsEnd = -1;
@@ -123,7 +341,11 @@ function collectSignature(
             if (paramsEnd === -1) {
                 // Phase 1 — parameters. Only parens count: a param may be an
                 // inline object type, whose braces are not the body.
-                if (ch === '(') { parens++; opened = true; }
+                if (ch === '(') {
+                    if (!opened) paramsStart = base + c;
+                    parens++;
+                    opened = true;
+                }
                 else if (ch === ')') {
                     parens--;
                     if (opened && parens === 0) paramsEnd = base + c;
@@ -146,7 +368,16 @@ function collectSignature(
         sig += text;
         if (cut !== -1) break;
     }
-    return { sig, cut: cut === -1 ? sig.length : cut, end: j, };
+    return { sig, cut: cut === -1 ? sig.length : cut, end: j, paramsStart, paramsEnd, };
+}
+
+/** Params + return type out of a collected signature. */
+function details(sig: string, cut: number, paramsStart: number, paramsEnd: number, raw: string,): Pick<SdkMethod, 'params' | 'returns'> {
+    if (paramsStart === -1 || paramsEnd === -1) return { params: [], returns: '', };
+    const params = parseParams(sig.slice(paramsStart + 1, paramsEnd,), paramDocs(raw,),);
+    const tail = sig.slice(paramsEnd + 1, cut,).trim();
+    const returns = tail.startsWith(':',) ? oneLine(tail.slice(1,),) : '';
+    return { params: params.map((p,) => ({ ...p, type: oneLine(p.type,), })), returns, };
 }
 
 /**
@@ -168,7 +399,7 @@ function parseMethods(lines: string[], from: number, to: number,): SdkMethod[] {
         // Cut at the body brace, not at the last `)`: a one-line body
         // (`f(): T { return this.x(); }`) ends in a paren that belongs to the
         // body, and cutting there swallowed it into the signature.
-        const { sig, cut, end: j, } = collectSignature(lines, i, to, 'brace',);
+        const { sig, cut, end: j, paramsStart, paramsEnd, } = collectSignature(lines, i, to, 'brace',);
         const clean = sig.slice(0, cut,)
             .replace(/\s+/g, ' ',)
             .replace(/,\s*\)/g, ')',)   // house style writes a trailing comma in params
@@ -176,14 +407,20 @@ function parseMethods(lines: string[], from: number, to: number,): SdkMethod[] {
             .replace(/^async\s+/, '',)
             .trim();
 
-        methods.push({ name: m[1], signature: clean, summary: docAbove(lines, i,), },);
+        const summary = docAbove(lines, i,);
+        const raw = rawDocAbove(lines, i,);
+        const start = i;
 
         // Skip the body: balance braces from the signature line onward, so a
         // nested function inside a method isn't read as the next method.
+        // Counting starts AT the body brace: a multi-line object-type param
+        // closes (`},): T {`) on the same line, and counting the whole line
+        // read the body as already finished.
         let bodyBraces = 0;
         let bodyOpened = false;
         for (let k = j; k < to; k++) {
-            for (const ch of lines[k]) {
+            const text = k === j ? sig.slice(cut,) : lines[k];
+            for (const ch of text) {
                 if (ch === '{') { bodyBraces++; bodyOpened = true; }
                 else if (ch === '}') bodyBraces--;
             }
@@ -191,6 +428,15 @@ function parseMethods(lines: string[], from: number, to: number,): SdkMethod[] {
             if (k === to - 1) i = to;
         }
         if (i <= j) i = j + 1;
+
+        const body = sig.slice(cut,) + '\n' + lines.slice(j + 1, i,).join('\n',);
+        methods.push({
+            name: m[1],
+            signature: clean,
+            summary,
+            ...details(sig, cut, paramsStart, paramsEnd, raw,),
+            routes: routesOf(body, summary,),
+        },);
     }
     return methods;
 }
@@ -226,7 +472,13 @@ function parseGroups(lines: string[], from: number, to: number,): SdkMethod[] {
             if (!m) continue;
 
             // Everything up to the `=>` that starts the body is the signature.
-            const { sig, cut, } = collectSignature(lines, k, end, 'arrow',);
+            const { sig, cut, end: sigEnd, paramsStart, paramsEnd, } = collectSignature(lines, k, end, 'arrow',);
+            // The arrow body runs to the next property at this indent (or the
+            // end of the group).
+            let next = sigEnd + 1;
+            while (next < end && !/^        [A-Za-z][\w]*\s*:/.test(lines[next],)) next++;
+            const body = sig.slice(cut,) + '\n' + lines.slice(sigEnd + 1, next,).join('\n',);
+            const summary = docAbove(lines, k,);
             const clean = sig.slice(0, cut,)
                 .replace(/\s+/g, ' ',)
                 .replace(/,\s*\)/g, ')',)
@@ -239,12 +491,37 @@ function parseGroups(lines: string[], from: number, to: number,): SdkMethod[] {
                 // type: `products.list(...)`, not a bare `list(...)` that
                 // doesn't exist on the namespace.
                 signature: `${g[1]}.${clean}`,
-                summary: docAbove(lines, k,),
+                summary,
+                ...details(sig, cut, paramsStart, paramsEnd, rawDocAbove(lines, k,),),
+                routes: routesOf(body, summary,),
             },);
         }
         i = end;
     }
     return out;
+}
+
+/**
+ * A convenience method that only calls a sibling (`hot()` → `this.query(…)`,
+ * `count()` → `this.list(…)`) hits the sibling's routes. One pass is enough:
+ * the SDK has no chains of such wrappers.
+ */
+function inheritDelegatedRoutes(methods: SdkMethod[], classLines: string[],): void {
+    const byName = new Map(methods.map((m,) => [m.name, m,]),);
+    const text = classLines.join('\n',);
+    for (const m of methods) {
+        if (m.routes.length || m.name.includes('.',)) continue;
+        // The method's own source: from its declaration to the next member.
+        const start = text.search(new RegExp(`^    (?:async\\s+)?${m.name}\\s*(?:<[^\\n]*>\\s*)?\\(`, 'm',),);
+        if (start === -1) continue;
+        const rest = text.slice(start + 1,);
+        const next = rest.search(/^    (?:\/\*\*|(?:async\s+)?[A-Za-z][\w]*\s*(?:<[^\n]*>\s*)?\()/m,);
+        const own = next === -1 ? rest : rest.slice(0, next,);
+        for (const call of own.matchAll(/this\.([A-Za-z][\w]*)\s*\(/g,)) {
+            const target = byName.get(call[1],);
+            if (target && target !== m) for (const r of target.routes) if (!m.routes.includes(r,)) m.routes.push(r,);
+        }
+    }
 }
 
 /** Every exported module class, with its methods. */
@@ -270,12 +547,14 @@ function readClasses(): Map<string, SdkModuleDoc> {
                 if (braces === 0 && k > i) { end = k; break; }
             }
 
+            const methods = [...parseMethods(lines, i + 1, end,), ...parseGroups(lines, i + 1, end,),]
+                .sort((a, b,) => a.name.localeCompare(b.name,));
+            inheritDelegatedRoutes(methods, lines.slice(i + 1, end,),);
             out.set(m[1], {
                 namespace: '',
                 className: m[1],
                 summary: docAbove(lines, i,),
-                methods: [...parseMethods(lines, i + 1, end,), ...parseGroups(lines, i + 1, end,),]
-                    .sort((a, b,) => a.name.localeCompare(b.name,)),
+                methods,
             },);
             i = end;
         }
@@ -301,14 +580,27 @@ export function buildSdkModuleDocs(): SdkModuleDoc[] {
 export function renderFile(docs: SdkModuleDoc[],): string {
     return `// GENERATED by packages/cms/scripts/generate-sdk-modules.ts — DO NOT EDIT.
 //
-// The SDK module reference shown at /admin/help/sdk/component-js, built from
-// the @sitesurge/client source so it cannot drift from the real surface.
-// Regenerate with: npm run docs:sdk -w @sitesurge/admin
+// The SDK reference shown at /admin/help/sdk/reference, built from the
+// @sitesurge/client source (routes resolved against docs/api-manifest.json)
+// so it cannot drift from the real surface.
+// Regenerate with: npm run docs:sdk -w @sitesurge/admin  (or root npm run docs:api)
+
+export interface SdkParamDoc {
+    name: string;
+    type: string;
+    optional: boolean;
+    default?: string;
+    doc?: string;
+}
 
 export interface SdkMethodDoc {
     name: string;
     signature: string;
     summary: string;
+    params: SdkParamDoc[];
+    returns: string;
+    /** API routes called, e.g. \`GET /api/v1/posts\` (anchors in the API reference). */
+    routes: string[];
 }
 
 export interface SdkModuleDoc {
