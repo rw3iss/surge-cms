@@ -142,22 +142,6 @@ const EventsBlockEdit: Component<{
                         <For each={LAYOUTS}>{(l,) => <option value={l.value}>{l.label}</option>}</For>
                     </select>
                 </FormField>
-                <FormField label="Heading" tooltip="Optional title above the cards. The buttons set its alignment (default center).">
-                    <div class="events-block-edit__heading">
-                        <CommitInput
-                            value={d().heading ?? ''}
-                            placeholder="e.g. Upcoming events"
-                            onDraft={setHeadingDraft}
-                            onCommit={(v,) => set({ heading: v.trim() || undefined, },)}
-                        />
-                        <AlignButtons
-                            label="Heading alignment"
-                            value={d().headingAlign}
-                            disabled={!headingDraft().trim()}
-                            onChange={(v,) => set({ headingAlign: v === 'center' ? undefined : v, },)}
-                        />
-                    </div>
-                </FormField>
             </div>
             <Show when={d().layout === 'grid'}>
                 <div class="admin-form-row events-block-edit__row">
@@ -194,6 +178,23 @@ const EventsBlockEdit: Component<{
                     />
                 </FormField>
             </div>
+
+            <FormField label="Heading" tooltip="Optional title above the cards. The buttons set its alignment (default center).">
+                <div class="events-block-edit__heading">
+                    <CommitInput
+                        value={d().heading ?? ''}
+                        placeholder="e.g. Upcoming events"
+                        onDraft={setHeadingDraft}
+                        onCommit={(v,) => set({ heading: v.trim() || undefined, },)}
+                    />
+                    <AlignButtons
+                        label="Heading alignment"
+                        value={d().headingAlign}
+                        disabled={!headingDraft().trim()}
+                        onChange={(v,) => set({ headingAlign: v === 'center' ? undefined : v, },)}
+                    />
+                </div>
+            </FormField>
 
             <FormField label="Show on each card">
                 <div class="events-block-edit__toggles">
