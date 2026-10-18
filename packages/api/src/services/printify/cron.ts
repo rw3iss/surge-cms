@@ -43,13 +43,8 @@ async function tick(): Promise<void> {
         }
     }
 
-    // 1c) Any OTHER pull-tracking supplier (provider contract `reconcileOrders`).
-    try {
-        const { runProviderReconciles, } = await import('../shop/fulfilmentSync.js');
-        await runProviderReconciles({ sinceDays: CRON_RECONCILE_DAYS, trigger: 'cron', exclude: ['printify',], },);
-    } catch (err) {
-        logger.warn(`provider order reconcile failed: ${(err as Error).message}`,);
-    }
+    // Other pull-tracking suppliers reconcile on their own cron
+    // (`shop:fulfilment-sync`, services/shop/fulfilmentSync.ts).
 
     const cfg = await getPrintifyConfig();
     if (!cfg) return;

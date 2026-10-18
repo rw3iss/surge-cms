@@ -15,6 +15,7 @@ import { cms, } from '../services/cmsClient';
 import { useAuth, } from '../stores/auth';
 import { isFeatureEnabled, siteSettings, } from '../stores/siteSettings';
 import OrderTracking from '../components/shop/OrderTracking';
+import ProfileOrderDetails from '../components/profile/ProfileOrderDetails';
 import './Profile.scss';
 
 const BIO_MAX = 250;
@@ -288,6 +289,20 @@ const Profile: Component = () => {
     };
 
     // ── Orders (loaded only when the Orders tab is opened) ──
+    /** Orders whose items / downloads / totals are open (detail fetched on open). */
+    const [openOrders, setOpenOrders,] = createSignal<ReadonlySet<string>>(new Set(),);
+    const toggleOrder = (id: string,) => setOpenOrders((cur,) => {
+        const next = new Set(cur,);
+        if (next.has(id,)) next.delete(id,); else next.add(id,);
+        return next;
+    },);
+    // Shipping breakdown for the totals — one read, shared by every open order.
+    const [shopPublic,] = createResource(
+        () => (tab() === 'orders' && openOrders().size > 0 ? 'load' : null),
+        async () => {
+            try { return await cms.shop.settings.getPublic(); } catch { return null; }
+        },
+    );
     const [orders] = createResource(
         () => (tab() === 'orders' && auth.isAuthenticated ? 'load' : null),
         async () => {
@@ -740,6 +755,17 @@ const Profile: Component = () => {
                                                     </div>
                                                 </A>
                                                 <OrderTracking order={o} compact class="profile__order-tracking" />
+                                                <button
+                                                    type="button"
+                                                    class="profile__order-toggle"
+                                                    aria-expanded={openOrders().has(o.id,)}
+                                                    onClick={() => toggleOrder(o.id,)}
+                                                >
+                                                    {openOrders().has(o.id,) ? 'Hide items' : 'Items, downloads & totals'}
+                                                </button>
+                                                <Show when={openOrders().has(o.id,)}>
+                                                    <ProfileOrderDetails orderId={o.id} shopSettings={shopPublic()} />
+                                                </Show>
                                                 </li>
                                             )}
                                         </For>

@@ -90,6 +90,17 @@ export const CACHE_KEYS = {
     // catalogue (membership + /subscribe). 1 h; cleared when a tier changes.
     membershipStripePrices: 'membership:stripe-prices',
 
+    // `subscriptionAccess.getPolicy()` (read on every /auth/me). Under the
+    // settings namespace so a Users-settings save (invalidateSettingsCache)
+    // drops it; a tier save/delete (ranks move) drops it via
+    // invalidateMembershipCache.
+    subscriptionPolicy: 'settings:subscription-policy',
+
+    // Where one media item is used (mediaUsage.findMediaUsageCached), 30 s.
+    // DISPLAY only — the delete guard always scans. Dropped on content writes.
+    mediaUsage: (mediaId: string,) => `media:usage:${mediaId}`,
+    mediaUsageAll: 'media:usage:*',
+
     // Public post counts per type (anonymous view; cleared with posts:*).
     postTypeCountsAnon: 'posts:type-counts:anon',
 
@@ -206,6 +217,11 @@ async function invalidateMirroredEntityCache(type: string,): Promise<void> {
     await delPattern(`${CACHE_KEYS.entityPrefix(type,)}*`,);
 }
 
+/** Content that may reference media changed: drop every cached usage list. */
+export async function invalidateMediaUsageCache(): Promise<void> {
+    await delPattern(CACHE_KEYS.mediaUsageAll,);
+}
+
 export async function invalidatePageCache(pageId?: string,): Promise<void> {
     if (pageId) {
         await del(`page:${pageId}`,);
@@ -223,6 +239,7 @@ export async function invalidatePageCache(pageId?: string,): Promise<void> {
     await delPattern('pages:*',);
     await delPattern('navigation:*',);
     await invalidateMirroredEntityCache('page',);
+    await invalidateMediaUsageCache();
     // Invalidate SSR cache for all public pages when any page changes
     await delPattern(CACHE_KEYS.ssrAll,);
     await invalidateSitemapCache();
@@ -239,6 +256,7 @@ export async function invalidatePostCache(postId?: string,): Promise<void> {
     await delPattern('post:slug:*',);
     await delPattern('posts:*',);
     await invalidateMirroredEntityCache('post',);
+    await invalidateMediaUsageCache();
     await delPattern(CACHE_KEYS.ssrAll,);
     await invalidateSitemapCache();
 }
@@ -256,6 +274,7 @@ export async function invalidateCampaignCache(campaignId?: string,): Promise<voi
     await delPattern('campaign:slug:*',);
     await delPattern('donations:*',);
     await invalidateMirroredEntityCache('campaign',);
+    await invalidateMediaUsageCache();
     await delPattern(CACHE_KEYS.ssrAll,);
     await invalidateSitemapCache();
 }
@@ -271,17 +290,20 @@ export async function invalidateMediaConsumersCache(): Promise<void> {
     await invalidateCampaignCache();
     await delPattern('entity:*',);
     await invalidateGalleryCache();
+    await invalidateMediaUsageCache();
 }
 
 /** A gallery item, the gallery settings, or media behind an item changed. */
 export async function invalidateGalleryCache(): Promise<void> {
     await delPattern(`${CACHE_KEYS.galleryPrefix}*`,);
     await delPattern('entity:gallery_item:*',);
+    await invalidateMediaUsageCache();
 }
 
 /** A subscription tier changed: drop the cached Stripe price/description catalogue. */
 export async function invalidateMembershipCache(): Promise<void> {
     await del(CACHE_KEYS.membershipStripePrices,);
+    await del(CACHE_KEYS.subscriptionPolicy,);
 }
 
 /** A comment / thread changed: drop every cached anonymous discovery list. */
@@ -326,11 +348,13 @@ export async function invalidateMailTemplatesCache(templateId?: string,): Promis
     if (templateId) await del(`mail:template:${templateId}`,);
     await del('mail:templates',);
     await delPattern('mail:templates:*',);
+    await invalidateMediaUsageCache();
 }
 
 export async function invalidateSettingsCache(): Promise<void> {
     await delPattern(CACHE_KEYS.settingsAll,);
     await delPattern('navigation:*',);
+    await invalidateMediaUsageCache();
     // SSR HTML cache contains site name / logo / description from settings
     await delPattern(CACHE_KEYS.ssrAll,);
     // In-process site meta cache used by SSR route resolver
@@ -368,6 +392,7 @@ export async function invalidateFontsCache(): Promise<void> {
 /** Drop all cached list + record reads for one generic entity type. */
 export async function invalidateEntityCache(type: string,): Promise<void> {
     await delPattern(`${CACHE_KEYS.entityPrefix(type,)}*`,);
+    await invalidateMediaUsageCache();
 }
 
 /** Drop the cached entity-type registry projection + all per-type reads. */
@@ -379,11 +404,13 @@ export async function invalidateEntityTypesCache(): Promise<void> {
 /** Drop the cached content-block-template list for one entity type. */
 export async function invalidateContentBlockTemplatesCache(type: string,): Promise<void> {
     await del(CACHE_KEYS.contentBlockTemplatesByType(type,),);
+    await invalidateMediaUsageCache();
 }
 
 /** Drop the cached list of entity-less (global) templates. */
 export async function invalidateContentBlockTemplatesGlobalCache(): Promise<void> {
     await del(CACHE_KEYS.contentBlockTemplatesGlobal,);
+    await invalidateMediaUsageCache();
 }
 
 /** Swatches persist under the settings namespace (settings:site_colors). This
@@ -413,6 +440,7 @@ export async function invalidateShopCatalogCache(): Promise<void> {
 }
 
 export async function invalidateShopProductCache(): Promise<void> {
+    await invalidateMediaUsageCache();
     await delPattern(`${CACHE_KEYS.shopProductsPrefix}*`,);
     await delPattern(`${CACHE_KEYS.shopProductSlugPrefix}*`,);
     // Products are ALSO an entity type, read through `entity:product:*` by the
@@ -516,6 +544,7 @@ export const cache = {
     invalidatePostCache,
     invalidateCampaignCache,
     invalidateMediaConsumersCache,
+    invalidateMediaUsageCache,
     invalidateGalleryCache,
     invalidateVideoCache,
     invalidateMembershipCache,

@@ -4,6 +4,9 @@ import type {
     EventsSettings, EventTicketTier,
 } from '@sitesurge/types';
 import type { Paginated, } from '@sitesurge/types';
+import type {
+    EventsPushSubscribeBody, EventsPushSubscribeResponse, EventsUnsubscribeResponse,
+} from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /**
@@ -132,6 +135,19 @@ export class EventsModule extends ModuleBase {
         subscriber: unknown; pendingConfirmation?: boolean;
     }> {
         return this.mutate('POST', '/events/subscribe', { body, },);
+    }
+
+    /** POST /events/unsubscribe — stop event notifications, with the token
+     *  from a notification email's footer. */
+    unsubscribe(token: string,): Promise<EventsUnsubscribeResponse> {
+        return this.mutate<EventsUnsubscribeResponse>('POST', '/events/unsubscribe', { body: { token, }, },);
+    }
+
+    /** POST /events/push/subscribe — register a browser Web Push endpoint (the
+     *  `PushSubscription.toJSON()` shape; `email` ignored when signed in).
+     *  `pushEnabled: false` = the server has no VAPID keys. */
+    subscribePush(body: EventsPushSubscribeBody,): Promise<EventsPushSubscribeResponse> {
+        return this.mutate<EventsPushSubscribeResponse>('POST', '/events/push/subscribe', { body, },);
     }
 
     /** PUT /events/tickets/:code/check-in (staff) — check a ticket in, or undo it. */

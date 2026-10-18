@@ -17,6 +17,7 @@ export * from './pageTitle';
 export * from './recurrence';
 export * from './roles';
 export * from './scopeCss';
+export * from './cssSafety';
 export * from './siteVariables';
 export * from './socialDisplay';
 export * from './timezones';

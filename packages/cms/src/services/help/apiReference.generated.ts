@@ -1872,6 +1872,96 @@ export const API_MODULES: ApiModuleDoc[] = [
                     "cms.components.saveBlocks"
                 ],
                 "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/templates/:id/revisions",
+                "absolutePath": "/api/v1/components/templates/:id/revisions",
+                "auth": "admin",
+                "summary": "List a block template's (or component's) saved revisions.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.components.revisions"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/templates/:id/revisions",
+                "absolutePath": "/api/v1/components/templates/:id/revisions",
+                "auth": "admin",
+                "summary": "Snapshot the block template's current state as a revision.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.components.snapshotRevision"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/templates/:id/revisions/:version",
+                "absolutePath": "/api/v1/components/templates/:id/revisions/:version",
+                "auth": "admin",
+                "summary": "Fetch one block-template revision snapshot.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string",
+                            "required": true
+                        },
+                        {
+                            "name": "version",
+                            "type": "integer",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.components.getRevision"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/templates/:id/revisions/:version/restore",
+                "absolutePath": "/api/v1/components/templates/:id/revisions/:version/restore",
+                "auth": "admin",
+                "summary": "Restore a block-template revision — its settings and whole block tree (snapshots current state first).",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string",
+                            "required": true
+                        },
+                        {
+                            "name": "version",
+                            "type": "integer",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.components.restoreRevision"
+                ],
+                "sdkStatus": "method"
             }
         ]
     },
@@ -3565,8 +3655,10 @@ export const API_MODULES: ApiModuleDoc[] = [
                         }
                     ]
                 },
-                "sdk": [],
-                "sdkStatus": "covered"
+                "sdk": [
+                    "cms.events.unsubscribe"
+                ],
+                "sdkStatus": "method"
             },
             {
                 "method": "POST",
@@ -3593,8 +3685,10 @@ export const API_MODULES: ApiModuleDoc[] = [
                         }
                     ]
                 },
-                "sdk": [],
-                "sdkStatus": "covered"
+                "sdk": [
+                    "cms.events.subscribePush"
+                ],
+                "sdkStatus": "method"
             },
             {
                 "method": "GET",
@@ -4432,6 +4526,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                         {
                             "name": "approval",
                             "type": "'pending' | 'approved' | 'rejected'",
+                            "required": false
+                        },
+                        {
+                            "name": "verified",
+                            "type": "'verified' | 'unverified'",
                             "required": false
                         }
                     ]
@@ -6336,6 +6435,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                         {
                             "name": "customFields",
                             "type": "object",
+                            "required": false
+                        },
+                        {
+                            "name": "website",
+                            "type": "string",
                             "required": false
                         }
                     ]
@@ -17052,4 +17156,4 @@ export const API_MODULES: ApiModuleDoc[] = [
 ];
 
 export const API_MODULE_COUNT = 55;
-export const API_ROUTE_COUNT = 589;
+export const API_ROUTE_COUNT = 593;

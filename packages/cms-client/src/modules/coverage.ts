@@ -555,6 +555,10 @@ export const ROUTE_COVERAGE: string[] = [
     'GET /api/v1/components/templates/:id/blocks',
     'GET /api/v1/components/templates/:id/client.js',
     'PUT /api/v1/components/templates/:id/blocks',
+    'GET /api/v1/components/templates/:id/revisions',
+    'POST /api/v1/components/templates/:id/revisions',
+    'GET /api/v1/components/templates/:id/revisions/:version',
+    'POST /api/v1/components/templates/:id/revisions/:version/restore',
 
     'GET /api/v1/entities/:type/templates',
     'GET /api/v1/entities/:type/templates/:id',

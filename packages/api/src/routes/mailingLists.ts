@@ -186,6 +186,7 @@ const subscribeSchema = z.object({
     name: z.string().optional(),
     phone: z.string().optional(),
     customFields: z.record(z.string(), z.unknown(),).optional(),
+    website: z.string().max(500,).optional(),
 },) satisfies z.ZodType<ListSubscribeBody>;
 
 export const listsPublicRoutes = [
@@ -194,9 +195,11 @@ export const listsPublicRoutes = [
         method: 'post', path: '/:slug/subscribe', auth: 'optional',
         summary: 'Public subscribe to a list by slug (double-opt-in aware).',
         input: { params: z.object({ slug: z.string(), },), body: subscribeSchema, },
-        handler: ({ params, body, user, },) => mailingLists.publicSubscribe(params.slug, body, {
+        handler: ({ params, body, user, req, },) => mailingLists.publicSubscribe(params.slug, body, {
             userId: user?.id,
             userEmail: user?.email,
+            // Per-IP sign-up limit (the notice itself is throttled per address).
+            ip: req.ip ?? null,
         },),
     },),
 

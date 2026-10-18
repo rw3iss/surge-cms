@@ -49,8 +49,22 @@ await cms.entityTypes.remove('recipe');   // custom types only; drops the table
 
 ## Instances (generic CRUD)
 
-`cms.entities` reads/writes records of any type. Reads are `optional`-auth
-(anonymous sees published records for status-bearing types); writes are `staff`.
+`cms.entities` reads/writes records of any type. Reads are `optional`-auth;
+writes are `staff`.
+
+**Public-read rules** (`packages/api/src/entities/publicRead.ts`) — a non-staff
+read follows the same rules as the bespoke routes, so `/entities` is not a side
+door:
+
+| Rule | List | Single read |
+|------|------|-------------|
+| `draft` / `archived` (any type with a status) | left out in SQL (totals stay right); asking for `status=draft` is refused | 404 |
+| `post` subscription gate (`services/postGate`) | hidden posts left out in SQL | locked `content` replaced by its sample; `gate` stamped |
+| `page` `access_level` (private / member / patron, `checkContentAccess`) | left out (the total may over-count) | 404 |
+| private types (`contact`, `user`) | 404 | 404 |
+
+Staff and API keys see every record. Callers with no viewer (SSR, mail, the
+backend template runtime) read as ANONYMOUS.
 
 ```ts
 const { data, meta } = await cms.entities.list('recipe', {
@@ -104,7 +118,21 @@ const tpls = await cms.contentBlockTemplates.list('recipe');
 const tpl  = await cms.contentBlockTemplates.create('recipe', { name: 'Recipe card', mode: 'single' });
 await cms.contentBlockTemplates.saveBlocks('recipe', tpl.id, [/* block subtree */]);
 const withBlocks = await cms.contentBlockTemplates.getOne('recipe', tpl.id);
+
+// Or create/update meta + blocks in ONE transaction:
+await cms.contentBlockTemplates.create('recipe', { name: 'Recipe row', mode: 'list', blocks: [/* … */] });
+await cms.contentBlockTemplates.update('recipe', tpl.id, { name: 'Recipe card v2', blocks: [/* … */] });
 ```
+
+- `blocks` (`ContentBlockTemplateBlockInput[]`) is optional on create/update;
+  when present it replaces the subtree in the same transaction as the row.
+- A template GET returns the type's `singularVar` / `pluralVar`.
+- Staff list reads carry `usages` (`TemplateUsage[]`: `{ kind: page | post |
+  mail_template | template, id, title, blocks }`) + `usageCount` — the admin
+  shows them before a delete (type-the-name confirm).
+- Templates and components are versioned: `cms.components.revisions /
+  getRevision / restoreRevision / snapshotRevision` (`/components/templates/:id/revisions`,
+  id-keyed, so they serve entity-bound templates too).
 
 ## Freshness: where entity reads are cached, and where they are not
 

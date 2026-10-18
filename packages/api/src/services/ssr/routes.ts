@@ -22,7 +22,7 @@ import {
     truncateText,
 } from './schema';
 import { resolveContentForSsr, } from './templateRuntime';
-import { preResolveGalleryBlocks, } from '../gallery/serverRender';
+import { expandSsrDynamicBlocks, } from './expandBlocks';
 import { resolveStaticMeta, } from './staticMeta';
 import { gateFor, isHiddenFor, tiersById, } from '../postGate/index';
 import { samplePostContent, } from '../postGate/samples';
@@ -252,7 +252,8 @@ async function loadPageBlocks(
         content: await resolveContentForSsr(b.content, templateEntity,),
     })),);
     // Gallery blocks: resolve their items (anonymous view) for the sync emitter.
-    flatBlocks = await preResolveGalleryBlocks(flatBlocks, 'site',);
+    // Gallery items (anonymous view) + entity/component subtrees for the sync emitters.
+    flatBlocks = await expandSsrDynamicBlocks(flatBlocks,);
     return assembleSsrBlockTree(flatBlocks,);
 }
 
@@ -312,7 +313,7 @@ async function loadPostBlocks(
         ...b,
         content: await resolveContentForSsr(b.content, templateEntity,),
     })),);
-    return preResolveGalleryBlocks(resolved, 'site',);
+    return expandSsrDynamicBlocks(resolved,);
 }
 
 /**
@@ -710,7 +711,7 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
                 ...b,
                 content: await resolveContentForSsr(b.content, { page, },),
             })),);
-            flatBlocks = await preResolveGalleryBlocks(flatBlocks, 'site',);
+            flatBlocks = await expandSsrDynamicBlocks(flatBlocks,);
             // Assemble the flat list into a tree so container blocks recurse.
             const blocks = assembleSsrBlockTree(flatBlocks,);
 

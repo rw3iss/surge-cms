@@ -83,6 +83,33 @@ import { FormField, FormSection } from '../../components/admin/forms';
 - **Do NOT hand-roll a form field with an unstyled `<label>`.** If you catch a
   page doing so (raw labels look large/unstyled), convert it to `FormField`.
 
+## Text inputs — `CommitInput` (commit on blur)
+
+Text, number, date and textarea fields **commit on blur** (and Enter on a
+single-line field), never per keystroke. Use **`CommitInput`**
+(`components/admin/forms`, exported from the barrel next to `FormField`)
+instead of hand-rolling the local-draft pattern:
+
+```tsx
+import { CommitInput, FormField } from '../../components/admin/forms';
+
+<FormField label="Height">
+  <CommitInput value={props.height} onCommit={(v) => update({ height: v })}
+    validate={(v) => (v && !cssLength(v) ? 'Not a CSS length' : null)} />
+</FormField>
+```
+
+- It keeps a local draft, lifts it through `onCommit`, and syncs an outside
+  change only while the field is NOT focused — so a parent re-render never
+  moves the caret.
+- `validate` returns a message to show under the field (the draft is kept and
+  nothing is committed); `multiline` + `commitOnEnter` for a textarea; `trim`
+  defaults on for single-line fields; `type="number"` commits the string.
+- The one exception is a real search-as-you-type box — it uses `onInput` and
+  says so in a comment.
+- Editable LISTS of fields belong in `createStore` (patch in place), or `<For>`
+  remounts every row on each change and the focused input is lost.
+
 ## Multi-select dropdowns
 
 **Picking several values from a known, static list of options uses
@@ -168,6 +195,28 @@ with `gap: $spacing-md`, e.g.
 ```
 
 A modal whose title touches the frame's edge is missing this.
+
+### Focus trap — `useFocusTrap`
+
+`ModalShell` keeps keyboard focus inside the open panel: Tab / Shift+Tab wrap
+inside it, and closing returns focus to the element that was focused when it
+opened. It uses the shared **`hooks/useFocusTrap`**:
+
+```tsx
+import { useFocusTrap } from '../../hooks/useFocusTrap';
+
+let panel: HTMLDivElement | undefined;
+useFocusTrap(() => panel, () => props.open);   // second arg optional (default: always on)
+```
+
+- Traps form a stack and only the TOP one handles Tab, so a modal opened over
+  another (the media viewer over the media picker) keeps focus.
+- It does not move focus on open — an autofocused field keeps it; the first Tab
+  from outside lands inside the panel.
+- A full-screen dialog with its own keydown handler (the gallery lightbox) can
+  call `trapTab(root, event)` directly.
+- Any dialog built WITHOUT `ModalShell` must use this hook — `aria-modal` alone
+  does not stop Tab leaving the dialog.
 
 ## Sticky page header
 

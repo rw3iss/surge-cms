@@ -11,7 +11,7 @@
  * `fallbackSrc` plays as a plain file instead.
  */
 import { A, } from '@solidjs/router';
-import type { MediaPlayback, } from '@sitesurge/types';
+import { formatFileSize, type MediaPlayback, } from '@sitesurge/types';
 import { Component, createEffect, createMemo, createSignal, For, type JSX, on, onCleanup, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import VideoPlayer from './VideoPlayer';
@@ -39,12 +39,6 @@ export interface MediaVideoProps {
 }
 
 type Chosen = 'full' | 'teaser' | 'file' | null;
-
-function formatBytes(n: number | null,): string {
-    if (!n) return '';
-    const mb = n / 1024 / 1024;
-    return mb >= 1024 ? `${(mb / 1024).toFixed(1,)} GB` : `${Math.max(1, Math.round(mb,),)} MB`;
-}
 
 const MediaVideo: Component<MediaVideoProps> = (props,) => {
     const [fetched, setFetched,] = createSignal<MediaPlayback | null>(null,);
@@ -245,7 +239,7 @@ const MediaVideo: Component<MediaVideoProps> = (props,) => {
                                 <For each={pb()!.downloads}>
                                     {(d,) => (
                                         <option value={d.url}>
-                                            {d.quality}{d.bytes ? ` (${formatBytes(d.bytes,)})` : ''}
+                                            {d.quality}{d.bytes ? ` (${formatFileSize(Number(d.bytes,),)})` : ''}
                                         </option>
                                     )}
                                 </For>

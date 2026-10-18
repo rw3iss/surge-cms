@@ -53,8 +53,11 @@ const readOnly = async (): Promise<never> => {
 };
 
 registerEntityDataProvider('gallery_item', {
-    async list(q: EntityQuery, opts: { admin?: boolean; },) {
-        const r = await list(toGalleryQuery(q,), opts.admin ? { audience: 'admin', } : {},);
+    async list(q: EntityQuery, opts: { admin?: boolean; audience?: 'email'; },) {
+        // `email` = public MEDIA only, in-site gate ignored — the same rule an
+        // items-fed email gallery uses, so a query-fed slot matches it.
+        const audience = opts.admin ? { audience: 'admin' as const, } : opts.audience === 'email' ? { audience: 'email' as const, } : {};
+        const r = await list(toGalleryQuery(q,), audience,);
         return { items: r.items.map(asRecord,), total: r.total, };
     },
     async getById(id: string,) {

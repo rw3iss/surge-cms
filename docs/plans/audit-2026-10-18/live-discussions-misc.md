@@ -421,17 +421,21 @@ No feature-tagged migrations, so no registry change.
 - **mailingLists.ts / routes/mailingLists.ts** (S8): pass the client IP into
   `publicSubscribe` and add a per-IP limit (`discussions/spam.allow('ip:<ip>:sub', 5, 600)`)
   plus a honeypot field (`website`) on the public subscribe body/form. The notice itself
-  is already throttled per address + site-wide.
+  is already throttled per address + site-wide. — **DONE (round 2)**: route passes `req.ip`;
+  `publicSubscribe` rate-limits `ip:<ip>:sub` 5/600 s (spam.rateLimit, fails open; internal
+  callers with no ip skip it) and a filled `website` returns a normal-looking result storing
+  nothing; `ListSubscribeBody.website` added. No SPA form posts to this endpoint (forms use
+  the subscribe action server-side), so there was no public form to update.
 - **components/admin/appearance/ColorPicker.tsx** (A1): could share
   `components/admin/settings/appearance/colorHex.ts` (`isValidHex`), but its own regex
-  accepts no 8-digit hex — decide whether alpha should be accepted there first.
+  accepts no 8-digit hex — decide whether alpha should be accepted there first. **DONE** (round 2: ColorPicker imports `isValidHex` from `colorHex.ts`; 8-digit `#rrggbbaa` is now accepted (swatches already store it), input `maxLength` 9; test `colorHex.test.ts`)
 - **docs/api-manifest.json + docs/API.md**: run `npm run docs:api`, then
   `npm run docs:api-ref -w @sitesurge/admin`. New routes: `GET /discussions/comments/:id/locate`,
   `GET /posts/:id/live/chat`, `GET /posts/:id/live/chat/transcript`; `GET /discussions/comments`
   takes `root`. Until then `sdkModules.test.ts` "resolves the API route of every network
   method" fails (it also lists other areas' new methods).
 - **pages/admin/comments/CommentsAdmin.tsx**: optional — default the scope tab to
-  "forum" for a viewer with only `forum:moderate` (the server already scopes it).
+  "forum" for a viewer with only `forum:moderate` (the server already scopes it). **DONE** (round 2: `pages/admin/comments/moderationScope.ts` — a viewer whose `/permissions/me` has `forum:moderate` but not `discussions:moderate` opens on the forum view; test)
 
 ### Docs to update
 

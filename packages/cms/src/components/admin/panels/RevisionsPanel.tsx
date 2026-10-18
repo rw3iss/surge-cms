@@ -44,6 +44,12 @@ const HISTORY: Record<RevisionEntityType, {
         restore: (id, v,) => cms.mailTemplates.restoreRevision(id, v,),
         noun: 'template',
     },
+    // Entity templates AND components (one table, id-keyed routes).
+    content_block_template: {
+        list: (id,) => cms.components.revisions(id,),
+        restore: (id, v,) => cms.components.restoreRevision(id, v,),
+        noun: 'template',
+    },
 };
 
 const RevisionsPanel: Component<RevisionsPanelProps> = (props,) => {

@@ -1,5 +1,6 @@
 import { Component, JSX, Show, onCleanup, onMount, } from 'solid-js';
 import { Portal, } from 'solid-js/web';
+import { useFocusTrap, } from '../../../hooks/useFocusTrap';
 
 export interface ModalShellProps {
     /** Controls mount/visibility. */
@@ -35,6 +36,10 @@ const ModalShell: Component<ModalShellProps> = (props,) => {
     onMount(() => document.addEventListener('keydown', onKeyDown,),);
     onCleanup(() => document.removeEventListener('keydown', onKeyDown,),);
 
+    // Tab stays inside the panel while open; closing returns focus to the opener.
+    let panel: HTMLDivElement | undefined;
+    useFocusTrap(() => panel, () => props.open,);
+
     return (
         <Show when={props.open}>
             <Portal>
@@ -45,6 +50,7 @@ const ModalShell: Component<ModalShellProps> = (props,) => {
                     }}
                 >
                     <div
+                        ref={panel}
                         class={`modal-shell modal-shell--${size()} ${props.class ?? ''}`}
                         role="dialog"
                         aria-modal="true"

@@ -186,6 +186,11 @@ export interface ListSubscribeBody {
     name?: string;
     phone?: string;
     customFields?: Record<string, unknown>;
+    /**
+     * Honeypot. A sign-up form renders it as a hidden field and sends it EMPTY;
+     * a bot that fills it gets a normal-looking answer and nothing is stored.
+     */
+    website?: string;
 }
 
 /**

@@ -9,6 +9,7 @@ import {
     swatchRefId,
 } from '../../../services/colorResolver';
 import { loadSwatches, swatches, } from '../../../services/siteColors';
+import { isValidHex, } from '../settings/appearance/colorHex';
 import './ColorPicker.scss';
 
 interface ColorPickerProps {
@@ -34,8 +35,12 @@ interface ColorPickerProps {
     allowCustomValue?: boolean;
 }
 
-const HEX_RE = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
-function isValidHex(hex: string,): boolean { return HEX_RE.test(hex,); }
+/*
+ * Hex validation is the shared Appearance rule (`colorHex.ts`): #rgb, #rrggbb
+ * and #rrggbbaa. The 8-digit (alpha) form is accepted here too — swatches
+ * already store it and every renderer passes the value through as CSS, so a
+ * picker refusing what the palette holds only made a pasted swatch value fail.
+ */
 
 /** True for empty / "no color" markers. Mirrors `colorResolver.isEmptyColor`
  *  but inlined here so we don't need to import for a 4-line check. */
@@ -177,7 +182,7 @@ export default function ColorPicker(props: ColorPickerProps,) {
                         : props.allowCustomValue
                         ? '#hex, rgba(), gradient…'
                         : (props.clearable ? 'None' : '#ffffff')}
-                    maxLength={props.allowCustomValue ? undefined : 7}
+                    maxLength={props.allowCustomValue ? undefined : 9}
                     title={isRef()
                         ? `Linked to swatch '${refId()}' — type a ${props.allowCustomValue ? 'value' : 'hex'} to unlink`
                         : undefined}
@@ -255,7 +260,7 @@ export default function ColorPicker(props: ColorPickerProps,) {
                             value={isRef() || isCleared() ? '' : (props.value || '')}
                             onChange={(e,) => handleTextInput(e.currentTarget.value,)}
                             placeholder={props.allowCustomValue ? 'linear-gradient(…), rgba(…), #hex' : '#000000'}
-                            maxLength={props.allowCustomValue ? undefined : 7}
+                            maxLength={props.allowCustomValue ? undefined : 9}
                         />
                         <Show when={props.allowCustomValue}>
                             <small class="color-picker__custom-hint">

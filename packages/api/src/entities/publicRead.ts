@@ -8,6 +8,12 @@
  *  - **Status.** A non-staff caller never sees a `draft` or `archived` record —
  *    not on a list (an extra SQL condition, so totals stay right), not on a
  *    single read (404), not by asking for `status=draft` explicitly.
+ *  - **Page access.** A `page` read follows `GET /pages/slug/:slug`: a private
+ *    page needs a signed-in viewer, and a page whose `access_level` is
+ *    member/patron needs a viewer who passes `checkContentAccess`. A page the
+ *    viewer may not open is left out of a list and 404s on a single read (a
+ *    page's body lives in its blocks, so only metadata was ever exposed here,
+ *    but the rule should not differ from the bespoke route).
  *  - **Post subscription gate.** A `post` read is run through `services/postGate`
  *    exactly like `GET /posts`: hidden posts are left out in SQL, a locked post's
  *    `content` is replaced by its sample (or nothing), and `gate` is stamped.
@@ -20,6 +26,8 @@ import { query, } from '../db';
 import { gateFor, hiddenClause, isHiddenFor, tiersById, type ViewerRank, viewerRank, } from '../services/postGate';
 import { samplePostContent, } from '../services/postGate/samples';
 import type { SqlCondition, } from './virtualFilters';
+import { checkContentAccess, type ContentAccessLevel, } from '../middleware/content-access';
+import { isStaffRole, } from '@sitesurge/types';
 
 export type EntityViewer = Pick<User, 'id' | 'role'> | null | undefined;
 
@@ -107,6 +115,33 @@ export async function gatePostRecords(records: EntityRecord[], rank: ViewerRank,
         out.push(rec,);
     }
     return out;
+}
+
+/** Types whose public read applies the page access rule. */
+export function isAccessControlledType(typeKey: string,): boolean {
+    return typeKey === 'page';
+}
+
+function pick(rec: EntityRecord, camel: string, snake: string,): unknown {
+    const r = rec as Record<string, unknown>;
+    return r[camel] !== undefined ? r[camel] : r[snake];
+}
+
+/** May `viewer` open this page record (private + access_level, as GET /pages/slug/:slug)? */
+export async function pageAllows(rec: EntityRecord, viewer: EntityViewer,): Promise<boolean> {
+    if (viewer && isStaffRole(viewer.role,)) return true;
+    if (pick(rec, 'isPrivate', 'is_private',) === true && !viewer) return false;
+    const level = (pick(rec, 'accessLevel', 'access_level',) || 'public') as ContentAccessLevel;
+    if (level === 'public') return true;
+    const res = await checkContentAccess(level, (viewer ?? null) as User | null,).catch(() => ({ allowed: false, }));
+    return res.allowed;
+}
+
+/** The page records `viewer` may open, in order. */
+export async function filterPageRecords(records: EntityRecord[], viewer: EntityViewer,): Promise<EntityRecord[]> {
+    if (records.length === 0) return records;
+    const allowed = await Promise.all(records.map((r,) => pageAllows(r, viewer,)),);
+    return records.filter((_, i,) => allowed[i],);
 }
 
 /** True when a non-staff caller may read this record at all (status rule). */

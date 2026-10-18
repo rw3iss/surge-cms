@@ -18,5 +18,7 @@ describe('BLOCK_CONFIGURED', () => {
         expect(isBlockConfigured('gallery', { source: 'query', },),).toBe(true,);
         expect(isBlockConfigured('image', { images: [{ url: 'a.jpg', },], },),).toBe(true,);
         expect(isBlockConfigured('rich_text', {},),).toBe(false,);
+        expect(isBlockConfigured('event', { showImage: true, },),).toBe(false,);
+        expect(isBlockConfigured('event', { eventId: 'e1', },),).toBe(true,);
     },);
 },);

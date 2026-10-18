@@ -63,6 +63,10 @@ export function assembleSsrBlockTree(flat: SsrBlockInput[],): SsrBlockInput[] {
 export const renderChildren: SsrBlockRenderer = (block,) =>
     (block.children ?? []).map((c,) => renderBlockForSeo(c,)).join('');
 
+/** A block whose content is a resolved subtree: its children, else a naming comment. */
+export const renderChildrenOrNote: SsrBlockRenderer = (block,) =>
+    (block.children?.length ? renderChildren(block,) : notIndexable(block,));
+
 /** Dynamic blocks: emit an HTML comment naming the type (matches the
  *  old explicit `case 'form': … return '<!-- … -->'` arms). Bots can't
  *  index runtime feeds; the SPA renders them on mount. */
@@ -87,7 +91,7 @@ export const SSR_BLOCK_RENDERERS: Record<BlockType, SsrBlockRenderer> = {
     post_list: notIndexable,
     carousel: notIndexable,
     // Figures of the items resolved for the anonymous visitor by the SSR
-    // pre-pass (preResolveGalleryBlocks in ssr/routes).
+    // pre-pass (expandSsrDynamicBlocks in ssr/expandBlocks.ts).
     gallery: renderGalleryBlock,
     campaign: notIndexable,
     // An events block carries title/date/location — strong local-relevance
@@ -101,15 +105,11 @@ export const SSR_BLOCK_RENDERERS: Record<BlockType, SsrBlockRenderer> = {
     // caller). Childless containers emit nothing.
     group: renderChildren,
     group_item: renderChildren,
-    // `entity` renders a content-block template with a bound entity — resolved
-    // client-side; the crawler sees a naming comment (like other dynamic blocks).
-    entity: notIndexable,
-    // `template` references a reusable component and renders its block subtree.
-    // Deliberately NOT indexed rather than accidentally so: ssr/routes.ts feeds
-    // a FLAT block list, so a subtree's children are not walked here (the same
-    // pre-existing gap `group` has). Emitting a partial render would be worse
-    // than emitting none — fix the flat feed first, then revisit this arm.
-    template: notIndexable,
+    // `entity` / `template` — the SSR pre-pass (`ssr/expandBlocks.ts`, the
+    // mail expansion with anonymous-site options) attaches the resolved
+    // template subtree as children; unresolved → a naming comment.
+    entity: renderChildrenOrNote,
+    template: renderChildrenOrNote,
 };
 
 /** Server-side block renderer for SSR. Dispatches by type; unknown

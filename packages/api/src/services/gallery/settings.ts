@@ -1,6 +1,6 @@
 /** Gallery settings (`gallery_settings`) + the viewer-shaped public config. */
 import {
-    DEFAULT_GALLERY_APPEARANCE, DEFAULT_GALLERY_SETTINGS, type GalleryAppearance, type GalleryPublicConfig, type GallerySettings,
+    DEFAULT_GALLERY_APPEARANCE, DEFAULT_GALLERY_SETTINGS, type GalleryAppearance, type GalleryPublicConfig, type GallerySettings, isSafeCssValue,
 } from '@sitesurge/types';
 import { ValidationError, } from '../../core/errors';
 import { cache, } from '../cache';
@@ -22,18 +22,17 @@ export async function getSettings(): Promise<GallerySettings> {
 }
 
 /**
- * Refused inside a typed CSS value: anything that ends the declaration or the
- * rule, a comment, `url(` / `expression(` / `@import`, and a BACKSLASH — a CSS
- * escape such as `\75 rl(…)` decodes to `url(` in the browser, so a value
- * that looks harmless could still load a remote resource.
+ * Refused inside a typed CSS value: the shared `isSafeCssValue` rule
+ * (`@sitesurge/types`) — anything that ends the declaration or the rule, a
+ * comment, `url(` / `expression(` / `@import`, quotes and a BACKSLASH (a CSS
+ * escape such as `\75 rl(…)` decodes to `url(`).
  */
-export const UNSAFE_CSS = /[;{}<>"\\]|\/\*|url\s*\(|expression\s*\(|@import/i;
 
 /** A CSS length/size typed by an editor — anything that could escape a declaration is refused. */
 export function cssValue(v: unknown, label: string, max = 64,): string {
     const s = String(v ?? '',).trim();
     if (!s) return '';
-    if (s.length > max || UNSAFE_CSS.test(s,)) throw new ValidationError(`${label} is not a valid CSS value.`,);
+    if (s.length > max || !isSafeCssValue(s,)) throw new ValidationError(`${label} is not a valid CSS value.`,);
     return s;
 }
 

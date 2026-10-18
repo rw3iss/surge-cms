@@ -14,6 +14,7 @@ import { useToast, } from '../../../components/common/toast';
 import AuthorCard from '../../../components/discussions/AuthorCard';
 import { Checkbox, } from '../../../components/ui/Checkbox';
 import { cms, } from '../../../services/cmsClient';
+import { isForumOnlyModerator, moderationViewScope, } from './moderationScope';
 import './CommentsAdmin.scss';
 
 type Tab = NonNullable<DiscussionsModerationQuery['status']>;
@@ -34,7 +35,11 @@ const CommentsAdmin: Component = () => {
     const toast = useToast();
     const [params, setParams,] = useSearchParams<{ status?: string; target?: string; q?: string; page?: string; scope?: string; authorId?: string; }>();
     /** `forum` = forum threads/replies (the Forum admin links here), else comments on posts/events. */
-    const scope = (): 'comments' | 'forum' => (params.scope === 'forum' ? 'forum' : 'comments');
+    // A viewer with only `forum:moderate` defaults to the forum view (the server scopes them there).
+    // A plain signal, not a resource, so the page does not suspend on it.
+    const [forumOnly, setForumOnly,] = createSignal(false,);
+    void cms.permissions.mine().then((p,) => setForumOnly(isForumOnlyModerator(p as Record<string, boolean>,),),).catch(() => {},);
+    const scope = (): 'comments' | 'forum' => moderationViewScope(params.scope, forumOnly(),);
     const isForum = () => scope() === 'forum';
     const tab = (): Tab => (TABS.some((t,) => t.key === params.status,) ? params.status as Tab : 'queue');
     const page = () => Math.max(1, Number(params.page ?? 1,) || 1,);

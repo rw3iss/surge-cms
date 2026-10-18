@@ -36,6 +36,7 @@ import { CarouselBlockRenderer, } from './types/CarouselBlock';
 import { TemplateBlock, } from './types/TemplateBlock';
 import { EntityBlock, } from './types/EntityBlock';
 import { GalleryBlock, } from './types/GalleryBlock';
+import { EventBlock, } from './types/EventBlock';
 import { GroupBlock, GroupItemBlock, } from './types/GroupBlock';
 import './BlockRenderer.scss';
 
@@ -73,6 +74,8 @@ interface WebBlockProps {
     block: Block;
     ctx?: TplCtx;
     ancestry?: readonly string[];
+    /** Admin editor preview (an empty/broken reference explains itself there). */
+    preview?: boolean;
 }
 
 /** A type with no web renderer renders nothing. */
@@ -108,9 +111,8 @@ const WEB_BLOCK_RENDERERS: Record<BlockType, Component<WebBlockProps> | null> = 
     // Gallery (feature `gallery`) — published media items. The legacy
     // `gallery` rows were deleted by migration 027.
     gallery: (p,) => <GalleryBlock block={p.block} />,
-    // Not rendered on the web yet — the SSR and mail registries render it
-    // (events area follow-up).
-    event: null,
+    // Event teaser card (feature `events`).
+    event: (p,) => <EventBlock block={p.block} preview={p.preview} />,
 };
 
 export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
@@ -317,6 +319,7 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
                     block={props.block}
                     ctx={props.templateContext}
                     ancestry={props.templateAncestry}
+                    preview={props.preview}
                 />
             </div>
         </div>

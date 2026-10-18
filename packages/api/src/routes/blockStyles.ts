@@ -1,10 +1,10 @@
 import type { BlockStyleCreateBody, } from '@sitesurge/types';
 import { z, } from 'zod';
-import { BLOCK_CUSTOM_CSS_MAX, } from '../api/blockStyleInput';
+import { BLOCK_CUSTOM_CSS_MAX, refineBlockStyleValues, } from '../api/blockStyleInput';
 import { defineRoute, reply, } from '../api/defineRoute';
 import * as blockStyles from '../services/blockStyles';
 
-const blockStyleSchema = z.object({
+const blockStyleShape = z.object({
     name: z.string().min(1,).max(255,),
     isDefault: z.boolean().optional(),
     backgroundColor: z.string().nullable().optional(),
@@ -31,7 +31,12 @@ const blockStyleSchema = z.object({
     overflowY: z.string().nullable().optional(),
     // { [breakpointId]: { cssProp: value|null } } — per-breakpoint overrides.
     breakpoints: z.record(z.string(), z.record(z.string(), z.string().nullable(),),).optional(),
-},) satisfies z.ZodType<BlockStyleCreateBody>;
+},);
+
+// Every CSS-emitted value must pass the shared `isSafeCssValue` (S5).
+const safe = (v: unknown, ctx: z.RefinementCtx,) => refineBlockStyleValues(v as Record<string, unknown>, ctx,);
+const blockStyleSchema = blockStyleShape.superRefine(safe,) satisfies z.ZodType<BlockStyleCreateBody>;
+const blockStylePatchSchema = blockStyleShape.partial().superRefine(safe,);
 
 const idParams = z.object({ id: z.string(), },);
 
@@ -70,7 +75,7 @@ export const blockStylesRoutes = [
         path: '/:id',
         auth: 'admin',
         summary: 'Update a block-style template.',
-        input: { params: idParams, body: blockStyleSchema.partial(), },
+        input: { params: idParams, body: blockStylePatchSchema, },
         handler: ({ params, body, audit, },) => blockStyles.update(params.id, body, audit(),),
     },),
 

@@ -31,3 +31,19 @@ Each area file lists UI/UX, styling and architecture findings with location, pro
 
 ## 5. Execution plan
 All phases are applied without a pause for approval (operator instruction, 2026-10-18), one implementer per area on non-overlapping files: Phase A → B → C, each verified (type check, tests, build), then committed and deployed. Status per finding is marked in the area files.
+
+## 6. Status (2026-10-18, after round 2)
+Applied in commit `ad4cd6f6` + the round-2 cross-area pass. Per-finding status is in each area file.
+
+| Area | Done | Partial | Skipped (remainder) |
+|---|---|---|---|
+| Gallery + media + video | 43/43 | P3, P5, F1, A1, A2, U6 | pg_trgm GIN indexes for the usage scan (P3); ~2048px display rendition (U6, needs a second rendition + migration); `admin/gallery/CommitInput.tsx` re-export left for removal |
+| Blocks + templates + editor | 45/45 | — | none (template revisions, SSR entity/template blocks, `query`-slot email audience closed in round 2) |
+| Membership + users + notifications | 36/36 | S4, S6, A4 | CAPTCHA on applications (S4); notification-settings cache stays in process, TTL only (S6) |
+| Shop + Printify + events | 31/32 | SE30 | stop writing legacy `printify_order_id`/`printify_status` (published SDK still reads them); `retryPendingProviderFulfillment` still Printify-only |
+| Live + discussions + post types + help + misc | 41/41 | P1, A1, A2, S8 | discussion level-keyed caching (P1 — items carry per-viewer fields); full Settings.tsx split (A1) |
+
+Remaining follow-ups
+- Regenerate generated references: `npm run docs:api`, then `npm run docs:sdk` (packages/cms) and `npm run check:drift -w packages/cms-client`; `sdkModules.test.ts` / `apiReference.test.ts` fail until then.
+
+Docs updated: `CLAUDE.md` (affected bullets), `docs/sdk/entities.md` (public-read rules, `blocks` on template save, `usages`, template revisions), `packages/cms/src/components/admin/ADMIN_STYLES.md` (`CommitInput`, `useFocusTrap`), `docs/how-it-works/{LIVE-SHOWS,COMMENTS-AND-FORUM,GALLERY,shop-go-live-checklist}.md`.

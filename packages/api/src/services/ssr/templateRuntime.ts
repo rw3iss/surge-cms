@@ -222,10 +222,14 @@ async function loadSiteVariables(): Promise<SiteVariables> {
 export async function resolveContentForSsr(
     content: string | null | undefined,
     entities: Record<string, Rec | null> = {},
+    /** `html: false` = a plain-text field (a title) the block emitter escapes
+     *  itself — values are then interpolated raw, so they are not escaped twice. */
+    opts: { html?: boolean; } = {},
 ): Promise<string> {
     if (!content || !hasTemplateSyntax(content,)) return content ?? '';
     try {
-        const rt = buildSsrRuntime(entities, await loadSiteVariables(),);
+        const base = buildSsrRuntime(entities, await loadSiteVariables(),);
+        const rt = opts.html === false ? { ...base, raw: true, } : base;
         return await renderTemplateToString(content, rt, (kind, data, options,) => entityToHtml(kind, data as Rec | null, options,),);
     } catch (e) {
         logger.warn('SSR template resolution failed', { error: (e as Error).message, },);

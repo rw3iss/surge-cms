@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-18T07:30:57.655Z",
+  "generatedAt": "2026-10-18T07:51:27.783Z",
   "totalModules": 55,
-  "totalRoutes": 589,
+  "totalRoutes": 593,
   "modules": [
     {
       "module": "admin-channel",
@@ -1617,6 +1617,80 @@
               {
                 "name": "blocks",
                 "type": "object[]",
+                "required": true
+              }
+            ]
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/templates/:id/revisions",
+          "absolutePath": "/api/v1/components/templates/:id/revisions",
+          "auth": "admin",
+          "summary": "List a block template's (or component's) saved revisions.",
+          "input": {
+            "params": [
+              {
+                "name": "id",
+                "type": "string",
+                "required": true
+              }
+            ]
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/templates/:id/revisions",
+          "absolutePath": "/api/v1/components/templates/:id/revisions",
+          "auth": "admin",
+          "summary": "Snapshot the block template's current state as a revision.",
+          "input": {
+            "params": [
+              {
+                "name": "id",
+                "type": "string",
+                "required": true
+              }
+            ]
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/templates/:id/revisions/:version",
+          "absolutePath": "/api/v1/components/templates/:id/revisions/:version",
+          "auth": "admin",
+          "summary": "Fetch one block-template revision snapshot.",
+          "input": {
+            "params": [
+              {
+                "name": "id",
+                "type": "string",
+                "required": true
+              },
+              {
+                "name": "version",
+                "type": "integer",
+                "required": true
+              }
+            ]
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/templates/:id/revisions/:version/restore",
+          "absolutePath": "/api/v1/components/templates/:id/revisions/:version/restore",
+          "auth": "admin",
+          "summary": "Restore a block-template revision — its settings and whole block tree (snapshots current state first).",
+          "input": {
+            "params": [
+              {
+                "name": "id",
+                "type": "string",
+                "required": true
+              },
+              {
+                "name": "version",
+                "type": "integer",
                 "required": true
               }
             ]
@@ -3891,6 +3965,11 @@
                 "name": "approval",
                 "type": "'pending' | 'approved' | 'rejected'",
                 "required": false
+              },
+              {
+                "name": "verified",
+                "type": "'verified' | 'unverified'",
+                "required": false
               }
             ]
           }
@@ -5565,6 +5644,11 @@
               {
                 "name": "customFields",
                 "type": "object",
+                "required": false
+              },
+              {
+                "name": "website",
+                "type": "string",
                 "required": false
               }
             ]

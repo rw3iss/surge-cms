@@ -30,8 +30,13 @@ describe('resolveBindingRecords', () => {
     it('query → list with the limit capped at max', async () => {
         entityList.mockResolvedValue({ items: [{ id: '1', }, { id: '2', }, { id: '3', },], total: 3, },);
         const recs = await resolveBindingRecords('gallery_item', { mode: 'query', query: { limit: 50, search: 'x', }, }, 2,);
-        expect(entityList,).toHaveBeenCalledWith('gallery_item', { limit: 2, search: 'x', },);
+        expect(entityList,).toHaveBeenCalledWith('gallery_item', { limit: 2, search: 'x', }, {},);
         expect(recs.length,).toBe(2,);
+    },);
+    it('passes the audience hint to the entity read', async () => {
+        entityList.mockResolvedValue({ items: [], total: 0, },);
+        await resolveBindingRecords('gallery_item', { mode: 'query', query: {}, }, 5, { audience: 'email', },);
+        expect(entityList.mock.calls.at(-1,)?.[2],).toEqual({ audience: 'email', },);
     },);
     it('never throws', async () => {
         entityList.mockRejectedValue(new Error('boom',),);

@@ -28,6 +28,7 @@ import { cronRegistry, } from './services/cron';
 import { verifyEmailConfig, } from './services/email';
 import { getInstallationState, } from './services/installation';
 import { initPrintifyCron, } from './services/printify/cron';
+import { initFulfilmentSyncCron, } from './services/shop/fulfilmentSync';
 import { initScheduledPublisher, } from './services/scheduledPublisher';
 import { initMerchandiseAnnounce, } from './services/shop/merchandiseAnnounceCron';
 import { initBackupCron, } from './services/backup/cron';
@@ -156,6 +157,8 @@ async function bootRunningMode(
         // Event reminders. No-ops when the events feature is off.
         initEventReminderCron();
         initPrintifyCron();
+        // Order reconcile for the other pull-tracking suppliers. No-op when the shop is off.
+        initFulfilmentSyncCron();
         // Original-retention + abandoned-upload sweeps. No-ops when video is off.
         try {
             const { initVideoCrons, } = await import('./services/video/retention.js');

@@ -12,6 +12,7 @@ import { useAppearance, } from '../../../hooks/useAppearance';
 import CampaignBlock from './types/CampaignBlock';
 import CarouselBlock from './types/CarouselBlock';
 import EntityBlockEdit from './types/EntityBlock';
+import EventBlockEdit from './types/EventBlock';
 import GalleryBlockEdit from './types/GalleryBlockEdit';
 import TemplateBlockEdit from './types/TemplateBlock';
 import DocumentBlock from './types/DocumentBlock';
@@ -491,8 +492,7 @@ const BLOCK_EDIT_FORMS: Record<BlockType, Component<EditFormProps> | null> = {
             onChange={(patch,) => p.onUpdate({ ...p.block.data, ...patch, },)}
         />
     ),
-    // No admin form for the events block in this editor yet (events area).
-    event: null,
+    event: (p,) => <EventBlockEdit data={p.block.data} onUpdate={p.onUpdate} />,
 };
 
 /**

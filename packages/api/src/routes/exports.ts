@@ -68,9 +68,9 @@ export const exportsRoutes = [
         method: 'get', path: '/users', auth: 'admin', raw: true,
         summary: 'Export users (same search/role/status/sort as the Users table).',
         input: {
-            query: z.object({ ...common, sortOrder: z.string().max(8,).optional(), role: z.string().max(32,).optional(), status: z.string().max(32,).optional(), subscription: z.string().max(64,).optional(), approval: z.enum(['pending', 'approved', 'rejected',],).optional(), },),
+            query: z.object({ ...common, sortOrder: z.string().max(8,).optional(), role: z.string().max(32,).optional(), status: z.string().max(32,).optional(), subscription: z.string().max(64,).optional(), approval: z.enum(['pending', 'approved', 'rejected',],).optional(), verified: z.enum(['verified', 'unverified',],).optional(), },),
         },
-        handler: ({ query, res, user, }: H & { query: { format: 'csv' | 'print'; columns?: 'all' | 'basic'; search?: string; role?: string; status?: string; subscription?: string; approval?: 'pending' | 'approved' | 'rejected'; sortBy?: string; sortOrder?: string; }; },) =>
+        handler: ({ query, res, user, }: H & { query: { format: 'csv' | 'print'; columns?: 'all' | 'basic'; search?: string; role?: string; status?: string; subscription?: string; approval?: 'pending' | 'approved' | 'rejected'; verified?: 'verified' | 'unverified'; sortBy?: string; sortOrder?: string; }; },) =>
             deliver(res, user, query, () => exportSources.allUsers(query,),),
     },),
 

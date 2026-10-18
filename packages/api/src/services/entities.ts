@@ -19,7 +19,7 @@ import { NotFoundError, ValidationError, } from '../middleware/error';
 import { UUID_RE, } from '../utils/uuid';
 import {
     type EntityViewer, gatePostRecords, hiddenPostCondition, isGatedType, isHiddenStatus, rankFor, statusAllows,
-    visibleStatusCondition,
+    visibleStatusCondition, filterPageRecords, isAccessControlledType, pageAllows,
 } from '../entities/publicRead';
 
 /**
@@ -30,6 +30,12 @@ import {
 export interface EntityReadOpts {
     admin?: boolean;
     viewer?: EntityViewer;
+    /**
+     * Who the records are rendered for, as a hint to a data PROVIDER: `email` =
+     * a newsletter (e.g. the gallery reads public MEDIA only, ignoring the
+     * in-site gate). The generic repo ignores it; it is part of the cache key.
+     */
+    audience?: 'email';
 }
 
 /**
@@ -98,7 +104,8 @@ export async function list(
     const rank = gated ? await rankFor(opts.viewer,) : null;
     const cacheable = Boolean(t.caching?.indexEnabled,) && !opts.admin;
     // The hidden-post clause depends on the viewer's rank, so the rank is part of the key.
-    const key = CACHE_KEYS.entityList(typeKey, hashQuery(gated ? { ...q, filter: { ...(q.filter ?? {}), __rank: String(rank,), }, } as EntityQuery : q,),);
+    const keyed: EntityQuery = gated ? { ...q, filter: { ...(q.filter ?? {}), __rank: String(rank,), }, } as EntityQuery : q;
+    const key = CACHE_KEYS.entityList(typeKey, hashQuery(opts.audience ? { ...keyed, filter: { ...(keyed.filter ?? {}), __audience: opts.audience, }, } as EntityQuery : keyed,),);
     let res: { items: EntityRecord[]; total: number; } | null = cacheable ? await cache.get<{ items: EntityRecord[]; total: number; }>(key,) : null;
     if (!res) {
         const provider = getEntityDataProvider(typeKey,);
@@ -118,6 +125,9 @@ export async function list(
     }
     if (!opts.admin && t.hasStatus) res.items = res.items.filter((r,) => statusAllows(t, r,),);
     if (gated) res.items = await gatePostRecords(res.items, rank,);
+    // Per request (the cached list is unfiltered). `total` may over-count a
+    // gated page — the same trade-off the events list makes.
+    if (!opts.admin && isAccessControlledType(typeKey,)) res.items = await filterPageRecords(res.items, opts.viewer,);
     return res;
 }
 
@@ -167,6 +177,9 @@ export async function get(typeKey: string, idOrSlug: string, opts: EntityReadOpt
             const [gatedRec,] = await gatePostRecords([rec,], await rankFor(opts.viewer,),);
             if (!gatedRec) throw new NotFoundError(`${t.label} "${idOrSlug}"`,);
             rec = gatedRec;
+        }
+        if (isAccessControlledType(typeKey,) && !(await pageAllows(rec, opts.viewer,))) {
+            throw new NotFoundError(`${t.label} "${idOrSlug}"`,);
         }
     }
     return rec;

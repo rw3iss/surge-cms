@@ -46,6 +46,14 @@ export const BLOCK_STORES = {
         orderCol: 'position',
         parentCol: 'parent_block_id',
     },
+    // Entity content-block templates AND global components (same table).
+    content_block_template: {
+        entityTable: 'content_block_templates',
+        table: 'content_block_template_blocks',
+        fk: 'template_id',
+        orderCol: 'position',
+        parentCol: 'parent_block_id',
+    },
 } as const satisfies Record<string, BlockStore>;
 
 export type BlockStoreKey = keyof typeof BLOCK_STORES;

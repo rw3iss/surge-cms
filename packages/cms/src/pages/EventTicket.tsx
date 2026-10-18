@@ -15,6 +15,7 @@ import { Title, } from '@solidjs/meta';
 import { A, useParams, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { cms, } from '../services/cmsClient';
+import { formatEventWhen, } from '../utils/eventFormat';
 import './EventTicket.scss';
 
 const STATUS_LABEL: Record<EventTicketView['status'], string> = {
@@ -47,13 +48,7 @@ const EventTicketPage: Component = () => {
         const start = new Date(t.event.startsAt,);
         const day = new Date(`${t.occurrenceDate}T${start.toISOString().slice(11,)}`,);
         const at = Number.isNaN(day.getTime(),) ? start : day;
-        const zone = (() => {
-            if (!t.event.timezone) return undefined;
-            try { new Intl.DateTimeFormat('en-US', { timeZone: t.event.timezone, },); return t.event.timezone; } catch { return undefined; }
-        })();
-        return t.event.allDay ?
-            at.toLocaleDateString('en-US', { dateStyle: 'full', timeZone: 'UTC', },) :
-            at.toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short', ...(zone ? { timeZone: zone, timeZoneName: 'short', } : {}), },);
+        return formatEventWhen(at, t.event.allDay, t.event.timezone,);
     };
 
     // Staff at the door: check the ticket in (or undo a mistaken check-in).

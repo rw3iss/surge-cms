@@ -342,7 +342,7 @@ const MediaSelectModal: Component<MediaSelectModalProps> = (props,) => {
 
                 <Show when={showUpload()}>
                     <MediaUploadModal
-                        acceptTypes={props.types?.length ? props.types.map(t => `${t}/*`).join(',',) : undefined}
+                        acceptTypes={props.types?.length ? props.types.map((t,) => (t === 'document' ? 'application/*,text/*' : `${t}/*`)).join(',',) : undefined}
                         onUploaded={handleUploaded}
                         onClose={() => setShowUpload(false,)}
                     />

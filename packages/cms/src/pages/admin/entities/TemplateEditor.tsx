@@ -28,7 +28,9 @@ import { slotIdError, } from '../../../utils/templateSlots';
 import './EntitiesList.scss';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
 import ConfirmModal from '../../../components/admin/common/ConfirmModal';
+import TemplateDeleteConfirm from '../../../components/admin/entities/TemplateDeleteConfirm';
 import { useAutoSave, } from '../../../hooks/useAutoSave';
+import RevisionsPanel from '../../../components/admin/panels/RevisionsPanel';
 
 /** Fallback sample-record count for a `list` template with no `maxRecords` set —
  *  how many records to load into the editor preview. Static for now. */
@@ -166,7 +168,6 @@ const TemplateEditor: Component = () => {
     /** Where this template is used (from the staff list read). Null = unknown. */
     const [usageList, setUsageList,] = createSignal<TemplateUsage[] | null>(null,);
     const [showDelete, setShowDelete,] = createSignal(false,);
-    const [deleteConfirmText, setDeleteConfirmText,] = createSignal('',);
     const [deleting, setDeleting,] = createSignal(false,);
 
     // Publish the slots so block panels inside this template (Gallery, Posts)
@@ -257,21 +258,7 @@ const TemplateEditor: Component = () => {
         })();
         try {
             const d = await api.getOne(params.id,);
-            setName(d.name,);
-            setDescription(d.description ?? '',);
-            setMode(d.mode,);
-            setMaxRecords(d.maxRecords != null ? String(d.maxRecords,) : '',);
-            setListRender(templateListRenderOf(d.listRender,),);
-            setSampleRecordIds(d.sampleRecordIds ?? [],);
-            setScript(d.script ?? '',);
-            setScriptEnabled(d.scriptEnabled !== false,);
-            if (d.script) setScriptOpen(true,);
-            setSlots(reconcile(structuredClone(d.slots ?? [],),),);
-            const loaded = backendToEditor((d.blocks ?? []) as unknown as BackendBlock[],);
-            setBlocks(loaded,);
-            // Whatever the server just gave us IS the saved state.
-            setSavedBlocks(structuredClone(loaded,),);
-            captureSaved();
+            applyLoaded(d,);
             // A draft NEWER than the saved template comes back (Revert drops it);
             // an older one means someone saved since — discard it.
             const stored = autoSave.getDraft();
@@ -282,6 +269,35 @@ const TemplateEditor: Component = () => {
         } catch { /* ignore */ }
         setReady(true,);
     },);
+
+    /** Put a server copy into the editor and mark it as the saved state. */
+    function applyLoaded(d: Awaited<ReturnType<typeof api.getOne>>,): void {
+        setName(d.name,);
+        setDescription(d.description ?? '',);
+        setMode(d.mode,);
+        setMaxRecords(d.maxRecords != null ? String(d.maxRecords,) : '',);
+        setListRender(templateListRenderOf(d.listRender,),);
+        setSampleRecordIds(d.sampleRecordIds ?? [],);
+        setScript(d.script ?? '',);
+        setScriptEnabled(d.scriptEnabled !== false,);
+        if (d.script) setScriptOpen(true,);
+        setSlots(reconcile(structuredClone(d.slots ?? [],),),);
+        const loaded = backendToEditor((d.blocks ?? []) as unknown as BackendBlock[],);
+        setBlocks(loaded,);
+        // Whatever the server just gave us IS the saved state.
+        setSavedBlocks(structuredClone(loaded,),);
+        captureSaved();
+    }
+
+    /** Bumped after a save / restore so the History panel re-reads its list. */
+    const [historyToken, setHistoryToken,] = createSignal(0,);
+    const reloadAfterRestore = async (): Promise<void> => {
+        autoSave.clear();
+        try {
+            applyLoaded(await api.getOne(params.id,),);
+        } catch { /* the panel already reported the restore */ }
+        setHistoryToken((n,) => n + 1);
+    };
     // Keep the draft on tab hide / every 10 s while dirty.
     const flushDraft = () => { if (ready() && isDirty()) autoSave.flush(); };
     const draftTimer = setInterval(flushDraft, 10_000,);
@@ -345,6 +361,8 @@ const TemplateEditor: Component = () => {
                 // `/client.js` serves the SAVED script, so a save is the only
                 // moment a re-mount can pick up new code.
                 setSavedScriptRev((n,) => n + 1);
+                // List the new version now, not after the server's settle delay.
+                void cms.components.snapshotRevision(params.id,).catch(() => {},).finally(() => setHistoryToken((n,) => n + 1),);
             }
         } catch (e) {
             const msg = e instanceof Error ? e.message : 'Save failed.';
@@ -355,15 +373,9 @@ const TemplateEditor: Component = () => {
         }
     };
 
-    /** Opens the confirm (type-to-confirm when the template is in use). */
-    const handleDelete = (): void => {
-        setDeleteConfirmText('',);
-        setShowDelete(true,);
-    };
-    const inUse = () => (usageList()?.length ?? 0) > 0;
-    const deleteAllowed = () => !inUse() || deleteConfirmText().trim() === name().trim();
+    /** Opens the confirm (type-to-confirm when the template is in use — `TemplateDeleteConfirm`). */
+    const handleDelete = (): void => { setShowDelete(true,); };
     const confirmDelete = async (): Promise<void> => {
-        if (!deleteAllowed()) return;
         setDeleting(true,);
         try {
             await api.remove(params.id,);
@@ -377,17 +389,6 @@ const TemplateEditor: Component = () => {
             setDeleting(false,);
         }
     };
-    /** Editor link for a use; null for another template (its type is not known here). */
-    const usageHref = (u: TemplateUsage,): string | null => {
-        switch (u.kind) {
-            case 'page': return `/admin/pages/${u.id}`;
-            case 'post': return `/admin/posts/${u.id}`;
-            case 'mail_template': return `/admin/mail-templates/${u.id}`;
-            default: return null;
-        }
-    };
-    const usageKind = (k: TemplateUsage['kind'],): string =>
-        ({ page: 'Page', post: 'Post', mail_template: 'Email template', template: 'Template', } as const)[k];
 
     const singularVar = () => entityDef()?.singularVar ?? params.type ?? '';
     const pluralVar = () => entityDef()?.pluralVar ?? `${params.type ?? ''}s`;
@@ -528,54 +529,15 @@ const TemplateEditor: Component = () => {
                 onConfirm={handleRevert}
                 onCancel={() => setShowRevert(false,)}
             />
-            <ConfirmModal
+            <TemplateDeleteConfirm
                 open={showDelete()}
                 title={isGlobal() ? 'Delete component' : 'Delete template'}
-                confirmLabel="Delete"
-                busyLabel="Deleting…"
+                name={name()}
+                usages={usageList()}
                 loading={deleting()}
-                confirmDisabled={!deleteAllowed()}
-                danger
                 onConfirm={() => void confirmDelete()}
                 onCancel={() => setShowDelete(false,)}
-            >
-                <Show
-                    when={inUse()}
-                    fallback={
-                        <p class="confirm-modal__message">
-                            {usageList() === null
-                                ? 'This cannot be undone. Its uses could not be checked — anything that references it will render nothing.'
-                                : 'It is not used anywhere. This cannot be undone.'}
-                        </p>
-                    }
-                >
-                    <p class="confirm-modal__message">
-                        It is used in {usageList()!.length} place{usageList()!.length === 1 ? '' : 's'}. Every one of them
-                        will render NOTHING where it was:
-                    </p>
-                    <ul class="template-editor__usages">
-                        <For each={usageList()!}>
-                            {(u,) => (
-                                <li>
-                                    {usageKind(u.kind,)}:{' '}
-                                    <Show when={usageHref(u,)} fallback={u.title}>
-                                        {(href,) => <A href={href()} target="_blank">{u.title}</A>}
-                                    </Show>
-                                    {u.blocks > 1 ? ` (${u.blocks} blocks)` : ''}
-                                </li>
-                            )}
-                        </For>
-                    </ul>
-                    <FormField label={`Type "${name()}" to confirm`}>
-                        <input
-                            type="text"
-                            value={deleteConfirmText()}
-                            // Search-as-you-type style: the confirm button reacts per keystroke.
-                            onInput={(e,) => setDeleteConfirmText(e.currentTarget.value,)}
-                        />
-                    </FormField>
-                </Show>
-            </ConfirmModal>
+            />
 
             <section class="admin-section template-settings">
                 <header class="admin-section__header"><h2>Settings</h2></header>
@@ -822,6 +784,18 @@ const TemplateEditor: Component = () => {
                     </Show>
                 </Show>
             </section>
+            </Show>
+
+            {/* Full-tree history (settings + every block), like mail templates. */}
+            <Show when={!isNew()}>
+                <section class="admin-section">
+                    <RevisionsPanel
+                        entityType="content_block_template"
+                        entityId={params.id}
+                        refreshToken={historyToken()}
+                        onRestored={reloadAfterRestore}
+                    />
+                </section>
             </Show>
         </div>
     );

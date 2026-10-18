@@ -1,0 +1,10 @@
+@use '../../../styles/variables' as *;
+
+// Delete confirm's usage list (TemplateDeleteConfirm — template editor + Components list).
+.template-delete__usages {
+    margin: 0 0 $spacing-md;
+    padding-left: $spacing-lg;
+    max-height: 200px;
+    overflow-y: auto;
+    font-size: $font-size-sm;
+}

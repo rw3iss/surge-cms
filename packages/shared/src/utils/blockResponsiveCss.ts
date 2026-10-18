@@ -21,6 +21,7 @@
 import type { SiteBreakpoint, } from '../types/content';
 import { type BlockStyleCssResolvers, blockStyleLayoutCss, } from './blockStyleCss';
 import { breakpointContainerCondition, breakpointMediaCondition, PREVIEW_CONTAINER, } from './breakpoints';
+import { isSafeCssUrl, isSafeCssValue, } from './cssSafety';
 import { scopeCss, } from './scopeCss';
 
 export interface BlockResponsiveOptions extends BlockStyleCssResolvers {
@@ -45,7 +46,7 @@ function declarationRecord(
     // callers (the public renderer composites these inline).
     const bgImage = override.backgroundImage as string | undefined;
     const bgColor = override.backgroundColor as string | undefined;
-    if (bgImage) {
+    if (bgImage && isSafeCssUrl(bgImage,)) {
         rec['background-image'] = `url("${bgImage}")`;
         rec['background-size'] = 'cover';
         rec['background-position'] = (override.backgroundPosition as string | undefined) || 'center';
@@ -110,6 +111,10 @@ const WRAPPER_ONLY: PropTargets = { '*': ['',], };
 function stringifyDecls(rec: Record<string, string | undefined>,): string {
     return Object.entries(rec,)
         .filter(([, v,],) => v != null && v !== '')
+        // A value that could end the declaration (saved before the API checked
+        // it) is dropped rather than emitted. `background-image` is built here
+        // as `url("…")` from a URL already checked by `isSafeCssUrl`.
+        .filter(([k, v,],) => k === 'background-image' || isSafeCssValue(v as string, { allowQuotes: true, },))
         .map(([k, v,],) => `${k}:${v}`)
         .join(';',);
 }

@@ -15,6 +15,7 @@ import {
 } from '@sitesurge/types';
 import { logger, } from '../utils/logger';
 import * as entitiesService from './entities';
+import type { EntityReadOpts, } from './entities';
 import { UUID_RE, } from '../utils/uuid';
 
 /** Default record cap for a server-rendered binding (an inbox can't scroll forever). */
@@ -28,6 +29,8 @@ export async function resolveBindingRecords(
     type: string,
     binding: SlotBinding,
     max = MAX_BINDING_RECORDS,
+    /** Read hint for a provider (`audience: 'email'`); never `admin`. */
+    readOpts: Pick<EntityReadOpts, 'audience'> = {},
 ): Promise<EntityRecord[]> {
     try {
         switch (binding.mode) {
@@ -46,7 +49,7 @@ export async function resolveBindingRecords(
                 const byId = new Map<string, EntityRecord>();
                 const uuids = refs.filter((r,) => UUID_RE.test(r,),);
                 if (uuids.length > 0) {
-                    const res = await entitiesService.list(type, { filter: { id: { op: 'in', value: uuids, }, }, limit: uuids.length, } as EntityQuery,)
+                    const res = await entitiesService.list(type, { filter: { id: { op: 'in', value: uuids, }, }, limit: uuids.length, } as EntityQuery, readOpts,)
                         .catch(() => null);
                     for (const r of res?.items ?? []) byId.set(String(r.id,), r,);
                 }
@@ -57,7 +60,7 @@ export async function resolveBindingRecords(
                 const q: EntityQuery = { ...(binding.query ?? {}), };
                 // The shared rule (also the web's): the query's own limit, capped.
                 const limit = bindingQueryLimit(max, Number(q.limit,) || undefined,);
-                const res = await entitiesService.list(type, { ...q, limit, },);
+                const res = await entitiesService.list(type, { ...q, limit, }, readOpts,);
                 return (res.items ?? []).slice(0, limit,);
             }
             default:
@@ -78,10 +81,11 @@ export async function resolveSlotRecords(
     slotId: string | undefined,
     expectedType: string,
     max = MAX_BINDING_RECORDS,
+    readOpts: Pick<EntityReadOpts, 'audience'> = {},
 ): Promise<EntityRecord[]> {
     const found = slotFor(ctx, slotId, expectedType,);
     if (!found.ok) return [];
-    return resolveBindingRecords(found.slot.entityType, found.binding, found.slot.array ? max : 1,);
+    return resolveBindingRecords(found.slot.entityType, found.binding, found.slot.array ? max : 1, readOpts,);
 }
 
 /** Record ids, in order. */

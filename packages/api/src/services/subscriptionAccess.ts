@@ -17,6 +17,7 @@ import { isStaffRole, type MemberAccessState, } from '@sitesurge/types';
 import { ValidationError, } from '../core/errors';
 import { query, } from '../db';
 import { getUsersSettings, } from './settings';
+import { cache, CACHE_KEYS, } from './cache';
 // Static: membership/state has no dependency back on this module (the old dynamic import dodged a cycle).
 import { approvedOfferFor, lastFailedAttempt, pendingApplicationFor, } from './membership/state';
 
@@ -33,7 +34,22 @@ type AccessReason = NonNullable<MemberAccessState['reason']>;
 
 const ENTITLED = ['active', 'trialing', 'past_due',];
 
+/**
+ * The site's membership requirement. Read on every /auth/me, so cached in
+ * Redis (`CACHE_KEYS.subscriptionPolicy`, 5 min) — dropped by a Users-settings
+ * save (settings namespace) and by a tier save/delete (invalidateMembershipCache).
+ */
 export async function getPolicy(): Promise<SubscriptionPolicy> {
+    const cached = await cache.get<SubscriptionPolicy>(CACHE_KEYS.subscriptionPolicy,);
+    if (cached && typeof cached.required === 'boolean') return cached;
+    const policy = await computePolicy();
+    await cache.set(CACHE_KEYS.subscriptionPolicy, policy, POLICY_TTL_SECONDS,);
+    return policy;
+}
+
+const POLICY_TTL_SECONDS = 300;
+
+async function computePolicy(): Promise<SubscriptionPolicy> {
     const s = await getUsersSettings();
     const required = s.requireSubscription === true;
     let minimumRank = 1;

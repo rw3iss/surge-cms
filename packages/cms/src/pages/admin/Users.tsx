@@ -359,6 +359,7 @@ const AdminUsers: Component = () => {
                             search: searchParams.search, role: searchParams.role, status: searchParams.status,
                             subscription: searchParams.subscription,
                             approval: searchParams.approval,
+                            verified: searchParams.verified,
                             sortBy: sortBy(), sortOrder: sortOrder(),
                         })}
                     />

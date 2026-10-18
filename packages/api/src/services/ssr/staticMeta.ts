@@ -16,7 +16,7 @@ import { query, } from '../../db';
 import { buildGenericBody, } from './bodyBuilder';
 import type { MetaTags, } from './metaBuilder';
 import { buildBreadcrumbSchema, buildCollectionPageSchema, buildWebPageSchema, stripHtml, truncateText, } from './schema';
-import { galleryFiguresHtml, galleryItemHtml, previewUrl, absUrl, } from '../gallery/render';
+import { galleryFiguresHtml, galleryItemHtml, previewUrl, absoluteGalleryUrl, } from '../gallery/render';
 
 export interface StaticMetaCtx {
     path: string;
@@ -395,7 +395,7 @@ async function gallery(c: StaticMetaCtx,): Promise<MetaTags | null | undefined> 
         const items = await g.list({ limit: 60, listing: true, }, { viewer: null, },).then((r,) => r.items,).catch(() => [],);
         const first = items.find((i,) => i.media?.accessLevel === 'public' && previewUrl(i,),);
         return page(c, title, description, {
-            image: first ? absUrl(previewUrl(first,), c.siteUrl,) : c.logo,
+            image: first ? absoluteGalleryUrl(previewUrl(first,), c.siteUrl,) : c.logo,
             jsonLd: [
                 buildCollectionPageSchema({ name: title, description, url: c.url, itemCount: items.length, },),
                 buildBreadcrumbSchema([{ name: 'Home', url: c.siteUrl, }, { name: title, url: c.url, },],),
@@ -419,7 +419,7 @@ async function gallery(c: StaticMetaCtx,): Promise<MetaTags | null | undefined> 
         const items = await g.list({ collectionId: collection.id, limit: 60, listing: true, }, { viewer: null, },).then((r,) => r.items,).catch(() => [],);
         const first = items.find((i,) => i.media?.accessLevel === 'public' && previewUrl(i,),);
         return page(c, name, description, {
-            image: first ? absUrl(previewUrl(first,), c.siteUrl,) : c.logo,
+            image: first ? absoluteGalleryUrl(previewUrl(first,), c.siteUrl,) : c.logo,
             jsonLd: [
                 buildCollectionPageSchema({ name, description, url: c.url, itemCount: collection.itemCount, },),
                 buildBreadcrumbSchema([
@@ -439,7 +439,7 @@ async function gallery(c: StaticMetaCtx,): Promise<MetaTags | null | undefined> 
     }
     const name = item.title || (item.media?.type === 'video' ? 'Video' : 'Image');
     const description = clip(item.caption,) || `${name} — ${title} on ${c.siteName}.`;
-    const img = item.media?.accessLevel === 'public' ? absUrl(previewUrl(item,), c.siteUrl,) : '';
+    const img = item.media?.accessLevel === 'public' ? absoluteGalleryUrl(previewUrl(item,), c.siteUrl,) : '';
     return page(c, name, description, {
         image: img || c.logo,
         imageAlt: item.media?.alt || name,

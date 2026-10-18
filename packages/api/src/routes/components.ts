@@ -36,6 +36,7 @@ async function assertMayWriteScript(
 }
 
 const idParam = z.object({ id: z.string(), },);
+const versionParam = z.object({ id: z.string(), version: z.coerce.number().int().min(1,), },);
 
 const createSchema = z.object({
     name: z.string().min(1,).max(200,),
@@ -136,8 +137,8 @@ export const componentsRoutes = [
             const { blocks, ...meta } = body;
             // entityTypeKey stays null — that IS what makes it global.
             const tpl = blocks
-                ? await cbtSvc.saveWithBlocks(null, { ...meta, entityTypeKey: null, }, blocks,)
-                : await cbtSvc.create({ ...meta, entityTypeKey: null, },);
+                ? await cbtSvc.saveWithBlocks(null, { ...meta, entityTypeKey: null, }, blocks, user?.id ?? null,)
+                : await cbtSvc.create({ ...meta, entityTypeKey: null, }, user?.id ?? null,);
             return reply(tpl, { status: 201, },);
         },
     },),
@@ -152,8 +153,8 @@ export const componentsRoutes = [
             await assertMayWriteScript(body, user,);
             const { blocks, ...meta } = body;
             const template = blocks
-                ? await cbtSvc.saveWithBlocks(params.id, meta, blocks,)
-                : await cbtSvc.update(params.id, meta,);
+                ? await cbtSvc.saveWithBlocks(params.id, meta, blocks, user?.id ?? null,)
+                : await cbtSvc.update(params.id, meta, user?.id ?? null,);
             if (!template) throw new NotFoundError(`Block template "${params.id}"`,);
             return template;
         },
@@ -186,9 +187,39 @@ export const componentsRoutes = [
         auth: 'admin',
         summary: "Replace a global template's blocks",
         input: { params: idParam, body: blocksBody, },
-        handler: async ({ params, body, },) => {
-            await cbtSvc.replaceBlocks(params.id, body.blocks,);
+        handler: async ({ params, body, user, },) => {
+            await cbtSvc.replaceBlocks(params.id, body.blocks, user?.id ?? null,);
             return { saved: true, };
         },
+    },),
+
+    // ─── Revisions (full-tree history: meta + every block) ───
+    // Keyed by id, so they serve entity-bound templates too (same table).
+    defineRoute({
+        method: 'get', path: '/templates/:id/revisions', auth: 'admin',
+        summary: "List a block template's (or component's) saved revisions.",
+        input: { params: idParam, },
+        handler: ({ params, },) => cbtSvc.listRevisions(params.id,),
+    },),
+
+    defineRoute({
+        method: 'post', path: '/templates/:id/revisions', auth: 'admin',
+        summary: "Snapshot the block template's current state as a revision.",
+        input: { params: idParam, },
+        handler: ({ params, user, },) => cbtSvc.snapshotNow(params.id, user?.id ?? null,),
+    },),
+
+    defineRoute({
+        method: 'get', path: '/templates/:id/revisions/:version', auth: 'admin',
+        summary: 'Fetch one block-template revision snapshot.',
+        input: { params: versionParam, },
+        handler: ({ params, },) => cbtSvc.getRevision(params.id, params.version,),
+    },),
+
+    defineRoute({
+        method: 'post', path: '/templates/:id/revisions/:version/restore', auth: 'admin',
+        summary: 'Restore a block-template revision — its settings and whole block tree (snapshots current state first).',
+        input: { params: versionParam, },
+        handler: ({ params, user, },) => cbtSvc.restoreRevision(params.id, params.version, user?.id ?? null,),
     },),
 ];

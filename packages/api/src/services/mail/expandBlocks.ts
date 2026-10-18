@@ -77,8 +77,26 @@ const MAX_RECORDS = MAX_BINDING_RECORDS;
  */
 const MAX_DEPTH = 5;
 
+/**
+ * Who the expansion is for. Mail is the default; SSR reuses the same pass so a
+ * crawler sees an entity/component block's resolved subtree.
+ */
+export interface ExpandOptions {
+    /** Gallery read audience: `email` (public media, in-site gate ignored) or `site` (anonymous visitor). */
+    audience?: 'email' | 'site';
+    /** Resolve `{{ }}` in one templated setting against a record context. Defaults to the mail engine. */
+    resolveText?: (text: string, context: Record<string, unknown>, opts: { html: boolean; },) => Promise<string>;
+    /** Resolve auto-feed social blocks + slot-fed post lists (mail renders them; SSR does not). Default true. */
+    feeds?: boolean;
+    /** Size library videos after expansion (mail only). Default true. */
+    videoSize?: boolean;
+}
+
+const mailResolveText: NonNullable<ExpandOptions['resolveText']> = (text, context, opts,) => resolveMailTemplate(text, context, opts,);
+
 /** Per-`expandDynamicBlocks` call state. */
 interface ExpandState {
+    opts: Required<ExpandOptions>;
     /** Block ids already expanded (the source block stays in the list). */
     done: Set<string>;
     /** Block id → template ids already being expanded above it. */
@@ -157,6 +175,7 @@ async function resolveRecords(cfg: EntityCfg, max = MAX_RECORDS,): Promise<Recor
 async function resolveBlockText(
     settings: Record<string, unknown>,
     context: Record<string, unknown>,
+    resolveText: NonNullable<ExpandOptions['resolveText']> = mailResolveText,
 ): Promise<Record<string, unknown>> {
     const out: Record<string, unknown> = { ...settings, };
     for (const key of TEMPLATED_SETTING_KEYS) {
@@ -164,7 +183,7 @@ async function resolveBlockText(
         if (typeof v === 'string' && v.includes('{{',)) {
             // HTML fields escape interpolated values; the others are plain text the
             // block renderer escapes itself (escaping here too would double it).
-            out[key] = await resolveMailTemplate(v, context, { html: HTML_SETTING_KEYS.has(key,), },);
+            out[key] = await resolveText(v, context, { html: HTML_SETTING_KEYS.has(key,), },);
         }
     }
     return out;
@@ -187,6 +206,7 @@ async function cloneBlocks(
      *  record(s) this render binds; stamped on every block that reads them
      *  (Gallery / Posts with `source: 'slot'`, Gallery `source: 'template'`). */
     slotCtx?: TemplateSlotContext | null,
+    resolveText?: ExpandOptions['resolveText'],
 ): Promise<FlatMailBlock[]> {
     const idMap = new Map<string, string>();
     for (const b of blocks) idMap.set(b.id, `${keyPrefix}-${b.id}`,);
@@ -200,7 +220,7 @@ async function cloneBlocks(
         position: b.parentBlockId ? b.position : positionOffset + b.position,
         settings: withSlotContext(
             context
-                ? await resolveBlockText((b.settings ?? {}) as Record<string, unknown>, context,)
+                ? await resolveBlockText((b.settings ?? {}) as Record<string, unknown>, context, resolveText,)
                 : ((b.settings ?? {}) as Record<string, unknown>),
             slotCtx,
         ),
@@ -260,18 +280,18 @@ async function resolveSlotPosts(settings: Record<string, unknown>,): Promise<Rec
 }
 
 /** Gallery items for a block reading its template's data (`source: 'template'`). */
-async function resolveTemplateGallery(settings: Record<string, unknown>,): Promise<Record<string, unknown>> {
+async function resolveTemplateGallery(settings: Record<string, unknown>, audience: 'email' | 'site' = 'email',): Promise<Record<string, unknown>> {
     const ctx = settings[SLOT_CONTEXT_KEY] as TemplateSlotContext | undefined;
     const found = templateDataFor(ctx?.templateData, 'gallery_item',);
     const ids = found.ok ? templateDataIds(found.records,) : [];
     const items = ids.length
-        ? await resolveGalleryBlockItems({ ...(settings as Record<string, unknown>), source: 'items', itemIds: ids, } as never, 'email',)
+        ? await resolveGalleryBlockItems({ ...(settings as Record<string, unknown>), source: 'items', itemIds: ids, } as never, audience,)
         : [];
     return { ...settings, [GALLERY_RESOLVED_KEY]: items, };
 }
 
 /** Gallery items for a block reading a slot (records of type `gallery_item`, in order). */
-async function resolveSlotGallery(settings: Record<string, unknown>,): Promise<Record<string, unknown>> {
+async function resolveSlotGallery(settings: Record<string, unknown>, audience: 'email' | 'site' = 'email',): Promise<Record<string, unknown>> {
     const ctx = settings[SLOT_CONTEXT_KEY] as TemplateSlotContext | undefined;
     // A `single` / `list` slot already names its items: hand the ids straight
     // to the EMAIL-audience gallery read (public media, in-site gate ignored).
@@ -281,9 +301,12 @@ async function resolveSlotGallery(settings: Record<string, unknown>,): Promise<R
     const found = slotFor(ctx, settings.slotId as string | undefined, 'gallery_item',);
     const staticIds = found.ok ? bindingIdsIfStatic(found.binding, found.slot.array ? MAX_RECORDS : 1,) : null;
     const ids = staticIds
-        ?? recordIds(await resolveSlotRecords(ctx, settings.slotId as string | undefined, 'gallery_item',),);
+        // A `query` slot reads through the gallery provider with the same
+        // audience hint, so it filters exactly like an items-fed gallery.
+        ?? recordIds(await resolveSlotRecords(ctx, settings.slotId as string | undefined, 'gallery_item', MAX_RECORDS,
+            audience === 'email' ? { audience: 'email', } : {},),);
     const items = ids.length
-        ? await resolveGalleryBlockItems({ ...(settings as Record<string, unknown>), source: 'items', itemIds: ids, } as never, 'email',)
+        ? await resolveGalleryBlockItems({ ...(settings as Record<string, unknown>), source: 'items', itemIds: ids, } as never, audience,)
         : [];
     return { ...settings, [GALLERY_RESOLVED_KEY]: items, };
 }
@@ -357,11 +380,18 @@ export async function expandDynamicBlocks(
      * expand it again and the email would contain the template once per pass.
      */
     done: Set<string> = new Set(),
+    options: ExpandOptions = {},
 ): Promise<FlatMailBlock[]> {
+    const opts: Required<ExpandOptions> = {
+        audience: options.audience ?? 'email',
+        resolveText: options.resolveText ?? mailResolveText,
+        feeds: options.feeds ?? true,
+        videoSize: options.videoSize ?? true,
+    };
     // The outermost call also sizes library videos (after expansion, so a
     // video inside a component or entity template is sized too).
-    const state: ExpandState = { done, ancestry: new Map(), templates: new Map(), };
-    if (depth === 0) return attachVideoMediaSize(await expandPass(blocks, 0, state,),);
+    const state: ExpandState = { opts, done, ancestry: new Map(), templates: new Map(), };
+    if (depth === 0 && opts.videoSize) return attachVideoMediaSize(await expandPass(blocks, 0, state,),);
     return expandPass(blocks, depth, state,);
 }
 
@@ -370,14 +400,14 @@ async function expandPass(
     depth: number,
     state: ExpandState,
 ): Promise<FlatMailBlock[]> {
-    const { done, } = state;
+    const { done, opts, } = state;
     if (depth >= MAX_DEPTH) {
         logger.warn('Mail: dynamic block nesting too deep — stopping expansion',);
         return blocks;
     }
     const pending = blocks.filter(
-        (b,) => (b.blockType === 'entity' || b.blockType === 'template' || b.blockType === 'social' || b.blockType === 'gallery'
-            || (b.blockType === 'post_list' && b.settings?.source === 'slot'))
+        (b,) => (b.blockType === 'entity' || b.blockType === 'template' || b.blockType === 'gallery'
+            || (opts.feeds && (b.blockType === 'social' || (b.blockType === 'post_list' && b.settings?.source === 'slot'))))
             && !done.has(b.id,),
     );
     if (pending.length === 0) return blocks;
@@ -419,7 +449,7 @@ async function expandPass(
                     if (once) context[pluralVar] = group;
                     const cloned = await cloneBlocks(
                         tplBlocks as never, block.id, `${block.id}-r${i}`,
-                        context, offset, { ...slots, templateData: templateDataOf(cfg.entityType, group,), },
+                        context, offset, { ...slots, templateData: templateDataOf(cfg.entityType, group,), }, opts.resolveText,
                     );
                     stampAncestry(state, cloned, block.id, cfg.templateId,);
                     out.push(...cloned,);
@@ -439,14 +469,14 @@ async function expandPass(
                 const idx = out.findIndex((b,) => b.id === block.id);
                 if (idx < 0) continue;
                 if (out[idx].settings.source === 'slot') {
-                    out[idx] = { ...out[idx], settings: await resolveSlotGallery(out[idx].settings,), };
+                    out[idx] = { ...out[idx], settings: await resolveSlotGallery(out[idx].settings, opts.audience,), };
                     continue;
                 }
                 if (out[idx].settings.source === 'template') {
-                    out[idx] = { ...out[idx], settings: await resolveTemplateGallery(out[idx].settings,), };
+                    out[idx] = { ...out[idx], settings: await resolveTemplateGallery(out[idx].settings, opts.audience,), };
                     continue;
                 }
-                const items = await resolveGalleryBlockItems(block.settings as never, 'email',);
+                const items = await resolveGalleryBlockItems(block.settings as never, opts.audience,);
                 out[idx] = { ...out[idx], settings: { ...out[idx].settings, [GALLERY_RESOLVED_KEY]: items, }, };
             } else if (block.blockType === 'post_list') {
                 // Posts from the enclosing template's slot (only slot sources are pending).
@@ -459,7 +489,7 @@ async function expandPass(
                 if (tplBlocks.length === 0) continue;
                 // A component binds no entity: its template data is empty.
                 const slotCtx = slotContextOf(meta, block.settings.slots as Record<string, SlotBinding> | undefined,);
-                const cloned = await cloneBlocks(tplBlocks as never, block.id, `${block.id}-c`, null, 0, { ...slotCtx, templateData: null, },);
+                const cloned = await cloneBlocks(tplBlocks as never, block.id, `${block.id}-c`, null, 0, { ...slotCtx, templateData: null, }, opts.resolveText,);
                 stampAncestry(state, cloned, block.id, templateId,);
                 out.push(...cloned,);
             }

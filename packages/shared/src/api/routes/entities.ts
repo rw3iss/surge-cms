@@ -67,7 +67,15 @@ export interface ContentBlockTemplateCreateBody {
     sampleRecordIds?: string[] | null;
     /** Data inputs filled by the using block (validated server-side). */
     slots?: TemplateSlot[];
+    /**
+     * The template's whole block tree (`blockType` + `position` required per
+     * block). When present, the template and its blocks are written in ONE
+     * transaction (on update: the tree is REPLACED); omitted = blocks untouched.
+     */
+    blocks?: ContentBlockTemplateBlockInput[];
 }
-export type ContentBlockTemplateUpdateBody = Partial<ContentBlockTemplateCreateBody> & {
-    blocks?: Array<Partial<ContentBlockTemplateBlock>>;
-};
+/** One block of a template tree on a write (`blockType`/`position`, NOT `type`/`order`). */
+export type ContentBlockTemplateBlockInput =
+    & Partial<ContentBlockTemplateBlock>
+    & Pick<ContentBlockTemplateBlock, 'blockType' | 'position'>;
+export type ContentBlockTemplateUpdateBody = Partial<ContentBlockTemplateCreateBody>;

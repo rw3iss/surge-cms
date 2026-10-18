@@ -250,12 +250,13 @@ Scope: Shop + Printify + Events work since 2026-09-25 (order reconcile + trackin
 Migrations added: **171** `171_shop_order_email_lower_access_key.sql` (shop), **172** `172_event_subscriber_confirm_ticket_caps.sql` (events) — both registered in `features/registry.ts`. 173–174 unused.
 
 #### Cross-area follow-ups
-- Profile → Orders (profile area): render a **Download** button per digital item (`cms.shop.orders.downloadUrl`) and use `components/shop/OrderTotals` for the totals (SE20, SE29).
-- `packages/api/src/lib.ts`: register a dedicated provider-generic `shop:fulfilment-sync` cron (today `runProviderReconciles` runs inside the Printify cron tick) (SE30).
+- Profile → Orders (profile area): render a **Download** button per digital item (`cms.shop.orders.downloadUrl`) and use `components/shop/OrderTotals` for the totals (SE20, SE29). — **DONE (round 2)**: each order row has an "Items, downloads & totals" toggle → `components/profile/ProfileOrderDetails.tsx` (loads `GET /shop/orders/:id`, the owner view with download tokens; Download per digital item; `OrderTotals`).
+- `packages/api/src/lib.ts`: register a dedicated provider-generic `shop:fulfilment-sync` cron (today `runProviderReconciles` runs inside the Printify cron tick) (SE30). — **DONE (round 2)**: `initFulfilmentSyncCron` (fulfilmentSync.ts, every 15 min, primary only, no-op with shop off) registered in lib.ts; removed from the Printify tick. `retryPendingProviderFulfillment` still runs inside the Printify tick (needs Printify linking first).
 - `packages/shared/src/types/mailPurposes.ts` (shared registry) gained the two `event_*` purposes — owner of that file should know.
 - `services/export/sources.ts` / `routes/exports.ts` (exports area): optionally move the orders + registrants export sources there; today they live in the shop/events modules.
 - `variables.scss`: no `$white` token; `_shop.scss` uses `$background` for white text-on-dark — a dedicated `$on-primary`/`$white` token would read better.
 - Legacy `shop_orders.printify_order_id/printify_status`: stop writing once the SDK `ShopOrder.printifyOrderId/printifyStatus` fields are deprecated (SE30).
+- cms-client coverage listed `POST /events/unsubscribe` + `POST /events/push/subscribe` with no SDK method. — **DONE (round 2)**: both are real routes; added `cms.events.unsubscribe(token)` + `cms.events.subscribePush(body)`.
 
 #### Docs to update
 - `docs/API.md` + `docs/api-manifest.json`: regenerate (`npm run docs:api`) — new routes: `GET /shop/orders/stats`, `GET /shop/orders/export`, `GET /shop/orders/:id/fulfilments`, `POST /shop/orders/:id/fulfilment/:provider/{retry,refresh}`, `POST /shop/printify/orders/resync`, `GET /events/subscribe/confirm/:token`, `GET /events/:id/registrations/export`, `PUT /events/tickets/:code/check-in`; `?k=` on `/shop/orders/number/:n` + receipt; order list `search/attention/from/to`. Then `npm run check:drift -w packages/cms-client`.

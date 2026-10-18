@@ -994,6 +994,27 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 ]
             },
             {
+                "name": "getRevision",
+                "signature": "getRevision(id: string, version: number): Promise<Revision>",
+                "summary": "GET /components/templates/:id/revisions/:version — one snapshot.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "version",
+                        "type": "number",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<Revision>",
+                "routes": [
+                    "GET /api/v1/components/templates/:id/revisions/:version"
+                ]
+            },
+            {
                 "name": "list",
                 "signature": "list(): Promise<ContentBlockTemplate[]>",
                 "summary": "",
@@ -1020,6 +1041,43 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 ]
             },
             {
+                "name": "restoreRevision",
+                "signature": "restoreRevision(id: string, version: number): Promise<ContentBlockTemplate & { restore: RevisionRestoreOutcome; }>",
+                "summary": "POST /components/templates/:id/revisions/:version/restore — settings + whole block tree.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "version",
+                        "type": "number",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<ContentBlockTemplate & { restore: RevisionRestoreOutcome; }>",
+                "routes": [
+                    "POST /api/v1/components/templates/:id/revisions/:version/restore"
+                ]
+            },
+            {
+                "name": "revisions",
+                "signature": "revisions(id: string): Promise<PageRevisionListResponse>",
+                "summary": "GET /components/templates/:id/revisions — saved versions (meta + whole block tree each).",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<PageRevisionListResponse>",
+                "routes": [
+                    "GET /api/v1/components/templates/:id/revisions"
+                ]
+            },
+            {
                 "name": "saveBlocks",
                 "signature": "saveBlocks(id: string, blocks: Array<Partial<ContentBlockTemplateBlock>>): Promise<{ saved: boolean; }>",
                 "summary": "",
@@ -1038,6 +1096,22 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "returns": "Promise<{ saved: boolean; }>",
                 "routes": [
                     "PUT /api/v1/components/templates/:id/blocks"
+                ]
+            },
+            {
+                "name": "snapshotRevision",
+                "signature": "snapshotRevision(id: string): Promise<RevisionSnapshotResponse>",
+                "summary": "POST /components/templates/:id/revisions — snapshot the current state now.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<RevisionSnapshotResponse>",
+                "routes": [
+                    "POST /api/v1/components/templates/:id/revisions"
                 ]
             },
             {
@@ -2337,6 +2411,22 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 ]
             },
             {
+                "name": "subscribePush",
+                "signature": "subscribePush(body: EventsPushSubscribeBody): Promise<EventsPushSubscribeResponse>",
+                "summary": "POST /events/push/subscribe — register a browser Web Push endpoint (the `PushSubscription.toJSON()` shape; `email` ignored when signed in). `pushEnabled: false` = the server has no VAPID keys.",
+                "params": [
+                    {
+                        "name": "body",
+                        "type": "EventsPushSubscribeBody",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<EventsPushSubscribeResponse>",
+                "routes": [
+                    "POST /api/v1/events/push/subscribe"
+                ]
+            },
+            {
                 "name": "ticket",
                 "signature": "ticket(code: string): Promise<EventTicketView>",
                 "summary": "GET /events/tickets/:code — one ticket and its registration (the code is the credential; contact details are masked unless you are the attendee or staff).",
@@ -2371,6 +2461,22 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "returns": "Promise<EventTicketTier[]>",
                 "routes": [
                     "GET /api/v1/events/:id/tiers"
+                ]
+            },
+            {
+                "name": "unsubscribe",
+                "signature": "unsubscribe(token: string): Promise<EventsUnsubscribeResponse>",
+                "summary": "POST /events/unsubscribe — stop event notifications, with the token from a notification email's footer.",
+                "params": [
+                    {
+                        "name": "token",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<EventsUnsubscribeResponse>",
+                "routes": [
+                    "POST /api/v1/events/unsubscribe"
                 ]
             },
             {
@@ -9950,4 +10056,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 51;
-export const SDK_METHOD_COUNT = 582;
+export const SDK_METHOD_COUNT = 588;

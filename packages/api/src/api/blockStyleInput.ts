@@ -5,14 +5,16 @@
  * schema here would mean a new property is silently dropped on save until
  * someone remembers to add it in five route modules. What IS constrained is
  * `customCss`, because it is the one field an operator can paste an arbitrary
- * amount of text into.
+ * amount of text into, and the known CSS keys (`BLOCK_STYLE_CSS_KEYS`), which
+ * must pass the shared `isSafeCssValue` — they are interpolated into a
+ * `<style>` sheet, so a `;` / `}` / `</style>` would escape the declaration.
  *
  * The cap is per BLOCK, so it is far tighter than the page-level one (64 KB):
  * a page holds one page-level sheet and can hold dozens of blocks, and a
  * per-block override that runs past 16 KB is a stylesheet that belongs in
  * Settings → Appearance, not in one block.
  */
-import { BLOCK_CUSTOM_CSS_MAX, } from '@sitesurge/types';
+import { BLOCK_CUSTOM_CSS_MAX, findUnsafeBlockStyleKey, } from '@sitesurge/types';
 import { z, } from 'zod';
 
 /*
@@ -47,4 +49,14 @@ export const blockStyleRecord = z
             return true;
         },
         { message: `Custom CSS must be ${BLOCK_CUSTOM_CSS_MAX} characters or fewer`, },
-    );
+    )
+    .superRefine((style, ctx,) => refineBlockStyleValues(style, ctx,),);
+
+/**
+ * The same CSS-value check for a SAVED style template (`/block-styles`), whose
+ * schema is a closed object rather than this open record.
+ */
+export function refineBlockStyleValues(style: Record<string, unknown>, ctx: z.RefinementCtx,): void {
+    const bad = findUnsafeBlockStyleKey(style,);
+    if (bad) ctx.addIssue({ code: 'custom', message: `Block style "${bad}" is not a valid CSS value`, path: bad.split('.',), },);
+}

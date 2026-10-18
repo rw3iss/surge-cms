@@ -1,6 +1,6 @@
 /**
  * Gallery block (SSR): indexable figures for the items the SSR pre-pass
- * resolved for the anonymous visitor (`preResolveGalleryBlocks`, ssr/routes).
+ * resolved for the anonymous visitor (`expandSsrDynamicBlocks`, ssr/expandBlocks.ts).
  */
 import type { GalleryBlockSettings, } from '@sitesurge/types';
 import { config, } from '../../../config';

@@ -22,6 +22,7 @@ import { AppError, } from '../core/errors';
 import { logger, } from '../utils/logger';
 import { snakeCase, } from '../entities/columnMap';
 import { urlPath, } from './mediaRefs';
+import { cache, CACHE_KEYS, } from './cache';
 
 /** Usages kept per media item (the confirm dialog shows a handful + "…and N more"). */
 export const USAGE_CAP = 20;
@@ -375,6 +376,38 @@ export async function findMediaUsage(
         for (const id of Object.keys(usage,)) usage[id] = usage[id].filter((u,) => !drop.has(u.kind,),);
     }
     return usage;
+}
+
+/** Seconds a usage list is cached for DISPLAY (`findMediaUsageCached`). */
+export const USAGE_CACHE_TTL_SECONDS = 30;
+
+/**
+ * `findMediaUsage` behind a 30 s per-media-id Redis cache — for DISPLAY
+ * (`GET /media/usage`: the edit modal, the library's usage badges), where a
+ * few seconds' staleness is harmless and each scan costs ~17 table scans.
+ * Content writes drop the cache (`cache.invalidateMediaUsageCache`). The DELETE
+ * guard (`assertNotInUse`) never uses it: a just-added reference must block a
+ * delete, and not every source has an invalidator.
+ */
+export async function findMediaUsageCached(mediaIds: string[],): Promise<MediaUsageResponse> {
+    const ids = [...new Set(mediaIds.filter((id,) => /^[0-9a-f-]{36}$/i.test(id,),),),];
+    if (!ids.length) return {};
+    const hits = await Promise.all(ids.map((id,) => cache.get<MediaUsage[]>(CACHE_KEYS.mediaUsage(id,),),),);
+    const out: MediaUsageResponse = {};
+    const missing: string[] = [];
+    ids.forEach((id, i,) => {
+        const hit = hits[i];
+        if (Array.isArray(hit,)) out[id] = hit;
+        else missing.push(id,);
+    },);
+    if (missing.length) {
+        const fresh = await findMediaUsage(missing,);
+        await Promise.all(missing.map((id,) => {
+            out[id] = fresh[id] ?? [];
+            return cache.set(CACHE_KEYS.mediaUsage(id,), out[id], USAGE_CACHE_TTL_SECONDS,);
+        },),);
+    }
+    return out;
 }
 
 /** Only the media ids that are in use (with their usages). */

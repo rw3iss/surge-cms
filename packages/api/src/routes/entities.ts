@@ -193,11 +193,11 @@ export const entitiesRoutes = [
         auth: 'admin',
         summary: 'Create a content-block template',
         input: { params: typeParam, body: templateCreateWithBlocks, },
-        handler: async ({ params, body, },) => {
+        handler: async ({ params, body, user, },) => {
             const { blocks, ...meta } = body;
             const tpl = blocks
-                ? await cbtSvc.saveWithBlocks(null, { ...meta, entityTypeKey: params.type, }, blocks,)
-                : await cbtSvc.create({ ...meta, entityTypeKey: params.type, },);
+                ? await cbtSvc.saveWithBlocks(null, { ...meta, entityTypeKey: params.type, }, blocks, user?.id ?? null,)
+                : await cbtSvc.create({ ...meta, entityTypeKey: params.type, }, user?.id ?? null,);
             return reply(tpl, { status: 201, },);
         },
     },),
@@ -207,11 +207,11 @@ export const entitiesRoutes = [
         auth: 'admin',
         summary: 'Update a content-block template',
         input: { params: templateIdParam, body: templateUpdateWithBlocks, },
-        handler: async ({ params, body, },) => {
+        handler: async ({ params, body, user, },) => {
             const { blocks, ...meta } = body;
             const template = blocks
-                ? await cbtSvc.saveWithBlocks(params.id, meta, blocks,)
-                : await cbtSvc.update(params.id, meta,);
+                ? await cbtSvc.saveWithBlocks(params.id, meta, blocks, user?.id ?? null,)
+                : await cbtSvc.update(params.id, meta, user?.id ?? null,);
             if (!template) throw new NotFoundError(`Content-block template "${params.id}"`,);
             return template;
         },
@@ -241,8 +241,8 @@ export const entitiesRoutes = [
         auth: 'admin',
         summary: "Replace a template's blocks",
         input: { params: templateIdParam, body: templateBlocksBody, },
-        handler: async ({ params, body, },) => {
-            await cbtSvc.replaceBlocks(params.id, body.blocks,);
+        handler: async ({ params, body, user, },) => {
+            await cbtSvc.replaceBlocks(params.id, body.blocks, user?.id ?? null,);
             return { saved: true, };
         },
     },),

@@ -103,3 +103,31 @@ describe('entities.list (non-admin)', () => {
         expect((repoList.mock.calls[0][2] as { extraWhere: unknown[]; }).extraWhere,).toEqual([],);
     },);
 },);
+
+describe('page access_level (non-admin)', () => {
+    it('drops a member-only page for an anonymous lister, keeps it for a member', async () => {
+        const rows = [
+            { id: 'a', slug: 'a', status: 'published', accessLevel: 'public', },
+            { id: 'b', slug: 'b', status: 'published', accessLevel: 'member', },
+            { id: 'c', slug: 'c', status: 'published', accessLevel: 'public', isPrivate: true, },
+        ];
+        repoList.mockResolvedValue({ items: rows.map((r,) => ({ ...r, }),), total: 3, },);
+        const anon = await entities.list('page', {},);
+        expect(anon.items.map((r,) => r.id),).toEqual(['a',],);
+
+        repoList.mockResolvedValue({ items: rows.map((r,) => ({ ...r, }),), total: 3, },);
+        const member = await entities.list('page', {}, { viewer: { id: 'u1', role: 'member', }, },);
+        expect(member.items.map((r,) => r.id),).toEqual(['a', 'b', 'c',],);
+    },);
+
+    it('404s a member-only page for an anonymous reader', async () => {
+        repoGetBySlug.mockResolvedValue({ id: 'b', slug: 'b', status: 'published', accessLevel: 'member', },);
+        await expect(entities.get('page', 'b',),).rejects.toThrow();
+    },);
+
+    it('lets staff read a patron page', async () => {
+        repoGetBySlug.mockResolvedValue({ id: 'p', slug: 'p', status: 'published', accessLevel: 'patron', },);
+        const rec = await entities.get('page', 'p', { viewer: { id: 'e1', role: 'editor', }, },);
+        expect(rec.id,).toBe('p',);
+    },);
+},);

@@ -5,7 +5,7 @@
  * subscribe flow (including double-opt-in confirmation email). The route
  * layer in `routes/mailingLists.ts` thinly wraps this module.
  */
-import { randomBytes, } from 'crypto';
+import { randomBytes, randomUUID, } from 'crypto';
 import { NotFoundError, ValidationError, } from '../core/errors';
 import * as lists from '../repositories/mailingLists.repo';
 import * as subs from '../repositories/mailingListSubscribers.repo';
@@ -17,6 +17,7 @@ import { config, } from '../config';
 import type { MailingListSubscriberUpdateBody, } from '@sitesurge/types';
 import type { AuditContext, } from './types';
 import { uuidOrNull, } from '../utils/uuid';
+import { rateLimit, } from './discussions/spam';
 
 export interface ListInput {
     slug: string;
@@ -41,7 +42,12 @@ export interface PublicSubscribeInput {
     name?: string;
     phone?: string;
     customFields?: Record<string, unknown>;
+    /** Honeypot — must be empty (see `ListSubscribeBody.website`). */
+    website?: string;
 }
+
+/** Public sign-ups allowed per IP per window (any list). */
+export const SUBSCRIBE_IP_LIMIT = { max: 5, windowSeconds: 600, };
 
 // ─── Lists ───────────────────────────────────────────────────────────
 
@@ -229,10 +235,22 @@ export async function getSubscriptionStatus(
 export async function publicSubscribe(
     slug: string,
     input: PublicSubscribeInput,
-    actor: { userId?: string; userEmail?: string; },
+    /** `ip` = a request from the public endpoint: rate-limited per IP. Internal
+     *  callers (a form's subscribe action) pass none. */
+    actor: { userId?: string; userEmail?: string; ip?: string | null; },
 ) {
     const list = await lists.findBySlug(slug,);
     if (!list || !list.isEnabled) throw new NotFoundError('List',);
+
+    // Honeypot: a bot filled the hidden field. Answer as a new sign-up would
+    // and store nothing (no row, no email).
+    if (input.website) {
+        return { status: list.doubleOptIn ? 'pending_confirmation' as const : 'subscribed' as const, id: randomUUID(), };
+    }
+    // Per IP, across lists; Redis-backed and fails OPEN (spam.ts).
+    if (actor.ip !== undefined) {
+        await rateLimit(`ip:${actor.ip ?? 'unknown'}:sub`, SUBSCRIBE_IP_LIMIT.max, SUBSCRIBE_IP_LIMIT.windowSeconds,);
+    }
 
     let email = input.email;
     let userId: string | null = null;

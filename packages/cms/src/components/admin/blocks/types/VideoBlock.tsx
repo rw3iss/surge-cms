@@ -1,12 +1,12 @@
 import { openMediaViewer, } from '@/stores/mediaViewer';
-import { cssLength, itemRadiusCss, type Media, } from '@sitesurge/types';
+import { cssLength, itemRadiusCss, } from '@sitesurge/types';
 import { Component, createSignal, Match, Show, Switch, type JSX, } from 'solid-js';
 import MediaVideo from '../../../blocks/media/MediaVideo';
 import VideoPlayer from '../../../blocks/media/VideoPlayer';
 import { startUpload, uploads, usesMultipart, whenComplete, } from '@/stores/uploads';
 import { useVideoTitle, } from '@/hooks/useVideoTitle';
 import { resolveVideoSource, } from '@/utils/resolveVideoSource';
-import MediaPickerModal, { MediaItem, } from '../../media/MediaPickerModal';
+import MediaSelectModal, { type MediaItem, } from '../../media/MediaSelectModal';
 import { cms, } from '@/services/cmsClient';
 import Toggle from '../../common/Toggle';
 import { FormField, } from '../../forms';
@@ -48,7 +48,7 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
      * settings because the email and SSR renderers read them (they cannot
      * fetch); the poster is refreshed from playback, which knows the encoded one.
      */
-    const applyMedia = (m: { id: string; url: string; originalName?: string; size?: number; thumbnailUrl?: string | null; video?: Media['video']; },) => {
+    const applyMedia = (m: { id: string; url: string; originalName?: string; size?: number; thumbnailUrl?: string | null; video?: { posterUrl?: string | null; } | null; },) => {
         const base = {
             ...props.data,
             url: m.url,
@@ -340,7 +340,7 @@ const VideoBlock: Component<VideoBlockProps> = (props,) => {
                     </div>
                 </div>
                 <Show when={showPicker()}>
-                    <MediaPickerModal type="video" onSelect={handleMediaSelect} onClose={() => setShowPicker(false,)} />
+                    <MediaSelectModal types={['video',]} title="Select Video" onSelect={handleMediaSelect} onClose={() => setShowPicker(false,)} />
                 </Show>
             </Show>
         </div>

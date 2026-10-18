@@ -520,3 +520,26 @@ describe('expandDynamicBlocks — cycles, caps, memo (audit 2026-10-18 S4 / P3 /
         expect(findTemplate,).toHaveBeenCalledTimes(1,);
     },);
 },);
+
+describe('expandDynamicBlocks options (SSR reuse)', () => {
+    it('reads galleries with the given audience and skips feeds when asked', async () => {
+        resolveGalleryBlockItems.mockResolvedValue([],);
+        const gallery: FlatMailBlock = { id: 'g1', parentBlockId: null, blockType: 'gallery', position: 0, settings: { source: 'items', itemIds: ['a',], }, style: {}, };
+        const social: FlatMailBlock = { id: 's1', parentBlockId: null, blockType: 'social', position: 1, settings: { provider: 'youtube', }, style: {}, };
+        await expandDynamicBlocks([gallery, social,], 0, new Set(), { audience: 'site', feeds: false, videoSize: false, },);
+        expect(resolveGalleryBlockItems,).toHaveBeenCalledWith(expect.anything(), 'site',);
+        expect(listPlatformPosts,).not.toHaveBeenCalled();
+    },);
+
+    it('resolves cloned text with the supplied resolver', async () => {
+        findTemplate.mockResolvedValue({ id: 'tpl-1', slots: [], },);
+        findBlocksResolved.mockResolvedValue([
+            { id: 'b1', parentBlockId: null, blockType: 'rich_text', position: 0, settings: { content: '<p>{{post.title}}</p>', }, style: {}, },
+        ],);
+        entityGet.mockResolvedValue({ id: 'p1', title: 'Hello', },);
+        const resolveText = vi.fn(async (t: string,) => `SSR:${t}`,);
+        const out = await expandDynamicBlocks([entityBlock(),], 0, new Set(), { resolveText, videoSize: false, },);
+        expect(resolveText,).toHaveBeenCalled();
+        expect(out.find((b,) => b.parentBlockId === 'e1',)?.settings.content,).toBe('SSR:<p>{{post.title}}</p>',);
+    },);
+},);

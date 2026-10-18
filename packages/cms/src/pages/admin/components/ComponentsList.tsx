@@ -9,12 +9,14 @@
  * these rows simply have no `entity_type_key`. The editor is literally the same
  * component (`TemplateEditor`), which is why there is nothing here but a list.
  */
-import { Component, createResource, For, Show, } from 'solid-js';
+import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { A, useNavigate, } from '@solidjs/router';
 import type { ContentBlockTemplate, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
 import { formatDate, } from '@sitesurge/types';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
+import TemplateDeleteConfirm from '../../../components/admin/entities/TemplateDeleteConfirm';
+import { useToast, } from '../../../components/common/toast';
 
 const ComponentsList: Component = () => {
     const navigate = useNavigate();
@@ -26,12 +28,27 @@ const ComponentsList: Component = () => {
         }
     },);
 
-    const handleDelete = async (t: ContentBlockTemplate,) => {
-        if (!confirm(`Delete "${t.name}"? Any block referencing it will stop rendering.`,)) return;
+    // Delete goes through the same usage-listing, type-the-name confirm as the
+    // template editor. `usages` comes with the list (staff reads).
+    const toast = useToast();
+    const [deleting, setDeleting,] = createSignal<ContentBlockTemplate | null>(null,);
+    const [busy, setBusy,] = createSignal(false,);
+    const usageCount = (t: ContentBlockTemplate,): number | null =>
+        t.usageCount ?? t.usages?.length ?? null;
+    const confirmDelete = async () => {
+        const t = deleting();
+        if (!t) return;
+        setBusy(true,);
         try {
             await cms.components.remove(t.id,);
+            setDeleting(null,);
+            toast.success('Component deleted.',);
             void refetch();
-        } catch { /* error bus surfaces the toast */ }
+        } catch (e) {
+            toast.error(`Could not delete: ${e instanceof Error ? e.message : 'unknown error'}`,);
+        } finally {
+            setBusy(false,);
+        }
     };
 
     const handleCopy = async (t: ContentBlockTemplate,) => {
@@ -75,6 +92,7 @@ const ComponentsList: Component = () => {
                                 <th class="components-list__name">Name</th>
                                 <th>Description</th>
                                 <th>Mode</th>
+                                <th>Used in</th>
                                 <th>Updated</th>
                                 <th />
                             </tr>
@@ -88,6 +106,11 @@ const ComponentsList: Component = () => {
                                         </td>
                                         <td>{t.description || '—'}</td>
                                         <td>{t.mode}</td>
+                                        <td>
+                                            {usageCount(t,) === null
+                                                ? '—'
+                                                : `${usageCount(t,)} place${usageCount(t,) === 1 ? '' : 's'}`}
+                                        </td>
                                         <td>{t.updatedAt ? formatDate(t.updatedAt,) : '—'}</td>
                                         <td class="admin-table__actions">
                                             <A href={`/admin/components/${t.id}`} class="ui-button ui-button--sm ui-button--ghost">
@@ -103,7 +126,7 @@ const ComponentsList: Component = () => {
                                             <button
                                                 type="button"
                                                 class="ui-button ui-button--sm ui-button--danger"
-                                                onClick={() => void handleDelete(t,)}
+                                                onClick={() => setDeleting(t,)}
                                             >
                                                 Delete
                                             </button>
@@ -115,6 +138,16 @@ const ComponentsList: Component = () => {
                     </table>
                 </div>
             </Show>
+
+            <TemplateDeleteConfirm
+                open={deleting() !== null}
+                title="Delete component"
+                name={deleting()?.name ?? ''}
+                usages={deleting()?.usages ?? null}
+                loading={busy()}
+                onConfirm={() => void confirmDelete()}
+                onCancel={() => setDeleting(null,)}
+            />
         </div>
     );
 };

@@ -1,0 +1,69 @@
+// Event teaser card (the `event` content block). Public — colours read the
+// site tokens so an operator's theme applies.
+.event-card-block {
+    &__heading {
+        margin: 0 0 12px;
+    }
+}
+
+.event-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--site-border, #e5e7eb);
+    border-radius: var(--site-radius, 12px);
+    background: var(--site-bg, #fff);
+    color: inherit;
+    text-decoration: none;
+    transition: box-shadow 0.15s ease;
+
+    &:hover {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    &:hover &__link {
+        text-decoration: underline;
+    }
+
+    &__image {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+    }
+
+    &__body {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 16px 20px 20px;
+    }
+
+    &__title {
+        margin: 0;
+        font-size: 1.25rem;
+        color: var(--site-heading, inherit);
+    }
+
+    &__when {
+        margin: 0;
+        font-weight: 600;
+    }
+
+    &__meta {
+        margin: 0;
+        font-size: 0.9rem;
+        color: var(--site-text-muted, #6b7280);
+    }
+
+    &__excerpt {
+        margin: 8px 0 0;
+        line-height: 1.5;
+    }
+
+    &__link {
+        margin-top: 8px;
+        font-weight: 600;
+        color: var(--site-link, var(--site-primary, #e63946));
+    }
+}

@@ -52,3 +52,15 @@ describe('blockStyleRecord', () => {
         expect(blockStyleRecord.safeParse({ customCss: 42, },).success,).toBe(true,);
     });
 });
+
+describe('blockStyleRecord CSS-value safety (S5)', () => {
+    it('rejects a value that escapes the declaration, at base or breakpoint level', () => {
+        expect(blockStyleRecord.safeParse({ padding: '0;}body{display:none', },).success,).toBe(false,);
+        expect(blockStyleRecord.safeParse({ breakpoints: { mobile: { margin: 'url(x)', }, }, },).success,).toBe(false,);
+    });
+    it('accepts ordinary values, a quoted font stack and a URL background', () => {
+        expect(blockStyleRecord.safeParse({
+            padding: '10px 20px', fontFamily: '"Inter", sans-serif', backgroundImage: 'https://cdn.x/a.jpg',
+        },).success,).toBe(true,);
+    });
+});

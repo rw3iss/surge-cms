@@ -20,6 +20,7 @@ import EventSignup from '../components/events/EventSignup';
 import CommentsSection from '../components/discussions/CommentsSection';
 import { isFeatureEnabled, } from '../stores/siteSettings';
 import { cms, } from '../services/cmsClient';
+import { formatEventWhen, } from '../utils/eventFormat';
 import './EventDetail.scss';
 
 const EventDetailPage: Component = () => {
@@ -104,15 +105,7 @@ const EventDetailPage: Component = () => {
     };
 
     /** Shown in the EVENT's time zone (a 7 pm ET event reads 7 pm everywhere). */
-    const formatOccurrence = (d: Date, allDay: boolean, tz?: string | null,) => {
-        const zone = (() => {
-            if (!tz) return undefined;
-            try { new Intl.DateTimeFormat('en-US', { timeZone: tz, },); return tz; } catch { return undefined; }
-        })();
-        return allDay
-            ? d.toLocaleDateString('en-US', { dateStyle: 'full', timeZone: 'UTC', },)
-            : d.toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short', ...(zone ? { timeZone: zone, timeZoneName: 'short', } : {}), },);
-    };
+    const formatOccurrence = (d: Date, allDay: boolean, tz?: string | null,) => formatEventWhen(d, allDay, tz,);
 
     const when = () => {
         const ev = event();

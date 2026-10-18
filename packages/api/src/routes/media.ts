@@ -31,7 +31,7 @@ import type {
 import { defineRoute, reply, } from '../api/defineRoute';
 import { ValidationError, } from '../core/errors';
 import * as media from '../services/media';
-import { assertNotInUse, findMediaUsage, } from '../services/mediaUsage';
+import { assertNotInUse, findMediaUsageCached, } from '../services/mediaUsage';
 import { isAllowedType, maxFileBytes, } from '../services/mediaUploadPolicy';
 import { requirePermission, } from '../services/permissions';
 import type { UploadFile, } from '../services/media';
@@ -199,7 +199,7 @@ export const mediaRoutes = [
         input: { query: usageQuery, },
         handler: async (ctx,): Promise<MediaUsageResponse> => {
             await guardMedia(ctx, 'media:read',);
-            return findMediaUsage(splitIds(ctx.query.ids,),);
+            return findMediaUsageCached(splitIds(ctx.query.ids,),);
         },
     },),
 

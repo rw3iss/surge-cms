@@ -8,8 +8,9 @@ import { query, } from '../db';
 import { normalizeTemplateSlots, } from '@sitesurge/types';
 import * as entityManager from '../entities/entityManager';
 import * as repo from '../repositories/contentBlockTemplates.repo';
-import { ValidationError, } from '../middleware/error';
+import { NotFoundError, ValidationError, } from '../middleware/error';
 import { cache, CACHE_KEYS, } from './cache';
+import * as revisions from './revisions';
 
 /**
  * Drop the cached list a template belongs to.
@@ -60,21 +61,31 @@ function withSlots<T extends Partial<repo.CreateInput>,>(input: T,): T {
     return input.slots === undefined ? input : { ...input, slots: validateSlots(input.slots,), };
 }
 
-export async function create(input: repo.CreateInput,): Promise<ContentBlockTemplate> {
+/**
+ * Every save is versioned like pages/posts/mail templates: `markDirty` takes a
+ * full-tree snapshot (row + blocks) after the write settles (services/revisions).
+ * `authorId` = the staff user making the change (null for scripts).
+ */
+export async function create(input: repo.CreateInput, authorId: string | null = null,): Promise<ContentBlockTemplate> {
     const template = await repo.create(withSlots(input,),);
     await invalidate(template.entityTypeKey,);
+    revisions.markDirty('content_block_template', template.id, authorId,);
     return template;
 }
 
-export async function update(id: string, patch: Partial<repo.CreateInput>,): Promise<ContentBlockTemplate | null> {
+export async function update(id: string, patch: Partial<repo.CreateInput>, authorId: string | null = null,): Promise<ContentBlockTemplate | null> {
     const template = await repo.update(id, withSlots(patch,),);
-    if (template) await invalidate(template.entityTypeKey,);
+    if (template) {
+        await invalidate(template.entityTypeKey,);
+        revisions.markDirty('content_block_template', template.id, authorId,);
+    }
     return template;
 }
 
 export async function remove(id: string,): Promise<void> {
     const template = await repo.findById(id,);
     await repo.remove(id,);
+    revisions.cancelPending('content_block_template', id,);
     if (template) await invalidate(template.entityTypeKey,);
 }
 
@@ -91,16 +102,23 @@ export async function saveWithBlocks(
     id: string | null,
     input: Partial<repo.CreateInput>,
     blocks: repo.SaveBlockInput[],
+    authorId: string | null = null,
 ): Promise<ContentBlockTemplate | null> {
     const template = await repo.saveWithBlocks(id, withSlots(input,), blocks,);
-    if (template) await invalidate(template.entityTypeKey,);
+    if (template) {
+        await invalidate(template.entityTypeKey,);
+        revisions.markDirty('content_block_template', template.id, authorId,);
+    }
     return template;
 }
 
-export async function replaceBlocks(templateId: string, blocks: repo.SaveBlockInput[],): Promise<void> {
+export async function replaceBlocks(templateId: string, blocks: repo.SaveBlockInput[], authorId: string | null = null,): Promise<void> {
     await repo.replaceBlocks(templateId, blocks,);
     const template = await repo.findById(templateId,);
-    if (template) await invalidate(template.entityTypeKey,);
+    if (template) {
+        await invalidate(template.entityTypeKey,);
+        revisions.markDirty('content_block_template', templateId, authorId,);
+    }
 }
 
 /**
@@ -155,4 +173,34 @@ export async function withUsageCounts(templates: ContentBlockTemplate[],): Promi
         const u = map.get(t.id,) ?? [];
         return { ...t, usages: u, usageCount: u.length, };
     },);
+}
+
+// ─── Revisions ────────────────────────────────────────────────────
+// Full-tree history (row + every block) like pages/posts/mail templates; one
+// table serves entity templates AND components, so these key by id only.
+
+export function listRevisions(id: string,) {
+    return revisions.list('content_block_template', id,);
+}
+
+export async function getRevision(id: string, version: number,) {
+    const rev = await revisions.get('content_block_template', id, version,);
+    if (!rev) throw new NotFoundError('Revision',);
+    return rev;
+}
+
+/** Restore a version (snapshots the current state first, so it is undoable). */
+export async function restoreRevision(id: string, version: number, authorId: string | null,) {
+    const result = await revisions.restore('content_block_template', id, version, authorId,);
+    const template = await repo.findById(id,);
+    // A restore can move the template between types only if the row did; clear both lists.
+    await invalidate(template?.entityTypeKey,);
+    await cache.invalidateContentBlockTemplatesGlobalCache();
+    return { ...(template ?? {}), restore: result, };
+}
+
+/** Snapshot now — the editor calls this when its save completes. */
+export async function snapshotNow(id: string, authorId: string | null,) {
+    const version = await revisions.flush('content_block_template', id, authorId,);
+    return { created: version !== null, version, };
 }

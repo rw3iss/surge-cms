@@ -11,6 +11,10 @@ import type {
     ContentBlockTemplateBlock,
     ContentBlockTemplateCreateBody,
     ContentBlockTemplateUpdateBody,
+    PageRevisionListResponse,
+    Revision,
+    RevisionRestoreOutcome,
+    RevisionSnapshotResponse,
 } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
@@ -72,5 +76,30 @@ export class ComponentsModule extends ModuleBase {
         return this.mutate<{ saved: boolean; }>('PUT', '/components/templates/:id/blocks', {
             params: { id, }, body: { blocks, }, invalidates: ['components',],
         },);
+    }
+
+    // ── Revisions (keyed by id: entity-bound templates use these too) ──
+
+    /** GET /components/templates/:id/revisions — saved versions (meta + whole block tree each). */
+    revisions(id: string,): Promise<PageRevisionListResponse> {
+        return this.get<PageRevisionListResponse>('/components/templates/:id/revisions', { params: { id, }, options: { cache: false, }, },);
+    }
+
+    /** POST /components/templates/:id/revisions — snapshot the current state now. */
+    snapshotRevision(id: string,): Promise<RevisionSnapshotResponse> {
+        return this.mutate<RevisionSnapshotResponse>('POST', '/components/templates/:id/revisions', { params: { id, }, },);
+    }
+
+    /** GET /components/templates/:id/revisions/:version — one snapshot. */
+    getRevision(id: string, version: number,): Promise<Revision> {
+        return this.get<Revision>('/components/templates/:id/revisions/:version', { params: { id, version, }, options: { cache: false, }, },);
+    }
+
+    /** POST /components/templates/:id/revisions/:version/restore — settings + whole block tree. */
+    restoreRevision(id: string, version: number,): Promise<ContentBlockTemplate & { restore: RevisionRestoreOutcome; }> {
+        return this.mutate<ContentBlockTemplate & { restore: RevisionRestoreOutcome; }>(
+            'POST', '/components/templates/:id/revisions/:version/restore',
+            { params: { id, version, }, invalidates: ['components', 'content-block-templates',], },
+        );
     }
 }

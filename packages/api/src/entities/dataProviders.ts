@@ -12,7 +12,8 @@
 import type { EntityQuery, EntityRecord, } from '@sitesurge/types';
 
 export interface EntityDataProvider {
-    list?(query: EntityQuery, opts: { admin?: boolean; },): Promise<{ items: EntityRecord[]; total: number; }>;
+    /** `audience: 'email'` = rendered into a newsletter (see `EntityReadOpts.audience`). */
+    list?(query: EntityQuery, opts: { admin?: boolean; audience?: 'email'; },): Promise<{ items: EntityRecord[]; total: number; }>;
     getById?(id: string,): Promise<EntityRecord | null>;
     getBySlug?(slug: string,): Promise<EntityRecord | null>;
     create?(body: Record<string, unknown>, ctx: { userId?: string; },): Promise<EntityRecord>;

@@ -1,5 +1,5 @@
 import { Component, createSignal, Show, } from 'solid-js';
-import MediaPickerModal, { MediaItem, } from '../../media/MediaPickerModal';
+import MediaSelectModal, { type MediaItem, } from '../../media/MediaSelectModal';
 import { cms, } from '@/services/cmsClient';
 import { FormField, } from '../../forms';
 
@@ -123,8 +123,9 @@ const DocumentBlock: Component<DocumentBlockProps> = (props,) => {
                     />
                 </FormField>
                 <Show when={showPicker()}>
-                    <MediaPickerModal
-                        type="document"
+                    <MediaSelectModal
+                        types={['document',]}
+                        title="Select Document"
                         onSelect={handleMediaSelect}
                         onClose={() => setShowPicker(false,)}
                     />

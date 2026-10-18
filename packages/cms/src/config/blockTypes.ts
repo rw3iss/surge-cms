@@ -35,7 +35,7 @@ export type BlockCategory = 'text' | 'media' | 'blocks' | 'layout';
 /** Site-feature flag keys (mirror of SiteFeatures in @sitesurge/types). When
  *  a block type sets `gating`, it's only shown in the AddBlockMenu when
  *  that feature is enabled in site settings. */
-export type BlockGatingFeature = 'posts' | 'campaigns' | 'forms' | 'messages' | 'users' | 'patreon' | 'gallery';
+export type BlockGatingFeature = 'posts' | 'campaigns' | 'forms' | 'messages' | 'users' | 'patreon' | 'gallery' | 'events';
 
 /** Source of a "recent items" submenu, when applicable. The menu
  *  fetches the last N entries from this source on hover and lets the
@@ -160,6 +160,15 @@ export const BLOCK_TYPES: BlockTypeConfig[] = [
         gating: 'forms',
         recentSource: 'forms',
         recentDataField: 'formId',
+    },
+    {
+        type: 'event',
+        label: 'Event',
+        description: 'An event card — date and time, location, excerpt — linking to the event page.',
+        icon: '📅',
+        category: 'blocks',
+        gating: 'events',
+        defaultData: () => ({ showImage: true, showDescription: true, showLocation: true, }),
     },
     { type: 'social', label: 'Social', icon: '⌘', category: 'blocks', },
     {
