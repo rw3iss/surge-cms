@@ -1,5 +1,6 @@
 import type { Block, NavigationItem, Page, } from '@sitesurge/types';
 import { query, } from '../db';
+import { ConflictError, } from '../core/errors';
 import { NotFoundError, } from '../middleware/error';
 import { mapRow, mapRows, } from '../utils/mapRow';
 import { sanitize, } from '../utils/sanitize';
@@ -298,7 +299,8 @@ export async function createBlock(pageId: string, data: Record<string, unknown>,
          page_id = EXCLUDED.page_id, parent_block_id = EXCLUDED.parent_block_id,
          type = EXCLUDED.type, title = EXCLUDED.title, content = EXCLUDED.content,
          settings = EXCLUDED.settings, "order" = EXCLUDED."order",
-         is_visible = EXCLUDED.is_visible, style = EXCLUDED.style`
+         is_visible = EXCLUDED.is_visible, style = EXCLUDED.style
+         WHERE blocks.page_id = EXCLUDED.page_id`
                 : ''
         }
      RETURNING *`,
@@ -326,6 +328,12 @@ export async function createBlock(pageId: string, data: Record<string, unknown>,
         ],
     );
 
+    // The overwrite is limited to blocks of THIS page. An id that belongs to
+    // another page returns no row: refuse, rather than MOVE that page's block
+    // here (a stale editor draft once did exactly that to a whole page).
+    if (!result.rows[0]) {
+        throw new ConflictError('That block belongs to another page — reload the editor and try again.',);
+    }
     return mapRow<Block>(result.rows[0],);
 }
 

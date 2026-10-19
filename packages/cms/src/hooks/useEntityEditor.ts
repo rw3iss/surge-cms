@@ -1,6 +1,6 @@
 import { useNavigate, useParams, type Navigator, } from '@solidjs/router';
 import {
-    type Accessor, createResource, createSignal, type Resource, type Setter,
+    type Accessor, createEffect, createResource, createSignal, on, type Resource, type Setter,
 } from 'solid-js';
 import type { AppearanceSettings, } from '@sitesurge/types';
 import type { BlockData, } from '../components/admin/blocks/ContentBlock';
@@ -160,10 +160,27 @@ export function useEntityEditor<TEntity,>(
     const isDeleted = () => config.status() === 'deleted';
 
     // Autosave: the module supplies its field snapshot; the hook merges in blocks.
+    // The key is a GETTER: the router reuses this editor when you go from one
+    // page to another (only `:id` changes), and a key fixed at mount kept
+    // pointing at the FIRST page's draft — which was then restored over the
+    // second page and saved into it (its blocks + status). 2026-10-19.
     const autoSave = useAutoSave({
-        key: `${config.entityKind}-draft-${params.id || 'new'}`,
+        get key() {
+            return `${config.entityKind}-draft-${params.id || 'new'}`;
+        },
         state: () => ({ ...config.autoSaveState(), blocks: blocks(), }),
     },);
+
+    // Moving to another entity in the same editor: drop the previous one's
+    // pending draft write and its blocks, so nothing of it can be saved into
+    // the next (a page with NO blocks never overwrote the old list).
+    createEffect(on(() => params.id, () => {
+        autoSave.cancel();
+        setBlocks([],);
+        setSavedBlocks([],);
+        setOriginalBlockIds(new Set<string>(),);
+        markClean();
+    }, { defer: true, },),);
 
     /** Bumped once a save (and its revision snapshot) has fully landed.
      *  The revision panel keys its fetch on this, so the new version appears
