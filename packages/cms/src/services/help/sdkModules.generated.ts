@@ -946,6 +946,16 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 ]
             },
             {
+                "name": "collections",
+                "signature": "collections(): Promise<ComponentCollectionsListResponse>",
+                "summary": "Every collection + its count, and `noneCount` (components in no collection).",
+                "params": [],
+                "returns": "Promise<ComponentCollectionsListResponse>",
+                "routes": [
+                    "GET /api/v1/components/collections"
+                ]
+            },
+            {
                 "name": "create",
                 "signature": "create(body: ComponentTemplateCreateBody): Promise<ContentBlockTemplate>",
                 "summary": "",
@@ -959,6 +969,44 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "returns": "Promise<ContentBlockTemplate>",
                 "routes": [
                     "POST /api/v1/components/templates"
+                ]
+            },
+            {
+                "name": "createCollection",
+                "signature": "createCollection(body: ComponentCollectionBody): Promise<ComponentCollection>",
+                "summary": "",
+                "params": [
+                    {
+                        "name": "body",
+                        "type": "ComponentCollectionBody",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<ComponentCollection>",
+                "routes": [
+                    "POST /api/v1/components/collections"
+                ]
+            },
+            {
+                "name": "deleteCollection",
+                "signature": "deleteCollection(id: string, components: 'detach' | 'delete' = 'detach'): Promise<ComponentCollectionDeleteResponse>",
+                "summary": "Delete a collection. Its components go to [None] (`detach`, default) or are deleted.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "components",
+                        "type": "'detach' | 'delete'",
+                        "optional": true,
+                        "default": "'detach'"
+                    }
+                ],
+                "returns": "Promise<ComponentCollectionDeleteResponse>",
+                "routes": [
+                    "DELETE /api/v1/components/collections/:id"
                 ]
             },
             {
@@ -1133,6 +1181,27 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "returns": "Promise<ContentBlockTemplate>",
                 "routes": [
                     "PUT /api/v1/components/templates/:id"
+                ]
+            },
+            {
+                "name": "updateCollection",
+                "signature": "updateCollection(id: string, body: ComponentCollectionBody): Promise<ComponentCollection>",
+                "summary": "",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "body",
+                        "type": "ComponentCollectionBody",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<ComponentCollection>",
+                "routes": [
+                    "PUT /api/v1/components/collections/:id"
                 ]
             }
         ]
@@ -10098,4 +10167,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 51;
-export const SDK_METHOD_COUNT = 590;
+export const SDK_METHOD_COUNT = 594;

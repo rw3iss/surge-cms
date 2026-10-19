@@ -43,7 +43,27 @@
         color: var(--admin-text, #{$text-color});
     }
 
+    // Fields on the left (two lines), remove button centred on the right.
+    &__main {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+    }
+
+    &__fields {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    // Always two fields per line — the shared auto-fit row would stack them
+    // in a half-width column.
+    &__line {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     &__remove {
+        flex: none;
+        align-self: center;
         font-size: 18px;
         line-height: 1;
     }

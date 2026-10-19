@@ -70,6 +70,14 @@ export const CORE_PERMISSIONS: PermissionRegistration[] = [
         defaultRoles: ADMIN,
     },
     {
+        key: 'components.collections:manage',
+        feature: 'core',
+        label: 'Manage component collections',
+        description: 'Create, rename and delete the folders components are filed in (/admin/components).',
+        action: 'write',
+        defaultRoles: ADMIN,
+    },
+    {
         key: 'permissions:manage',
         feature: 'core',
         label: 'Manage permissions',

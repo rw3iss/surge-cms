@@ -67,6 +67,8 @@ export interface ContentBlockTemplateCreateBody {
     sampleRecordIds?: string[] | null;
     /** Data inputs filled by the using block (validated server-side). */
     slots?: TemplateSlot[];
+    /** Components only: the collection to file it in (null = none). */
+    collectionId?: string | null;
     /**
      * The template's whole block tree (`blockType` + `position` required per
      * block). When present, the template and its blocks are written in ONE
@@ -79,3 +81,22 @@ export type ContentBlockTemplateBlockInput =
     & Partial<ContentBlockTemplateBlock>
     & Pick<ContentBlockTemplateBlock, 'blockType' | 'position'>;
 export type ContentBlockTemplateUpdateBody = Partial<ContentBlockTemplateCreateBody>;
+
+/** GET /components/collections — every collection with its component count,
+ *  plus how many components have none (`noneCount`, the "[None]" entry). */
+export interface ComponentCollectionsListResponse {
+    collections: import('../../entities/templates').ComponentCollection[];
+    noneCount: number;
+}
+/** POST /components/collections · PUT /components/collections/:id */
+export interface ComponentCollectionBody {
+    name: string;
+    description?: string | null;
+}
+/** DELETE /components/collections/:id?components=detach|delete — what happens
+ *  to the components filed in it (default `detach` → [None]). */
+export interface ComponentCollectionDeleteResponse {
+    deleted: true;
+    /** Components moved to [None] or deleted. */
+    components: number;
+}

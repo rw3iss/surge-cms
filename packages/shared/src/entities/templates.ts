@@ -92,10 +92,28 @@ export interface ContentBlockTemplate {
      *  global component or an unknown type. */
     singularVar?: string;
     pluralVar?: string;
+    /** Components only: the collection (folder) it is filed in; null = none.
+     *  Organisational only — rendering ignores it. */
+    collectionId?: string | null;
     /** Staff reads only: where this template / component is used. */
     usages?: TemplateUsage[];
     /** Staff list reads only: how many pages/posts/emails/templates use it. */
     usageCount?: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
+/**
+ * A folder for components (`/admin/components` sidebar). Organisation only:
+ * a component belongs to at most one (`ContentBlockTemplate.collectionId`),
+ * and "[None]" is simply `collectionId = null`, not a row.
+ */
+export interface ComponentCollection {
+    id: string;
+    name: string;
+    description: string | null;
+    /** Components filed in it. */
+    count: number;
     createdAt: string;
     updatedAt: string;
 }

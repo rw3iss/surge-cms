@@ -1629,6 +1629,101 @@ export const API_MODULES: ApiModuleDoc[] = [
         "routes": [
             {
                 "method": "GET",
+                "path": "/collections",
+                "absolutePath": "/api/v1/components/collections",
+                "auth": "admin",
+                "summary": "List component collections with counts (+ components in no collection).",
+                "sdk": [
+                    "cms.components.collections"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/collections",
+                "absolutePath": "/api/v1/components/collections",
+                "auth": "admin",
+                "summary": "Create a component collection.",
+                "input": {
+                    "body": [
+                        {
+                            "name": "name",
+                            "type": "string",
+                            "required": true
+                        },
+                        {
+                            "name": "description",
+                            "type": "string | null",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.components.createCollection"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "PUT",
+                "path": "/collections/:id",
+                "absolutePath": "/api/v1/components/collections/:id",
+                "auth": "admin",
+                "summary": "Rename / re-describe a component collection.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string",
+                            "required": true
+                        }
+                    ],
+                    "body": [
+                        {
+                            "name": "name",
+                            "type": "string",
+                            "required": true
+                        },
+                        {
+                            "name": "description",
+                            "type": "string | null",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.components.updateCollection"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "DELETE",
+                "path": "/collections/:id",
+                "absolutePath": "/api/v1/components/collections/:id",
+                "auth": "admin",
+                "summary": "Delete a component collection; its components move to [None] (detach) or are deleted.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string",
+                            "required": true
+                        }
+                    ],
+                    "query": [
+                        {
+                            "name": "components",
+                            "type": "'detach' | 'delete'",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.components.deleteCollection"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
                 "path": "/templates",
                 "absolutePath": "/api/v1/components/templates",
                 "auth": "optional",
@@ -1728,6 +1823,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "required": false
                         },
                         {
+                            "name": "collectionId",
+                            "type": "string<uuid> | null",
+                            "required": false
+                        },
+                        {
                             "name": "blocks",
                             "type": "object[]",
                             "required": false
@@ -1792,6 +1892,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                         {
                             "name": "slots",
                             "type": "object[]",
+                            "required": false
+                        },
+                        {
+                            "name": "collectionId",
+                            "type": "string<uuid> | null",
                             "required": false
                         },
                         {
@@ -17210,4 +17315,4 @@ export const API_MODULES: ApiModuleDoc[] = [
 ];
 
 export const API_MODULE_COUNT = 55;
-export const API_ROUTE_COUNT = 595;
+export const API_ROUTE_COUNT = 599;

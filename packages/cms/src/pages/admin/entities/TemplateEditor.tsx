@@ -7,9 +7,9 @@
  * Mirrors MailTemplateEdit; reuses the mail blockConverters (identical block
  * shape) to map editor ↔ backend blocks.
  */
-import { A, useNavigate, useParams, } from '@solidjs/router';
+import { A, useNavigate, useParams, useSearchParams, } from '@solidjs/router';
 import { useToast, } from '../../../components/common/toast';
-import type { ContentBlockTemplate, EntityRecord, EntityTypeDef, TemplateListRender, TemplateSlot, TemplateUsage, } from '@sitesurge/types';
+import type { ComponentCollection, ContentBlockTemplate, EntityRecord, EntityTypeDef, TemplateListRender, TemplateSlot, TemplateUsage, } from '@sitesurge/types';
 import { rendersOnce, templateDataOf, templateListRenderOf, } from '@sitesurge/types';
 import { Component, createEffect, createMemo, createResource, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
 import { createStore, reconcile, unwrap, } from 'solid-js/store';
@@ -57,6 +57,7 @@ const TemplateEditor: Component = () => {
     const toast = useToast();
     const isNew = () => params.id === 'new';
     const isGlobal = () => !params.type;
+    const [searchParams,] = useSearchParams<{ collection?: string; }>();
 
     /**
      * The two template APIs differ only in whether an entity type is in the
@@ -89,6 +90,19 @@ const TemplateEditor: Component = () => {
 
     const [name, setName,] = createSignal('',);
     const [description, setDescription,] = createSignal('',);
+    /** Components only: the collection (folder) id; '' = [None]. */
+    const [collectionId, setCollectionId,] = createSignal('',);
+    // Components only: the collections to file this component in.
+    const [collections,] = createResource(
+        () => (isGlobal() ? 'components' : null),
+        async (): Promise<ComponentCollection[]> => {
+            try {
+                return (await cms.components.collections()).collections;
+            } catch {
+                return [];
+            }
+        },
+    );
     const [mode, setMode,] = createSignal<'single' | 'list'>('single',);
     const [maxRecords, setMaxRecords,] = createSignal<string>('',);
     /** List mode: render once per record (`each`) or once with all (`once`). */
@@ -126,7 +140,7 @@ const TemplateEditor: Component = () => {
     // Unsaved edits live in localStorage (`rw-draft:cbt-draft-<type>-<id>`) and
     // come back on open when NEWER than the saved template; Revert drops them.
     const formState = () => ({
-        name: name(), description: description(), mode: mode(), maxRecords: maxRecords(), listRender: listRender(),
+        name: name(), description: description(), collectionId: collectionId(), mode: mode(), maxRecords: maxRecords(), listRender: listRender(),
         sampleRecordIds: sampleRecordIds(), script: script(), scriptEnabled: scriptEnabled(),
         slots: slots.map((sl,) => ({ ...sl, })), blocks: blocks(),
     });
@@ -148,6 +162,7 @@ const TemplateEditor: Component = () => {
     const applyState = (st: FormState,) => {
         setName(st.name,);
         setDescription(st.description,);
+        setCollectionId(st.collectionId ?? '',);
         setMode(st.mode,);
         setMaxRecords(st.maxRecords,);
         setListRender(st.listRender,);
@@ -240,6 +255,8 @@ const TemplateEditor: Component = () => {
             } catch { /* ignore */ }
         }
         if (isNew()) {
+            // "+ New component" from a selected collection files it there.
+            if (isGlobal() && searchParams.collection) setCollectionId(String(searchParams.collection,),);
             captureSaved();
             const stored = autoSave.getDraft();
             if (stored) {
@@ -274,6 +291,7 @@ const TemplateEditor: Component = () => {
     function applyLoaded(d: Awaited<ReturnType<typeof api.getOne>>,): void {
         setName(d.name,);
         setDescription(d.description ?? '',);
+        setCollectionId(d.collectionId ?? '',);
         setMode(d.mode,);
         setMaxRecords(d.maxRecords != null ? String(d.maxRecords,) : '',);
         setListRender(templateListRenderOf(d.listRender,),);
@@ -337,6 +355,7 @@ const TemplateEditor: Component = () => {
                 // them behind `components:script`, so an entity template save
                 // must not carry them or a non-admin editor would 403.
                 ...(isGlobal() ? { script: script() || null, scriptEnabled: scriptEnabled(), } : {}),
+                ...(isGlobal() ? { collectionId: collectionId() || null, } : {}),
             };
             // Meta AND blocks in ONE request — the server applies them in one
             // transaction, so a failed block write can't leave new slots /
@@ -539,6 +558,8 @@ const TemplateEditor: Component = () => {
                 onCancel={() => setShowDelete(false,)}
             />
 
+            {/* Settings + Slots: two half-width columns (one column ≤1200px). */}
+            <div class="template-top-row">
             <section class="admin-section template-settings">
                 <header class="admin-section__header"><h2>Settings</h2></header>
                 <div class="template-settings__grid">
@@ -549,6 +570,20 @@ const TemplateEditor: Component = () => {
                         <FormField label="Description">
                             <textarea rows={2} value={description()} onInput={(e,) => setDescription(e.currentTarget.value,)} />
                         </FormField>
+                        <Show when={isGlobal()}>
+                            <FormField label="Collection" tooltip="The folder this component is filed in on the Components page. Organisation only — it changes nothing where the component is used.">
+                                <select value={collectionId()} onChange={(e,) => setCollectionId(e.currentTarget.value,)}>
+                                    <option value="">[None]</option>
+                                    <For each={collections.latest ?? []}>
+                                        {(c,) => <option value={c.id}>{c.name}</option>}
+                                    </For>
+                                    {/* A filed collection not in the list yet (still loading / just deleted). */}
+                                    <Show when={collectionId() && !(collections.latest ?? []).some((c,) => c.id === collectionId())}>
+                                        <option value={collectionId()}>{collections.loading ? 'Loading…' : '(unknown collection)'}</option>
+                                    </Show>
+                                </select>
+                            </FormField>
+                        </Show>
                     </FormSection>
                     {/* Entity binding + preview sample only exist for a template bound
                         to an entity type. A component has no records to bind. */}
@@ -625,6 +660,7 @@ const TemplateEditor: Component = () => {
             </section>
 
             <TemplateSlotsEditor slots={slots} setSlots={setSlots} />
+            </div>
 
             {/* The component's own client module runs over these previews, so
                 a component whose layout its script produces (a ticker, anything

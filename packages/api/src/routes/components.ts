@@ -18,6 +18,7 @@ import { templateSlotsInput, } from '../api/templateSlotInput';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { NotFoundError, } from '../core/errors';
 import * as cbtSvc from '../services/contentBlockTemplates';
+import * as collections from '../services/componentCollections';
 import * as permissions from '../services/permissions';
 
 /**
@@ -48,6 +49,7 @@ const createSchema = z.object({
     script: z.string().max(262144,).nullish(),
     scriptEnabled: z.boolean().optional(),
     slots: templateSlotsInput.optional(),
+    collectionId: z.string().uuid().nullish(),
 },);
 const updateSchema = createSchema.partial();
 
@@ -67,7 +69,58 @@ const blocksBody = z.object({ blocks: z.array(blockSchema,), },);
 const createWithBlocks = createSchema.extend({ blocks: z.array(blockSchema,).optional(), },);
 const updateWithBlocks = updateSchema.extend({ blocks: z.array(blockSchema,).optional(), },);
 
+const COLLECTIONS_PERMISSION = 'components.collections:manage';
+const mayManageCollections = (user: { id?: string; role?: string; } | undefined,) =>
+    permissions.requirePermission({ id: user?.id, role: user?.role, }, COLLECTIONS_PERMISSION,);
+
+const collectionBody = z.object({
+    name: z.string().trim().min(1,).max(200,),
+    description: z.string().max(2000,).nullish(),
+},);
+
 export const componentsRoutes = [
+    // ─── Collections (folders; organisation only) ───
+    defineRoute({
+        method: 'get',
+        path: '/collections',
+        auth: 'admin',
+        summary: 'List component collections with counts (+ components in no collection).',
+        handler: async () => collections.list(),
+    },),
+    defineRoute({
+        method: 'post',
+        path: '/collections',
+        auth: 'admin',
+        summary: 'Create a component collection.',
+        input: { body: collectionBody, },
+        handler: async ({ body, user, },) => {
+            await mayManageCollections(user,);
+            return reply(await collections.create(body,), { status: 201, },);
+        },
+    },),
+    defineRoute({
+        method: 'put',
+        path: '/collections/:id',
+        auth: 'admin',
+        summary: 'Rename / re-describe a component collection.',
+        input: { params: idParam, body: collectionBody, },
+        handler: async ({ params, body, user, },) => {
+            await mayManageCollections(user,);
+            return collections.update(params.id, body,);
+        },
+    },),
+    defineRoute({
+        method: 'delete',
+        path: '/collections/:id',
+        auth: 'admin',
+        summary: 'Delete a component collection; its components move to [None] (detach) or are deleted.',
+        input: { params: idParam, query: z.object({ components: z.enum(['detach', 'delete',],).optional(), },), },
+        handler: async ({ params, query: q, user, },) => {
+            await mayManageCollections(user,);
+            return { deleted: true as const, components: await collections.remove(params.id, q.components ?? 'detach',), };
+        },
+    },),
+
     defineRoute({
         method: 'get',
         path: '/templates',

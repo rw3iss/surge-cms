@@ -343,3 +343,21 @@
     margin: 0;
     align-self: center;
 }
+
+// Template / component editor: Settings + Slots side by side, half width each;
+// one column at ≤1200px. The shared section spacing only applies between
+// SIBLING sections, so the grid resets it inside and restores it after.
+.template-top-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $spacing-xl;
+    align-items: start;
+
+    > .admin-section { margin-top: 0; }
+
+    @media (max-width: 1200px) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    & + * { margin-top: $spacing-xl; }
+}

@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-18T21:34:30.171Z",
+  "generatedAt": "2026-10-19T21:38:21.088Z",
   "totalModules": 55,
-  "totalRoutes": 595,
+  "totalRoutes": 599,
   "modules": [
     {
       "module": "admin-channel",
@@ -1410,6 +1410,85 @@
       "routes": [
         {
           "method": "GET",
+          "path": "/collections",
+          "absolutePath": "/api/v1/components/collections",
+          "auth": "admin",
+          "summary": "List component collections with counts (+ components in no collection)."
+        },
+        {
+          "method": "POST",
+          "path": "/collections",
+          "absolutePath": "/api/v1/components/collections",
+          "auth": "admin",
+          "summary": "Create a component collection.",
+          "input": {
+            "body": [
+              {
+                "name": "name",
+                "type": "string",
+                "required": true
+              },
+              {
+                "name": "description",
+                "type": "string | null",
+                "required": false
+              }
+            ]
+          }
+        },
+        {
+          "method": "PUT",
+          "path": "/collections/:id",
+          "absolutePath": "/api/v1/components/collections/:id",
+          "auth": "admin",
+          "summary": "Rename / re-describe a component collection.",
+          "input": {
+            "params": [
+              {
+                "name": "id",
+                "type": "string",
+                "required": true
+              }
+            ],
+            "body": [
+              {
+                "name": "name",
+                "type": "string",
+                "required": true
+              },
+              {
+                "name": "description",
+                "type": "string | null",
+                "required": false
+              }
+            ]
+          }
+        },
+        {
+          "method": "DELETE",
+          "path": "/collections/:id",
+          "absolutePath": "/api/v1/components/collections/:id",
+          "auth": "admin",
+          "summary": "Delete a component collection; its components move to [None] (detach) or are deleted.",
+          "input": {
+            "params": [
+              {
+                "name": "id",
+                "type": "string",
+                "required": true
+              }
+            ],
+            "query": [
+              {
+                "name": "components",
+                "type": "'detach' | 'delete'",
+                "required": false
+              }
+            ]
+          }
+        },
+        {
+          "method": "GET",
           "path": "/templates",
           "absolutePath": "/api/v1/components/templates",
           "auth": "optional",
@@ -1497,6 +1576,11 @@
                 "required": false
               },
               {
+                "name": "collectionId",
+                "type": "string<uuid> | null",
+                "required": false
+              },
+              {
                 "name": "blocks",
                 "type": "object[]",
                 "required": false
@@ -1557,6 +1641,11 @@
               {
                 "name": "slots",
                 "type": "object[]",
+                "required": false
+              },
+              {
+                "name": "collectionId",
+                "type": "string<uuid> | null",
                 "required": false
               },
               {

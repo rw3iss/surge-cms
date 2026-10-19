@@ -33,6 +33,7 @@ interface TemplateRow {
     script: string | null;
     script_enabled: boolean;
     slots: TemplateSlot[] | null;
+    collection_id?: string | null;
     created_at: Date;
     updated_at: Date;
 }
@@ -52,6 +53,7 @@ function mapTemplate(row: TemplateRow,): ContentBlockTemplate {
     };
     if (row.description) out.description = row.description;
     if (row.script != null) out.script = row.script;
+    out.collectionId = row.collection_id ?? null;
     out.scriptEnabled = row.script_enabled !== false;
     return out;
 }
@@ -96,13 +98,15 @@ export interface CreateInput {
     sampleRecordIds?: string[] | null;
     /** Already validated by the service (`normalizeTemplateSlots`). */
     slots?: TemplateSlot[];
+    /** Components only (null = [None]). */
+    collectionId?: string | null;
 }
 
 export async function create(input: CreateInput, db: Runner = pooled,): Promise<ContentBlockTemplate> {
     const r = await db.query<TemplateRow>(`
         INSERT INTO content_block_templates
-            (name, description, entity_type_key, mode, max_records, sample_record_ids, script, script_enabled, slots, list_render)
-        VALUES ($1, $2, $3, COALESCE($4, 'single'), $5, $6::text[], $7, COALESCE($8, true), $9::jsonb, COALESCE($10, 'each'))
+            (name, description, entity_type_key, mode, max_records, sample_record_ids, script, script_enabled, slots, list_render, collection_id)
+        VALUES ($1, $2, $3, COALESCE($4, 'single'), $5, $6::text[], $7, COALESCE($8, true), $9::jsonb, COALESCE($10, 'each'), $11::uuid)
         RETURNING *
     `, [
         input.name,
@@ -115,6 +119,7 @@ export async function create(input: CreateInput, db: Runner = pooled,): Promise<
         input.scriptEnabled ?? null,
         JSON.stringify(input.slots ?? [],),
         input.listRender ?? null,
+        input.collectionId || null,
     ],);
     return mapTemplate(r.rows[0],);
 }
@@ -143,6 +148,10 @@ export async function update(id: string, patch: Partial<CreateInput>, db: Runner
     }
     if (patch.script !== undefined) set('script', patch.script ?? null,);
     if (patch.scriptEnabled !== undefined) set('script_enabled', patch.scriptEnabled,);
+    if (patch.collectionId !== undefined) {
+        values.push(patch.collectionId || null,);
+        fields.push(`collection_id = $${values.length}::uuid`,);
+    }
     if (fields.length === 0) {
         const cur = await db.query<TemplateRow>(`SELECT * FROM content_block_templates WHERE id = $1`, [id,],);
         return cur.rows[0] ? mapTemplate(cur.rows[0],) : null;

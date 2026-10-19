@@ -7,6 +7,10 @@
  * nullable `type` argument on every call.
  */
 import type {
+    ComponentCollection,
+    ComponentCollectionBody,
+    ComponentCollectionDeleteResponse,
+    ComponentCollectionsListResponse,
     ContentBlockTemplate,
     ContentBlockTemplateBlock,
     ContentBlockTemplateCreateBody,
@@ -59,6 +63,30 @@ export class ComponentsModule extends ModuleBase {
     remove(id: string,): Promise<{ deleted: boolean; }> {
         return this.mutate<{ deleted: boolean; }>('DELETE', '/components/templates/:id', {
             params: { id, }, invalidates: ['components',],
+        },);
+    }
+
+    // ─── Collections (folders, organisation only) ───
+
+    /** Every collection + its count, and `noneCount` (components in no collection). */
+    collections(): Promise<ComponentCollectionsListResponse> {
+        return this.get<ComponentCollectionsListResponse>('/components/collections', { options: { cache: false, }, },);
+    }
+
+    createCollection(body: ComponentCollectionBody,): Promise<ComponentCollection> {
+        return this.mutate<ComponentCollection>('POST', '/components/collections', { body, invalidates: ['components',], },);
+    }
+
+    updateCollection(id: string, body: ComponentCollectionBody,): Promise<ComponentCollection> {
+        return this.mutate<ComponentCollection>('PUT', '/components/collections/:id', {
+            params: { id, }, body, invalidates: ['components',],
+        },);
+    }
+
+    /** Delete a collection. Its components go to [None] (`detach`, default) or are deleted. */
+    deleteCollection(id: string, components: 'detach' | 'delete' = 'detach',): Promise<ComponentCollectionDeleteResponse> {
+        return this.mutate<ComponentCollectionDeleteResponse>('DELETE', '/components/collections/:id', {
+            params: { id, }, query: { components, }, invalidates: ['components',],
         },);
     }
 

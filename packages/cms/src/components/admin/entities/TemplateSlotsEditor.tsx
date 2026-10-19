@@ -1,7 +1,8 @@
 /**
  * Slots section of the template editor: the data inputs this template exposes,
  * filled later by the `entity` block that USES the template (see
- * `TemplateSlot`). Each row: ID, Label, Data type, Array, and the preview data
+ * `TemplateSlot`). Each row: ID + Label, then Data type + Array (remove button
+ * centred at the right), and the preview data
  * used while editing (`previewBinding`; absent = auto).
  *
  * Rows live in the PARENT's `createStore` and are patched in place
@@ -76,58 +77,66 @@ const TemplateSlotsEditor: Component<TemplateSlotsEditorProps> = (props,) => {
                     const otherIds = () => props.slots.filter((_, j,) => j !== i()).map((s,) => s.id);
                     return (
                         <div class="template-slots__row">
-                            <div class="admin-form-row">
-                                <FormField label="ID" error={idError() ?? undefined} hint="Used by blocks to pick this slot.">
-                                    <DraftInput
-                                        value={slot.id}
-                                        validate={(v,) => slotIdError(v, otherIds(),)}
-                                        onError={setIdError}
-                                        onCommit={(v,) => props.setSlots(i(), 'id', v,)}
-                                    />
-                                </FormField>
-                                <FormField label="Label">
-                                    <DraftInput
-                                        value={slot.label ?? ''}
-                                        placeholder={slot.id}
-                                        onCommit={(v,) => props.setSlots(i(), 'label', v || undefined,)}
-                                    />
-                                </FormField>
-                                <FormField label="Data type">
-                                    <EntityTypeSelect
-                                        value={slot.entityType}
-                                        onChange={(key,) => {
-                                            props.setSlots(i(), produce((s,) => {
-                                                s.entityType = key;
-                                                // Preview records of another type are meaningless.
-                                                delete s.previewBinding;
-                                            },),);
-                                        }}
-                                    />
-                                </FormField>
-                                <FormRowAction>
-                                    <Toggle
-                                        checked={slot.array}
-                                        label="Array"
-                                        onChange={(next,) => {
-                                            props.setSlots(i(), produce((s,) => {
-                                                s.array = next;
-                                                // A single slot can't keep a list/query preview.
-                                                if (!next && s.previewBinding && s.previewBinding.mode !== 'single') {
-                                                    delete s.previewBinding;
-                                                }
-                                            },),);
-                                        }}
-                                    />
-                                    <button
-                                        type="button"
-                                        class="ui-button ui-button--sm ui-button--ghost template-slots__remove"
-                                        aria-label={`Remove slot ${slot.id}`}
-                                        title="Remove slot"
-                                        onClick={() => removeSlot(i(),)}
-                                    >
-                                        ×
-                                    </button>
-                                </FormRowAction>
+                            {/* Two lines — ID + Label, then Data type + Array — with the
+                                remove button centred against the row's right edge. */}
+                            <div class="template-slots__main">
+                                <div class="template-slots__fields">
+                                    <div class="admin-form-row template-slots__line">
+                                        <FormField label="ID" error={idError() ?? undefined} hint="Used by blocks to pick this slot.">
+                                            <DraftInput
+                                                value={slot.id}
+                                                validate={(v,) => slotIdError(v, otherIds(),)}
+                                                onError={setIdError}
+                                                onCommit={(v,) => props.setSlots(i(), 'id', v,)}
+                                            />
+                                        </FormField>
+                                        <FormField label="Label">
+                                            <DraftInput
+                                                value={slot.label ?? ''}
+                                                placeholder={slot.id}
+                                                onCommit={(v,) => props.setSlots(i(), 'label', v || undefined,)}
+                                            />
+                                        </FormField>
+                                    </div>
+                                    <div class="admin-form-row template-slots__line">
+                                        <FormField label="Data type">
+                                            <EntityTypeSelect
+                                                value={slot.entityType}
+                                                onChange={(key,) => {
+                                                    props.setSlots(i(), produce((s,) => {
+                                                        s.entityType = key;
+                                                        // Preview records of another type are meaningless.
+                                                        delete s.previewBinding;
+                                                    },),);
+                                                }}
+                                            />
+                                        </FormField>
+                                        <FormRowAction>
+                                            <Toggle
+                                                checked={slot.array}
+                                                label="Array"
+                                                onChange={(next,) => {
+                                                    props.setSlots(i(), produce((s,) => {
+                                                        s.array = next;
+                                                        // A single slot can't keep a list/query preview.
+                                                        if (!next && s.previewBinding && s.previewBinding.mode !== 'single') {
+                                                            delete s.previewBinding;
+                                                        }
+                                                    },),);
+                                                }}
+                                            />
+                                        </FormRowAction>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    class="ui-button ui-button--sm ui-button--ghost template-slots__remove"
+                                    aria-label={`Remove slot ${slot.id}`}
+                                    title="Remove slot"
+                                    onClick={() => removeSlot(i(),)}
+                                >
+                                    ×
+                                </button>
                             </div>
                             <div class="template-slots__preview">
                                 <span class="template-slots__preview-label">Preview data:</span>
