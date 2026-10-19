@@ -1,6 +1,6 @@
 import { useNavigate, useParams, type Navigator, } from '@solidjs/router';
 import {
-    type Accessor, createEffect, createResource, createSignal, on, type Resource, type Setter,
+    type Accessor, createComputed, createResource, createSignal, on, type Resource, type Setter,
 } from 'solid-js';
 import type { AppearanceSettings, } from '@sitesurge/types';
 import type { BlockData, } from '../components/admin/blocks/ContentBlock';
@@ -174,7 +174,10 @@ export function useEntityEditor<TEntity,>(
     // Moving to another entity in the same editor: drop the previous one's
     // pending draft write and its blocks, so nothing of it can be saved into
     // the next (a page with NO blocks never overwrote the old list).
-    createEffect(on(() => params.id, () => {
+    // createComputed, NOT createEffect: it must run in the same update as the
+    // id change, BEFORE the hydrate effect fills in the new entity's blocks —
+    // an effect ran after hydration and wiped them (a clone opened empty).
+    createComputed(on(() => params.id, () => {
         autoSave.cancel();
         setBlocks([],);
         setSavedBlocks([],);

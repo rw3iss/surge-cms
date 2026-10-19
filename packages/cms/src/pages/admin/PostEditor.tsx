@@ -317,6 +317,10 @@ const AdminPostEditor: Component = () => {
     createEffect(() => {
         const p = editor.entity();
         if (!p) return;
+        // While the next one loads (the editor is reused across :id), the
+        // resource still holds the PREVIOUS entity — never hydrate that into
+        // the new URL's editor.
+        if ((p as any).id && editor.params.id && (p as any).id !== editor.params.id) return;
         setTitle(p.title || '',);
         setSlug(p.slug || '',);
         setExcerpt(p.excerpt || '',);
