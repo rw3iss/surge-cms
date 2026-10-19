@@ -219,3 +219,37 @@
   font-size: 0.7rem;
   padding: 1px 6px;
 }
+
+// Icon-only row action in a table (e.g. Pages → Move to trash). Muted until
+// hovered, then the error colour — a destructive action should not shout.
+.admin-row-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: $border-radius-md;
+  background: transparent;
+  color: $text-light;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: color .15s ease, background .15s ease, border-color .15s ease;
+
+  &:not(:disabled):hover,
+  &:focus-visible {
+    color: $error-color;
+    border-color: color.adjust($error-color, $lightness: 30%);
+    background: color.adjust($error-color, $lightness: 42%);
+  }
+
+  &:disabled { opacity: .5; cursor: default; }
+}
+
+.admin-row-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $spacing-xs;
+}

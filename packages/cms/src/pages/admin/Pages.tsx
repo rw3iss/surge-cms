@@ -1,5 +1,5 @@
 import { A, } from '@solidjs/router';
-import { Component, createEffect, } from 'solid-js';
+import { Component, createEffect, createSignal, Show, } from 'solid-js';
 import { formatDateShort as formatDate, } from '@sitesurge/types';
 import DataTable from '../../components/admin/common/DataTable';
 import { usePaginatedList, } from '../../hooks/usePaginatedList';
@@ -7,6 +7,18 @@ import { useSearchFilter, } from '../../hooks/useSearchFilter';
 import { cms, } from '../../services/cmsClient';
 import { getStatusBadgeClass, } from '../../utils/badges';
 import AdminTitle from '../../components/admin/common/AdminTitle';
+import ConfirmModal from '../../components/admin/common/ConfirmModal';
+import { useToast, } from '../../components/common/toast/Toast';
+
+const TrashIcon = () => (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6" />
+        <path d="M10 11v6M14 11v6" />
+    </svg>
+);
+
+/** Move to trash (status `deleted`, restorable) or delete for good (row + every block). */
+type PendingDelete = { page: { id: string; title: string; }; permanent: boolean; };
 
 const AdminPages: Component = () => {
     const { searchInput, handleSearchInput, searchParams, setSearchParams, } = useSearchFilter();
@@ -28,6 +40,31 @@ const AdminPages: Component = () => {
         searchParams.sort;
         list.resetPage();
     },);
+
+    const toast = useToast();
+    const [pending, setPending,] = createSignal<PendingDelete | null>(null,);
+    const [deleting, setDeleting,] = createSignal(false,);
+    const confirmDelete = async () => {
+        const p = pending();
+        if (!p) return;
+        setDeleting(true,);
+        try {
+            if (p.permanent) {
+                await cms.pages.remove(p.page.id,);
+                toast.success(`"${p.page.title}" was deleted permanently.`,);
+            } else {
+                // The bulk 'delete' action is the trash (soft delete).
+                await cms.pages.bulk({ ids: [p.page.id,], action: 'delete', },);
+                toast.success(`"${p.page.title}" was moved to the trash.`,);
+            }
+            setPending(null,);
+            list.refetch();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Could not delete the page.',);
+        } finally {
+            setDeleting(false,);
+        }
+    };
 
     const handleSort = (sort: string,) => {
         setSearchParams({ sort, },);
@@ -78,7 +115,7 @@ const AdminPages: Component = () => {
                     {
                         header: 'Actions',
                         cell: (page: any,) => (
-                            <>
+                            <div class="admin-row-actions">
                                 <A href={`/admin/pages/${page.id}`} class="ui-button ui-button--sm ui-button--secondary">Edit</A>
                                 <a
                                     href={page.status === 'published' ? `/${page.slug}` : `/${page.slug}?preview=admin`}
@@ -88,10 +125,45 @@ const AdminPages: Component = () => {
                                 >
                                     View
                                 </a>
-                            </>
+                                <Show
+                                    when={page.status === 'deleted'}
+                                    fallback={
+                                        <button
+                                            type="button"
+                                            class="admin-row-icon-btn"
+                                            title="Move to trash"
+                                            aria-label={`Move "${page.title}" to trash`}
+                                            onClick={() => setPending({ page, permanent: false, },)}
+                                        >
+                                            <TrashIcon />
+                                        </button>
+                                    }
+                                >
+                                    <button
+                                        type="button"
+                                        class="ui-button ui-button--sm ui-button--danger"
+                                        onClick={() => setPending({ page, permanent: true, },)}
+                                    >
+                                        Delete permanently
+                                    </button>
+                                </Show>
+                            </div>
                         ),
                     },
                 ]}
+            />
+            <ConfirmModal
+                open={Boolean(pending(),)}
+                danger
+                title={pending()?.permanent ? 'Delete page permanently?' : 'Move page to trash?'}
+                message={pending()?.permanent
+                    ? `"${pending()?.page.title}" and all of its blocks will be deleted for good. This cannot be undone.`
+                    : `"${pending()?.page.title}" will be taken off the site and moved to the trash (the Deleted filter).`}
+                confirmLabel={pending()?.permanent ? 'Delete permanently' : 'Move to trash'}
+                busyLabel="Deleting…"
+                loading={deleting()}
+                onConfirm={confirmDelete}
+                onCancel={() => setPending(null,)}
             />
         </div>
     );
