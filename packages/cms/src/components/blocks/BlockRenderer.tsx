@@ -241,6 +241,11 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
         // reaching the slot's edges.
         if (props.block.type === 'group_item') return 'full';
         if (['carousel', 'hero',].includes(props.block.type,)) return 'full';
+        // A group is a layout container: it fills its area, and only a max-width
+        // (or width) from its own block style constrains it — that style already
+        // lands on the `.block` wrapper. Its slots' blocks still pick their own
+        // column. Before, every group was capped at --site-max-width here.
+        if (props.block.type === 'group') return 'full';
         // A component (`template`) is a wrapper around ITS OWN blocks, and each of
         // those already chooses its column (contained by default, or full-bleed
         // when the component's author set it). Capping the wrapper too made a
