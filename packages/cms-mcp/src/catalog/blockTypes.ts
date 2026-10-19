@@ -238,8 +238,9 @@ export const BLOCK_TYPE_CATALOG: BlockTypeSpec[] = [
         container: 'settings',
         pageOnly: true,
         fields: [
-            { name: 'direction', type: 'enum', enum: ['horizontal', 'vertical',], default: 'horizontal', description: 'Flex direction.', },
-            { name: 'columns', type: 'number', default: 2, description: 'Number of columns / initial group_item slots (1-16).', },
+            { name: 'direction', type: 'enum', enum: ['horizontal', 'vertical', 'grid',], default: 'horizontal', description: 'Layout: horizontal = Row, vertical = Column, grid = columns × rows cells.', },
+            { name: 'columns', type: 'number', default: 2, description: 'Columns (1-16). Row/Column: the number of group_item slots; Grid: cells per row.', },
+            { name: 'rows', type: 'number', default: 2, description: 'Grid only: rows (1-16); the group holds columns × rows group_item slots, filled left→right, top→bottom.', },
             { name: 'gap', type: 'string', description: 'CSS gap between slots.', },
             { name: 'wrap', type: 'enum', enum: ['wrap', 'nowrap',], description: 'Flex wrap.', },
             { name: 'align', type: 'enum', enum: ['start', 'center', 'end', 'stretch',], description: 'Cross-axis alignment.', },

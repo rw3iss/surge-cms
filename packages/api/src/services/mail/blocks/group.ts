@@ -1,3 +1,4 @@
+import { groupLayoutOf, } from '@sitesurge/types';
 import { BlockEmailRenderer, renderNode, } from './index';
 import { cellStyleFromBlock, inlineStyle, } from './_util';
 
@@ -8,15 +9,19 @@ import { cellStyleFromBlock, inlineStyle, } from './_util';
  * wrapping `<tr><td style="...">` (with the group's block.style
  * applied) is handled centrally by `renderNode`.
  *
- * Direction: 'horizontal' → children are side-by-side cells in one row.
- *            'vertical'   → children are stacked rows.
+ * Layout (`settings.direction`, read by `groupLayoutOf`):
+ *   'horizontal' → children are side-by-side cells in one row.
+ *   'vertical'   → children are stacked rows.
+ *   'grid'       → `columns` equal-width cells per row, filled left→right,
+ *                  top→bottom; an empty slot keeps its cell.
  */
 export const renderGroup: BlockEmailRenderer = (node, ctx,) => {
-    const direction = String(node.settings.direction ?? 'horizontal',);
+    const layout = groupLayoutOf(node.settings,);
+    const direction = layout.layout;
     const items = node.children.filter((c,) => c.blockType === 'group_item',);
     if (items.length === 0) return '';
 
-    const cells = items.map((item,) => {
+    const cellList = items.map((item,) => {
         // Each group_item's children are normal blocks — render them
         // with the central pipeline so block.style propagates.
         const innerRows = item.children.map((c,) => renderNode(c, ctx,),).join('\n',);
@@ -37,8 +42,25 @@ export const renderGroup: BlockEmailRenderer = (node, ctx,) => {
             slotOverrides['vertical-align'] = 'top';
         }
         const cellStyle = inlineStyle({ ...slotStyles, ...slotOverrides, },);
-        return `<td style="${cellStyle}">${innerTable}</td>`;
-    },).join('\n',);
+        return { cellStyle, innerTable, };
+    },);
+
+    if (direction === 'grid') {
+        const cols = layout.columns;
+        const pct = `${Math.floor(10000 / cols,) / 100}%`;
+        const rowsHtml: string[] = [];
+        for (let i = 0; i < cellList.length; i += cols) {
+            const row = cellList.slice(i, i + cols,).map((c,) =>
+                `<td width="${pct}" style="width:${pct};${c.cellStyle}">${c.innerTable}</td>`
+            );
+            // Pad a short last row so its cells keep the column width.
+            for (let k = row.length; k < cols; k++) row.push(`<td width="${pct}" style="width:${pct}"></td>`,);
+            rowsHtml.push(`<tr>${row.join('',)}</tr>`,);
+        }
+        return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed">${rowsHtml.join('\n',)}</table>`;
+    }
+
+    const cells = cellList.map((c,) => `<td style="${c.cellStyle}">${c.innerTable}</td>`).join('\n',);
 
     const body = direction === 'vertical'
         ? cells.replace(/<td/g, '<tr><td',).replace(/<\/td>/g, '</td></tr>',)

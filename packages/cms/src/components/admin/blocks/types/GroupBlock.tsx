@@ -1,9 +1,13 @@
 import { Component, For, Show, } from 'solid-js';
+import { GROUP_DEFAULT_ROWS, GROUP_MAX_COLUMNS, GROUP_MAX_ROWS, groupLayoutOf, } from '@sitesurge/types';
 import { FormCheck, FormField, FormSection, } from '../../forms';
 
 export interface GroupBlockData {
-    direction?: 'horizontal' | 'vertical';
+    /** Layout (stored as `direction` for compatibility): row / column / grid. */
+    direction?: 'horizontal' | 'vertical' | 'grid';
     columns?: number;
+    /** Grid only: rows of `columns` cells. */
+    rows?: number;
     /** flex `gap` between children. Block style's gap takes precedence
      *  if set; this is the per-block override. */
     gap?: string;
@@ -23,7 +27,8 @@ interface GroupBlockProps {
     onUpdate: (data: GroupBlockData & Record<string, any>,) => void;
 }
 
-const COLUMN_OPTIONS = Array.from({ length: 16, }, (_, i,) => i + 1,);
+const COLUMN_OPTIONS = Array.from({ length: GROUP_MAX_COLUMNS, }, (_, i,) => i + 1,);
+const ROW_OPTIONS = Array.from({ length: GROUP_MAX_ROWS, }, (_, i,) => i + 1,);
 const ALIGN_OPTIONS = ['start', 'center', 'end', 'stretch',] as const;
 const JUSTIFY_OPTIONS = [
     'start', 'center', 'end', 'space-between', 'space-around', 'space-evenly',
@@ -34,22 +39,36 @@ const GroupBlock: Component<GroupBlockProps> = (props,) => {
         props.onUpdate({ ...props.data, ...patch, },);
 
     const direction = () => props.data.direction || 'horizontal';
+    const isGrid = () => direction() === 'grid';
     const columns = () => props.data.columns ?? 2;
+    const rows = () => groupLayoutOf(props.data,).rows;
 
     return (
         <>
             <FormSection title="Layout">
-                <FormField label="Direction" inline>
+                <FormField
+                    label="Layout"
+                    inline
+                    tooltip="Row: slots side by side. Column: slots stacked. Grid: a table of cells (columns × rows), each an empty slot until you add a block."
+                >
                     <select
                         value={direction()}
-                        onChange={(e,) => update({ direction: e.currentTarget.value as 'horizontal' | 'vertical', },)}
+                        onChange={(e,) => {
+                            const next = e.currentTarget.value as GroupBlockData['direction'];
+                            update({
+                                direction: next,
+                                // Entering Grid: start with the default row count.
+                                ...(next === 'grid' && !props.data.rows ? { rows: GROUP_DEFAULT_ROWS, } : {}),
+                            },);
+                        }}
                     >
-                        <option value="horizontal">Horizontal (row)</option>
-                        <option value="vertical">Vertical (column)</option>
+                        <option value="horizontal">Row (horizontal)</option>
+                        <option value="vertical">Column (vertical)</option>
+                        <option value="grid">Grid</option>
                     </select>
                 </FormField>
 
-                <FormField label="Columns / slots" inline>
+                <FormField label={isGrid() ? 'Columns' : direction() === 'vertical' ? 'Slots' : 'Columns / slots'} inline>
                     <select
                         value={String(columns(),)}
                         onChange={(e,) => update({ columns: Number(e.currentTarget.value,), },)}
@@ -59,6 +78,18 @@ const GroupBlock: Component<GroupBlockProps> = (props,) => {
                         </For>
                     </select>
                 </FormField>
+                <Show when={isGrid()}>
+                    <FormField label="Rows" inline hint={`${columns() * rows()} cells. Lowering columns or rows removes the last cells and their blocks.`}>
+                        <select
+                            value={String(rows(),)}
+                            onChange={(e,) => update({ rows: Number(e.currentTarget.value,), },)}
+                        >
+                            <For each={ROW_OPTIONS}>
+                                {(n,) => <option value={String(n,)}>{n}</option>}
+                            </For>
+                        </select>
+                    </FormField>
+                </Show>
                 <Show when={columns() > 12}>
                     <small class="form-help form-help--warning">
                         Heads up: more than 12 columns rarely lays out well at typical viewport widths.
@@ -66,6 +97,7 @@ const GroupBlock: Component<GroupBlockProps> = (props,) => {
                     </small>
                 </Show>
 
+                <Show when={!isGrid()}>
                 <FormField label="Wrap" inline>
                     <select
                         value={props.data.wrap || 'wrap'}
@@ -75,6 +107,7 @@ const GroupBlock: Component<GroupBlockProps> = (props,) => {
                         <option value="nowrap">No wrap</option>
                     </select>
                 </FormField>
+                </Show>
 
                 <FormField label="Gap (between items)" inline>
                     <input
@@ -87,7 +120,7 @@ const GroupBlock: Component<GroupBlockProps> = (props,) => {
             </FormSection>
 
             <FormSection title="Alignment">
-                <FormField label={direction() === 'horizontal' ? 'Vertical align (cross)' : 'Horizontal align (cross)'} inline>
+                <FormField label={direction() === 'vertical' ? 'Horizontal align (cross)' : 'Vertical align (cross)'} inline>
                     <select
                         value={props.data.align || 'stretch'}
                         onChange={(e,) => update({ align: e.currentTarget.value as GroupBlockData['align'], },)}
@@ -95,7 +128,7 @@ const GroupBlock: Component<GroupBlockProps> = (props,) => {
                         <For each={ALIGN_OPTIONS}>{(v,) => <option value={v}>{v}</option>}</For>
                     </select>
                 </FormField>
-                <FormField label={direction() === 'horizontal' ? 'Horizontal align (main)' : 'Vertical align (main)'} inline>
+                <FormField label={direction() === 'vertical' ? 'Vertical align (main)' : 'Horizontal align (main)'} inline>
                     <select
                         value={props.data.justify || 'start'}
                         onChange={(e,) => update({ justify: e.currentTarget.value as GroupBlockData['justify'], },)}

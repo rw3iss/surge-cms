@@ -1,3 +1,4 @@
+import { groupLayoutOf, } from '@sitesurge/types';
 import { toFlexAlign, } from './cssAlign';
 
 export interface GroupStyleOptions {
@@ -23,6 +24,9 @@ export interface GroupStyleOptions {
  *  Callers add the `--cols` modifier class + set `--group-cols` when non-null. */
 export function groupColumns(data: Record<string, unknown>,): number | null {
     const direction = (data.direction as string) || 'horizontal';
+    // Grid: always exactly `columns` tracks; the rows come from the slot count
+    // (columns × rows cells, `groupLayoutOf`), so no row template is needed.
+    if (direction === 'grid') return groupLayoutOf(data,).columns;
     if (direction !== 'horizontal') return null;
     const cols = Math.trunc(Number(data.columns,),);
     if (!Number.isFinite(cols,) || cols < 1) return null;
@@ -37,7 +41,7 @@ export function groupColumns(data: Record<string, unknown>,): number | null {
  *  and column-grids already reflow, so they're excluded. */
 export function groupStacksMobile(data: Record<string, unknown>,): boolean {
     const direction = (data.direction as string) || 'horizontal';
-    if (direction === 'vertical') return false;
+    if (direction === 'vertical' || direction === 'grid') return false;
     if (groupColumns(data,) != null) return false;
     return (data.wrap as string) === 'nowrap';
 }

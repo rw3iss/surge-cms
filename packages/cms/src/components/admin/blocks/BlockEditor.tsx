@@ -1,3 +1,4 @@
+import { groupSlotCount, } from '@sitesurge/types';
 import { Component, createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, } from 'solid-js';
 import { createStore, reconcile, } from 'solid-js/store';
 import { createBlockDefaultData, getEnabledBlockTypeOptions, } from '../../../config/blockTypes';
@@ -166,7 +167,7 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         const heal = (nodes: BlockNode[],) => {
             for (const n of nodes) {
                 if (n.type === 'group') {
-                    const cols = (n.data.columns as number) || 2;
+                    const cols = groupSlotCount(n.data,);
                     const items = n.children.filter(c => c.type === 'group_item',);
                     for (let i = items.length; i < cols; i++) {
                         n.children.push({ ...newGroupItem(n.id,), children: [], },);
@@ -432,7 +433,7 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         // For new groups, create the initial group_item children right
         // now so the slot pickers render.
         if (type === 'group') {
-            const cols = (newBlock.data.columns as number) || 2;
+            const cols = groupSlotCount(newBlock.data,);
             for (let i = 0; i < cols; i++) {
                 const item = newGroupItem(newBlock.id,);
                 newBlock.children.push({ ...item, children: [], },);
@@ -473,11 +474,12 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
         const prevBlock = props.blocks.find(b => b.id === id);
         const updated = props.blocks.map(b => b.id === id ? { ...b, data, } : b);
 
-        // If a group's columns count changed, sync the number of
+        // If a group's slot count changed (columns, rows or layout), sync the number of
         // group_item children to match.
         if (prevBlock?.type === 'group') {
-            const prevCols = (prevBlock.data.columns as number) || 0;
-            const nextCols = (data.columns as number) || 0;
+            // Slot count = columns (row / column) or columns × rows (grid).
+            const prevCols = groupSlotCount(prevBlock.data,);
+            const nextCols = groupSlotCount(data,);
             if (prevCols !== nextCols) {
                 const tree = treeify(updated,);
                 const found = findInTree(tree, id,);

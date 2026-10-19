@@ -31,3 +31,4 @@ export * from './accessDenied';
 export * from './shipmentTracking';
 export * from './membershipPrice';
 export * from './orderTotals';
+export * from './groupLayout';
