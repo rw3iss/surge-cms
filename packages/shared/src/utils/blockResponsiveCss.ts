@@ -14,9 +14,11 @@
  * emits no `<style>` and pays zero cost — the common case).
  *
  * Reuses `blockStyleLayoutCss` for the layout/typography subset and adds the
- * background / color / padding props that mapper leaves to callers. `gap` is
- * intentionally excluded (base gap lives on the block's inner element, not the
- * wrapper, so a responsive gap can't be expressed with a wrapper selector).
+ * background / color / padding props that mapper leaves to callers, plus `gap`,
+ * which never lands on the wrapper: by default it goes to the block's inner
+ * element (`> .block__inner`, made a flex column by the renderer), and for a
+ * group to its slot container (`groupPropTargets`) — so a gap can differ per
+ * breakpoint like any other property.
  */
 import type { SiteBreakpoint, } from '../types/content';
 import { type BlockStyleCssResolvers, blockStyleLayoutCss, } from './blockStyleCss';
@@ -73,6 +75,7 @@ function declarationRecord(
         rec['--block-text-color'] = c;
     }
     if (override.padding) rec.padding = override.padding as string;
+    if (typeof override.gap === 'string' && override.gap.trim()) rec.gap = override.gap.trim();
     return rec;
 }
 
@@ -94,8 +97,18 @@ function declarationRecord(
  */
 export type PropTargets = Record<string, string[]>;
 
-/** Everything on the wrapper — every block type except carousel. */
-const WRAPPER_ONLY: PropTargets = { '*': ['',], };
+/** Everything on the wrapper — every block type except carousel and group —
+ *  except `gap`, which spaces the children of the inner element. */
+const WRAPPER_ONLY: PropTargets = { gap: ['> .block__inner',], '*': ['',], };
+
+/**
+ * A group's `gap` is the space between its SLOTS, so it targets the group's
+ * grid/flex container (`.block--group`), not the inner element (which holds
+ * only that container). Everything else stays on the wrapper.
+ */
+export function groupPropTargets(): PropTargets {
+    return { gap: ['> .block__inner > .block--group',], '*': ['',], };
+}
 
 /**
  * Serialize a declaration record to `prop:value;` (skips empties).

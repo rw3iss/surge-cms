@@ -2,7 +2,7 @@
 import { TYPOGRAPHY_DEFAULTS, } from '@sitesurge/types';
 import { describe, expect, it, } from 'vitest';
 import { type EmailBlockNode, type EmailRenderCtx, } from './index';
-import { renderGroup, } from './group';
+import { groupEmailGap, renderGroup, } from './group';
 
 const CTX: EmailRenderCtx = {
     siteName: 'Test', siteUrl: 'https://test.example', palette: {}, fontFamily: 'Arial',
@@ -28,5 +28,20 @@ describe('renderGroup', () => {
         const html = renderGroup(group({ direction: 'grid', columns: 2, rows: 2, }, 3,), CTX,) as string;
         expect(rows(html,),).toBe(2,);
         expect((html.match(/width="50%"/g,) ?? []).length,).toBe(4,);
+    },);
+},);
+
+describe('group gap in email', () => {
+    it('reads the style gap (row column), else the retired setting', () => {
+        expect(groupEmailGap({ style: { gap: '90px 30px', }, settings: {}, },),).toEqual({ row: 90, col: 30, },);
+        expect(groupEmailGap({ style: {}, settings: { gap: '16px', }, },),).toEqual({ row: 16, col: 16, },);
+        expect(groupEmailGap({ settings: {}, },),).toEqual({ row: 0, col: 0, },);
+    },);
+    it('spaces grid columns and rows', () => {
+        const g = group({ direction: 'grid', columns: 2, rows: 2, }, 4,);
+        g.style = { gap: '10px 20px', };
+        const html = renderGroup(g, CTX,) as string;
+        expect((html.match(/padding-left:20px/g,) ?? []).length,).toBe(2,);
+        expect(html,).toContain('height:10px',);
     },);
 },);

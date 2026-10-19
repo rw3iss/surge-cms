@@ -9,6 +9,8 @@ export interface GroupStyleOptions {
     /** Minimum container height — the editor floors empty groups so their
      *  slot pickers stay clickable; the public renderer omits it. */
     minHeight?: string;
+    /** The block style's gap (admin preview, breakpoint-merged). */
+    gap?: string;
 }
 
 /**
@@ -84,7 +86,12 @@ export function groupContainerStyle(
     options: GroupStyleOptions = {},
 ): Record<string, string | undefined> {
     const direction = (data.direction as string) || 'horizontal';
-    const gap = (data.gap as string) || options.defaultGap;
+    // The slot gap is the block STYLE's Gap (emitted by blockCss onto
+    // `.block--group`, per breakpoint). `data.gap` is the retired group setting
+    // (migration 181 moved it into the style) — still honoured if one remains,
+    // inline, so it only applies when the style sets none. The admin preview
+    // passes its resolved style gap as `options.gap`.
+    const gap = options.gap || (data.gap as string) || options.defaultGap;
     const cols = groupColumns(data,);
 
     // Columns force an exact N-column grid (each child = 100/N of the row, no

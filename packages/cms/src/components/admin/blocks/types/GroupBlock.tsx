@@ -8,8 +8,7 @@ export interface GroupBlockData {
     columns?: number;
     /** Grid only: rows of `columns` cells. */
     rows?: number;
-    /** flex `gap` between children. Block style's gap takes precedence
-     *  if set; this is the per-block override. */
+    /** RETIRED (migration 181 → `style.gap`): read only as a fallback. */
     gap?: string;
     wrap?: 'wrap' | 'nowrap';
     align?: 'start' | 'center' | 'end' | 'stretch';
@@ -109,14 +108,10 @@ const GroupBlock: Component<GroupBlockProps> = (props,) => {
                 </FormField>
                 </Show>
 
-                <FormField label="Gap (between items)" inline>
-                    <input
-                        type="text"
-                        value={props.data.gap || ''}
-                        onChange={(e,) => update({ gap: e.currentTarget.value, },)}
-                        placeholder="e.g. 12px, 1rem"
-                    />
-                </FormField>
+                <small class="form-help-muted">
+                    Space between slots: set <strong>Gap</strong> in this block's Style panel — it can differ per
+                    breakpoint (e.g. a smaller gap on mobile).
+                </small>
             </FormSection>
 
             <FormSection title="Alignment">

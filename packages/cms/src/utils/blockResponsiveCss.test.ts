@@ -1,6 +1,6 @@
 import type { SiteBreakpoint, } from '@sitesurge/types';
 import { describe, expect, it, } from 'vitest';
-import { blockCss, blockResponsiveCss, carouselPropTargets, } from './blockResponsiveCss';
+import { blockCss, blockResponsiveCss, carouselPropTargets, groupPropTargets, } from './blockResponsiveCss';
 
 const MOBILE: SiteBreakpoint = { id: 'mobile', name: 'Mobile', maxWidth: '768', };
 
@@ -440,3 +440,16 @@ describe('blockCss — per-block Custom CSS', () => {
         expect(css,).toContain(`${WRAPPER} a{`,);
     });
 });
+
+describe('gap — the style Gap, per breakpoint', () => {
+    it('group: base + mobile gap land on the slot container', () => {
+        const css = blockCss('g1', { gap: '90px 30px', breakpoints: { mobile: { gap: '20px', }, }, }, [MOBILE,], OPTS, groupPropTargets(),)!;
+        expect(css,).toContain('.block[data-block-id="g1"] > .block__inner > .block--group{gap:90px 30px}',);
+        expect(css,).toMatch(/@media[^{]*\{\.block\[data-block-id="g1"\] > \.block__inner > \.block--group\{gap:20px\}\}/,);
+    },);
+    it('other blocks: gap spaces the inner element, never the wrapper', () => {
+        const css = blockCss('b1', { gap: '12px', }, [], OPTS,)!;
+        expect(css,).toContain('.block[data-block-id="b1"] > .block__inner{gap:12px}',);
+        expect(css,).not.toContain('.block[data-block-id="b1"]{gap',);
+    },);
+},);

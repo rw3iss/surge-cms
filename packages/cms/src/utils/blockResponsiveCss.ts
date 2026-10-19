@@ -6,6 +6,7 @@ export {
     blockResponsiveCss,
     type BlockResponsiveOptions,
     carouselPropTargets,
+    groupPropTargets,
     type CascadeLayer,
     type PropTargets,
 } from '@sitesurge/types';

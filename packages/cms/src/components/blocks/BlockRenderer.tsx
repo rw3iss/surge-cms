@@ -15,7 +15,7 @@ import { cssLength, } from '@sitesurge/types';
 import { Component, Show, } from 'solid-js';
 import { Dynamic, } from 'solid-js/web';
 import { fontStack, } from '../../utils/appearanceStyle';
-import { blockCss, type CascadeLayer, carouselPropTargets, } from '../../utils/blockResponsiveCss';
+import { blockCss, type CascadeLayer, carouselPropTargets, groupPropTargets, } from '../../utils/blockResponsiveCss';
 import { siteSettings, } from '../../stores/siteSettings';
 import { toFlexAlign, } from '../../utils/cssAlign';
 import { groupSlotItemStyle, } from '../../utils/groupStyle';
@@ -217,11 +217,19 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
         // A carousel spreads its style over three elements, so each property
         // must land on the element that owns it (see carouselPropTargets).
         // Every other block keeps everything on the wrapper.
-        isCarousel() ? carouselPropTargets(isContentCarousel(),) : undefined,
+        // A group's gap spaces its slots, so it targets the slot container.
+        isCarousel() ? carouselPropTargets(isContentCarousel(),) : props.block.type === 'group' ? groupPropTargets() : undefined,
         // A template's inner blocks render one layer earlier, so a using
         // block's own style wins without depending on document order.
         props.styleLayer,
     );
+    /** A gap in the base style or any breakpoint override. */
+    const hasStyleGap = () => {
+        const st = s() as Record<string, any>;
+        if (st.gap) return true;
+        const bps = st.breakpoints as Record<string, Record<string, unknown>> | undefined;
+        return Boolean(bps && Object.values(bps,).some((o,) => o && o.gap),);
+    };
     const slotStyle = () =>
         isGroupItem() ? groupSlotItemStyle(props.block.settings as Record<string, unknown>, {},) : {};
 
@@ -316,7 +324,11 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
             <div
                 class={`block__inner block__inner--${innerLayout()}`}
                 style={{
-                    ...(s().gap ? { display: 'flex', 'flex-direction': 'column', gap: s().gap, } : {}),
+                    // The gap VALUE comes from the block stylesheet (base + per
+                    // breakpoint, `> .block__inner`); this only makes the inner a
+                    // flex column so it applies. A group's gap goes to its slot
+                    // container instead (groupPropTargets), so its inner stays as is.
+                    ...(hasStyleGap() && props.block.type !== 'group' ? { display: 'flex', 'flex-direction': 'column', } : {}),
                     ...(s().overflowX ? { 'overflow-x': s().overflowX, 'max-width': '100%', } : {}),
                     ...(s().overflowY ? { 'overflow-y': s().overflowY, } : {}),
                 }}

@@ -487,7 +487,16 @@ const GroupBlockPreview: Component<NestedPreviewProps> = (props,) => {
     const data = () => props.block.data;
     // Shared with the public renderer so the preview matches the live output;
     // the editor adds a visible default gap + a min-height floor for slots.
-    const containerStyle = () => groupContainerStyle(data(), { defaultGap: '12px', minHeight: '60px', },);
+    // The slot gap is the block STYLE's Gap, with the preview breakpoint's
+    // override merged in (the public site gets the same from blockCss).
+    const styleGap = () => {
+        const base = BlockStyleService.resolve(props.block,) as Record<string, any> | null;
+        if (!base) return undefined;
+        const pbp = previewBreakpoint();
+        const ov = pbp ? base.breakpoints?.[pbp] : undefined;
+        return ((ov?.gap || base.gap) as string | undefined) || undefined;
+    };
+    const containerStyle = () => groupContainerStyle(data(), { defaultGap: '12px', minHeight: '60px', gap: styleGap(), },);
 
     return (
         <div
