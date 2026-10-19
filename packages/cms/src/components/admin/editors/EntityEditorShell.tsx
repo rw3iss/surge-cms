@@ -183,6 +183,19 @@ export function EntityEditorShell<TEntity,>(
                 <div class="admin-header__actions">
                     <AutoSaveIndicator status={e.autoSave.status()} lastSavedAt={e.autoSave.lastSavedAt()} />
                     <Show when={!e.isNew() && e.entity()}>
+                        {/* View the page on the site — first, as a plain text link.
+                            Not published yet → the admin preview of the saved version. */}
+                        <Show when={!e.isDeleted()}>
+                            <a
+                                href={props.status() === 'published' ? props.publicUrl() : `${props.publicUrl()}?preview=admin`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="admin-header__view-link"
+                                title={props.status() === 'published' ? 'Open the live page in a new tab' : 'Open a preview of the saved version in a new tab'}
+                            >
+                                {props.labels.viewLabel} ↗
+                            </a>
+                        </Show>
                         <Show when={e.isDeleted()}>
                             <button
                                 class="ui-button ui-button--secondary ui-button--sm"
@@ -214,11 +227,6 @@ export function EntityEditorShell<TEntity,>(
                             >
                                 Revert
                             </button>
-                        </Show>
-                        <Show when={props.status() === 'published'}>
-                            <a href={props.publicUrl()} target="_blank" class="ui-button ui-button--secondary ui-button--sm">
-                                {props.labels.viewLabel}
-                            </a>
                         </Show>
                         {/* Clone. Only for a SAVED entity: there is no stored
                             row to copy until the first save. */}

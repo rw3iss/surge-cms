@@ -595,6 +595,20 @@
     }
   }
 
+  // "View ↗" — the page on the site, a quiet text link before the buttons.
+  &__view-link {
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: var(--admin-text-muted, #{$text-light});
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover, &:focus-visible {
+      color: $primary-color;
+      text-decoration: underline;
+    }
+  }
+
   &__subtitle {
     color: $text-light;
     font-size: $font-size-sm;
