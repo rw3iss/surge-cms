@@ -118,6 +118,7 @@ const TemplateEntity: Component<{
                     title={props.options?.title as boolean | string | undefined}
                     columns={props.options?.columns as number | undefined}
                     gap={props.options?.gap as string | undefined}
+                    submitLabel={typeof props.options?.submitLabel === 'string' ? props.options.submitLabel : undefined}
                 />
             </Match>
             {/* Whole campaign — the full page render (progress + form etc.). */}
