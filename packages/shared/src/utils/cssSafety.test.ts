@@ -57,3 +57,13 @@ describe('blockCss drops unsafe saved values', () => {
         expect(css,).toContain('margin:4px',);
     });
 });
+
+import { isCssOrder, isSafeBlockStyleValue as _safe, } from './cssSafety';
+describe('order values', () => {
+    it('integers only', () => {
+        expect(isCssOrder('3',),).toBe(true,);
+        expect(isCssOrder('-12',),).toBe(true,);
+        expect(isCssOrder('1.5',),).toBe(false,);
+        expect(_safe('order', 'abc',),).toBe(false,);
+    },);
+},);

@@ -39,6 +39,7 @@ export const BLOCK_STYLE_DEFAULTS: Required<
         | 'gap'
         | 'overflowX'
         | 'overflowY'
+        | 'order'
     >
 > = {
     backgroundColor: '',
@@ -63,6 +64,7 @@ export const BLOCK_STYLE_DEFAULTS: Required<
     gap: '',
     overflowX: '',
     overflowY: '',
+    order: '',
 };
 
 // Reactive cache. BlockPreview (and any other renderer) reads the

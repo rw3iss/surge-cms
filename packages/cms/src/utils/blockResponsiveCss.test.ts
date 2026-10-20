@@ -453,3 +453,12 @@ describe('gap — the style Gap, per breakpoint', () => {
         expect(css,).not.toContain('.block[data-block-id="b1"]{gap',);
     },);
 },);
+
+describe('order — position among siblings, per breakpoint', () => {
+    it('base + mobile order land on the block wrapper; non-integers are dropped', () => {
+        const css = blockCss('o1', { order: '2', breakpoints: { mobile: { order: '-1', }, }, }, [MOBILE,], OPTS,)!;
+        expect(css,).toContain('.block[data-block-id="o1"]{order:2}',);
+        expect(css,).toMatch(/@media[^{]*\{\.block\[data-block-id="o1"\]\{order:-1\}\}/,);
+        expect(blockCss('o2', { order: '1; color:red', }, [], OPTS,) ?? '',).not.toContain('order',);
+    },);
+},);

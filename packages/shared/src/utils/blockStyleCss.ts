@@ -17,6 +17,8 @@
  */
 
 /** Injected resolvers keep this util framework-free (matches groupStyle.ts). */
+import { isCssOrder, } from './cssSafety';
+
 export interface BlockStyleCssResolvers {
     /** e.g. `fontStack` from utils/appearanceStyle — maps a font id to a stack. */
     resolveFont: (v: string | undefined,) => string | undefined;
@@ -233,6 +235,9 @@ export function blockStyleLayoutCss(
 
     if (s.overflowX) out['overflow-x'] = s.overflowX;
     if (s.overflowY) out['overflow-y'] = s.overflowY;
+    // Position among siblings (any integer). Lands on the block wrapper — the
+    // flex/grid item — through the same base + breakpoint passes as the rest.
+    if (s.order != null && s.order !== '' && isCssOrder(s.order,)) out.order = String(s.order,).trim().replace(/^\+/, '',);
 
     return out;
 }

@@ -271,3 +271,10 @@ export const DEFAULT_VIDEO_RADIUS = '6px';
 export function siteMediaLink(siteUrl: string, link: string,): string {
     return absUrl(siteUrl, siteMediaHref(link,),);
 }
+
+/** A block style's CSS `order` as a number (0 when unset / not an integer) — email sorts siblings by it. */
+export function styleOrder(style: Record<string, unknown> | null | undefined,): number {
+    const v = style?.order;
+    const n = typeof v === 'number' ? v : typeof v === 'string' && /^\s*[+-]?\d+\s*$/.test(v,) ? parseInt(v, 10,) : 0;
+    return Number.isFinite(n,) ? n : 0;
+}

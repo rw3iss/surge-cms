@@ -36,6 +36,14 @@ export interface BlockStyle {
     overflowX?: string; // CSS overflow-x value
     overflowY?: string; // CSS overflow-y value
     /**
+     * CSS `order` (any integer, e.g. "-1", "2"): the block's position among its
+     * siblings — per breakpoint like every style, so a block can move first on
+     * mobile. Applies where the siblings share a flex/grid container (a group's
+     * slots always; page/template block lists switch to a flex column when a
+     * block uses it — `.block--ordered`). Email sorts siblings by the base order.
+     */
+    order?: string;
+    /**
      * Free-form CSS for this block, injected as a scoped `<style>`.
      *
      * Selectors are rewritten to sit under the block's own wrapper, so a rule

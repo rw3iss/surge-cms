@@ -55,13 +55,19 @@ export function isSafeCssUrl(v: string,): boolean {
 export const BLOCK_STYLE_CSS_KEYS = [
     'backgroundColor', 'backgroundImage', 'backgroundPosition', 'textColor', 'textAlign', 'verticalAlign',
     'horizontalAlign', 'fontFamily', 'fontSize', 'lineHeight', 'width', 'maxWidth', 'minHeight', 'height',
-    'maxHeight', 'borderRadius', 'padding', 'margin', 'gap', 'overflowX', 'overflowY',
+    'maxHeight', 'borderRadius', 'padding', 'margin', 'gap', 'overflowX', 'overflowY', 'order',
 ] as const;
+
+/** A CSS `order` value: an integer (optionally signed). */
+export function isCssOrder(v: unknown,): boolean {
+    return /^\s*[+-]?\d{1,6}\s*$/.test(String(v ?? '',),);
+}
 
 /** Is one block style value safe for its key? Non-strings and empties pass. */
 export function isSafeBlockStyleValue(key: string, v: unknown,): boolean {
     if (typeof v !== 'string' || v === '') return true;
     if (key === 'backgroundImage') return isSafeCssUrl(v,);
+    if (key === 'order') return isCssOrder(v,);
     return isSafeCssValue(v, { allowQuotes: key === 'fontFamily', },);
 }
 

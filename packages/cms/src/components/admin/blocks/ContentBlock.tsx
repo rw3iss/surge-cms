@@ -187,6 +187,9 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
      *  caller-specific background + color + padding are layered on here.
      *  Reactive on the block's styleRef; never touches editable content, so
      *  applying it can't disturb the caret. */
+    /** The block's style `order` with the preview breakpoint merged in — applied to
+     *  this editor row (the list is a flex column) so the editor shows the order. */
+    const editorOrder = createMemo((): string | undefined => blockOrderFor(props.block,),);
     const resolvedContentStyle = createMemo<JSX.CSSProperties | undefined>(() => {
         const base = BlockStyleService.resolve(props.block,);
         if (!base) return undefined;
@@ -222,6 +225,7 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
             id={props.block.id}
             data-block-id={props.block.id}
             data-parent-id={props.block.parentBlockId ?? ''}
+            style={editorOrder() != null ? { order: editorOrder()!, } : undefined}
             class={`content-block content-block--preview content-block--${props.block.type} ${
                 props.isSelected ? 'content-block--selected' : ''
             } ${props.isDragging ? 'content-block--dragging' : ''} ${
@@ -472,6 +476,15 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
     );
 };
 
+/** A block's style `order` for the editor (preview breakpoint first, then the base). */
+function blockOrderFor(block: BlockData,): string | undefined {
+    const base = BlockStyleService.resolve(block,) as Record<string, any> | null;
+    if (!base) return undefined;
+    const pbp = previewBreakpoint();
+    const v = (pbp ? base.breakpoints?.[pbp]?.order : undefined) ?? base.order;
+    return v != null && v !== '' && /^[+-]?\d+$/.test(String(v,).trim(),) ? String(v,).trim() : undefined;
+}
+
 // ─── Group + group_item preview helpers ──────────────────────────────
 
 interface NestedPreviewProps {
@@ -518,7 +531,10 @@ const GroupBlockPreview: Component<NestedPreviewProps> = (props,) => {
                     // The slot wrapper is the flex/grid ITEM (mirrors the public
                     // `.block--group_item`), so the group's justify/align applies
                     // to properly-sized items instead of full-bleed ContentBlocks.
-                    <div class="content-block__group-slot" style={groupSlotItemStyle(child.data ?? {}, data(),)}>
+                    <div
+                        class="content-block__group-slot"
+                        style={{ ...groupSlotItemStyle(child.data ?? {}, data(),), ...(blockOrderFor(child,) != null ? { order: blockOrderFor(child,)!, } : {}), }}
+                    >
                         <ContentBlock
                             block={child}
                             index={idx()}

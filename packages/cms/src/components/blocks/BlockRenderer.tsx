@@ -225,6 +225,14 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
         // block's own style wins without depending on document order.
         props.styleLayer,
     );
+    /** An `order` in the base style or any breakpoint override → `.block--ordered`
+     *  (its parent list becomes a flex column so the order applies; global.scss). */
+    const hasStyleOrder = () => {
+        const st = s() as Record<string, any>;
+        if (st.order != null && st.order !== '') return true;
+        const bps = st.breakpoints as Record<string, Record<string, unknown>> | undefined;
+        return Boolean(bps && Object.values(bps,).some((o,) => o && o.order != null && o.order !== ''),);
+    };
     /** A gap in the base style or any breakpoint override. */
     const hasStyleGap = () => {
         const st = s() as Record<string, any>;
@@ -306,7 +314,7 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
         <div
             class={`block block--${props.block.type}${s().height ? ' block--has-height' : ''}${
                 hasBgOverlay() ? ' block--has-bg-overlay' : ''
-            }${usesDefaultPad() ? ' block--default-pad' : ''}`}
+            }${usesDefaultPad() ? ' block--default-pad' : ''}${hasStyleOrder() ? ' block--ordered' : ''}`}
             data-block-id={props.block.id}
             style={{
                 // Everything the block's own style controls now lives in the

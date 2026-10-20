@@ -725,6 +725,33 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                     </select>
                 </div>
 
+                {/* Order (after Overflow Y) */}
+                <div class="block-style-editor__field">
+                    <label class="block-style-editor__label">
+                        Order
+                        <Tooltip
+                            header="CSS Order"
+                            content="This block's position among its siblings — any whole number; lower comes first (e.g. -1 to move it to the top). Set it on a breakpoint to reorder only there, e.g. put the image first on mobile. Works in group slots and in any list of blocks; email uses the default value."
+                        />
+                    </label>
+                    <div class="block-style-editor__field-right">
+                        <div class="block-style-editor__custom-input-row">
+                            <input
+                                type="number"
+                                step="1"
+                                class="block-style-editor__custom-input"
+                                value={sv('order',) || ''}
+                                onChange={(e,) => {
+                                    const raw = e.currentTarget.value.trim();
+                                    const n = raw === '' ? NaN : Math.trunc(Number(raw,),);
+                                    update('order', Number.isFinite(n,) ? String(n,) : undefined,);
+                                }}
+                                placeholder="0"
+                            />
+                        </div>
+                    </div>
+                </div>
+
                 {
                     /*
                      * Custom CSS — a full-width row of its own beneath every

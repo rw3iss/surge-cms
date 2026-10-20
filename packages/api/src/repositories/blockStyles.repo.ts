@@ -1,7 +1,7 @@
 import type { BlockStyle, } from '@sitesurge/types';
 import { query, } from '../db';
 import { NotFoundError, } from '../middleware/error';
-import { mapRow, mapRows, } from '../utils/mapRow';
+import { mapRow, } from '../utils/mapRow';
 
 /**
  * The block_styles VALUE columns as ordered `[camelCase field, snake_case
@@ -33,27 +33,38 @@ const STYLE_COLUMNS: ReadonlyArray<readonly [keyof BlockStyle, string,]> = [
     ['gap', 'gap',],
     ['overflowX', 'overflow_x',],
     ['overflowY', 'overflow_y',],
+    ['order', 'style_order',],
     // JSONB map of { [breakpointId]: { prop: value } }. node-pg JSON-stringifies
     // a plain object param for a jsonb column; mapRow reads it back as an object.
     ['breakpoints', 'breakpoints',],
 ];
 
+/** Row → BlockStyle. `style_order` (`order` is reserved in SQL) reads back as `order`. */
+function toStyle(row: Record<string, unknown>,): BlockStyle {
+    const out = mapRow<BlockStyle & { styleOrder?: string | null; }>(row,);
+    if ('styleOrder' in out) {
+        if (out.styleOrder != null) out.order = out.styleOrder;
+        delete out.styleOrder;
+    }
+    return out;
+}
+
 export async function findAll(): Promise<BlockStyle[]> {
     const result = await query(
         'SELECT * FROM block_styles ORDER BY is_default DESC, name ASC',
     );
-    return mapRows<BlockStyle>(result.rows,);
+    return result.rows.map(toStyle,);
 }
 
 export async function findById(id: string,): Promise<BlockStyle> {
     const result = await query('SELECT * FROM block_styles WHERE id = $1', [id,],);
     if (result.rows.length === 0) throw new NotFoundError('Block style',);
-    return mapRow<BlockStyle>(result.rows[0],);
+    return toStyle(result.rows[0],);
 }
 
 export async function findDefault(): Promise<BlockStyle | null> {
     const result = await query('SELECT * FROM block_styles WHERE is_default = true LIMIT 1',);
-    return result.rows.length > 0 ? mapRow<BlockStyle>(result.rows[0],) : null;
+    return result.rows.length > 0 ? toStyle(result.rows[0],) : null;
 }
 
 export async function create(data: Partial<BlockStyle>,): Promise<BlockStyle> {
@@ -70,7 +81,7 @@ export async function create(data: Partial<BlockStyle>,): Promise<BlockStyle> {
         `INSERT INTO block_styles (${cols.join(', ',)}) VALUES (${placeholders}) RETURNING *`,
         values,
     );
-    return mapRow<BlockStyle>(result.rows[0],);
+    return toStyle(result.rows[0],);
 }
 
 export async function update(id: string, data: Partial<BlockStyle>,): Promise<BlockStyle> {
@@ -105,7 +116,7 @@ export async function update(id: string, data: Partial<BlockStyle>,): Promise<Bl
         values,
     );
     if (result.rows.length === 0) throw new NotFoundError('Block style',);
-    return mapRow<BlockStyle>(result.rows[0],);
+    return toStyle(result.rows[0],);
 }
 
 export async function remove(id: string,): Promise<void> {
@@ -127,7 +138,7 @@ export async function findByIds(ids: string[],): Promise<Map<string, BlockStyle>
     );
     const map = new Map<string, BlockStyle>();
     for (const row of result.rows) {
-        const style = mapRow<BlockStyle>(row,);
+        const style = toStyle(row,);
         map.set(style.id!, style,);
     }
     return map;

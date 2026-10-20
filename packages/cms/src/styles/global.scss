@@ -508,6 +508,17 @@ html:not([data-active-outlines='show']) {
   }
 }
 
+// ─── Block style `order` ───
+// CSS `order` only reorders flex/grid items. A group's slots already are; any
+// OTHER list of blocks (page body, post body, a component's blocks, a slot's
+// content) becomes a flex column only when one of its blocks sets an order, so
+// lists without it render exactly as before. A group's own container is a
+// flex/grid already and keeps its layout.
+:where(:has(> .block--ordered):not(.block--group)) {
+  display: flex;
+  flex-direction: column;
+}
+
 // ─── Group block: forced columns ───
 //
 // When a group sets a column count, `groupContainerStyle` switches the

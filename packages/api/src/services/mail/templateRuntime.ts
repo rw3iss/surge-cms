@@ -59,7 +59,7 @@ async function renderInlineForMail(block: FlatMailBlock,): Promise<string> {
     }
     const toNode = (b: FlatMailBlock,): EmailBlockNode => ({
         id: b.id, blockType: b.blockType, settings: b.settings ?? {}, style: b.style ?? {},
-        children: (byParent.get(b.id,) ?? []).sort((x, y,) => (x.position ?? 0) - (y.position ?? 0)).map(toNode,),
+        children: (byParent.get(b.id,) ?? []).sort((x, y,) => styleOrder(x.style,) - styleOrder(y.style,) || (x.position ?? 0) - (y.position ?? 0)).map(toNode,),
     } as EmailBlockNode);
     const ctx = {
         siteName: site.siteName, siteUrl: site.siteUrl, palette: site.palette,
@@ -70,7 +70,7 @@ async function renderInlineForMail(block: FlatMailBlock,): Promise<string> {
     const rows = (byParent.get(null,) ?? []).map((b,) => renderNode(toNode(b,), ctx as never,)).join('',);
     return rows ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table>` : '';
 }
-import { escapeHtml, } from './blocks/_util';
+import { escapeHtml, styleOrder, } from './blocks/_util';
 import { config, } from '../../config';
 import { discussionListHtml, forumThreadHtml, } from '../discussions/templateFunctions';
 import { galleryEmailHtml, } from '../gallery/render';
