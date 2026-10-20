@@ -1725,3 +1725,33 @@
     display: none;
   }
 }
+
+// Template block → Props (key / value rows).
+.template-block-edit__props {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+}
+
+.template-block-edit__prop {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto;
+  gap: $spacing-xs;
+  align-items: center;
+}
+
+.template-block-edit__prop-remove {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: $border-radius-sm;
+  background: transparent;
+  color: $text-light;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover { color: $error-color; background: rgba(0, 0, 0, .05); }
+}
+
+.template-block-edit__prop-add { align-self: flex-start; }

@@ -101,6 +101,8 @@ export const ENTITIES: EntityDoc[] = [
             { name: 'when', type: 'string', note: '"Saturday, October 18, 2026 at 7:00 PM (EDT)"', },
             { name: 'dateLabel', type: 'string', note: '"Sat, Oct 18, 2026" (a range for multi-day)', },
             { name: 'timeLabel', type: 'string', note: '"7:00 PM – 9:00 PM EDT" or "All day"', },
+            { name: 'shortDate', type: 'string', note: '"Oct 24" — month + day of the next occurrence', },
+            { name: 'startTime', type: 'string', note: '"7:00 PM EDT" — start time only (or "All day")', },
             { name: 'startsAt', type: 'date', note: 'series start (ISO)', }, { name: 'endsAt', type: 'date?', },
             { name: 'nextOccurrence', type: 'date', note: 'start of the next date that has not ended (ISO)', }, { name: 'nextOccurrenceEnd', type: 'date?', },
             { name: 'occurrenceDate', type: 'string', note: 'YYYY-MM-DD of that date', }, { name: 'upcoming', type: 'boolean', },

@@ -101,6 +101,10 @@ export interface EventRecord {
     dateLabel: string;
     /** "7:00 PM – 9:00 PM EDT"; "All day" for an all-day event. */
     timeLabel: string;
+    /** "Oct 24" — the next occurrence's month + day (compact cards). */
+    shortDate: string;
+    /** "7:00 PM EDT" — its START time only; "All day" for an all-day event. */
+    startTime: string;
     /** True when the next occurrence is still ahead or running. */
     upcoming: boolean;
     /** Raw recurrence rule (`weekly`, `monthly:15`…), null = does not repeat. */

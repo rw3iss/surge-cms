@@ -19,6 +19,9 @@ export interface TemplateSlotContext {
     bindings?: Record<string, SlotBinding>;
     /** The record(s) the template is rendering right now (see `templateData.ts`). */
     templateData?: TemplateDataContext | null;
+    /** A component's PROPS from the using `template` block (`settings.props`):
+     *  plain key → string values, read as `{{ props.<key> }}` and `ctx.block.props`. */
+    props?: Record<string, string>;
 }
 
 /** Records shown for an auto (no preview binding) slot in the template editor. */

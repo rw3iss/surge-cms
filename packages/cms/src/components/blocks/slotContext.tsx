@@ -30,10 +30,12 @@ export const SlotContext = createContext<TemplateSlotContext | undefined>(undefi
 export function slotContextOf(
     slots: () => TemplateSlot[] | null | undefined,
     bindings: () => Record<string, SlotBinding> | null | undefined,
+    props?: () => Record<string, string> | null | undefined,
 ): TemplateSlotContext {
     return {
         get slots() { return slots() ?? []; },
         get bindings() { return bindings() ?? {}; },
+        get props() { return props?.() ?? {}; },
     };
 }
 
@@ -49,6 +51,7 @@ export function withTemplateData(
     return {
         get slots() { return base?.slots ?? []; },
         get bindings() { return base?.bindings ?? {}; },
+        get props() { return base?.props ?? {}; },
         templateData: data,
     };
 }
@@ -138,5 +141,10 @@ export function useSlotVariables(text: () => string | null | undefined,): () => 
             return out;
         },
     );
-    return () => (used().length ? (vars.latest ?? {}) : {});
+    // Component props (`{{ props.layout }}`) — plain values, no fetch.
+    const propsVar = () => {
+        const p = ctx()?.props;
+        return p && Object.keys(p,).length && /\bprops\b/.test(text() ?? '',) ? { props: p, } : {};
+    };
+    return () => ({ ...(used().length ? (vars.latest ?? {}) : {}), ...propsVar(), });
 }

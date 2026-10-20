@@ -243,6 +243,8 @@ async function slotVariables(
     const text = blocks.map((b,) => JSON.stringify(b.settings ?? {},)).join(' ',);
     const out: Record<string, unknown> = {};
     if (!text.includes('{{',)) return out;
+    // Component props from the using template block (`{{ props.layout }}`).
+    if (slotCtx.props && Object.keys(slotCtx.props,).length && /\bprops\b/.test(text,)) out.props = slotCtx.props;
     for (const slot of slotCtx.slots ?? []) {
         const id = slot.id.replace(/[^\w-]/g, '',);
         if (!id || !new RegExp(`(^|[^\\w.])${id}\\b`,).test(text,)) continue;
@@ -538,7 +540,10 @@ async function expandPass(
                 const { meta, blocks: tplBlocks, } = await loadTemplate(state, templateId,);
                 if (tplBlocks.length === 0) continue;
                 // A component binds no entity: its template data is empty.
-                const slotCtx = slotContextOf(meta, block.settings.slots as Record<string, SlotBinding> | undefined,);
+                const slotCtx = {
+                    ...slotContextOf(meta, block.settings.slots as Record<string, SlotBinding> | undefined,),
+                    props: (block.settings.props ?? {}) as Record<string, string>,
+                };
                 // Its slots, as `{{ }}` variables for the blocks' text (none → leave text for the final pass).
                 const slotVars = await slotVariables(slotCtx, tplBlocks as never, opts.audience,);
                 const context = Object.keys(slotVars,).length ? slotVars : null;

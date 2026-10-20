@@ -70,6 +70,7 @@ export const TemplateBlock: Component<{
     const slotCtx = withTemplateData(slotContextOf(
         () => tpl()?.slots,
         () => props.block.settings?.slots as Record<string, SlotBinding> | undefined,
+        () => props.block.settings?.props as Record<string, string> | undefined,
     ), null,);
     const nextAncestry = () => [...ancestry(), templateId(),];
     /** Guards the effect below against re-running on unrelated signal changes. */

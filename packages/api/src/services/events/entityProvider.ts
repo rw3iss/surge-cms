@@ -111,7 +111,7 @@ function zonePart(d: Date, timeZone: string,): string {
  */
 export function occurrenceLabels(
     occ: Pick<NextOccurrence, 'start' | 'end'>, allDay: boolean, timeZone: string,
-): { when: string; dateLabel: string; timeLabel: string; } {
+): { when: string; dateLabel: string; timeLabel: string; shortDate: string; startTime: string; } {
     const tz = allDay ? 'UTC' : timeZone;
     const dateOf = (d: Date,) => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: tz, },);
     const timeOf = (d: Date,) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz, },);
@@ -131,7 +131,10 @@ export function occurrenceLabels(
         { startsAt: occ.start.toISOString(), allDay, timezone: timeZone, } as CalendarEvent,
         { timeZone, },
     );
-    return { when, dateLabel, timeLabel, };
+    // Compact forms for cards / strips: "Oct 24" and "7:00 PM EDT" (start only).
+    const shortDate = occ.start.toLocaleDateString('en-US', { month: 'short', day: '2-digit', timeZone: tz, },);
+    const startTime = allDay ? 'All day' : [timeOf(occ.start,), zonePart(occ.start, timeZone,),].filter(Boolean,).join(' ',);
+    return { when, dateLabel, timeLabel, shortDate, startTime, };
 }
 
 /** "Every week" · "Every 2 weeks" · "Every month" … ('' for a one-off). */
@@ -292,6 +295,8 @@ export function buildEventRecord(input: {
         when: labels.when,
         dateLabel: labels.dateLabel,
         timeLabel: labels.timeLabel,
+        shortDate: labels.shortDate,
+        startTime: labels.startTime,
         upcoming: next.upcoming,
         recurrence: e.recurrenceRule ?? null,
         recurrenceLabel: recurrenceLabelOf(e.recurrenceRule, e.recurrenceUntil,),
