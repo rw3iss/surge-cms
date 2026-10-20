@@ -7,7 +7,8 @@
  */
 import { A, } from '@solidjs/router';
 import { Component, For, Show, } from 'solid-js';
-import { COMPONENT_JS_DOC, DISCUSSIONS_DOC, GALLERY_DOC, HEADLESS_DOC, LIVE_SHOWS_DOC, MODULES_DOC, PERMISSIONS_DOC, POST_TYPES_DOC, REFERENCE_LINKS, RELEASES_DOC, SDK_DOCS, type SdkDoc, VIDEO_DOC, } from '../../services/help/sdkReference';
+import { COMPONENT_JS_DOC, DISCUSSIONS_DOC, COMPONENTS_DOC,
+    GALLERY_DOC, HEADLESS_DOC, LIVE_SHOWS_DOC, MODULES_DOC, PERMISSIONS_DOC, POST_TYPES_DOC, REFERENCE_LINKS, RELEASES_DOC, SDK_DOCS, type SdkDoc, VIDEO_DOC, } from '../../services/help/sdkReference';
 import { inlineCode, } from '../../components/admin/help/inlineCode';
 import './Help.scss';
 import AdminTitle from '../../components/admin/common/AdminTitle';
@@ -121,6 +122,7 @@ export const HelpVideo: Component = () => <DocPage doc={VIDEO_DOC} />;
 export const HelpPostTypes: Component = () => <DocPage doc={POST_TYPES_DOC} />;
 export const HelpDiscussions: Component = () => <DocPage doc={DISCUSSIONS_DOC} />;
 export const HelpGallery: Component = () => <DocPage doc={GALLERY_DOC} />;
+export const HelpComponents: Component = () => <DocPage doc={COMPONENTS_DOC} />;
 export const HelpLiveShows: Component = () => <DocPage doc={LIVE_SHOWS_DOC} />;
 
 export default HelpSdkHeadless;

@@ -480,7 +480,7 @@ export const COMPONENT_JS_DOC: SdkDoc = {
                         ['cms', 'CmsClient', 'The same typed SDK the admin uses — every module below',],
                         ['user', 'User | null', 'The signed-in visitor, or null when anonymous',],
                         ['settings', 'object', 'Public site settings (name, appearance, enabled features)',],
-                        ['block', 'object', "The using block's own settings — per-placement config",],
+                        ['block', 'object', "The using block's own settings — per-placement config, incl. `block.props` and `block.slots` (see Slots & props below)",],
                     ],
                 },
                 {
@@ -498,6 +498,76 @@ export const COMPONENT_JS_DOC: SdkDoc = {
   }
 }`,
                 },
+            ],
+        },
+        {
+            heading: 'Slots & props — reference',
+            blocks: [
+                {
+                    p: 'A component takes data from the block that uses it in two ways. Both are set on the '
+                        + '**Component** block (the `template` block type), per placement.',
+                },
+                {
+                    table: [
+                        ['', 'Declared where', 'Filled where', 'Holds',],
+                        ['Slot', "Component editor → Slots (id, label, data type, array)", 'Component block → Slots → Set data…', 'Records of one entity type — picked records or a live query',],
+                        ['Prop', 'Nowhere — just read it', 'Component block → Props (name / value rows)', 'Plain strings (e.g. layout = column)',],
+                    ],
+                },
+                {
+                    p: 'In the component\'s blocks (Custom HTML, Rich Text, any templated text), read them with `{{ }}`. '
+                        + 'A slot is a variable named by its id: an ARRAY slot is a list of records, a single slot is one record '
+                        + '(or empty). Props are under `props`.',
+                },
+                {
+                    code: `<section class="uev uev--{{ if props.layout }}{{ props.layout }}{{ else }}row{{ endif }}">
+  <h3>{{ if props.title }}{{ props.title }}{{ else }}Upcoming Events{{ endif }}</h3>
+  {{ for events as e }}
+    <a href="{{ e.path }}">{{ e.shortDate }} · {{ e.startTime }} — {{ e.title }}</a>
+  {{ endfor }}
+  {{ if events }}{{ else }}<p>No upcoming events.</p>{{ endif }}
+</section>`,
+                },
+                {
+                    table: [
+                        ['Variable', 'Value',],
+                        ['{{ <slotId> }} (array slot)', 'The records, in order — loop with {{ for <slotId> as x }}',],
+                        ['{{ <slotId> }} (single slot)', 'One record — {{ <slotId>.title }}',],
+                        ['{{ props.<name> }}', "The using block's prop value (a string)",],
+                    ],
+                },
+                {
+                    note: 'Give a prop a default with `{{ if props.x }}{{ props.x }}{{ else }}default{{ endif }}`, not '
+                        + "`default(props.x, '…')`: a function argument that resolves to nothing is read as its literal text "
+                        + '("props.x"), the engine\'s leniency for unquoted slugs.',
+                },
+                {
+                    p: 'Built-in blocks can read a slot too, without any template code: a **Gallery**, **Posts** or '
+                        + '**Events** block inside the component set to Source → Slot shows that slot\'s records with its own layout.',
+                },
+                {
+                    p: 'In this script, `ctx.block.props` is the props object and `ctx.block.slots` the slot BINDINGS '
+                        + '(what was chosen — record ids or a query), not the records. Resolve them with the SDK when you need the data:',
+                },
+                {
+                    code: `export function mount(el, ctx) {
+  const layout = ctx.block.props?.layout ?? 'row';
+  el.dataset.layout = layout;
+
+  const b = ctx.block.slots?.events;          // { mode: 'list', refs } | { mode: 'query', query } | …
+  if (b?.mode === 'query') {
+    ctx.cms.entities.list('event', b.query).then(({ data }) => { /* render */ });
+  }
+}`,
+                },
+                {
+                    list: [
+                        'Slots and props resolve on the site, in the editor previews and in email + server-rendered pages (where scripts never run) — prefer `{{ }}` for anything that must show without JavaScript.',
+                        'In the component editor there is no using block: slots use each slot\'s preview data (else the first records), and `props` is empty — your defaults show.',
+                        'Only slots your text actually names are fetched, so an unused slot costs nothing.',
+                    ],
+                },
+                { links: [{ href: '/admin/help/components', label: 'Components — overview', desc: 'What components are, when to use one, slots and props in practice.', },], },
             ],
         },
         {
@@ -563,6 +633,111 @@ export const COMPONENT_JS_DOC: SdkDoc = {
                         'The toggle beside this field disables the script without deleting it, which is the quickest way to confirm a component is the cause of something.',
                         'Editing the script updates every block using this component: it is a reference, not a copy.',
                         'Writing this field needs the `components:script` permission (admin by default) — separate from editing blocks, because this is code that runs in every visitor\'s browser.',
+                    ],
+                },
+            ],
+        },
+    ],
+};
+
+export const COMPONENTS_DOC: SdkDoc = {
+    id: 'components',
+    path: '/admin/help/components',
+    title: 'Components',
+    lead:
+        'A Component is a reusable template of one or more blocks — authored once under Components and '
+        + 'placed anywhere with the Component block. It is a REFERENCE, not a copy: edit the component and '
+        + 'every page, post, email and template using it updates.',
+    sections: [
+        {
+            heading: 'When to use one',
+            blocks: [
+                {
+                    list: [
+                        'The same section on many pages — a newsletter sign-up, a donate banner, an "Upcoming Events" strip.',
+                        'A layout you want to keep consistent — change it once instead of on every page.',
+                        'A small widget that needs data from where it is placed (slots) or per-placement options (props).',
+                        'Something interactive — a component can carry its own JavaScript with the CMS SDK.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'Building one',
+            blocks: [
+                {
+                    list: [
+                        'Admin → Components → + New component. Add blocks exactly as on a page: groups, Custom HTML, images, galleries, other components…',
+                        'Settings: name, description and a Collection (folders on the Components page, for organisation only).',
+                        'Slots: the data inputs the component expects — an id (e.g. `events`), a label, the entity type, and whether it holds one record or many.',
+                        'JavaScript (optional): a client module run where the component renders — see Component JavaScript.',
+                        'Every save is kept in its history (Revision History at the bottom), so a change can be undone.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'Using one',
+            blocks: [
+                {
+                    p: 'Add a **Component** block to a page, post, email or another template and pick the component. Its panel then shows:',
+                },
+                {
+                    list: [
+                        '**Slots** — one Set data… per slot: tick specific records (in the order picked) or tick none to save the filters + sort as a live query (e.g. upcoming events, soonest first, 3).',
+                        '**Props** — name / value rows for this placement, e.g. `layout` = `column`, `title` = `What\'s on`.',
+                        'The block\'s own Style panel styles the wrapper (spacing, background, per breakpoint); the component\'s inner styles stay as authored.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'Slots and props in the component',
+            blocks: [
+                {
+                    p: 'Inside the component, text blocks read them with `{{ }}` — a slot by its id, props under `props`:',
+                },
+                {
+                    code: `{{ for events as e }}
+  <a href="{{ e.path }}">{{ e.shortDate }} — {{ e.title }}</a>
+{{ endfor }}
+<div class="strip strip--{{ if props.layout }}{{ props.layout }}{{ else }}row{{ endif }}">…</div>`,
+                },
+                {
+                    p: 'Or let a built-in block show the data: a Gallery, Posts or Events block inside the component with '
+                        + 'Source → Slot renders that slot\'s records with its own layout and settings.',
+                },
+                {
+                    table: [
+                        ['', 'Slots', 'Props',],
+                        ['What', 'Records of one entity type', 'Plain text values',],
+                        ['Declared', 'In the component (Slots section)', 'Not declared — read what you need',],
+                        ['Filled', 'Component block → Set data…', 'Component block → Props',],
+                        ['Read with', '{{ events }} / Source → Slot / ctx.block.slots', '{{ props.name }} / ctx.block.props',],
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'Example: Upcoming Events',
+            blocks: [
+                {
+                    list: [
+                        'Component "Upcoming Events" declares an array slot `events` (type event) and one Custom HTML block that loops `{{ for events as e }}`.',
+                        'On the homepage, a Component block picks it, sets Events → Set data… → upcoming, soonest first, 3, and leaves Props empty (row layout).',
+                        'In a sidebar, a second Component block uses the same component with Props `layout` = `column`.',
+                        'Editing the component\'s HTML updates both.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'Reference',
+            blocks: [
+                {
+                    links: [
+                        { href: '/admin/help/sdk/component-js', label: 'Component JavaScript', desc: 'mount(el, ctx), what ctx holds (SDK, user, settings, block props + slots), and the slots & props reference.', },
+                        { href: '/admin/help/variables-and-functions', label: 'Variables & functions', desc: 'Everything {{ }} can read and call — entity fields (e.g. event shortDate / startTime), if / for, value functions.', },
                     ],
                 },
             ],

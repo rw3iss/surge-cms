@@ -50,7 +50,7 @@ export const TOPICS: HelpTopic[] = [
         path: '/admin/help/sdk/component-js',
         dev: true,
         title: 'Component JavaScript',
-        desc: 'Give a Component a client script: the mount(el, ctx) contract, what the CMS SDK exposes to it, and why inline JS is blocked.',
+        desc: 'Give a Component a client script: the mount(el, ctx) contract, what the CMS SDK exposes to it, slots & props reference, and why inline JS is blocked.',
     },
     {
         path: '/admin/help/releases',
@@ -74,6 +74,11 @@ export const TOPICS: HelpTopic[] = [
         feature: 'discussions',
         title: 'Comments & Forum',
         desc: 'Comments on posts and events, the members\' forum, moderation, member pages + activity counts, and showing latest / hottest discussions anywhere.',
+    },
+    {
+        path: '/admin/help/components',
+        title: 'Components',
+        desc: 'Reusable templates of one or more blocks: build once, place anywhere with the Component block, and feed them data with slots and options with props.',
     },
     {
         path: '/admin/help/gallery',
