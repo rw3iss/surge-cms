@@ -39,3 +39,10 @@ describe('groupTracks (column widths from slot widths)', () => {
         expect(groupSlotItemStyle({ width: '80%', }, { direction: 'horizontal', },).width,).toBe('80%',);
     },);
 },);
+
+describe('nested groups never inherit layout', () => {
+    it('every column grid sets its own --group-tracks (no slot widths → equal columns)', () => {
+        expect(groupContainerStyle({ direction: 'grid', columns: 1, rows: 2, },)['--group-tracks'],).toBe('repeat(1, minmax(0, 1fr))',);
+        expect(groupContainerStyle({ direction: 'horizontal', columns: 3, },)['--group-tracks'],).toBe('repeat(3, minmax(0, 1fr))',);
+    },);
+},);

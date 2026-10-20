@@ -141,7 +141,11 @@ export function groupContainerStyle(
         return {
             display: 'grid',
             '--group-cols': String(cols,),
-            ...(tracks ? { '--group-tracks': tracks, } : {}),
+            // ALWAYS set (equal columns when no slot has a width): custom
+            // properties inherit, so a nested group that left it unset picked up
+            // its PARENT's tracks (a 1-column component inside an 80/20 row
+            // rendered as two columns).
+            '--group-tracks': tracks ?? `repeat(${cols}, minmax(0, 1fr))`,
             gap,
             'align-items': toFlexAlign(data.align as string, 'stretch',),
             // Main-axis distribution still applies to the grid tracks (visible
