@@ -6,6 +6,7 @@ import { buildRuntime, type RuntimeOptions, } from '../../services/template/runt
 import { useUser, } from '../../stores/auth';
 import { previewVariables, } from '../../stores/previewVariables';
 import { siteSettings, } from '../../stores/siteSettings';
+import { useSlotVariables, } from './slotContext';
 import TemplateEntity from './TemplateEntity';
 import './TemplatedContent.scss';
 
@@ -50,8 +51,12 @@ const TemplatedContent: Component<TemplatedContentProps> = (props,) => {
     // same-id refresh is a no-op; a real login/logout (id change) still re-resolves.
     const uid = createMemo(() => auth.user?.id ?? null,);
 
+    // The enclosing template's slots the text mentions, as variables
+    // (`{{ for events as e }}` inside a component with an `events` slot).
+    const slotVars = useSlotVariables(() => props.html,);
+
     const [resolved] = createResource(
-        () => ({ html: props.html ?? '', entities: props.entities, uid: uid(), vars: previewVariables() }),
+        () => ({ html: props.html ?? '', entities: props.entities, uid: uid(), vars: { ...previewVariables(), ...slotVars(), } }),
         async (src): Promise<Resolved> => {
             if (!hasTemplateSyntax(src.html)) return { html: src.html, entities: [], };
             const u = auth.user;

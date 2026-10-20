@@ -229,6 +229,29 @@ async function cloneBlocks(
     }),),);
 }
 
+/**
+ * The template's SLOTS as `{{ }}` variables for its blocks' text — the same
+ * rule as the web (`useSlotVariables`): only slots a block's text mentions are
+ * resolved; array slot → records, single → the record (or null); missing /
+ * unfilled → [] / null.
+ */
+async function slotVariables(
+    slotCtx: TemplateSlotContext,
+    blocks: Array<{ settings?: Record<string, unknown> | null; }>,
+    audience?: 'email' | 'site',
+): Promise<Record<string, unknown>> {
+    const text = blocks.map((b,) => JSON.stringify(b.settings ?? {},)).join(' ',);
+    const out: Record<string, unknown> = {};
+    if (!text.includes('{{',)) return out;
+    for (const slot of slotCtx.slots ?? []) {
+        const id = slot.id.replace(/[^\w-]/g, '',);
+        if (!id || !new RegExp(`(^|[^\\w.])${id}\\b`,).test(text,)) continue;
+        const records = await resolveSlotRecords(slotCtx, slot.id, slot.entityType, MAX_RECORDS, audience === 'email' ? { audience: 'email', } : {},);
+        out[slot.id] = slot.array ? records : (records[0] ?? null);
+    }
+    return out;
+}
+
 /** Stamp the slot/template-data context on a block that reads it; others untouched. */
 function withSlotContext(settings: Record<string, unknown>, slotCtx: TemplateSlotContext | null | undefined,): Record<string, unknown> {
     if (!slotCtx || (settings.source !== 'slot' && settings.source !== 'template')) return settings;
@@ -455,6 +478,7 @@ async function expandPass(
                 }
 
                 const slots = slotContextOf(tpl, cfg.slots,);
+                const slotVars = await slotVariables(slots, tplBlocks as never, opts.audience,);
                 // One copy of the template per record (`each`, the default) or
                 // ONE copy with every record (`once`) — the same rule the web
                 // renderer uses (`templateRenderGroups`).
@@ -465,7 +489,7 @@ async function expandPass(
                 let offset = 0;
                 for (const [i, group,] of templateRenderGroups(records, tpl,).entries()) {
                     const first = group[0];
-                    const context: Record<string, unknown> = { [varName]: first, entity: first, };
+                    const context: Record<string, unknown> = { ...slotVars, [varName]: first, entity: first, };
                     if (def?.singularVar && def.singularVar !== varName) context[def.singularVar] = first;
                     if (once) context[pluralVar] = group;
                     const cloned = await cloneBlocks(
@@ -515,7 +539,10 @@ async function expandPass(
                 if (tplBlocks.length === 0) continue;
                 // A component binds no entity: its template data is empty.
                 const slotCtx = slotContextOf(meta, block.settings.slots as Record<string, SlotBinding> | undefined,);
-                const cloned = await cloneBlocks(tplBlocks as never, block.id, `${block.id}-c`, null, 0, { ...slotCtx, templateData: null, }, opts.resolveText,);
+                // Its slots, as `{{ }}` variables for the blocks' text (none → leave text for the final pass).
+                const slotVars = await slotVariables(slotCtx, tplBlocks as never, opts.audience,);
+                const context = Object.keys(slotVars,).length ? slotVars : null;
+                const cloned = await cloneBlocks(tplBlocks as never, block.id, `${block.id}-c`, context, 0, { ...slotCtx, templateData: null, }, opts.resolveText,);
                 stampAncestry(state, cloned, block.id, templateId,);
                 out.push(...cloned,);
             }

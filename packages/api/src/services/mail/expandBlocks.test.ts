@@ -421,6 +421,32 @@ describe('expandDynamicBlocks — template slots', () => {
     },);
 },);
 
+describe('slots as {{ }} variables in a component\'s text', () => {
+    it('resolves only the slots the text names, array → records', async () => {
+        findBlocksResolved.mockResolvedValue([
+            { id: 'h', parentBlockId: null, blockType: 'html', position: 0, settings: { content: '{{ for stories as s }}{{ s.title }}{{ endfor }}', }, style: {}, },
+        ],);
+        findTemplate.mockResolvedValue({ id: 'tpl-1', slots: [
+            { id: 'stories', entityType: 'post', array: true, },
+            { id: 'lead', entityType: 'post', array: false, },
+        ], },);
+        entityGet.mockImplementation((_t: string, ref: string,) => Promise.resolve({ id: ref, title: ref.toUpperCase(), },),);
+        const seen: Record<string, unknown>[] = [];
+        const out = await expandDynamicBlocks([{
+            id: 'c1', parentBlockId: null, blockType: 'template', position: 0,
+            settings: { templateId: 'tpl-1', slots: { stories: { mode: 'list', refs: ['a', 'b',], }, lead: { mode: 'single', ref: 'z', }, }, }, style: {},
+        },], 0, new Set(), {
+            resolveText: (text, ctx,) => {
+                seen.push(ctx,);
+                return Promise.resolve(text,);
+            },
+        },);
+        expect(out.find((b,) => b.blockType === 'html'),).toBeDefined();
+        expect(seen[0]?.stories,).toEqual([{ id: 'a', title: 'A', }, { id: 'b', title: 'B', },],);
+        expect('lead' in (seen[0] ?? {}),).toBe(false,);
+    },);
+},);
+
 describe('template list render + template data', () => {
     const galleryTplBlock = () => ({
         id: 'g1', parentBlockId: null, blockType: 'gallery', position: 0,

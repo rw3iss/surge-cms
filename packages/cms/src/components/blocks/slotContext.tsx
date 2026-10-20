@@ -20,7 +20,7 @@ import {
     slotFor, slotPlaceholderText, templateDataPlaceholderText,
     type EntityRecord, type SlotBinding, type TemplateDataContext, type TemplateDataLookup, type TemplateSlot, type TemplateSlotContext,
 } from '@sitesurge/types';
-import { createContext, Show, useContext, type Component, } from 'solid-js';
+import { createContext, createResource, Show, useContext, type Component, } from 'solid-js';
 import { resolveRecords, } from '../../services/entityBinding';
 import { templatePreviewSlotContext, } from '../../stores/templatePreviewContext';
 
@@ -101,3 +101,42 @@ export const TemplateDataPlaceholder: Component<{ label: string; lookup: Extract
         <div class="block-message block-message--slot">{templateDataPlaceholderText(props.label, props.lookup,)}</div>
     </Show>
 );
+
+/**
+ * The enclosing template's SLOTS as `{{ }}` variables — `{{ for events as e }}`
+ * for an array slot `events`, `{{ hero.title }}` for a single one.
+ *
+ * Only slots whose id the text actually mentions are resolved (one records
+ * fetch per slot; nothing at all for text that names none), through the same
+ * `slotRecordsFor` the slot-reading blocks use. Missing / unfilled /
+ * incompatible slot → `[]` (array) or null, so a loop renders nothing.
+ * In the template editor this reads the preview bindings, like every slot.
+ */
+export function useSlotVariables(text: () => string | null | undefined,): () => Record<string, unknown> {
+    const ctx = useSlotContext();
+    const used = () => {
+        const c = ctx();
+        const src = text() ?? '';
+        if (!c || !c.slots?.length || !src.includes('{{',)) return [];
+        return (c.slots ?? []).filter((s,) => new RegExp(`(^|[^\\w.])${s.id.replace(/[^\w-]/g, '',)}\\b`,).test(src,));
+    };
+    const [vars,] = createResource(
+        () => {
+            const u = used();
+            if (!u.length) return null;
+            // Keyed on the bindings' CONTENT (a reconciled store keeps identity).
+            return JSON.stringify(u.map((s,) => [s.id, s.entityType, s.array, ctx()?.bindings?.[s.id] ?? null,]),);
+        },
+        async () => {
+            const c = ctx();
+            const out: Record<string, unknown> = {};
+            for (const s of used()) {
+                const r = await slotRecordsFor(c, s.id, s.entityType,);
+                const records = r.ok ? r.records : [];
+                out[s.id] = s.array ? records : (records[0] ?? null);
+            }
+            return out;
+        },
+    );
+    return () => (used().length ? (vars.latest ?? {}) : {});
+}
