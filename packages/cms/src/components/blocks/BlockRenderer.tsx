@@ -17,6 +17,8 @@ import { Dynamic, } from 'solid-js/web';
 import { fontStack, } from '../../utils/appearanceStyle';
 import { blockCss, type CascadeLayer, carouselPropTargets, groupPropTargets, } from '../../utils/blockResponsiveCss';
 import { siteSettings, } from '../../stores/siteSettings';
+import { templateInfo, } from '../../stores/templateSlots';
+import { useTemplateAncestry, } from './templateAncestry';
 import { toFlexAlign, } from '../../utils/cssAlign';
 import { groupSlotItemStyle, } from '../../utils/groupStyle';
 import PostListRenderer, { type PostListSettings, } from './posts/PostListRenderer';
@@ -239,6 +241,8 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
     // column (`block__inner--contained`) so its content can fill the block —
     // otherwise a `width: full` / `max-width: 100%` block would still have its
     // inner content capped at 1200px, which contradicts the operator's intent.
+    const ancestry = useTemplateAncestry();
+    const insideTemplate = () => ancestry.length > 0 || templateInfo() !== null;
     const innerLayout = (): string => {
         const explicit = props.block.settings.layout as string | undefined;
         if (explicit) return explicit;
@@ -260,6 +264,12 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
         // full-width component (e.g. a banner) impossible on a page, while the
         // component editor — which has no wrapper — showed it full width.
         if (props.block.type === 'template') return 'full';
+        // Blocks INSIDE a component / entity template (or being authored in the
+        // template editor) fill the space they are given: the page content
+        // column is a PAGE default, and inside a template it imposed a
+        // max-width nobody set. The using block (or the block's own style)
+        // decides the width.
+        if (insideTemplate()) return 'full';
         // NOTE: '100%' is the DEFAULT width (BLOCK_STYLE_DEFAULTS.width), not a
         // full-bleed intent — treating it as one made a block with the default
         // saved render differently from an unstyled block. So only a literal
