@@ -1073,6 +1073,33 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 ]
             },
             {
+                "name": "lookup",
+                "signature": "lookup(ref: string, scope: 'component' | 'template' = 'component', type?: string): Promise< | { template: ContentBlockTemplate & { singularVar?: string; pluralVar?: string; }; blocks: ContentBlockTemplateBlock[]; } | { error: string; } >",
+                "summary": "Find a component (`scope: 'component'`) or an entity template (`scope: 'template'`, optionally of `type`) by id OR name, with its blocks — what `{{ component(...) }}` / `{{ template(...) }}` render. Answers `{ error }` (not a throw) when nothing matches.",
+                "params": [
+                    {
+                        "name": "ref",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "scope",
+                        "type": "'component' | 'template'",
+                        "optional": true,
+                        "default": "'component'"
+                    },
+                    {
+                        "name": "type",
+                        "type": "string",
+                        "optional": true
+                    }
+                ],
+                "returns": "Promise<| { template: ContentBlockTemplate & { singularVar?: string; pluralVar?: string; }; blocks: ContentBlockTemplateBlock[]; } | { error: string; }>",
+                "routes": [
+                    "GET /api/v1/components/lookup"
+                ]
+            },
+            {
                 "name": "remove",
                 "signature": "remove(id: string): Promise<{ deleted: boolean; }>",
                 "summary": "",
@@ -10167,4 +10194,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 51;
-export const SDK_METHOD_COUNT = 594;
+export const SDK_METHOD_COUNT = 595;

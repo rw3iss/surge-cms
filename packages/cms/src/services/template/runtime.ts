@@ -10,6 +10,7 @@
 import {
     commentCountTarget, DISCUSSION_LIST_KIND, type DiscussionItem, discussionQueryFor, EVENT_KIND, EVENT_LIST_KIND,
     eventsCallFor, FORUM_THREAD_KIND, GALLERY_ITEM_KIND, GALLERY_LIST_KIND, galleryCallFor, type GalleryItem, resolveValueFunction, UNRESOLVED,
+    COMPONENT_KIND, componentArgsFor, TEMPLATE_KIND, templateCallError, templateCallFor, templateRecordFor,
 } from '@sitesurge/types';
 import { cms, } from '../cmsClient';
 import { entityRef, type TemplateRuntime, } from './index';
@@ -203,6 +204,34 @@ export function buildRuntime(opts: RuntimeOptions = {}): TemplateRuntime {
             });
             if (ec.single) return entityRef(EVENT_KIND, records[0] ?? null, ec.binding.mode === 'single' ? ec.binding.ref : undefined);
             return entityRef(EVENT_LIST_KIND, records as unknown as Record<string, unknown>);
+        }
+
+        // ── template('Name', record) / component('Name', slot=…, prop=…) ──
+        // A saved template / component rendered inline (TemplateEntity →
+        // InlineTemplate). Looked up by id or name; a failed lookup / bad call
+        // still returns a ref, carrying `error` — the site shows nothing, the
+        // admin a short notice.
+        if (name === 'template' || name === 'component') {
+            const call = templateCallFor(name, args, named);
+            const fail = (reason: string) => entityRef(call.kind, { error: templateCallError(call, reason), } as Record<string, unknown>);
+            if (!call.ref) return fail('give the template name or id as the first argument');
+            const scope = call.kind === COMPONENT_KIND ? 'component' : 'template';
+            const found = await memo(`tpl:${scope}:${call.entityType ?? ''}:${call.ref.toLowerCase()}`, async () => {
+                try {
+                    return await cms.components.lookup(call.ref, scope, call.entityType);
+                } catch (e) {
+                    return { error: (e as Error).message || 'lookup failed', };
+                }
+            });
+            if ('error' in found) return fail(found.error);
+            const t = found.template;
+            const base = { templateId: t.id, templateName: t.name, entityType: t.entityTypeKey, blocks: found.blocks, slots: t.slots ?? [], mode: t.mode, singularVar: t.singularVar, pluralVar: t.pluralVar, listRender: t.listRender, };
+            if (call.kind === COMPONENT_KIND) {
+                const { values, props, } = componentArgsFor((t.slots ?? []).map((sl) => ({ id: sl.id, array: sl.array === true, })), call.named);
+                return entityRef(COMPONENT_KIND, { ...base, values, props, } as Record<string, unknown>, t.id);
+            }
+            const { record, records, } = templateRecordFor(call, t);
+            return entityRef(TEMPLATE_KIND, { ...base, record, records, } as Record<string, unknown>, t.id);
         }
 
         switch (name) {

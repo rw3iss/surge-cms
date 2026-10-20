@@ -37,6 +37,39 @@ import {
     type TemplateRuntime,
 } from '@sitesurge/types';
 import { logger, } from '../../utils/logger';
+import { inlineTemplateHtml, } from '../template/inlineTemplates';
+import type { EmailBlockNode, } from './blocks';
+import type { FlatMailBlock, } from './expandBlocks';
+
+/**
+ * `{{ template() }}` / `{{ component() }}` in email: expanded like any entity /
+ * component block, then drawn by the email block renderers into a table.
+ */
+async function renderInlineForMail(block: FlatMailBlock,): Promise<string> {
+    const { expandDynamicBlocks, } = await import('./expandBlocks.js');
+    const { renderNode, } = await import('./blocks/index.js');
+    const { loadMailRenderContext, } = await import('./siteContext.js');
+    const { resolveTypography, } = await import('@sitesurge/types');
+    const flat = await expandDynamicBlocks([block,], 0, new Set(), { audience: 'email', },);
+    const site = await loadMailRenderContext();
+    const byParent = new Map<string | null, FlatMailBlock[]>();
+    for (const b of flat) {
+        const k = b.parentBlockId ?? null;
+        byParent.set(k, [...(byParent.get(k,) ?? []), b,],);
+    }
+    const toNode = (b: FlatMailBlock,): EmailBlockNode => ({
+        id: b.id, blockType: b.blockType, settings: b.settings ?? {}, style: b.style ?? {},
+        children: (byParent.get(b.id,) ?? []).sort((x, y,) => (x.position ?? 0) - (y.position ?? 0)).map(toNode,),
+    } as EmailBlockNode);
+    const ctx = {
+        siteName: site.siteName, siteUrl: site.siteUrl, palette: site.palette,
+        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+        textColor: '#333333', bgColor: '#ffffff', linkColor: '#3498cf',
+        typography: resolveTypography(site.typography,), siteRadius: site.siteRadius,
+    };
+    const rows = (byParent.get(null,) ?? []).map((b,) => renderNode(toNode(b,), ctx as never,)).join('',);
+    return rows ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table>` : '';
+}
 import { escapeHtml, } from './blocks/_util';
 import { config, } from '../../config';
 import { discussionListHtml, forumThreadHtml, } from '../discussions/templateFunctions';
@@ -73,6 +106,9 @@ const MAIL_SINGLE_KINDS: ReadonlySet<string> = new Set([
  *  short blurb is all we can meaningfully render. */
 function entityToMailHtml(kind: string, data: Rec | null, options?: Record<string, unknown>, siteRadius?: string,): string {
     if (!data) return '';
+    // `{{ template() }}` / `{{ component() }}` — pre-rendered by renderInlineForMail below.
+    const inline = inlineTemplateHtml(kind, data,);
+    if (inline !== null) return inline;
     const g = (k: string,): string => escapeHtml(String(data[k] ?? '',),);
     switch (kind) {
         case 'post':
@@ -135,7 +171,7 @@ function buildMailRuntime(context: Rec,): TemplateRuntime {
         return entityRef(name, data, ref,);
     };
 
-    return buildBackendRuntime({ context, singleKinds: MAIL_SINGLE_KINDS, resolveExtra, galleryAudience: 'email', },);
+    return buildBackendRuntime({ context, singleKinds: MAIL_SINGLE_KINDS, resolveExtra, galleryAudience: 'email', renderInline: renderInlineForMail, },);
 }
 
 /**

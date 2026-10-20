@@ -547,6 +547,7 @@ export const ROUTE_COVERAGE: string[] = [
 
     // ── entities: content-block templates ──
     // cms.components — the same templates with no entity binding.
+    'GET /api/v1/components/lookup',
     'GET /api/v1/components/collections',
     'POST /api/v1/components/collections',
     'PUT /api/v1/components/collections/:id',

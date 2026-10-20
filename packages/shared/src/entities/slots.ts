@@ -22,6 +22,9 @@ export interface TemplateSlotContext {
     /** A component's PROPS from the using `template` block (`settings.props`):
      *  plain key → string values, read as `{{ props.<key> }}` and `ctx.block.props`. */
     props?: Record<string, string>;
+    /** Slot DATA given directly (a `{{ component('x', events=list) }}` call):
+     *  slot id → record(s). Read before the binding; nothing is fetched. */
+    values?: Record<string, unknown>;
 }
 
 /** Records shown for an auto (no preview binding) slot in the template editor. */

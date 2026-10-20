@@ -136,6 +136,9 @@ export interface BackendRuntimeOptions {
      * in-site gate). Default `site`.
      */
     galleryAudience?: 'site' | 'email';
+    /** Renders `{{ template() }}` / `{{ component() }}` blocks for this surface
+     *  (SSR or email). Absent → those calls resolve to nothing. */
+    renderInline?: import('./inlineTemplates').InlineBlockRenderer;
 }
 
 /**
@@ -152,6 +155,14 @@ export function buildBackendRuntime(opts: BackendRuntimeOptions,): TemplateRunti
         // default, now, …).
         const vf = resolveValueFunction(name, args,);
         if (vf !== UNRESOLVED) return vf;
+
+        // `template('Name', item)` / `component('Name', slot=…, prop=…)` — rendered
+        // through this surface's own block pipeline (see inlineTemplates.ts).
+        if (name === 'template' || name === 'component') {
+            if (!opts.renderInline) return undefined;
+            const { resolveInlineTemplate, } = await import('./inlineTemplates.js');
+            return resolveInlineTemplate(name, args, named, opts.renderInline,);
+        }
 
         // Events (`event('x')`, `events(...)`) → full EventRecords through the
         // events data provider, as the anonymous reader (public-view events only).

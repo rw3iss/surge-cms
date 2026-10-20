@@ -1735,6 +1735,36 @@ export const API_MODULES: ApiModuleDoc[] = [
             },
             {
                 "method": "GET",
+                "path": "/lookup",
+                "absolutePath": "/api/v1/components/lookup",
+                "auth": "optional",
+                "summary": "Find a component (scope=component) or entity template (scope=template, optional type) by id or name, with its blocks.",
+                "input": {
+                    "query": [
+                        {
+                            "name": "ref",
+                            "type": "string",
+                            "required": true
+                        },
+                        {
+                            "name": "scope",
+                            "type": "'component' | 'template'",
+                            "required": false
+                        },
+                        {
+                            "name": "type",
+                            "type": "string",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.components.lookup"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
                 "path": "/templates/:id",
                 "absolutePath": "/api/v1/components/templates/:id",
                 "auth": "optional",
@@ -17315,4 +17345,4 @@ export const API_MODULES: ApiModuleDoc[] = [
 ];
 
 export const API_MODULE_COUNT = 55;
-export const API_ROUTE_COUNT = 599;
+export const API_ROUTE_COUNT = 600;

@@ -1,12 +1,13 @@
 import {
     DISCUSSION_LIST_KIND, type DiscussionItem, EVENT_KIND, EVENT_LIST_KIND, eventDisplayFrom, FORUM_THREAD_KIND, featuredImagePath, GALLERY_ITEM_KIND, GALLERY_LIST_KIND, galleryDisplayFrom,
-    type GalleryItem,
+    type GalleryItem, COMPONENT_KIND, TEMPLATE_KIND,
 } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
 import type { Campaign, Form, Media, Post, } from '@sitesurge/types';
 import { Component, For, Match, Show, Switch, } from 'solid-js';
 import DiscussionList from '../discussions/DiscussionList';
 import EventCard from '../events/EventCard';
+import InlineTemplate from './InlineTemplate';
 import EventCardList from '../events/EventCardList';
 import type { EventCardRecord, } from '../events/eventsLayout';
 import GalleryView from '../gallery/GalleryView';
@@ -55,6 +56,10 @@ const TemplateEntity: Component<{
 }> = (props,) => (
     <Show when={props.data} fallback={null}>
         <Switch fallback={<GenericEntityCard kind={props.kind} data={props.data!} />}>
+            {/* `{{ template('Product Card', p) }}` / `{{ component('Upcoming Events', events=list) }}`. */}
+            <Match when={props.kind === TEMPLATE_KIND || props.kind === COMPONENT_KIND}>
+                <InlineTemplate kind={props.kind} data={props.data} />
+            </Match>
             {/* Discovery lists (`{{ hotThreads(5) }}`) + one forum thread. */}
             <Match when={props.kind === DISCUSSION_LIST_KIND}>
                 <DiscussionList items={(props.data as unknown as DiscussionItem[]) ?? []} excerpts={props.options?.excerpts !== false} />

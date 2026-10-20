@@ -471,7 +471,9 @@ async function expandPass(
 
                 // The template's own cap applies in email too (never above the inbox cap).
                 const cap = Math.min(tpl?.maxRecords && tpl.maxRecords > 0 ? tpl.maxRecords : MAX_RECORDS, MAX_RECORDS,);
-                const records = await resolveRecords(cfg, cap,);
+                // Records handed in by `{{ template('x', item) }}` (inline render) are used as-is.
+                const given = (cfg as unknown as Record<string, unknown>).__records;
+                const records = Array.isArray(given,) ? (given as Record<string, unknown>[]).slice(0, cap,) : await resolveRecords(cfg, cap,);
                 if (records.length === 0) {
                     logger.warn('Mail: entity block resolved to no records', {
                         blockId: block.id, type: cfg.entityType, mode: cfg.binding?.mode,
@@ -543,6 +545,8 @@ async function expandPass(
                 const slotCtx = {
                     ...slotContextOf(meta, block.settings.slots as Record<string, SlotBinding> | undefined,),
                     props: (block.settings.props ?? {}) as Record<string, string>,
+                    // Slot DATA handed in by `{{ component('x', events=list) }}` (inline render).
+                    values: block.settings.__slotValues as Record<string, unknown> | undefined,
                 };
                 // Its slots, as `{{ }}` variables for the blocks' text (none → leave text for the final pass).
                 const slotVars = await slotVariables(slotCtx, tplBlocks as never, opts.audience,);

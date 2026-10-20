@@ -31,11 +31,13 @@ export function slotContextOf(
     slots: () => TemplateSlot[] | null | undefined,
     bindings: () => Record<string, SlotBinding> | null | undefined,
     props?: () => Record<string, string> | null | undefined,
+    values?: () => Record<string, unknown> | null | undefined,
 ): TemplateSlotContext {
     return {
         get slots() { return slots() ?? []; },
         get bindings() { return bindings() ?? {}; },
         get props() { return props?.() ?? {}; },
+        get values() { return values?.() ?? undefined; },
     };
 }
 
@@ -52,6 +54,7 @@ export function withTemplateData(
         get slots() { return base?.slots ?? []; },
         get bindings() { return base?.bindings ?? {}; },
         get props() { return base?.props ?? {}; },
+        get values() { return base?.values; },
         templateData: data,
     };
 }
@@ -60,6 +63,13 @@ export function withTemplateData(
 export function useSlotContext(): () => TemplateSlotContext | undefined {
     const provided = useContext(SlotContext,);
     return () => provided ?? templatePreviewSlotContext();
+}
+
+/** Slot data given directly on the context (`values`), as a record list; null = none given. */
+export function givenSlotValue(ctx: TemplateSlotContext | null | undefined, slotId: string | undefined,): EntityRecord[] | null {
+    if (!ctx?.values || !slotId || !(slotId in ctx.values)) return null;
+    const v = ctx.values[slotId];
+    return (Array.isArray(v,) ? v : v ? [v,] : []) as EntityRecord[];
 }
 
 export type SlotRecordsResult =
@@ -75,6 +85,9 @@ export async function slotRecordsFor(
     slotId: string | undefined,
     expectedType: string,
 ): Promise<SlotRecordsResult> {
+    // Data handed in directly (`{{ component('x', events=list) }}`) wins: no fetch.
+    const given = givenSlotValue(ctx, slotId,);
+    if (given) return { ok: true, records: given, };
     const found = slotFor(ctx, slotId, expectedType,);
     if (!found.ok) return { ok: false, reason: found.reason, };
     const records = await resolveRecords(found.slot.entityType, found.binding, found.slot.array ? null : 1, undefined,);
@@ -128,7 +141,8 @@ export function useSlotVariables(text: () => string | null | undefined,): () => 
             const u = used();
             if (!u.length) return null;
             // Keyed on the bindings' CONTENT (a reconciled store keeps identity).
-            return JSON.stringify(u.map((s,) => [s.id, s.entityType, s.array, ctx()?.bindings?.[s.id] ?? null,]),);
+            const c = ctx();
+            return JSON.stringify(u.map((s,) => [s.id, s.entityType, s.array, c?.bindings?.[s.id] ?? null, givenSlotValue(c, s.id,)?.map((r,) => r.id ?? r.slug ?? '') ?? null,]),);
         },
         async () => {
             const c = ctx();

@@ -66,6 +66,19 @@ export class ComponentsModule extends ModuleBase {
         },);
     }
 
+    /**
+     * Find a component (`scope: 'component'`) or an entity template
+     * (`scope: 'template'`, optionally of `type`) by id OR name, with its
+     * blocks — what `{{ component(...) }}` / `{{ template(...) }}` render.
+     * Answers `{ error }` (not a throw) when nothing matches.
+     */
+    lookup(ref: string, scope: 'component' | 'template' = 'component', type?: string,): Promise<
+        | { template: ContentBlockTemplate & { singularVar?: string; pluralVar?: string; }; blocks: ContentBlockTemplateBlock[]; }
+        | { error: string; }
+    > {
+        return this.get('/components/lookup', { query: { ref, scope, ...(type ? { type, } : {}), }, },);
+    }
+
     // ─── Collections (folders, organisation only) ───
 
     /** Every collection + its count, and `noneCount` (components in no collection). */

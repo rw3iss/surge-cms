@@ -204,3 +204,38 @@ export async function snapshotNow(id: string, authorId: string | null,) {
     const version = await revisions.flush('content_block_template', id, authorId,);
     return { created: version !== null, version, };
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A template + its resolved blocks + its type's variable names, for an inline render. */
+export interface TemplateForRender {
+    template: ContentBlockTemplate & { singularVar?: string; pluralVar?: string; };
+    blocks: ContentBlockTemplateBlock[];
+}
+
+/**
+ * Look a template up for `{{ template(...) }}` / `{{ component(...) }}`: by id,
+ * else by name. `scope` keeps the two apart — `component()` only finds
+ * components, `template()` only entity templates (optionally of `entityType`).
+ * Returns `{ error }` for "not found" / "wrong kind" instead of throwing.
+ */
+export async function findForRender(
+    ref: string,
+    scope: 'component' | 'template',
+    entityType?: string,
+): Promise<TemplateForRender | { error: string; }> {
+    const r = ref.trim();
+    if (!r) return { error: 'no template name or id given', };
+    const tpl = UUID_RE.test(r,) ? await repo.findById(r,) : await repo.findByName(r, scope, entityType,);
+    if (!tpl) return { error: scope === 'component' ? 'no component with that name or id' : 'no template with that name or id', };
+    const isComponent = tpl.entityTypeKey == null;
+    if (scope === 'component' && !isComponent) return { error: 'that is an entity template — use template()', };
+    if (scope === 'template' && isComponent) return { error: 'that is a component — use component()', };
+    if (entityType && tpl.entityTypeKey && tpl.entityTypeKey !== entityType) return { error: `that template is for "${tpl.entityTypeKey}", not "${entityType}"`, };
+    await entityManager.ready();
+    const def = tpl.entityTypeKey ? entityManager.getType(tpl.entityTypeKey,) : undefined;
+    return {
+        template: { ...tpl, ...(def ? { singularVar: def.singularVar, pluralVar: def.pluralVar, } : {}), },
+        blocks: await repo.findBlocksResolved(tpl.id,),
+    };
+}

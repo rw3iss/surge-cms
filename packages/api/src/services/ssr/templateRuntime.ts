@@ -32,6 +32,16 @@ import {
     type TemplateRuntime,
 } from '@sitesurge/types';
 import { logger, } from '../../utils/logger';
+import { inlineTemplateHtml, } from '../template/inlineTemplates';
+import type { FlatMailBlock, } from '../mail/expandBlocks';
+
+/** `{{ template() }}` / `{{ component() }}` in SSR: the SAME expansion + SEO emitters as a page body. */
+async function renderInlineForSsr(block: FlatMailBlock,): Promise<string> {
+    const { expandSsrDynamicBlocks, } = await import('./expandBlocks.js');
+    const { assembleSsrBlockTree, renderBlockForSeo, } = await import('./blocks/index.js');
+    const flat = await expandSsrDynamicBlocks([{ id: block.id, parentBlockId: null, type: block.blockType, settings: block.settings, } as never,],);
+    return assembleSsrBlockTree(flat,).map((b,) => renderBlockForSeo(b,)).join('',);
+}
 import * as entityManager from '../../entities/entityManager';
 import { config, } from '../../config';
 import { getPublicSettings, } from '../settings';
@@ -71,6 +81,9 @@ function optionTitle(own: string, options?: Record<string, unknown>,): string | 
  *  not interactivity — forms/etc. are rendered client-side on mount). */
 function entityToHtml(kind: string, data: Rec | null, options?: Record<string, unknown>,): string {
     if (!data) return '';
+    // `{{ template() }}` / `{{ component() }}` — pre-rendered by renderInline below.
+    const inline = inlineTemplateHtml(kind, data,);
+    if (inline !== null) return inline;
     const g = (k: string,): string => escapeHtml(String(data[k] ?? '',),);
     switch (kind) {
         case 'post':
@@ -192,7 +205,7 @@ function buildSsrRuntime(
         }
     };
 
-    return buildBackendRuntime({ context, singleKinds: SSR_SINGLE_KINDS, resolveExtra, },);
+    return buildBackendRuntime({ context, singleKinds: SSR_SINGLE_KINDS, resolveExtra, renderInline: renderInlineForSsr, },);
 }
 
 /**

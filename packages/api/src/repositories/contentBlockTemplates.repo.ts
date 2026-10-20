@@ -86,6 +86,26 @@ export async function findById(id: string,): Promise<ContentBlockTemplate | null
     return r.rows[0] ? mapTemplate(r.rows[0],) : null;
 }
 
+/**
+ * Find a template by NAME (case-insensitive) — a component (`entity_type_key IS
+ * NULL`) or an entity template (optionally of one type). Oldest first, so a
+ * duplicate name resolves the same way every time.
+ */
+export async function findByName(
+    name: string,
+    scope: 'component' | 'template',
+    entityType?: string,
+): Promise<ContentBlockTemplate | null> {
+    const r = await query<TemplateRow>(
+        scope === 'component'
+            ? `SELECT * FROM content_block_templates WHERE entity_type_key IS NULL AND lower(name) = lower($1) ORDER BY created_at LIMIT 1`
+            : `SELECT * FROM content_block_templates WHERE entity_type_key IS NOT NULL AND lower(name) = lower($1)
+                 AND ($2::text IS NULL OR entity_type_key = $2) ORDER BY created_at LIMIT 1`,
+        scope === 'component' ? [name.trim(),] : [name.trim(), entityType || null,],
+    );
+    return r.rows[0] ? mapTemplate(r.rows[0],) : null;
+}
+
 export interface CreateInput {
     name: string;
     description?: string;

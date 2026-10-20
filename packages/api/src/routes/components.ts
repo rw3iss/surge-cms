@@ -133,6 +133,22 @@ export const componentsRoutes = [
         },
     },),
 
+    // `{{ template(...) }}` / `{{ component(...) }}` on the site: find by id OR name.
+    defineRoute({
+        method: 'get',
+        path: '/lookup',
+        auth: 'optional',
+        summary: 'Find a component (scope=component) or entity template (scope=template, optional type) by id or name, with its blocks.',
+        input: {
+            query: z.object({
+                ref: z.string().max(200,),
+                scope: z.enum(['component', 'template',],).default('component',),
+                type: z.string().max(100,).optional(),
+            },),
+        },
+        handler: async ({ query: q, },) => cbtSvc.findForRender(q.ref, q.scope, q.type,),
+    },),
+
     defineRoute({
         method: 'get',
         path: '/templates/:id',

@@ -39,6 +39,11 @@ export {
     DEFAULT_EVENTS_LIMIT, EVENT_FUNCTION_NAMES, EVENT_KIND, EVENT_LIST_KIND, eventDisplayFrom, eventsCallFor, MAX_EVENTS_LIMIT,
     type EventDisplayOptions, type EventsCall,
 } from './eventFunctions';
+/** `{{template(...)}}` / `{{component(...)}}` — render a saved template / component inline. */
+export {
+    COMPONENT_KIND, componentArgsFor, MAX_TEMPLATE_DEPTH, TEMPLATE_FUNCTION_NAMES, TEMPLATE_KIND, templateCallError, templateCallFor,
+    templateRecordFor, type TemplateCall, type TemplateCallSlot, type TemplateRenderData,
+} from './templateFunctions';
 
 const astCache = new Map<string, Node[]>();
 

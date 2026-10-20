@@ -87,6 +87,16 @@ export const SYNTAX_EXAMPLES: SyntaxExample[] = [
 
 export const LOGIC_EXAMPLES: SyntaxExample[] = [
     {
+        title: 'Render a template per item',
+        code: "<div class=\"grid\">\n{{ for products as p }}\n  {{ template('Product Card', p) }}\n{{ endfor }}\n</div>",
+        desc: 'Inside a component with a `products` slot: draw each product with the saved Product Card template.',
+    },
+    {
+        title: 'Use a component from text',
+        code: "{{ component('Upcoming Events', events=events(3), layout='column') }}",
+        desc: 'A component rendered inline, its `events` slot filled by the call and `layout` passed as a prop.',
+    },
+    {
         title: 'if / else if / else',
         code: '{{ if campaign.status == "active" }}\n  Open for donations!\n{{ else if campaign.status == "completed" }}\n  Thank you — goal reached.\n{{ else }}\n  Coming soon.\n{{ endif }}',
         desc: 'Conditionals. Operators: == != > < >= <=, and, or, not.',
@@ -160,6 +170,14 @@ export const FUNCTIONS: { group: string; items: FunctionDoc[] }[] = [
             { sig: "event('idOrSlug')", desc: 'One event. Alone it renders the event card (image, title linked to the event page, date + time, location, description, access badge, View event button); with a property it reads that field: event(\'summer-gala\').when, .dateLabel, .timeLabel, .location, .url, .priceFrom, .remaining, .tiers[0].name. Display arguments: image=, date=, time=, location=, description=, descriptionLength=200, tickets=true (ticket types with price + "N left"), badge=, button=, buttonLabel=\'Get tickets\'.' },
             { sig: 'events(limit?, …)', desc: 'A list of events (default 6, at most 50) — alone it renders cards in a grid; in a loop: {{ for events(4) as e }}<a href="{{ e.url }}">{{ e.title }}</a> {{ e.dateLabel }}{{ endfor }}. Query: upcoming=true (default; false = past events too), sort=\'startsAt\' (next date — default) | \'title\' | \'createdAt\', order=\'asc\'|\'desc\', access=\'public\'|\'members\'|\'tier\', search=, limit=, ids=\'summer-gala,winter-ball\' (these events in this order; ids or slugs). Layout: layout=\'grid\'|\'column\', columns=3, gap=\'16px\', plus every event() display argument.' },
             { sig: '(visibility)', desc: 'On the site only events the viewer may SEE are returned (Settings → Events and each event\'s "Who can see"); in server-rendered HTML and in email the reader is anonymous, so only public events appear. A public event whose registration needs an account shows "Sign in to register" on its card.' },
+        ],
+    },
+    {
+        group: 'Templates & components (render saved blocks inline)',
+        items: [
+            { sig: "template('Name or id', record)", desc: 'Render an ENTITY TEMPLATE (Admin → Entities → <type> → Templates) for one record, with the record bound to the type\'s variable — e.g. in a loop: {{ for products as p }}{{ template(\'Product Card\', p) }}{{ endfor }}. The record may also be passed by name: template(\'Product Card\', product=p) (or record=p). A list template that renders once takes an array. type=\'product\' picks one when several entity types have a template of that name. Name match is case-insensitive; an id always works.' },
+            { sig: "component('Name or id', slot=…, prop=…)", desc: 'Render a COMPONENT (Admin → Components). A named argument whose name is one of the component\'s SLOT ids fills that slot with the data given (a record or a list — no Set data… needed): component(\'Upcoming Events\', events=events(3)). Every other named argument is a PROP, read inside as {{ props.<name> }}: component(\'Upcoming Events\', events=list, layout=\'column\', title="What\'s on"). Slots not given fall back to nothing (an empty list).' },
+            { sig: '(arguments + errors)', desc: 'Arguments go in any order; the name can also be given as name= or id=. A wrong name, the wrong kind (a component passed to template()), a missing record or a template that would contain itself renders NOTHING on the site and a one-line notice in the admin — the page never breaks. Works on the site, in server-rendered HTML and in email.' },
         ],
     },
     {

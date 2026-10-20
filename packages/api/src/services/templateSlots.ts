@@ -83,6 +83,11 @@ export async function resolveSlotRecords(
     max = MAX_BINDING_RECORDS,
     readOpts: Pick<EntityReadOpts, 'audience'> = {},
 ): Promise<EntityRecord[]> {
+    // Data handed in directly (`{{ component('x', events=list) }}`) wins: no fetch.
+    if (ctx?.values && slotId && slotId in ctx.values) {
+        const v = ctx.values[slotId];
+        return (Array.isArray(v,) ? v : v ? [v,] : []) as EntityRecord[];
+    }
     const found = slotFor(ctx, slotId, expectedType,);
     if (!found.ok) return [];
     return resolveBindingRecords(found.slot.entityType, found.binding, found.slot.array ? max : 1, readOpts,);

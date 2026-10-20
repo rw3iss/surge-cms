@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-19T21:38:21.088Z",
+  "generatedAt": "2026-10-20T07:42:49.227Z",
   "totalModules": 55,
-  "totalRoutes": 599,
+  "totalRoutes": 600,
   "modules": [
     {
       "module": "admin-channel",
@@ -1493,6 +1493,32 @@
           "absolutePath": "/api/v1/components/templates",
           "auth": "optional",
           "summary": "List global (entity-less) block templates"
+        },
+        {
+          "method": "GET",
+          "path": "/lookup",
+          "absolutePath": "/api/v1/components/lookup",
+          "auth": "optional",
+          "summary": "Find a component (scope=component) or entity template (scope=template, optional type) by id or name, with its blocks.",
+          "input": {
+            "query": [
+              {
+                "name": "ref",
+                "type": "string",
+                "required": true
+              },
+              {
+                "name": "scope",
+                "type": "'component' | 'template'",
+                "required": false
+              },
+              {
+                "name": "type",
+                "type": "string",
+                "required": false
+              }
+            ]
+          }
         },
         {
           "method": "GET",

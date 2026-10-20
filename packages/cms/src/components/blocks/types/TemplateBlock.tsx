@@ -71,6 +71,8 @@ export const TemplateBlock: Component<{
         () => tpl()?.slots,
         () => props.block.settings?.slots as Record<string, SlotBinding> | undefined,
         () => props.block.settings?.props as Record<string, string> | undefined,
+        // Slot DATA passed by `{{ component('x', events=list) }}` (InlineTemplate).
+        () => props.block.settings?.[SLOT_VALUES_KEY] as Record<string, unknown> | undefined,
     ), null,);
     const nextAncestry = () => [...ancestry(), templateId(),];
     /** Guards the effect below against re-running on unrelated signal changes. */
@@ -178,6 +180,9 @@ export const TemplateBlock: Component<{
         </Show>
     );
 };
+
+/** Settings key a `{{ component(...) }}` render passes its slot DATA under. */
+export const SLOT_VALUES_KEY = '__slotValues';
 
 export function renderEntityTemplateSlide(
     args: {
