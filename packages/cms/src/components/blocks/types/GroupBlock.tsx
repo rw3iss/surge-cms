@@ -6,14 +6,17 @@
  */
 import type { Block, } from '@sitesurge/types';
 import { Component, For, Show, } from 'solid-js';
-import { groupColumns, groupContainerStyle, groupSlotItemStyle, groupStacksMobile, } from '../../../utils/groupStyle';
+import { groupColumns, groupContainerStyle, groupSlotItemStyle, groupStacksMobile, slotWidthOf, } from '../../../utils/groupStyle';
 import { type TplCtx, } from './shared';
 import { BlockRenderer, } from '../BlockRenderer';
 
 export const GroupBlock: Component<{ block: Block; ctx?: TplCtx; }> = (props,) => {
     const children = () => (props.block.children || []) as Block[];
     const data = () => (props.block.settings || {}) as Record<string, any>;
-    const containerStyle = () => groupContainerStyle(data(),);
+    // Column widths from the slots' Width (or style width) — see groupTracks.
+    const containerStyle = () => groupContainerStyle(data(), {
+        slotWidths: children().filter((c,) => c.type === 'group_item').map((c,) => slotWidthOf(c.settings as Record<string, unknown>, c.style as Record<string, unknown> | null,)),
+    },);
 
     return (
         <div
@@ -50,6 +53,8 @@ export function withSlotDefaults(child: Block, parentData: Record<string, any>,)
     const slot = (child.settings || {}) as Record<string, any>;
     const merged = {
         ...slot,
+        // A column grid sizes the COLUMN from this width (groupTracks); the slot fills it.
+        ...(groupColumns(parentData,) != null ? { width: undefined, } : {}),
         minWidth: slot.minWidth ?? parentData.itemMinWidth,
         maxWidth: slot.maxWidth ?? parentData.itemMaxWidth,
         minHeight: slot.minHeight ?? parentData.itemMinHeight,

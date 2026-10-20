@@ -518,7 +518,9 @@ html:not([data-active-outlines='show']) {
 // (`.content-block__group`). Mobile stacks to a single column for now.
 .content-block__group--cols,
 .block--group--cols {
-  grid-template-columns: repeat(var(--group-cols, 1), minmax(0, 1fr));
+  // `--group-tracks` = column widths taken from the slots' Width (80% / 20%
+  // → 80fr 20fr, see groupTracks); otherwise N equal columns.
+  grid-template-columns: var(--group-tracks, repeat(var(--group-cols, 1), minmax(0, 1fr)));
 
   @include mobile-only {
     grid-template-columns: 1fr;

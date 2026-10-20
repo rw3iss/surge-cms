@@ -16,3 +16,26 @@ describe('group layout styles', () => {
         expect(groupStacksMobile({ direction: 'grid', wrap: 'nowrap', },),).toBe(false,);
     },);
 },);
+
+import { groupSlotItemStyle, groupTracks, } from './groupStyle';
+
+describe('groupTracks (column widths from slot widths)', () => {
+    it('no widths → null (equal columns)', () => {
+        expect(groupTracks([undefined, undefined,], 2,),).toBeNull();
+    },);
+    it('percentages become proportional fr tracks (gap-safe)', () => {
+        expect(groupTracks(['80%', '20%',], 2,),).toBe('minmax(0, 80fr) minmax(0, 20fr)',);
+    },);
+    it('slots without a width share what is left', () => {
+        expect(groupTracks(['50%', undefined, undefined,], 3,),).toBe('minmax(0, 50fr) minmax(0, 25fr) minmax(0, 25fr)',);
+    },);
+    it('fixed lengths stay fixed; the rest 1fr', () => {
+        expect(groupTracks(['300px', undefined,], 2,),).toBe('minmax(0, 300px) minmax(0, 1fr)',);
+    },);
+    it('a column grid exposes --group-tracks; the slot itself no longer takes the width', () => {
+        const parent = { direction: 'horizontal', columns: 2, };
+        expect(groupContainerStyle(parent, { slotWidths: ['80%', '20%',], },)['--group-tracks'],).toBe('minmax(0, 80fr) minmax(0, 20fr)',);
+        expect(groupSlotItemStyle({ width: '80%', }, parent,).width,).toBeUndefined();
+        expect(groupSlotItemStyle({ width: '80%', }, { direction: 'horizontal', },).width,).toBe('80%',);
+    },);
+},);

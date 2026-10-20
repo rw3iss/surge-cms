@@ -11,6 +11,34 @@ export interface GroupStyleOptions {
     minHeight?: string;
     /** The block style's gap (admin preview, breakpoint-merged). */
     gap?: string;
+    /** Each slot's width (its Width property or style width), in slot order —
+     *  a column grid sizes its columns from them (see `groupTracks`). */
+    slotWidths?: Array<string | null | undefined>;
+}
+
+/**
+ * Column tracks for a column grid from its slots' widths, or null when no
+ * slot sets one (→ N equal columns).
+ *
+ * Percentages become proportional `fr` tracks (80% + 20% → 80fr 20fr), so the
+ * gap is accounted for instead of overflowing 100%. A slot without a width
+ * shares what the percentages leave (100 − sum, split evenly; 1fr if none
+ * left). Any other length (300px, 20rem) is a fixed column.
+ */
+export function groupTracks(widths: Array<string | null | undefined>, columns: number,): string | null {
+    const cols = widths.slice(0, columns,);
+    while (cols.length < columns) cols.push(undefined,);
+    const norm = cols.map((w,) => (typeof w === 'string' ? w.trim() : ''));
+    if (!norm.some(Boolean,)) return null;
+    const pct = norm.map((w,) => (/^\d+(\.\d+)?%$/.test(w,) ? parseFloat(w,) : null));
+    const used = pct.reduce<number>((s, v,) => s + (v ?? 0), 0,);
+    const free = norm.filter((w,) => !w).length;
+    const share = free && used > 0 && used < 100 ? (100 - used) / free : null;
+    return norm.map((w, i,) => {
+        if (pct[i] != null) return `minmax(0, ${pct[i]}fr)`;
+        if (w) return `minmax(0, ${w})`;
+        return share ? `minmax(0, ${Math.round(share * 100,) / 100}fr)` : 'minmax(0, 1fr)';
+    },).join(' ',);
 }
 
 /**
@@ -33,6 +61,12 @@ export function groupColumns(data: Record<string, unknown>,): number | null {
     const cols = Math.trunc(Number(data.columns,),);
     if (!Number.isFinite(cols,) || cols < 1) return null;
     return Math.min(16, cols,);
+}
+
+/** A slot's width for its group's column tracks: its Width property, else its style width. */
+export function slotWidthOf(settings: Record<string, unknown> | null | undefined, style?: Record<string, unknown> | null,): string | undefined {
+    const w = (settings?.width as string | undefined) || (style?.width as string | undefined);
+    return typeof w === 'string' && w.trim() && w.trim() !== '100%' ? w.trim() : undefined;
 }
 
 /** Whether a horizontal group should stack to a single column on mobile.
@@ -60,7 +94,10 @@ export function groupSlotItemStyle(
     item: Record<string, unknown>,
     parent: Record<string, unknown> = {},
 ): Record<string, string | undefined> {
-    const width = (item.width as string) || undefined;
+    // In a column grid the slot's width sizes its COLUMN (groupTracks), so the
+    // slot itself fills the column — applying it here too shrank the slot
+    // inside its column (80% of a half). Flex rows still size the item.
+    const width = groupColumns(parent,) != null ? undefined : ((item.width as string) || undefined);
     const alignSelf = (() => {
         const v = item.alignSelf as string | undefined;
         if (!v) return undefined;
@@ -100,9 +137,11 @@ export function groupContainerStyle(
     // media query can collapse to one column). Vertical / no-columns groups
     // stay flex.
     if (cols) {
+        const tracks = options.slotWidths ? groupTracks(options.slotWidths, cols,) : null;
         return {
             display: 'grid',
             '--group-cols': String(cols,),
+            ...(tracks ? { '--group-tracks': tracks, } : {}),
             gap,
             'align-items': toFlexAlign(data.align as string, 'stretch',),
             // Main-axis distribution still applies to the grid tracks (visible

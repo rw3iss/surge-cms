@@ -8,7 +8,7 @@ import BlockPreview from './BlockPreview';
 import HtmlInlineEditor from './HtmlInlineEditor';
 import RichTextEditor from '../editors/RichTextEditor';
 import ConfirmModal from '../common/ConfirmModal';
-import { groupColumns, groupContainerStyle, groupSlotItemStyle, groupStacksMobile, } from '../../../utils/groupStyle';
+import { groupColumns, groupContainerStyle, groupSlotItemStyle, groupStacksMobile, slotWidthOf, } from '../../../utils/groupStyle';
 import { blockStyleLayoutCss, } from '../../../utils/blockStyleCss';
 import { previewBreakpoint, } from '../../../stores/previewBreakpoint';
 import { toFlexAlign, } from '../../../utils/cssAlign';
@@ -496,7 +496,13 @@ const GroupBlockPreview: Component<NestedPreviewProps> = (props,) => {
         const ov = pbp ? base.breakpoints?.[pbp] : undefined;
         return ((ov?.gap || base.gap) as string | undefined) || undefined;
     };
-    const containerStyle = () => groupContainerStyle(data(), { defaultGap: '12px', minHeight: '60px', gap: styleGap(), },);
+    const containerStyle = () => groupContainerStyle(data(), {
+        defaultGap: '12px',
+        minHeight: '60px',
+        gap: styleGap(),
+        // Column widths from the slots' Width (or style width), like the site.
+        slotWidths: props.childBlocks.map((c,) => slotWidthOf(c.data, BlockStyleService.resolve(c,) as Record<string, unknown> | null,)),
+    },);
 
     return (
         <div
