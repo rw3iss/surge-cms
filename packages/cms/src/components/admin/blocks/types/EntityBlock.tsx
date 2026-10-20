@@ -3,13 +3,13 @@
  * template for it → a data binding (current-page entity / a specific entity /
  * specific records or a live query, via the shared "Set data…" control).
  */
-import type { EntityBinding, EntityQuery, SlotBinding, TemplateSlot, } from '@sitesurge/types';
+import type { EntityBinding, SlotBinding, TemplateSlot, } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
 import { Component, createEffect, createResource, For, Show, Suspense, } from 'solid-js';
 import { cms, } from '../../../../services/cmsClient';
 import EntityBindingSummary from '../../entities/EntityBindingSummary';
 import DataBindingField from '../../entities/DataBindingField';
-import { slotDisplayName, slotTypeLabel, } from '../../../../utils/templateSlots';
+import SlotBindingsField, { bindingSummaryProps, } from '../../entities/SlotBindingsField';
 import { FormField, } from '../../forms';
 import { CommitInput, } from '../../forms/CommitInput';
 
@@ -24,14 +24,6 @@ interface EntityCfg {
 }
 
 /** Binding summary input for one binding (selected refs or the live query). */
-function summaryProps(b: SlotBinding | EntityBinding | undefined,): { refs?: string[]; query?: EntityQuery; } {
-    if (!b) return {};
-    if (b.mode === 'single') return { refs: b.ref ? [b.ref,] : undefined, };
-    if (b.mode === 'list') return { refs: b.refs, };
-    if (b.mode === 'query') return { query: b.query, };
-    return {};
-}
-
 const EntityBlockEdit: Component<{
     data: Record<string, any>;
     mode: 'edit';
@@ -89,12 +81,6 @@ const EntityBlockEdit: Component<{
     // ─── Template slots ──────────────────────────────────────────────
     // The chosen template's declared data inputs; this block fills each one.
     const templateSlots = (): TemplateSlot[] => template()?.slots ?? [];
-    const setSlotBinding = (id: string, b: SlotBinding | undefined,) => {
-        const next = { ...(cfg().slots ?? {}), };
-        if (b) next[id] = b;
-        else delete next[id];
-        setCfg({ slots: next, },);
-    };
 
     // Re-apply the selected value AFTER the async option lists load. A native
     // <select value={x}> whose matching <option> doesn't exist yet (resource
@@ -191,8 +177,8 @@ const EntityBlockEdit: Component<{
                             and what a saved query matches right now. */}
                         <EntityBindingSummary
                             entityType={cfg().entityType ?? ''}
-                            refs={summaryProps(cfg().binding,).refs}
-                            query={summaryProps(cfg().binding,).query}
+                            refs={bindingSummaryProps(cfg().binding,).refs}
+                            query={bindingSummaryProps(cfg().binding,).query}
                         />
                     </DataBindingField>
                 </Show>
@@ -226,40 +212,7 @@ const EntityBlockEdit: Component<{
                     </Show>
                 </Show>
 
-                <Show when={templateSlots().length > 0}>
-                    <div class="block-edit-form__field entity-block-edit__slots">
-                        <span class="admin-form-field__label">Slots</span>
-                        <For each={templateSlots()}>
-                            {(slot,) => {
-                                const binding = () => cfg().slots?.[slot.id];
-                                return (
-                                    <div class="entity-block-edit__slot">
-                                        <div class="entity-block-edit__slot-head">
-                                            <strong>{slotDisplayName(slot,)}</strong>
-                                            <code>{slotTypeLabel(slot,)}</code>
-                                        </div>
-                                        <DataBindingField
-                                            entityType={slot.entityType}
-                                            value={binding()}
-                                            allowMultiple={slot.array}
-                                            onChange={(b,) => setSlotBinding(slot.id, b ?? undefined,)}
-                                        >
-                                            {/* What the slot resolves to right now
-                                                (records, or a query's current matches). */}
-                                            <Show when={binding()}>
-                                                <EntityBindingSummary
-                                                    entityType={slot.entityType}
-                                                    refs={summaryProps(binding(),).refs}
-                                                    query={summaryProps(binding(),).query}
-                                                />
-                                            </Show>
-                                        </DataBindingField>
-                                    </div>
-                                );
-                            }}
-                        </For>
-                    </div>
-                </Show>
+                <SlotBindingsField slots={templateSlots()} value={cfg().slots} onChange={(slots,) => setCfg({ slots, },)} />
             </Show>
 
         </div>

@@ -8,10 +8,11 @@
 import { Component, createEffect, createResource, For, on, Show, } from 'solid-js';
 import { createStore, } from 'solid-js/store';
 import { A, } from '@solidjs/router';
-import type { ContentBlockTemplate, } from '@sitesurge/types';
+import type { ContentBlockTemplate, SlotBinding, } from '@sitesurge/types';
 import { cms, } from '../../../../services/cmsClient';
 import FormField from '../../forms/FormField';
 import { CommitInput, } from '../../forms/CommitInput';
+import SlotBindingsField from '../../entities/SlotBindingsField';
 
 type PropRow = { key: string; value: string; };
 const toRows = (p: unknown,): PropRow[] =>
@@ -90,6 +91,13 @@ const TemplateBlockEdit: Component<TemplateBlockEditProps> = (props,) => {
             <Show when={selected()?.description}>
                 <p class="form-help-muted">{selected()!.description}</p>
             </Show>
+
+            {/* The component's data inputs: Set data… per slot (records or a live query). */}
+            <SlotBindingsField
+                slots={selected()?.slots ?? []}
+                value={props.settings.slots as Record<string, SlotBinding> | undefined}
+                onChange={(slots,) => props.onChange({ slots, },)}
+            />
 
             <Show when={selected()}>
                 <FormField
