@@ -8,6 +8,7 @@
  * Query knobs are virtual filters resolved here: `type` (image | video),
  * `tag`, `collection` (a collection id, or `root` = items in no collection), `sort` (order | newest | oldest | title | random).
  */
+import { entityQueryToGalleryQuery, } from '@sitesurge/types';
 import type { EntityFieldOption, EntityQuery, EntityRecord, GalleryQuery, } from '@sitesurge/types';
 import { ForbiddenError, } from '../../core/errors';
 import { query as dbQuery, } from '../../db';
@@ -15,45 +16,10 @@ import { registerEntityDataProvider, } from '../../entities/dataProviders';
 import { registerVirtualFilter, type SqlCondition, } from '../../entities/virtualFilters';
 import { get, list, } from './items';
 
-function filterValue(f: EntityQuery['filter'], key: string,): string | undefined {
-    const raw = f?.[key] as unknown;
-    const v = raw !== null && typeof raw === 'object' && 'value' in (raw as object) ? (raw as { value: unknown; }).value : raw;
-    if (v === undefined || v === null) return undefined;
-    const s = Array.isArray(v,) ? v.map(String,).join(',',) : String(v,);
-    return s.trim() || undefined;
-}
 
-/** The `featured` filter value → GalleryQuery.featured (absent / unknown = both). */
-function featuredFilter(v: string | undefined,): Pick<GalleryQuery, 'featured'> {
-    const s = (v ?? '').toLowerCase();
-    if (s === 'true' || s === '1' || s === 'yes') return { featured: true, };
-    if (s === 'false' || s === '0' || s === 'no') return { featured: false, };
-    return {};
-}
-
-/** EntityQuery → GalleryQuery. */
+/** EntityQuery → GalleryQuery — the ONE shared mapping (also used by the Gallery block editor). */
 export function toGalleryQuery(q: EntityQuery = {},): GalleryQuery {
-    // The shared select modal sends `sortBy` + `sortOrder` (or `sortOrder` alone,
-    // meaning "by date"). Every field it offers maps here WITH its direction —
-    // only createdAt used to, so the direction toggle looked dead for gallery items.
-    const desc = q.sortOrder === 'desc';
-    const by = q.sortBy || (q.sortOrder ? 'createdAt' : '');
-    const sortBy: GalleryQuery['sort'] | undefined = by === 'createdAt' || by === 'publishedAt' || by === 'updatedAt'
-        ? (desc ? 'newest' : 'oldest')
-        : by === 'title' ? 'title'
-        : by === 'sortOrder' ? 'order'
-        : undefined;
-    return {
-        type: (filterValue(q.filter, 'type',) as GalleryQuery['type']) ?? 'all',
-        tag: filterValue(q.filter, 'tag',),
-        ...featuredFilter(filterValue(q.filter, 'featured',),),
-        collectionId: filterValue(q.filter, 'collection',),
-        sort: (filterValue(q.filter, 'sort',) as GalleryQuery['sort']) ?? sortBy ?? 'order',
-        search: q.search,
-        ...(sortBy === 'title' || sortBy === 'order' ? { dir: desc ? 'desc' as const : 'asc' as const, } : {}),
-        page: q.page,
-        limit: q.limit,
-    };
+    return entityQueryToGalleryQuery(q as never, q.limit,);
 }
 
 const asRecord = (i: object,): EntityRecord => ({ ...(i as Record<string, unknown>), } as EntityRecord);

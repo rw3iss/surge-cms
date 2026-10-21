@@ -117,8 +117,10 @@ const GalleryBlockEdit: Component<{
         const parts = [
             q.type && q.type !== 'all' ? `${q.type}s` : 'all media',
             q.tag ? `tag ${q.tag}` : '',
+            q.featured === true ? 'featured only' : q.featured === false ? 'not featured' : '',
+            q.collectionId ? (q.collectionId === 'root' ? 'no collection' : 'in a collection') : '',
             q.search ? `“${q.search}”` : '',
-            `sorted by ${q.sort ?? 'gallery order'}`,
+            `sorted by ${q.sort ?? 'gallery order'}${q.dir === 'desc' && (q.sort === 'title' || q.sort === 'order' || !q.sort) ? ' (reversed)' : ''}`,
             `up to ${q.limit ?? 12}`,
         ].filter(Boolean,);
         return `Live: ${parts.join(' · ',)}`;

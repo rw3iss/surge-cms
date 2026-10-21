@@ -240,49 +240,6 @@ export function pageStyle(a: GalleryAppearance,): Record<string, string> {
     return s;
 }
 
-// ─── Entity query (selection modal) → GalleryQuery ────────────────────────
-
-interface EntityQueryLike {
-    search?: string;
-    filter?: Record<string, unknown>;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-    limit?: number;
-}
-
-function filterValue(f: Record<string, unknown> | undefined, key: string,): string | undefined {
-    const raw = f?.[key];
-    const v = raw !== null && typeof raw === 'object' && !Array.isArray(raw,) && 'value' in (raw as object)
-        ? (raw as { value: unknown; }).value
-        : raw;
-    if (v === undefined || v === null) return undefined;
-    const s = Array.isArray(v,) ? v.map(String,).join(',',) : String(v,);
-    return s.trim() || undefined;
-}
-
-/** The "Configure query" modal's EntityQuery (gallery_item virtual filters type/tag/sort) → GalleryQuery. */
-export function entityQueryToGalleryQuery(q: EntityQueryLike | null | undefined, limit?: number,): GalleryQuery {
-    const type = filterValue(q?.filter, 'type',);
-    const sortVal = filterValue(q?.filter, 'sort',);
-    const sortFromBy = q?.sortBy === 'createdAt' ? (q.sortOrder === 'asc' ? 'oldest' : 'newest') : q?.sortBy === 'title' ? 'title' : undefined;
-    const sort = (['order', 'newest', 'oldest', 'title', 'random',].includes(sortVal ?? '',) ? sortVal : sortFromBy) as GalleryQuery['sort'];
-    const out: GalleryQuery = {
-        type: type === 'image' || type === 'video' ? type : 'all',
-        sort: sort ?? 'order',
-    };
-    const tag = filterValue(q?.filter, 'tag',);
-    if (tag) out.tag = tag;
-    if (q?.search?.trim()) out.search = q.search.trim();
-    const lim = limit ?? q?.limit;
-    if (lim && lim > 0) out.limit = Math.min(200, Math.round(lim,),);
-    return out;
-}
-
-/** GalleryQuery → the EntityQuery the modal re-opens with. */
-export function galleryQueryToEntityQuery(q: GalleryQuery | undefined,): { search?: string; filter?: Record<string, unknown>; limit?: number; } {
-    const filter: Record<string, unknown> = {};
-    if (q?.type && q.type !== 'all') filter.type = q.type;
-    if (q?.tag) filter.tag = q.tag;
-    if (q?.sort && q.sort !== 'order') filter.sort = q.sort;
-    return { search: q?.search, filter: Object.keys(filter,).length ? filter : undefined, limit: q?.limit, };
-}
+// ─── Entity query (selection modal) ↔ GalleryQuery ────────────────────────
+// ONE mapping shared with the server's gallery entity provider (@sitesurge/types).
+export { entityQueryToGalleryQuery, galleryQueryToEntityQuery, } from '@sitesurge/types';

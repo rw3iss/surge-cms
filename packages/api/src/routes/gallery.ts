@@ -82,6 +82,7 @@ const listQuery = z.object({
     tag: z.string().max(400,).optional(),
     search: z.string().max(100,).optional(),
     sort: z.enum(['order', 'newest', 'oldest', 'title', 'random',],).optional(),
+    dir: z.enum(['asc', 'desc',],).optional(),
     limit: z.coerce.number().int().min(1,).max(200,).optional(),
     page: z.coerce.number().int().min(1,).optional(),
     seed: z.string().regex(/^[\w-]{1,32}$/,).optional(),
