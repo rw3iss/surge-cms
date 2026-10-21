@@ -362,6 +362,9 @@ background, radius, padding stay on the block cell.
 | Title alignment (`titleAlign`) | `left` · `center` · `right`, empty = the block's Text Align | `text-align` on the caption (all positions, stage meta too) | `text-align` on each line |
 
 Masonry keeps every item at its own shape, so Fit does not apply there.
+With fewer items than masonry columns, the empty columns are dropped (web
+and email); the remaining columns keep their 1/N width, so the block's
+Horizontal Alignment (else Text Align, else centre) places them.
 `{{gallery(fit='contain', titlePosition='overlay-bottom', titleAlign='center')}}`
 takes the same values (`galleryTitlePlacement()` in `@sitesurge/types`).
 SSR figures are unchanged (title + caption under each picture, for crawlers).

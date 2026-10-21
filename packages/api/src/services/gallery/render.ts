@@ -388,8 +388,11 @@ export function galleryEmailHtml(
             const ar = mediaAspect(i,) ?? 1;
             return w / ar + 2 * pad + (place.overlay ? 0 : (settings.showTitles && i.title ? 22 : 0) + (settings.showCaptions && i.caption ? 20 : 0));
         };
-        const cols = galleryMasonryColumns(list, plan.columns, est,);
-        const pct = `${Math.floor(10000 / plan.columns,) / 100}%`;
+        // Empty columns (fewer items than columns) are dropped: the rest keep
+        // their slot width and the narrower table is placed by the alignment.
+        const cols = galleryMasonryColumns(list, plan.columns, est,).filter((c,) => c.length > 0,);
+        const pct = `${Math.floor(10000 / cols.length,) / 100}%`;
+        const tableW = cols.length * slotWidth;
         const cells = cols.map((idx,) => {
             const stack = idx.map((k,) => {
                 const i = list[k]!;
@@ -400,7 +403,7 @@ export function galleryEmailHtml(
                 + '</td>';
         },);
         return `<table role="presentation" class="gallery-grid gallery-grid--masonry" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;"><tr><td align="${rowAlign}" style="padding:0;">`
-            + `<table role="presentation" align="${rowAlign}" width="${plan.width}" cellpadding="0" cellspacing="0" border="0" style="width:${plan.width}px;max-width:100%;margin:${rowMargin};border-collapse:collapse;"><tr>${cells.join('',)}</tr></table>`
+            + `<table role="presentation" align="${rowAlign}" width="${tableW}" cellpadding="0" cellspacing="0" border="0" style="width:${tableW}px;max-width:100%;margin:${rowMargin};border-collapse:collapse;"><tr>${cells.join('',)}</tr></table>`
             + '</td></tr></table>';
     }
 

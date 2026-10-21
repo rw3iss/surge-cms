@@ -50,7 +50,9 @@
 
   &__masonry-col {
     display: flex;
-    flex: 0 1 var(--gv-item-width, 100%);
+    // 1/N of the width (at most the Item width), even when fewer than N
+    // stacks have items — the remaining box is placed by the alignment.
+    flex: 0 1 min(var(--gv-item-width, 100%), var(--gv-col-basis, 100%));
     flex-direction: column;
     gap: var(--gv-gap);
     min-width: 0;

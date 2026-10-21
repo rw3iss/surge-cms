@@ -347,7 +347,9 @@ describe('gallery email: masonry', () => {
     it('gap becomes item padding; a narrower box is placed by the alignment', () => {
         const html = galleryEmailHtml([sized('a', 100, 100,),], 'https://s', masonry({ columns: 2, gap: '20px', itemWidth: '150px', },), { align: 'right', },);
         expect(html,).toContain('padding:10px;vertical-align:top',);
-        expect(html,).toContain('align="right" width="340"',);
+        // One item → one column (the empty one is dropped).
+        expect(html,).toContain('align="right" width="170"',);
+        expect(html.match(/gallery-masonry-col/g,)?.length,).toBe(1,);
     },);
 },);
 
@@ -377,5 +379,14 @@ describe('gallery email: contain + title placement', () => {
         const html = galleryEmailHtml([it2,], 'https://site', { showTitles: true, titlePosition: 'overlay-top', desktop: { columns: 1, aspect: 'original', }, },);
         expect(html.indexOf('Sunset',),).toBeGreaterThan(html.indexOf('gallery-item-media',),);
         expect(html,).not.toContain('linear-gradient',);
+    },);
+});
+
+describe('gallery email: masonry with fewer items than columns', () => {
+    it('drops the empty columns; the narrower table is placed by the alignment', () => {
+        const html = galleryEmailHtml([item(),], 'https://site', { desktop: { layout: 'masonry', columns: 3, gap: '0', }, }, { align: 'center', },);
+        expect(html.match(/gallery-masonry-col/g,)?.length,).toBe(1,);
+        expect(html,).toContain('width="200" cellpadding',);
+        expect(html,).toContain('margin:0 auto;',);
     },);
 });

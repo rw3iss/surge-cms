@@ -74,7 +74,15 @@ const GalleryView: Component<GalleryViewProps> = (props,) => {
     const masonry = () => masonryPlan(L().columns, L().itemWidth, props.thumbSize ?? 220,);
     const masonryStacks = () => {
         const m = masonry();
-        return m.kind === 'stacks' ? galleryMasonryColumns(items(), m.columns,) : [];
+        // Empty stacks (fewer items than columns) are dropped, so the columns
+        // that remain form a narrower box the alignment can place.
+        return m.kind === 'stacks' ? galleryMasonryColumns(items(), m.columns,).filter((st,) => st.length > 0,) : [];
+    };
+    /** Each stack keeps its share of the full width (1/N of it, minus the gaps). */
+    const masonryBasis = () => {
+        const m = masonry();
+        const n = m.kind === 'stacks' ? m.columns : 1;
+        return `calc((100% - ${n - 1} * var(--gv-gap)) / ${n})`;
     };
     const masonryTile = (item: GalleryItem, index: number,) => (
         <GalleryTile
@@ -279,7 +287,7 @@ const GalleryView: Component<GalleryViewProps> = (props,) => {
                                 </div>
                             }
                         >
-                            <div class="gallery-view__masonry-stacks">
+                            <div class="gallery-view__masonry-stacks" style={{ '--gv-col-basis': masonryBasis(), }}>
                                 <For each={masonryStacks()}>
                                     {(stack,) => (
                                         <div class="gallery-view__masonry-col">
