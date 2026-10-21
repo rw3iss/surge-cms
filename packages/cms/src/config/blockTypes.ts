@@ -87,12 +87,12 @@ export interface BlockTypeConfig {
 }
 
 /**
- * Default-padding behavior is shared across types. Any block listed
- * here gets `useDefaultPadding: false` on creation; everything else
- * defaults to true. Keeping the rule next to the type list (rather
- * than buried in BlockEditor.addBlock) makes it discoverable.
+ * Every NEW block starts with "Use default block padding" OFF
+ * (`useDefaultPadding: false`), in every editor (pages, posts, templates,
+ * components, mail templates). The operator turns it on per block.
+ * Existing blocks are unchanged: a block with no flag still reads as ON
+ * (`!== false`), so saved content keeps its padding.
  */
-const NO_DEFAULT_PADDING_TYPES: ReadonlySet<BlockType> = new Set(['carousel', 'hero',] as const,);
 
 /**
  * Authoritative registry. Order here is the order shown in the
@@ -264,13 +264,13 @@ export function titleizeBlockType(type: string,): string {
 }
 
 /**
- * Initial `data` payload for a freshly-added block. Combines the
- * shared "default padding" rule with any type-specific factory.
+ * Initial `data` payload for a freshly-added block: default padding off,
+ * plus any type-specific factory.
  */
 export function createBlockDefaultData(type: BlockType,): Record<string, unknown> {
     const config = BLOCK_TYPE_MAP[type];
     const base: Record<string, unknown> = {
-        useDefaultPadding: !NO_DEFAULT_PADDING_TYPES.has(type,),
+        useDefaultPadding: false,
     };
     if (config?.defaultData) {
         return { ...base, ...config.defaultData(), };
