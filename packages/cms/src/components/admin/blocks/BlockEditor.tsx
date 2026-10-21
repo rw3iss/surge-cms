@@ -490,6 +490,11 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                             items.push({ ...newGroupItem(id,), children: [], },);
                         }
                     } else if (nextCols < items.length) {
+                        // Removing slots that hold blocks deletes those blocks too — ask first.
+                        const lost = items.slice(nextCols,).filter((it,) => it.children.length > 0,).length;
+                        if (lost > 0 && !window.confirm(
+                            `This removes ${lost} slot${lost === 1 ? '' : 's'} that still hold${lost === 1 ? 's' : ''} content. Delete ${lost === 1 ? 'it' : 'them'}? (Undo by not saving, or with Revert.)`,
+                        )) return;
                         items.length = nextCols;
                     }
                     emitBlocks(flattenTree(tree,),);

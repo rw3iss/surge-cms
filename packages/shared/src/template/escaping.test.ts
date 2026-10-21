@@ -52,3 +52,17 @@ describe('template output escaping', () => {
         expect(await render('{{default(x.title, "none")}}', { x: { title: XSS, }, },),).not.toContain('<img',);
     },);
 },);
+
+describe('component props + literal fallback', () => {
+    it('escapes a prop even when its key is a trusted rich-field name', async () => {
+        const out = await render('{{ props.description }}', { props: { description: XSS, }, },);
+        expect(out,).not.toContain('<img',);
+    },);
+    it('a missing dotted path is undefined in a call, not its literal text', async () => {
+        expect(await render("{{ default(props.x, 'Hi') }}", { props: {}, },),).toBe('Hi',);
+        expect(await render("{{ default(props.x, 'Hi') }}", { props: { x: 'Yo', }, },),).toBe('Yo',);
+    },);
+    it('a bare unquoted identifier still falls back to its literal text', async () => {
+        expect(await render('{{ upper(some-slug) }}',),).toBe('SOME-SLUG',);
+    },);
+},);

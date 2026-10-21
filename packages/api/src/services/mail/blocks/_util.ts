@@ -9,7 +9,7 @@
  *   - swatch:{id} refs resolve to literal hex via the palette in
  *     EmailRenderCtx (no `var()` survives — most clients drop it).
  */
-import { siteMediaHref, } from '@sitesurge/types';
+import { parseCssOrder, siteMediaHref, } from '@sitesurge/types';
 import type { EmailBlockNode, EmailRenderCtx, } from './index';
 
 export { escapeHtml, } from '../../../utils/html';
@@ -272,9 +272,15 @@ export function siteMediaLink(siteUrl: string, link: string,): string {
     return absUrl(siteUrl, siteMediaHref(link,),);
 }
 
-/** A block style's CSS `order` as a number (0 when unset / not an integer) — email sorts siblings by it. */
+/** A block style's CSS `order` as a number (0 when unset / invalid — same rule as the web, `parseCssOrder`). Email sorts siblings by it. */
 export function styleOrder(style: Record<string, unknown> | null | undefined,): number {
-    const v = style?.order;
-    const n = typeof v === 'number' ? v : typeof v === 'string' && /^\s*[+-]?\d+\s*$/.test(v,) ? parseInt(v, 10,) : 0;
-    return Number.isFinite(n,) ? n : 0;
+    return parseCssOrder(style?.order,) ?? 0;
+}
+
+/** Sibling comparator: the style `order` (base only — email has no breakpoints), then the saved position. */
+export function bySiblingOrder(
+    a: { style?: Record<string, unknown> | null; position?: number | null; },
+    b: { style?: Record<string, unknown> | null; position?: number | null; },
+): number {
+    return styleOrder(a.style,) - styleOrder(b.style,) || (a.position ?? 0) - (b.position ?? 0);
 }

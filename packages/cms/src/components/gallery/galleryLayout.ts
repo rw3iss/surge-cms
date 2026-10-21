@@ -78,9 +78,9 @@ export function aspectRatio(a: GalleryAspect | undefined,): string | undefined {
 export type TileFrame =
     /** The fixed box (aspect / height), the picture cropped to fill it — or natural size when neither is set. */
     | { kind: 'box'; }
-    /** Fit = contain with a known media aspect: the box IS the media, fitted inside the limits. */
+    /** Fit = hug with a known media aspect: the box IS the media, fitted inside the limits. */
     | { kind: 'hug'; width: string; aspectRatio: string; }
-    /** Fit = contain, media aspect unknown: the picture scaled down inside the limits, no box. */
+    /** Fit = hug, media aspect unknown: the picture scaled down inside the limits, no box. */
     | { kind: 'natural'; maxHeight?: string; };
 
 /** `16 / 9` → 1.777…; anything else → null. */
@@ -100,9 +100,10 @@ export function mediaAspectOf(m: { width?: number | null; height?: number | null
 
 /**
  * The tile's media frame. Cover and contain use the fixed box (contain shows
- * the whole picture centred in it, no fill). Fit = hug: the tile HUGS the media — its own aspect, as wide as the limits
- * allow (the tile width; the Item height, or the box aspect's height) — so the
- * item radius lands on the visible picture. Cover keeps the fixed box.
+ * the whole picture centred in it, no fill). Fit = hug: the tile HUGS the
+ * media — its own aspect, as wide as the limits allow (the tile width; the
+ * Item height, or the box aspect's height) — so the item radius lands on the
+ * visible picture.
  *
  *   height set   width = min(100%, height × mediaAspect)
  *   aspect only  width = 100% × min(1, mediaAspect / boxAspect)
@@ -215,6 +216,8 @@ export function appearanceToView(a: GalleryAppearance,): GalleryViewSettings {
         mobile: {},
         showTitles: a.showTitles,
         showCaptions: a.showCaptions,
+        titlePosition: a.titlePosition,
+        titleAlign: a.titleAlign || undefined,
         open: a.open,
         thumbStrip: a.open === 'lightbox' && a.thumbStrip,
         itemRadius: a.radius || undefined,

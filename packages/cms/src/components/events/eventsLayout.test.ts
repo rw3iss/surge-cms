@@ -29,6 +29,8 @@ describe('eventAccessBadge', () => {
     it('public view → globe; sign-in hint when registration needs an account', () => {
         expect(eventAccessBadge({ isPublic: true, requiresSignIn: false, },),).toEqual({ kind: 'public', label: 'Public', signInToRegister: false, },);
         expect(eventAccessBadge({ requiresSignIn: true, },).signInToRegister,).toBe(true,);
+        // Nothing to sign in for once sign-up is closed (past / no registration).
+        expect(eventAccessBadge({ requiresSignIn: true, registrationOpen: false, },).signInToRegister,).toBe(false,);
     },);
     it('members / tier → lock, with the provider label', () => {
         const access = (view: 'members' | 'tier', badgeLabel: string, tierName: string | null = null,) => ({

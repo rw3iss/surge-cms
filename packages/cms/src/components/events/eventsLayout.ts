@@ -56,7 +56,9 @@ export function eventAccessBadge(e: EventCardRecord,): EventAccessBadge {
     }
     if (view === 'members') return { kind: 'locked', label: a?.badgeLabel || 'Members', signInToRegister: false, };
     const register = a?.register;
-    const signInToRegister = e.requiresSignIn === true || register === 'members' || register === 'tier';
+    // Only while sign-up is actually open (SSR + email apply the same rule):
+    // a past event, or one with no registration, has nothing to sign in for.
+    const signInToRegister = e.registrationOpen !== false && (e.requiresSignIn === true || register === 'members' || register === 'tier');
     return { kind: 'public', label: a?.badgeLabel || 'Public', signInToRegister, };
 }
 

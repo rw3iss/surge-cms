@@ -1,6 +1,7 @@
 import { Component, For, Show, } from 'solid-js';
 import { GROUP_DEFAULT_ROWS, GROUP_MAX_COLUMNS, GROUP_MAX_ROWS, groupLayoutOf, } from '@sitesurge/types';
-import { FormCheck, FormField, FormSection, } from '../../forms';
+import { CommitInput, FormField, FormSection, } from '../../forms';
+import { groupColumns, } from '../../../../utils/groupStyle';
 
 export interface GroupBlockData {
     /** Layout (stored as `direction` for compatibility): row / column / grid. */
@@ -39,7 +40,7 @@ const GroupBlock: Component<GroupBlockProps> = (props,) => {
 
     const direction = () => props.data.direction || 'horizontal';
     const isGrid = () => direction() === 'grid';
-    const columns = () => props.data.columns ?? 2;
+    const columns = () => groupLayoutOf(props.data,).columns;
     const rows = () => groupLayoutOf(props.data,).rows;
 
     return (
@@ -54,10 +55,16 @@ const GroupBlock: Component<GroupBlockProps> = (props,) => {
                         value={direction()}
                         onChange={(e,) => {
                             const next = e.currentTarget.value as GroupBlockData['direction'];
+                            const cur = groupLayoutOf(props.data,);
                             update({
                                 direction: next,
                                 // Entering Grid: start with the default row count.
                                 ...(next === 'grid' && !props.data.rows ? { rows: GROUP_DEFAULT_ROWS, } : {}),
+                                // Leaving Grid: keep every cell as a slot (a 2 × 2 grid
+                                // becomes 4 slots), so no cell's block is deleted.
+                                ...(cur.layout === 'grid' && next !== 'grid'
+                                    ? { columns: Math.min(GROUP_MAX_COLUMNS, cur.slots,), }
+                                    : {}),
                             },);
                         }}
                     >
@@ -92,20 +99,22 @@ const GroupBlock: Component<GroupBlockProps> = (props,) => {
                 <Show when={columns() > 12}>
                     <small class="form-help form-help--warning">
                         Heads up: more than 12 columns rarely lays out well at typical viewport widths.
-                        Set an `Item min width` to control wrap behavior on smaller screens.
+                        Set an <strong>Item min width</strong> to control wrap behavior on smaller screens.
                     </small>
                 </Show>
 
-                <Show when={direction() === 'horizontal' || !direction()}>
-                <FormField label="Wrap" inline>
-                    <select
-                        value={props.data.wrap || 'wrap'}
-                        onChange={(e,) => update({ wrap: e.currentTarget.value as 'wrap' | 'nowrap', },)}
-                    >
-                        <option value="wrap">Wrap (default)</option>
-                        <option value="nowrap">No wrap</option>
-                    </select>
-                </FormField>
+                {/* Wrap only affects a legacy Row without a column count (a flex
+                    row); a Row with columns is a column grid, which never wraps. */}
+                <Show when={groupColumns(props.data,) == null && direction() === 'horizontal'}>
+                    <FormField label="Wrap" inline>
+                        <select
+                            value={props.data.wrap || 'wrap'}
+                            onChange={(e,) => update({ wrap: e.currentTarget.value as 'wrap' | 'nowrap', },)}
+                        >
+                            <option value="wrap">Wrap (default)</option>
+                            <option value="nowrap">No wrap</option>
+                        </select>
+                    </FormField>
                 </Show>
 
                 <small class="form-help-muted">
@@ -138,34 +147,30 @@ const GroupBlock: Component<GroupBlockProps> = (props,) => {
                     Applies to every slot in this group. Each slot can also override individually.
                 </small>
                 <FormField label="Item min width" inline>
-                    <input
-                        type="text"
+                    <CommitInput
                         value={props.data.itemMinWidth || ''}
-                        onChange={(e,) => update({ itemMinWidth: e.currentTarget.value, },)}
+                        onCommit={(v,) => update({ itemMinWidth: v || undefined, },)}
                         placeholder="e.g. 200px, 20%"
                     />
                 </FormField>
                 <FormField label="Item max width" inline>
-                    <input
-                        type="text"
+                    <CommitInput
                         value={props.data.itemMaxWidth || ''}
-                        onChange={(e,) => update({ itemMaxWidth: e.currentTarget.value, },)}
+                        onCommit={(v,) => update({ itemMaxWidth: v || undefined, },)}
                         placeholder="e.g. 600px, 50%"
                     />
                 </FormField>
                 <FormField label="Item min height" inline>
-                    <input
-                        type="text"
+                    <CommitInput
                         value={props.data.itemMinHeight || ''}
-                        onChange={(e,) => update({ itemMinHeight: e.currentTarget.value, },)}
+                        onCommit={(v,) => update({ itemMinHeight: v || undefined, },)}
                         placeholder="e.g. 100px"
                     />
                 </FormField>
                 <FormField label="Item max height" inline>
-                    <input
-                        type="text"
+                    <CommitInput
                         value={props.data.itemMaxHeight || ''}
-                        onChange={(e,) => update({ itemMaxHeight: e.currentTarget.value, },)}
+                        onCommit={(v,) => update({ itemMaxHeight: v || undefined, },)}
                         placeholder="e.g. 400px"
                     />
                 </FormField>

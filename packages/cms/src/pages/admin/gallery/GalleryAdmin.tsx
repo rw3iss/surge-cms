@@ -656,6 +656,7 @@ const GalleryAdmin: Component = () => {
                             <option value="all">All types</option>
                             <option value="image">Images</option>
                             <option value="video">Videos</option>
+                            <option value="featured">Featured</option>
                         </select>
                         <Show when={filtering()}>
                             <span class="form-help-muted">{shownRows().length} of {viewRows().length} shown</span>
@@ -710,6 +711,20 @@ const GalleryAdmin: Component = () => {
                                 <option value="public">Public</option>
                                 <option value="members">Members</option>
                                 <For each={tiers()}>{(t,) => <option value={`tier:${t.id}`}>{t.name}</option>}</For>
+                            </select>
+                            <select
+                                aria-label="Set featured on selected"
+                                disabled={!picked().size}
+                                value=""
+                                onChange={(e,) => {
+                                    const v = e.currentTarget.value;
+                                    e.currentTarget.value = '';
+                                    if (v) applyBulk({ kind: 'featured', isFeatured: v === 'on', },);
+                                }}
+                            >
+                                <option value="">Featured…</option>
+                                <option value="on">Mark featured</option>
+                                <option value="off">Not featured</option>
                             </select>
                             <span class="gallery-admin__bulk-tag">
                                 {/* Applied by the button (or Enter), never per keystroke. */}
@@ -896,6 +911,7 @@ const GalleryAdmin: Component = () => {
                                                     <Show when={visibilityBadge(r,)}>{(v,) => <span class="gallery-admin__badge gallery-admin__badge--vis">{v()}</span>}</Show>
                                                     <Show when={isGalleryAccessRuleActive(r.options.access,)}><span class="gallery-admin__badge gallery-admin__badge--vis">Restricted</span></Show>
                                                     <Show when={r.options.hiddenInGallery}><span class="gallery-admin__badge gallery-admin__badge--hidden" title="Not listed on the gallery pages">Hidden</span></Show>
+                                                    <Show when={r.options.isFeatured}><span class="gallery-admin__badge gallery-admin__badge--featured" title="Is featured">★ Featured</span></Show>
                                                     <Show when={r.file}><span class="gallery-admin__badge gallery-admin__badge--pending">To upload</span></Show>
                                                     <Show when={!r.id && !r.file}><span class="gallery-admin__badge gallery-admin__badge--new">New</span></Show>
                                                 </div>

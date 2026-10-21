@@ -70,15 +70,21 @@ export function PagedRow<T,>(props: PagedRowProps<T>,): JSX.Element {
             <div class="paged-row__viewport" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
                 <div class="paged-row__track" style={{ transform: transform(), }}>
                     <For each={props.items}>
-                        {(item, i,) => (
+                        {(item, i,) => {
+                            const offPage = () => paged() && (i() < start() || i() >= start() + perPage());
+                            // `inert` with aria-hidden: an off-page card's links must
+                            // leave the tab order too, or focus lands on a hidden slide.
+                            return (
                             <div
                                 class="paged-row__slide"
                                 style={{ flex: `0 0 ${basis()}`, }}
-                                aria-hidden={paged() && (i() < start() || i() >= start() + perPage()) ? 'true' : undefined}
+                                aria-hidden={offPage() ? 'true' : undefined}
+                                inert={offPage() || undefined}
                             >
                                 {props.children(item, i(),)}
                             </div>
-                        )}
+                            );
+                        }}
                     </For>
                 </div>
                 <Show when={paged() && props.showArrows !== false}>
@@ -87,7 +93,7 @@ export function PagedRow<T,>(props: PagedRowProps<T>,): JSX.Element {
                 </Show>
             </div>
             <Show when={paged() && props.showDots !== false && starts().length > 1}>
-                <div class="paged-row__dots" role="tablist">
+                <div class="paged-row__dots">
                     <For each={starts()}>
                         {(s, i,) => (
                             <button

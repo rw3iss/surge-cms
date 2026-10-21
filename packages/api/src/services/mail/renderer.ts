@@ -13,7 +13,7 @@
  *   - The send worker, which calls this once per job and substitutes
  *     per-recipient variables over the result before each send.
  */
-import { styleOrder, } from './blocks/_util';
+import { bySiblingOrder, } from './blocks/_util';
 import type { SiteBreakpoint, TypographyDefaults, } from '@sitesurge/types';
 import { resolveTypography, } from '@sitesurge/types';
 import { detectVariables, } from './variables';
@@ -66,11 +66,8 @@ function buildTree(blocks: FlatBlock[],): EmailBlockNode[] {
         arr.push(b,);
         byParent.set(key, arr,);
     }
-    // Siblings in the order a browser would show them: the style `order`
-    // (base only — email has no breakpoints), then the saved position.
-    for (const arr of byParent.values()) {
-        arr.sort((a, b,) => styleOrder(a.style,) - styleOrder(b.style,) || (a.position ?? 0) - (b.position ?? 0),);
-    }
+    // Siblings in the order a browser would show them (bySiblingOrder).
+    for (const arr of byParent.values()) arr.sort(bySiblingOrder,);
     const toNode = (b: FlatBlock,): EmailBlockNode => ({
         id: b.id,
         blockType: b.blockType,

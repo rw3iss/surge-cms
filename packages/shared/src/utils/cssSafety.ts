@@ -94,3 +94,10 @@ export function findUnsafeBlockStyleKey(style: Record<string, unknown> | null | 
     }
     return null;
 }
+
+/** A block style `order` as an integer, or null when unset / not a valid CSS order. */
+export function parseCssOrder(v: unknown,): number | null {
+    if (typeof v === 'number') return Number.isInteger(v,) && Math.abs(v,) < 1e6 ? v : null;
+    if (typeof v !== 'string' || !isCssOrder(v,)) return null;
+    return parseInt(v.trim(), 10,);
+}

@@ -11,7 +11,7 @@
  * when a component RENDERS, never while the module evaluates.
  */
 import type { Block, BlockType, } from '@sitesurge/types';
-import { cssLength, } from '@sitesurge/types';
+import { cssLength, parseCssOrder, } from '@sitesurge/types';
 import { Component, Show, } from 'solid-js';
 import { Dynamic, } from 'solid-js/web';
 import { fontStack, } from '../../utils/appearanceStyle';
@@ -229,9 +229,9 @@ export const BlockRenderer: Component<BlockRendererProps> = (props,) => {
      *  (its parent list becomes a flex column so the order applies; global.scss). */
     const hasStyleOrder = () => {
         const st = s() as Record<string, any>;
-        if (st.order != null && st.order !== '') return true;
+        if (parseCssOrder(st.order,) != null) return true;
         const bps = st.breakpoints as Record<string, Record<string, unknown>> | undefined;
-        return Boolean(bps && Object.values(bps,).some((o,) => o && o.order != null && o.order !== ''),);
+        return Boolean(bps && Object.values(bps,).some((o,) => o && parseCssOrder(o.order,) != null),);
     };
     /** A gap in the base style or any breakpoint override. */
     const hasStyleGap = () => {

@@ -86,6 +86,9 @@ export interface ContentBlockTemplate {
     /** Lets an operator switch off a misbehaving component's JS without
      *  deleting the code they're still working on. */
     scriptEnabled?: boolean;
+    /** Read responses for non-staff only (`script` is withheld there): true when
+     *  the component has an enabled script, so the site can skip `client.js`. */
+    hasScript?: boolean;
     /** Read responses only: the bound entity type's template variable names
      *  (`EntityTypeDef.singularVar` / `pluralVar`), so the public site binds
      *  the SAME names the template editor preview and email do. Absent on a

@@ -177,9 +177,11 @@
       border-radius: var(--gv-radius);
     }
 
-    // Fit = contain: the picture at its own aspect inside the limits (no
+    // Fit = hug: the picture at its own aspect inside the limits (no
     // letterbox fill), the radius on the picture itself, placed by the alignment.
-    img.gallery-view__stage-img--contain {
+    // Fit = contain keeps the full-width box (object-fit: contain), so the
+    // stage does not change size from one item to the next.
+    img.gallery-view__stage-img--hug {
       width: auto;
       max-width: 100%;
       height: auto;
@@ -199,7 +201,7 @@
 
     &:disabled { cursor: default; }
 
-    &--contain {
+    &--hug {
       display: flex;
       justify-content: var(--gv-justify);
     }
@@ -216,6 +218,9 @@
     color: var(--site-text-muted, #6b7280);
 
     strong { color: var(--site-text, #111); }
+
+    // Title position = above: before the picture (the stage is a flex column).
+    &--above { order: -1; }
   }
 
   &__strip {
@@ -277,7 +282,7 @@
     img.gallery-tile__img--natural { height: auto; }
   }
 
-  // Fit = contain: the media box IS the media (its own aspect, fitted inside
+  // Fit = hug: the media box IS the media (its own aspect, fitted inside
   // the limits — `tileFrame`), placed by the view's alignment. No fill: only
   // the block's own background shows around it.
   &--hug {

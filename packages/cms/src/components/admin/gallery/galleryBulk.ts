@@ -6,7 +6,8 @@
 import type { DraftItem, DraftOptions, } from './galleryDraft';
 import { displayTitle, } from './galleryDraft';
 
-export type GalleryTypeFilter = 'all' | 'image' | 'video';
+/** The grid's type filter (`featured` = items marked Is featured, any type). */
+export type GalleryTypeFilter = 'all' | 'image' | 'video' | 'featured';
 
 const isVideo = (r: DraftItem,) => r.media?.type === 'video' || Boolean(r.file?.type.startsWith('video/',),);
 
@@ -16,6 +17,7 @@ export function filterRows(rows: DraftItem[], text: string, type: GalleryTypeFil
     return rows.filter((r,) => {
         if (type === 'video' && !isVideo(r,)) return false;
         if (type === 'image' && isVideo(r,)) return false;
+        if (type === 'featured' && !r.options.isFeatured) return false;
         if (!q) return true;
         const hay = [displayTitle(r,), r.options.captionOverride, ...r.options.tags, r.media?.title ?? '', r.file?.name ?? '',]
             .join(' ',).toLowerCase();
@@ -27,6 +29,7 @@ export type BulkAction =
     | { kind: 'move'; collectionId: string | null; }
     | { kind: 'visibility'; visibility: DraftOptions['visibility']; minTierId?: string | null; }
     | { kind: 'addTag'; tag: string; }
+    | { kind: 'featured'; isFeatured: boolean; }
     | { kind: 'remove'; };
 
 /**
@@ -50,6 +53,8 @@ export function bulkPatches(rows: DraftItem[], keys: Set<string>, action: BulkAc
         } else if (action.kind === 'visibility') {
             const minTierId = action.visibility === 'tier' ? (action.minTierId ?? null) : null;
             patches.set(r.key, { options: { ...r.options, visibility: action.visibility, minTierId, }, },);
+        } else if (action.kind === 'featured') {
+            if (r.options.isFeatured !== action.isFeatured) patches.set(r.key, { options: { ...r.options, isFeatured: action.isFeatured, }, },);
         } else {
             const tag = action.tag.trim().toLowerCase().slice(0, 40,);
             if (tag && !r.options.tags.includes(tag,)) patches.set(r.key, { options: { ...r.options, tags: [...r.options.tags, tag,], }, },);

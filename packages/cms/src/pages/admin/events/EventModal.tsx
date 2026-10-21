@@ -28,6 +28,7 @@ import Checkbox from '../../../components/ui/Checkbox';
 import { cms, } from '../../../services/cmsClient';
 import { isFeatureEnabled, } from '../../../stores/siteSettings';
 import RegistrantsTable from './RegistrantsTable';
+import { registrantDateChoices, } from './registrantDates';
 import './EventModal.scss';
 
 export interface EventModalProps {
@@ -229,6 +230,14 @@ const EventModal: Component<EventModalProps> = (props,) => {
     const canSave = createMemo(() => Boolean(title().trim() && startDate(),));
 
     // Enable commenting / anonymous / lock (Comments feature) — saved with the event.
+    // ── Registrations: which occurrence's list (a series has one per date) ──
+    const registrantDates = createMemo(() => (props.event ? registrantDateChoices(props.event,) : { choices: [], initial: '', }));
+    const [pickedRegistrantDate, setRegistrantDate,] = createSignal<string | null>(null,);
+    const registrantDate = () => {
+        const picked = pickedRegistrantDate();
+        return picked && registrantDates().choices.some((c,) => c.date === picked,) ? picked : registrantDates().initial;
+    };
+
     const commentSwitches = useCommentSwitches('event', () => props.event?.id ?? null,);
     const commentsOn = () => isFeatureEnabled('comments',);
 
@@ -583,7 +592,15 @@ const EventModal: Component<EventModalProps> = (props,) => {
                         fallback={<Show when={isNew()}><p class="form-help-muted">Registrations appear here after the event is saved.</p></Show>}
                     >
                         <section class="event-modal__section">
-                            <RegistrantsTable eventId={props.event!.id} occurrenceDate={props.event!.startsAt.slice(0, 10,)} />
+                            {/* A series has one attendee list per date — pick which. */}
+                            <Show when={registrantDates().choices.length > 1}>
+                                <FormField label="Registrations for">
+                                    <select value={registrantDate()} onChange={(e,) => setRegistrantDate(e.currentTarget.value,)}>
+                                        <For each={registrantDates().choices}>{(c,) => <option value={c.date}>{c.label}</option>}</For>
+                                    </select>
+                                </FormField>
+                            </Show>
+                            <RegistrantsTable eventId={props.event!.id} occurrenceDate={registrantDate()} />
                         </section>
                     </Show>
                 </Show>

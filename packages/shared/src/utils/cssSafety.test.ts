@@ -67,3 +67,16 @@ describe('order values', () => {
         expect(_safe('order', 'abc',),).toBe(false,);
     },);
 },);
+
+import { parseCssOrder, } from './cssSafety';
+describe('parseCssOrder', () => {
+    it('reads a valid order as an integer, else null', () => {
+        expect(parseCssOrder('+3',),).toBe(3,);
+        expect(parseCssOrder(' -2 ',),).toBe(-2,);
+        expect(parseCssOrder(4,),).toBe(4,);
+        expect(parseCssOrder('',),).toBeNull();
+        expect(parseCssOrder('1.5',),).toBeNull();
+        expect(parseCssOrder('1234567',),).toBeNull();
+        expect(parseCssOrder(undefined,),).toBeNull();
+    },);
+},);

@@ -14,7 +14,9 @@
  *
  * Picking a suggestion APPENDS with a comma rather than replacing, because the
  * `in` operator takes a list and building one by hand is exactly where typos
- * come from. Re-picking an existing value is a no-op.
+ * come from. Re-picking an existing value is a no-op. With `multiple={false}`
+ * (any single-value operator: `=`, `!=`, `>`, …) a pick REPLACES the value —
+ * appending made `featured = true, false`, which matches nothing.
  *
  * TYPING IS LOCAL. The parent is told on blur, Enter, or a picked suggestion —
  * never per keystroke. Pushing every character upward makes the owner re-render
@@ -37,6 +39,10 @@ export interface EntityValueInputProps {
     placeholder?: string;
     /** Free-text fields search server-side as you type; debounce in ms. */
     debounceMs?: number;
+    /** false = one value (a pick replaces it); default true (a pick appends to a comma list). */
+    multiple?: boolean;
+    /** Accessible name of the input. */
+    ariaLabel?: string;
 }
 
 /** Split a comma-separated value into its parts, dropping blanks. */
@@ -109,15 +115,17 @@ const EntityValueInput: Component<EntityValueInputProps> = (props,) => {
         clearTimeout(timer,);
         // Search on the LAST comma-separated part: mid-list, the earlier
         // entries aren't what the operator is currently typing.
-        const term = parts(next,).length && !next.trim().endsWith(',',)
+        const term = props.multiple === false
+            ? next.trim()
+            : parts(next,).length && !next.trim().endsWith(',',)
             ? (parts(next,).at(-1,) ?? '')
             : '';
         timer = setTimeout(() => void load(term,), props.debounceMs ?? 250,);
     };
 
-    /** Append a picked value, comma-separated, ignoring duplicates. */
+    /** Append a picked value, comma-separated, ignoring duplicates (single-value: replace). */
     const pick = (value: string,) => {
-        const existing = parts(draft(),);
+        const existing = props.multiple === false ? [] : parts(draft(),);
         if (existing.includes(value,)) { setOpen(false,); return; }
         const next = existing.length ? `${existing.join(', ',)}, ${value}` : value;
         setDraft(next,);
@@ -137,6 +145,7 @@ const EntityValueInput: Component<EntityValueInputProps> = (props,) => {
 
     /** Hide values already present — re-picking one does nothing anyway. */
     const visible = () => {
+        if (props.multiple === false) return options().filter((o,) => o.value !== draft().trim());
         const chosen = new Set(parts(draft(),),);
         return options().filter((o,) => !chosen.has(o.value,));
     };
@@ -148,6 +157,7 @@ const EntityValueInput: Component<EntityValueInputProps> = (props,) => {
                 type="text"
                 value={draft()}
                 placeholder={props.placeholder}
+                aria-label={props.ariaLabel}
                 onInput={(e,) => onInput(e.currentTarget.value,)}
                 onFocus={() => { if (!failed()) setOpen(true,); }}
                 onBlur={commit}

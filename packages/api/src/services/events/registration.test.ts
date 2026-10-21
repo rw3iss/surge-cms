@@ -216,14 +216,15 @@ describe('registration email', () => {
 import { canSelfUnregister, } from './myRegistration';
 
 describe('canSelfUnregister', () => {
-    const today = new Date('2026-10-18T12:00:00Z',);
-    it('free, upcoming → yes', () => {
-        expect(canSelfUnregister([], '2026-10-20', today,),).toBe(true,);
-        expect(canSelfUnregister([{ status: 'valid', price_cents_paid: 0, },], '2026-10-18', today,),).toBe(true,);
+    it('free, not over → yes', () => {
+        expect(canSelfUnregister([], false,),).toBe(true,);
+        expect(canSelfUnregister([{ status: 'valid', price_cents_paid: 0, },], false,),).toBe(true,);
     },);
-    it('paid, checked in or past → no', () => {
-        expect(canSelfUnregister([{ status: 'valid', price_cents_paid: 2500, },], '2026-10-20', today,),).toBe(false,);
-        expect(canSelfUnregister([{ status: 'checked_in', price_cents_paid: 0, },], '2026-10-20', today,),).toBe(false,);
-        expect(canSelfUnregister([], '2026-10-17', today,),).toBe(false,);
+    it('paid, checked in or over → no', () => {
+        expect(canSelfUnregister([{ status: 'valid', price_cents_paid: 2500, },], false,),).toBe(false,);
+        // pg may hand a numeric back as a string.
+        expect(canSelfUnregister([{ status: 'valid', price_cents_paid: '2500' as unknown as number, },], false,),).toBe(false,);
+        expect(canSelfUnregister([{ status: 'checked_in', price_cents_paid: 0, },], false,),).toBe(false,);
+        expect(canSelfUnregister([], true,),).toBe(false,);
     },);
 },);

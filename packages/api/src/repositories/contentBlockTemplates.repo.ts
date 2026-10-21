@@ -139,7 +139,8 @@ export async function create(input: CreateInput, db: Runner = pooled,): Promise<
         input.scriptEnabled ?? null,
         JSON.stringify(input.slots ?? [],),
         input.listRender ?? null,
-        input.collectionId || null,
+        // Collections hold COMPONENTS only (entity-bound templates live under their type).
+        input.entityTypeKey ? null : (input.collectionId || null),
     ],);
     return mapTemplate(r.rows[0],);
 }
@@ -170,7 +171,8 @@ export async function update(id: string, patch: Partial<CreateInput>, db: Runner
     if (patch.scriptEnabled !== undefined) set('script_enabled', patch.scriptEnabled,);
     if (patch.collectionId !== undefined) {
         values.push(patch.collectionId || null,);
-        fields.push(`collection_id = $${values.length}::uuid`,);
+        // Components only — an entity-bound template keeps NULL.
+        fields.push(`collection_id = CASE WHEN entity_type_key IS NULL THEN $${values.length}::uuid END`,);
     }
     if (fields.length === 0) {
         const cur = await db.query<TemplateRow>(`SELECT * FROM content_block_templates WHERE id = $1`, [id,],);

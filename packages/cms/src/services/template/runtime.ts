@@ -225,7 +225,7 @@ export function buildRuntime(opts: RuntimeOptions = {}): TemplateRuntime {
             });
             if ('error' in found) return fail(found.error);
             const t = found.template;
-            const base = { templateId: t.id, templateName: t.name, entityType: t.entityTypeKey, blocks: found.blocks, slots: t.slots ?? [], mode: t.mode, singularVar: t.singularVar, pluralVar: t.pluralVar, listRender: t.listRender, };
+            const base = { templateId: t.id, templateName: t.name, entityType: t.entityTypeKey, blocks: found.blocks, slots: t.slots ?? [], mode: t.mode, singularVar: t.singularVar, pluralVar: t.pluralVar, listRender: t.listRender, maxRecords: t.maxRecords, };
             if (call.kind === COMPONENT_KIND) {
                 const { values, props, } = componentArgsFor((t.slots ?? []).map((sl) => ({ id: sl.id, array: sl.array === true, })), call.named);
                 return entityRef(COMPONENT_KIND, { ...base, values, props, } as Record<string, unknown>, t.id);

@@ -17,7 +17,7 @@
  * (`templatePreviewSlotContext`: each slot's `previewBinding`, else auto).
  */
 import {
-    slotFor, slotPlaceholderText, templateDataPlaceholderText,
+    slotFor, slotPlaceholderText, slotVariableUse, templateDataPlaceholderText,
     type EntityRecord, type SlotBinding, type TemplateDataContext, type TemplateDataLookup, type TemplateSlot, type TemplateSlotContext,
 } from '@sitesurge/types';
 import { createContext, createResource, Show, useContext, type Component, } from 'solid-js';
@@ -130,12 +130,12 @@ export const TemplateDataPlaceholder: Component<{ label: string; lookup: Extract
  */
 export function useSlotVariables(text: () => string | null | undefined,): () => Record<string, unknown> {
     const ctx = useSlotContext();
-    const used = () => {
+    // The ONE rule (shared with email/SSR): which slots, and whether `props`, the text names.
+    const use = () => {
         const c = ctx();
-        const src = text() ?? '';
-        if (!c || !c.slots?.length || !src.includes('{{',)) return [];
-        return (c.slots ?? []).filter((s,) => new RegExp(`(^|[^\\w.])${s.id.replace(/[^\w-]/g, '',)}\\b`,).test(src,));
+        return c ? slotVariableUse(c.slots, text() ?? '',) : { slots: [], props: false, };
     };
+    const used = () => use().slots;
     const [vars,] = createResource(
         () => {
             const u = used();
@@ -155,10 +155,9 @@ export function useSlotVariables(text: () => string | null | undefined,): () => 
             return out;
         },
     );
-    // Component props (`{{ props.layout }}`) — plain values, no fetch.
-    const propsVar = () => {
-        const p = ctx()?.props;
-        return p && Object.keys(p,).length && /\bprops\b/.test(text() ?? '',) ? { props: p, } : {};
-    };
+    // Component props (`{{ props.layout }}`) — plain values, no fetch. Bound
+    // (as `{}` when none are set, e.g. in the component editor) whenever the
+    // text names them, so `{{ props.x }}` is empty rather than an entity lookup.
+    const propsVar = () => (use().props ? { props: ctx()?.props ?? {}, } : {});
     return () => ({ ...(used().length ? (vars.latest ?? {}) : {}), ...propsVar(), });
 }

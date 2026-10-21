@@ -113,13 +113,22 @@ const GalleryBlockEdit: Component<{
         }
     };
 
+    // The live query's collection by name (loaded only when one is chosen).
+    const [collectionName,] = createResource(
+        () => {
+            const id = s().source === 'query' ? s().query?.collectionId : undefined;
+            return id && id !== 'root' ? id : null;
+        },
+        async (id,) => (await cms.gallery.collections().catch(() => [],)).find((c,) => c.id === id,)?.name ?? null,
+    );
+
     const querySummary = () => {
         const q = s().query ?? {};
         const parts = [
             q.type && q.type !== 'all' ? `${q.type}s` : 'all media',
             q.tag ? `tag ${q.tag}` : '',
             q.featured === true ? 'featured only' : q.featured === false ? 'not featured' : '',
-            q.collectionId ? (q.collectionId === 'root' ? 'no collection' : 'in a collection') : '',
+            q.collectionId ? (q.collectionId === 'root' ? 'no collection' : collectionName.latest ? `in ${collectionName.latest}` : 'in a collection') : '',
             q.search ? `“${q.search}”` : '',
             `sorted by ${q.sort ?? 'gallery order'}${q.dir === 'desc' && (q.sort === 'title' || q.sort === 'order' || !q.sort) ? ' (reversed)' : ''}`,
             `up to ${q.limit ?? 12}`,
@@ -285,30 +294,30 @@ const GalleryBlockEdit: Component<{
                 </Show>
                 {/* Masonry shows every item at its own aspect: no box height, aspect or fit. */}
                 <Show when={layout() !== 'masonry'}>
-                <FormField label="Item height" tooltip="A fixed height (e.g. 240px). Overrides the aspect ratio.">
-                    <input type="text" value={opts().itemHeight ?? ''} placeholder={ph('itemHeight', 'auto',)} onChange={(e,) => setOpt({ itemHeight: e.currentTarget.value.trim() || undefined, },)} />
-                </FormField>
-                <FormField label="Aspect">
-                    <select value={opts().aspect ?? ''} onChange={(e,) => setOpt({ aspect: (e.currentTarget.value || undefined) as GalleryBlockLayoutOptions['aspect'], },)}>
-                        <Show when={bp() === 'mobile'}><option value="">= desktop</option></Show>
-                        <option value="square">Square</option>
-                        <option value="4:3">4:3</option>
-                        <option value="3:2">3:2</option>
-                        <option value="16:9">16:9</option>
-                        <option value="original">Original</option>
-                    </select>
-                </FormField>
-                <FormField
-                    label="Fit"
-                    tooltip="How each picture sits in its item box. Fill crops it to the box. Fit shows the whole picture centred in a box the same size as every other item. Hug shrinks each box to its picture's own shape."
-                >
-                    <select value={opts().fit ?? ''} onChange={(e,) => setOpt({ fit: (e.currentTarget.value || undefined) as GalleryFit | undefined, },)}>
-                        <Show when={bp() === 'mobile'}><option value="">= desktop</option></Show>
-                        <option value="cover">Fill (crop)</option>
-                        <option value="contain">Fit (whole picture, same-size boxes)</option>
-                        <option value="hug">Hug (box takes the picture's shape)</option>
-                    </select>
-                </FormField>
+                    <FormField label="Item height" tooltip="A fixed height (e.g. 240px). Overrides the aspect ratio.">
+                        <input type="text" value={opts().itemHeight ?? ''} placeholder={ph('itemHeight', 'auto',)} onChange={(e,) => setOpt({ itemHeight: e.currentTarget.value.trim() || undefined, },)} />
+                    </FormField>
+                    <FormField label="Aspect">
+                        <select value={opts().aspect ?? ''} onChange={(e,) => setOpt({ aspect: (e.currentTarget.value || undefined) as GalleryBlockLayoutOptions['aspect'], },)}>
+                            <Show when={bp() === 'mobile'}><option value="">= desktop</option></Show>
+                            <option value="square">Square</option>
+                            <option value="4:3">4:3</option>
+                            <option value="3:2">3:2</option>
+                            <option value="16:9">16:9</option>
+                            <option value="original">Original</option>
+                        </select>
+                    </FormField>
+                    <FormField
+                        label="Fit"
+                        tooltip="How each picture sits in its item box. Fill crops it to the box. Fit shows the whole picture centred in a box the same size as every other item. Hug shrinks each box to its picture's own shape."
+                    >
+                        <select value={opts().fit ?? ''} onChange={(e,) => setOpt({ fit: (e.currentTarget.value || undefined) as GalleryFit | undefined, },)}>
+                            <Show when={bp() === 'mobile'}><option value="">= desktop</option></Show>
+                            <option value="cover">Fill (crop)</option>
+                            <option value="contain">Fit (whole picture, same-size boxes)</option>
+                            <option value="hug">Hug (box takes the picture's shape)</option>
+                        </select>
+                    </FormField>
                 </Show>
                 <FormField
                     label="Item border radius"
@@ -345,7 +354,7 @@ const GalleryBlockEdit: Component<{
             </div>
             <Show when={s().showTitles || s().showCaptions}>
                 <div class="gallery-block-edit__grid">
-                    <FormField label="Title position" tooltip="Where each item's title and caption go: under or above the picture, or on the picture (top or bottom).">
+                    <FormField label="Title position" tooltip="Where each item's title and caption go: under or above the picture, or on the picture (top or bottom). Stage: above or below the large picture (the 'on the picture' choices show below it).">
                         <select
                             value={s().titlePosition ?? 'below'}
                             onChange={(e,) => {

@@ -42,7 +42,7 @@ export {
 /** `{{template(...)}}` / `{{component(...)}}` — render a saved template / component inline. */
 export {
     COMPONENT_KIND, componentArgsFor, MAX_TEMPLATE_DEPTH, TEMPLATE_FUNCTION_NAMES, TEMPLATE_KIND, templateCallError, templateCallFor,
-    templateRecordFor, type TemplateCall, type TemplateCallSlot, type TemplateRenderData,
+    templateRecordFor, slotVariableUse, type TemplateCall, type TemplateCallSlot, type TemplateRenderData,
 } from './templateFunctions';
 
 const astCache = new Map<string, Node[]>();

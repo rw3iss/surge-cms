@@ -34,7 +34,21 @@ export function galleryFilterValue(f: Record<string, unknown> | undefined, key: 
     return s.trim() || undefined;
 }
 
+/** A filter's operator (`eq` for a bare value). */
+export function galleryFilterOp(f: Record<string, unknown> | undefined, key: string,): string {
+    const raw = f?.[key];
+    return raw !== null && typeof raw === 'object' && !Array.isArray(raw,) && 'op' in (raw as object)
+        ? String((raw as { op: unknown; }).op,)
+        : 'eq';
+}
+
 const SORTS = ['order', 'newest', 'oldest', 'title', 'random',] as const;
+
+/** `true`/`1`/`yes` → true, `false`/`0`/`no` → false, else undefined. */
+export function galleryBoolOf(v: unknown,): boolean | undefined {
+    if (v === true || v === false) return v;
+    return boolOf(v === undefined || v === null ? undefined : String(v,),);
+}
 
 function boolOf(v: string | undefined,): boolean | undefined {
     const s = (v ?? '').toLowerCase();
@@ -55,16 +69,22 @@ export function entityQueryToGalleryQuery(q: GalleryEntityQueryLike | null | und
         : undefined;
     const sortVal = galleryFilterValue(f, 'sort',);
     const sort = (SORTS as readonly string[]).includes(sortVal ?? '',) ? sortVal as GalleryQuery['sort'] : sortFromBy;
-    const type = galleryFilterValue(f, 'type',);
-    const out: GalleryQuery = { type: type === 'image' || type === 'video' ? type : 'all', sort: sort ?? 'order', };
+    // `type != video` = images (the only other type); `featured != true` = not featured.
+    // A negated tag / collection cannot be expressed, so it is dropped (wider, never the opposite).
+    const neg = (key: string,) => galleryFilterOp(f, key,) === 'ne';
+    const rawType = galleryFilterValue(f, 'type',);
+    const type = rawType === 'image' || rawType === 'video' ? (neg('type',) ? (rawType === 'image' ? 'video' : 'image') : rawType) : undefined;
+    const out: GalleryQuery = { type: type ?? 'all', sort: sort ?? 'order', };
     // A direction applies to title / gallery order (newest / oldest carry their own).
     if ((out.sort === 'title' || out.sort === 'order') && (sortFromBy === 'title' || sortFromBy === 'order')) out.dir = desc ? 'desc' : 'asc';
-    const tag = galleryFilterValue(f, 'tag',);
+    const tag = neg('tag',) ? undefined : galleryFilterValue(f, 'tag',);
     if (tag) out.tag = tag;
-    const collection = galleryFilterValue(f, 'collection',) ?? galleryFilterValue(f, 'collectionId',);
+    const collKey = galleryFilterValue(f, 'collection',) !== undefined ? 'collection' : 'collectionId';
+    const collection = neg(collKey,) ? undefined : galleryFilterValue(f, collKey,);
     if (collection) out.collectionId = collection;
-    const featured = boolOf(galleryFilterValue(f, 'featured',) ?? galleryFilterValue(f, 'isFeatured',),);
-    if (featured !== undefined) out.featured = featured;
+    const featKey = galleryFilterValue(f, 'featured',) !== undefined ? 'featured' : 'isFeatured';
+    const featured = boolOf(galleryFilterValue(f, featKey,),);
+    if (featured !== undefined) out.featured = neg(featKey,) ? !featured : featured;
     if (q?.search?.trim()) out.search = q.search.trim();
     const lim = limit ?? q?.limit;
     if (lim && lim > 0) out.limit = Math.min(200, Math.round(lim,),);

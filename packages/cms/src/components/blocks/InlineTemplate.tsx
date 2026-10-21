@@ -14,8 +14,8 @@
  * shared ancestry guard.
  */
 import type { Block, ContentBlockTemplateBlock, EntityRecord, TemplateRenderData, TemplateSlot, } from '@sitesurge/types';
-import { buildBlockTree, COMPONENT_KIND, MAX_TEMPLATE_DEPTH, } from '@sitesurge/types';
-import { Component, Show, } from 'solid-js';
+import { buildBlockTree, COMPONENT_KIND, MAX_TEMPLATE_DEPTH, templateRenderGroups, } from '@sitesurge/types';
+import { Component, For, Show, } from 'solid-js';
 import { mapTemplateBlocks, } from '../../services/entityBinding';
 import { BlockRenderer, } from './BlockRenderer';
 import { isAdminView, slotContextOf, } from './slotContext';
@@ -29,6 +29,7 @@ type InlineData = TemplateRenderData & {
     pluralVar?: string;
     listRender?: 'each' | 'once';
     mode?: 'single' | 'list';
+    maxRecords?: number | null;
 };
 
 const Notice: Component<{ text: string; }> = (p,) => (
@@ -72,21 +73,34 @@ const InlineTemplate: Component<{ kind: string; data: Record<string, unknown> | 
 const EntityTemplateInline: Component<{ data: InlineData; }> = (props,) => {
     const roots = () => buildBlockTree(mapTemplateBlocks((props.data.blocks ?? []) as never,),) as Block[];
     const once = () => props.data.mode === 'list' && props.data.listRender === 'once';
-    const record = () => (props.data.record ?? {}) as EntityRecord;
+    /**
+     * One render per record (`each`, and single templates handed a list), or
+     * ONE render with every record (`once`) — `templateRenderGroups`, the same
+     * split the server's inline render (an entity block) uses.
+     */
+    const groups = () => {
+        const given = (props.data.records?.length ? props.data.records : props.data.record ? [props.data.record,] : []) as EntityRecord[];
+        // The template's own record cap applies here too (as on the server).
+        const all = props.data.maxRecords && props.data.maxRecords > 0 ? given.slice(0, props.data.maxRecords,) : given;
+        return templateRenderGroups(all, { mode: props.data.mode ?? 'single', listRender: props.data.listRender, },);
+    };
     return (
         <Show
-            when={props.data.record || props.data.records?.length}
+            when={groups().length > 0}
             fallback={<Notice text={`{{ template('${props.data.templateName ?? ''}') }}: no record passed — e.g. template('${props.data.templateName ?? 'Name'}', item).`} />}
         >
-            {renderEntityTemplateSlide({
-                roots: roots(),
-                entityType: props.data.entityType ?? 'entity',
-                record: record(),
-                templateId: props.data.templateId,
-                vars: props.data.singularVar ? { singular: props.data.singularVar, plural: props.data.pluralVar ?? `${props.data.singularVar}s`, } : undefined,
-                slots: slotContextOf(() => props.data.slots ?? [], () => ({}),),
-                records: once() ? (props.data.records as EntityRecord[]) : undefined,
-            },)}
+            <For each={groups()}>
+                {(group,) =>
+                    renderEntityTemplateSlide({
+                        roots: roots(),
+                        entityType: props.data.entityType ?? 'entity',
+                        record: group[0],
+                        templateId: props.data.templateId,
+                        vars: props.data.singularVar ? { singular: props.data.singularVar, plural: props.data.pluralVar ?? `${props.data.singularVar}s`, } : undefined,
+                        slots: slotContextOf(() => props.data.slots ?? [], () => ({}),),
+                        records: once() ? group : undefined,
+                    },)}
+            </For>
         </Show>
     );
 };

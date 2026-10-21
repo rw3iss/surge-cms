@@ -2,7 +2,7 @@
 import { TYPOGRAPHY_DEFAULTS, } from '@sitesurge/types';
 import { describe, expect, it, } from 'vitest';
 import { type EmailBlockNode, type EmailRenderCtx, } from './index';
-import { groupEmailGap, renderGroup, } from './group';
+import { groupEmailColumnWidths, groupEmailGap, renderGroup, } from './group';
 
 const CTX: EmailRenderCtx = {
     siteName: 'Test', siteUrl: 'https://test.example', palette: {}, fontFamily: 'Arial',
@@ -43,5 +43,31 @@ describe('group gap in email', () => {
         const html = renderGroup(g, CTX,) as string;
         expect((html.match(/padding-left:20px/g,) ?? []).length,).toBe(2,);
         expect(html,).toContain('height:10px',);
+    },);
+},);
+
+describe('group column widths in email (same tracks as the web)', () => {
+    const sized = (settings: Record<string, unknown>, widths: Array<string | undefined>,): EmailBlockNode => ({
+        id: 'g', blockType: 'group', settings, style: {},
+        children: widths.map((w, i,) => ({ id: `i${i}`, blockType: 'group_item', settings: w ? { width: w, } : {}, style: {}, children: [], })),
+    });
+    it('row without widths → equal columns', () => {
+        const html = renderGroup(sized({ direction: 'horizontal', columns: 2, }, [undefined, undefined,],), CTX,) as string;
+        expect((html.match(/width="50%"/g,) ?? []).length,).toBe(2,);
+        expect(html,).toContain('table-layout:fixed',);
+    },);
+    it('row 80% / 20% → 80% / 20% cells; the slot width is not applied twice', () => {
+        const html = renderGroup(sized({ direction: 'horizontal', columns: 2, }, ['80%', '20%',],), CTX,) as string;
+        expect(html,).toContain('width="80%"',);
+        expect(html,).toContain('width="20%"',);
+    },);
+    it('grid: the first row sizes every row', () => {
+        const html = renderGroup(sized({ direction: 'grid', columns: 2, rows: 2, }, ['25%', undefined, '90%', undefined,],), CTX,) as string;
+        expect((html.match(/width="25%"/g,) ?? []).length,).toBe(2,);
+        expect((html.match(/width="75%"/g,) ?? []).length,).toBe(2,);
+        expect(html,).not.toContain('90%',);
+    },);
+    it('a fixed column keeps its length; shares get none', () => {
+        expect(groupEmailColumnWidths([{ settings: { width: '200px', }, }, { settings: {}, },], 2,),).toEqual(['200px', undefined,],);
     },);
 },);

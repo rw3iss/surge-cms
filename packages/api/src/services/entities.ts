@@ -102,7 +102,11 @@ export async function list(
     if (!opts.admin && t.hasStatus && isHiddenStatus(q.status,)) return { items: [], total: 0, };
     const gated = !opts.admin && isGatedType(typeKey,);
     const rank = gated ? await rankFor(opts.viewer,) : null;
-    const cacheable = Boolean(t.caching?.indexEnabled,) && !opts.admin;
+    // A provider with a per-viewer `allows` (e.g. `event`: view access) returns
+    // a VIEWER-SHAPED list, so it is never list-cached — a cached member's
+    // list would be served to anonymous visitors.
+    const viewerShaped = Boolean(getEntityDataProvider(typeKey,)?.allows,);
+    const cacheable = Boolean(t.caching?.indexEnabled,) && !opts.admin && !viewerShaped;
     // The hidden-post clause depends on the viewer's rank, so the rank is part of the key.
     const keyed: EntityQuery = gated ? { ...q, filter: { ...(q.filter ?? {}), __rank: String(rank,), }, } as EntityQuery : q;
     const key = CACHE_KEYS.entityList(typeKey, hashQuery(opts.audience ? { ...keyed, filter: { ...(keyed.filter ?? {}), __audience: opts.audience, }, } as EntityQuery : keyed,),);

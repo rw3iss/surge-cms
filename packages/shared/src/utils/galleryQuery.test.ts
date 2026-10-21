@@ -16,4 +16,12 @@ describe('Set data… ↔ GalleryQuery (one shared mapping)', () => {
         const q = { type: 'video' as const, sort: 'title' as const, dir: 'desc' as const, featured: true, collectionId: 'root', tag: 'a', limit: 6, };
         expect(entityQueryToGalleryQuery(galleryQueryToEntityQuery(q,),),).toEqual(q,);
     },);
+    it('honours != (featured, type) and drops a negated tag / collection instead of inverting it', () => {
+        expect(entityQueryToGalleryQuery({ filter: { featured: { op: 'ne', value: true, }, }, },).featured,).toBe(false,);
+        expect(entityQueryToGalleryQuery({ filter: { isFeatured: { op: 'ne', value: 'false', }, }, },).featured,).toBe(true,);
+        expect(entityQueryToGalleryQuery({ filter: { type: { op: 'ne', value: 'video', }, }, },).type,).toBe('image',);
+        const q = entityQueryToGalleryQuery({ filter: { tag: { op: 'ne', value: 'x', }, collection: { op: 'ne', value: 'root', }, }, },);
+        expect(q.tag,).toBeUndefined();
+        expect(q.collectionId,).toBeUndefined();
+    },);
 },);

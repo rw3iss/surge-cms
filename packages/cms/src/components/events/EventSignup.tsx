@@ -375,6 +375,9 @@ const EventSignup: Component<EventSignupProps> = (props,) => {
                                     </For>
                                 </ul>
                             </Show>
+                            <Show when={!r().canUnregister && r().tickets.some((t,) => t.priceCents > 0 || t.status === 'checked_in')}>
+                                <p class="event-signup__mine-note">To cancel paid or used tickets, please contact the organiser.</p>
+                            </Show>
                             <Show when={r().canUnregister}>
                                 <Show
                                     when={confirmUnregister()}

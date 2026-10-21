@@ -33,8 +33,8 @@ const GalleryTile: Component<GalleryTileProps> = (props,) => {
     const m = () => props.item.media;
     const isVideo = () => m()?.type === 'video';
     const alt = () => m()?.alt || props.item.title || '';
-    // Fit = contain hugs the media (its own aspect, inside the limits) — no
-    // letterbox fill, the item radius on the visible picture. Cover = the box.
+    // Fit = hug: the box IS the media (its own aspect, inside the limits), the
+    // item radius on the visible picture. Cover / contain = the fixed box.
     const frame = () => tileFrame(props.fit, props.aspect, props.height, mediaAspectOf(m(),),);
     const boxStyle = () => {
         const f = frame();

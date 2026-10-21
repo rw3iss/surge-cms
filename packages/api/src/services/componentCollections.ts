@@ -7,7 +7,7 @@
  */
 import type { ComponentCollection, ComponentCollectionsListResponse, } from '@sitesurge/types';
 import { NotFoundError, ValidationError, } from '../core/errors';
-import { query, } from '../db';
+import { query, transaction, } from '../db';
 import { cache, } from './cache';
 import * as templates from './contentBlockTemplates';
 
@@ -75,8 +75,8 @@ export async function update(id: string, body: { name: string; description?: str
 
 /**
  * Delete a collection. Its components go to [None] (`detach`) or are deleted
- * (`delete`, each through the normal component delete so revisions and caches
- * follow). Returns how many components were affected.
+ * (`delete`, in the same transaction; pending revisions are cancelled and the
+ * caches cleared after). Returns how many components were affected.
  */
 export async function remove(id: string, components: 'detach' | 'delete' = 'detach',): Promise<number> {
     await get(id,);
@@ -84,11 +84,15 @@ export async function remove(id: string, components: 'detach' | 'delete' = 'deta
         `SELECT id FROM content_block_templates WHERE collection_id = $1 AND entity_type_key IS NULL`,
         [id,],
     );
-    if (components === 'delete') {
-        for (const m of members.rows) await templates.remove(m.id,);
-    }
-    // detach = the FK's ON DELETE SET NULL.
-    await query(`DELETE FROM component_collections WHERE id = $1`, [id,],);
+    // ONE transaction: the components (their blocks cascade) and the
+    // collection go together, or nothing does. detach = the FK's ON DELETE SET NULL.
+    await transaction(async (client,) => {
+        if (components === 'delete') {
+            await client.query(`DELETE FROM content_block_templates WHERE collection_id = $1 AND entity_type_key IS NULL`, [id,],);
+        }
+        await client.query(`DELETE FROM component_collections WHERE id = $1`, [id,],);
+    },);
+    if (components === 'delete') for (const m of members.rows) templates.cancelPendingRevision(m.id,);
     await cache.invalidateContentBlockTemplatesGlobalCache();
     return members.rowCount ?? members.rows.length;
 }

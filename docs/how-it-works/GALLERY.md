@@ -96,9 +96,11 @@ browsed.
   not checked. Publish runs two bulk statements (one UPDATE over
   `jsonb_array_elements`, one INSERT … ON CONFLICT), not one per item.
 - **Filter + bulk edit (admin).** A filter box (title / caption / tag) and a
-  type filter narrow the grid; **Select** turns on selection
-  (`components/ui/Checkbox`) with bulk **Move to…**, **Visibility…**, **Add
-  tag** and **Remove** — all draft edits (`components/admin/gallery/galleryBulk.ts`).
+  type filter (All / Images / Videos / Featured) narrow the grid; **Select**
+  turns on selection (`components/ui/Checkbox`) with bulk **Move to…**,
+  **Visibility…**, **Featured…** (mark / unmark), **Add tag** and **Remove** —
+  all draft edits (`components/admin/gallery/galleryBulk.ts`). Featured tiles
+  carry a "★ Featured" badge.
 - **Copy links.** The item and collection panels have **Copy page link** and
   **Copy template** (`{{gallery('<id>')}}` / `{{gallery(collection='<id>')}}`).
 - Settings: `gallery_settings` keyed row (`GallerySettings` in
@@ -106,7 +108,8 @@ browsed.
   (default `/gallery`), `access` + `minTierId`, `allowVideos`, comment
   defaults, `appearance` (layout, thumbnail size, gap, aspect, fit, radius,
   gutter / padding / max width (site or custom), titles, captions,
-  `showPublishedDate`, hover zoom, per page, video badge, and the **Behavior**
+  `titlePosition` + `titleAlign` (same choices as the block; `''` clears the
+  alignment — the save merges, so an absent key keeps it), `showPublishedDate`, hover zoom, per page, video badge, and the **Behavior**
   pair `open` + `thumbStrip`).
 - **Behavior** (Appearance tab, right column): *Open item action* = `open`
   `lightbox` ("Modal", default) | `page` ("Go to page" — every tile is a real
@@ -275,6 +278,7 @@ One mapping for every runtime: `galleryCallFor` + `galleryDisplayFrom` in
 {{gallery('<id>')}}  {{gallery('<id>').media.url}}  {{gallery(8)}}  {{gallery('video', 4)}}
 {{gallery(type='image', tag='featured', sort='newest', limit=12, layout='grid', columns=4, mobileColumns=2)}}
 {{gallery(layout='carousel', itemsPerPage=3, autoplay=true, interval=4)}}
+{{gallery(featured=true, sort='title', dir='desc')}}      dir='desc' reverses title (Z–A) / order (last first)
 {{for gallery(tag='events', limit=6) as g}}<img src="{{g.media.thumbnailUrl}}">{{endfor}}
 ```
 
@@ -301,9 +305,10 @@ legacy `gallery` enum value (its rows were deleted by migration 027).
 **Masonry** (`layout: 'masonry'`): every item at its media's own aspect (no
 box — Item height / Aspect / Fit are hidden in the editor and ignored), in
 columns. With **Columns** set, each item goes to the currently-shortest
-column (`galleryMasonryColumns` in `@sitesurge/types`, height = `1 / aspect`,
-unknown aspect = square), so items read left-to-right — the same placement as
-the email; **Item width** is then each column's maximum width and a narrower
+column (`galleryMasonryColumns` in `@sitesurge/types`; the estimate is
+`galleryMasonryItemHeight` — the media at the column width, unknown aspect =
+square, plus ~22px per title / ~20px per caption line when they sit outside
+the picture), so items read left-to-right — the same placement as the email; **Item width** is then each column's maximum width and a narrower
 box is placed by the alignment. Without Columns it is a CSS multi-column flow
 at the Item width (else ~220px) per column — the /gallery page's masonry.
 Mobile Columns fall back to desktop (block default: 4 desktop, 2 mobile).
@@ -359,7 +364,15 @@ background, radius, padding stay on the block cell.
 |---|---|---|---|
 | Fit (`desktop/mobile.fit`) | `cover` (default) · `contain` · `hug` | cover = box, cropped; contain = whole picture centred in the box (`object-fit: contain`, no fill), every tile the same size; hug = the tile takes the picture's shape (`tileFrame`) | cover = background cell; contain = picture centred in a fixed `w×h` cell; hug = sized from the media aspect |
 | Title position (`titlePosition`) | `below` (default) · `above` · `overlay-top` · `overlay-bottom` | the title + caption under / above the tile, or ON the picture over a dark gradient (inside the media box) | the same; ON the picture puts the text inside the background cell (white, gradient with a solid fallback); an item of unknown size falls back to below |
-| Title alignment (`titleAlign`) | `left` · `center` · `right`, empty = the block's Text Align | `text-align` on the caption (all positions, stage meta too) | `text-align` on each line |
+| Title alignment (`titleAlign`) | `left` · `center` · `right`, empty = the block's Text Align | `text-align` on the caption (all positions); the stage's meta row is placed by `justify-content` | `text-align` on each line |
+
+**Stage** (web): Fit = contain keeps a full-width box (`object-fit: contain`)
+so the stage does not resize between items; hug sizes the picture to its own
+shape, placed by the alignment. Its title + caption sit above the picture
+for `above`, else below (an overlay position reads as below there).
+
+The /gallery page (Settings → Appearance → Tiles) has the same **Title
+position** + **Title alignment** (`appearance.titlePosition` / `titleAlign`).
 
 Masonry keeps every item at its own shape, so Fit does not apply there.
 With fewer items than masonry columns, the empty columns are dropped (web
@@ -367,6 +380,12 @@ and email); the remaining columns keep their 1/N width, so the block's
 Horizontal Alignment (else Text Align, else centre) places them.
 `{{gallery(fit='contain', titlePosition='overlay-bottom', titleAlign='center')}}`
 takes the same values (`galleryTitlePlacement()` in `@sitesurge/types`).
+Lengths in `{{gallery()}}` (`gap`, `itemWidth`, `itemHeight`) must pass the
+shared `isSafeCssValue` rule; anything else is ignored.
+
+**Set data… operators:** `!=` is honoured for `type` (`!= video` = images) and
+`featured` (`!= true` = not featured); a `!=` on `tag` / `collection` cannot
+be expressed by a GalleryQuery and is dropped (wider, never inverted).
 SSR figures are unchanged (title + caption under each picture, for crawlers).
 
 ### Item border radius

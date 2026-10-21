@@ -152,3 +152,22 @@ export function templateCallError(call: Pick<TemplateCall, 'kind' | 'ref'>, reas
     const fn = call.kind === COMPONENT_KIND ? 'component' : 'template';
     return `{{ ${fn}(${call.ref ? `'${call.ref}'` : ''}) }}: ${reason}`;
 }
+
+/**
+ * Which of a template's SLOTS (and whether its PROPS) a piece of text reads as
+ * `{{ }}` variables — the ONE rule behind slots-as-variables on every surface
+ * (web `useSlotVariables`, email/SSR `slotVariables`). A slot counts when its
+ * id appears as a whole word not preceded by `.` (so `{{ e.events }}` does not
+ * name slot `events`); text without `{{` names nothing.
+ */
+export function slotVariableUse<T extends { id: string; },>(
+    slots: readonly T[] | null | undefined,
+    text: string,
+): { slots: T[]; props: boolean; } {
+    if (!text.includes('{{',)) return { slots: [], props: false, };
+    const used = (slots ?? []).filter((s,) => {
+        const id = s.id.replace(/[^\w]/g, '',);
+        return id !== '' && new RegExp(`(^|[^\\w.])${id}\\b`,).test(text,);
+    },);
+    return { slots: used, props: /(^|[^\w.])props\b/.test(text,), };
+}

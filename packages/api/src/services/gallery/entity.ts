@@ -6,7 +6,10 @@
  * tab. Records are GalleryItem objects (anonymous view on public reads).
  *
  * Query knobs are virtual filters resolved here: `type` (image | video),
- * `tag`, `collection` (a collection id, or `root` = items in no collection), `sort` (order | newest | oldest | title | random).
+ * `tag`, `collection` (a collection id, or `root` = items in no collection),
+ * `featured` (true | false), `sort` (order | newest | oldest | title | random).
+ * `!=` negates `type` and `featured`; a negated `tag` / `collection` is dropped
+ * (`entityQueryToGalleryQuery`).
  */
 import { entityQueryToGalleryQuery, } from '@sitesurge/types';
 import type { EntityFieldOption, EntityQuery, EntityRecord, GalleryQuery, } from '@sitesurge/types';
@@ -15,7 +18,6 @@ import { query as dbQuery, } from '../../db';
 import { registerEntityDataProvider, } from '../../entities/dataProviders';
 import { registerVirtualFilter, type SqlCondition, } from '../../entities/virtualFilters';
 import { get, list, } from './items';
-
 
 /** EntityQuery → GalleryQuery — the ONE shared mapping (also used by the Gallery block editor). */
 export function toGalleryQuery(q: EntityQuery = {},): GalleryQuery {

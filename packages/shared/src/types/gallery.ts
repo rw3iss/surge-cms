@@ -76,6 +76,10 @@ export interface GalleryAppearance {
     customMaxWidth: string;
     showTitles: boolean;
     showCaptions: boolean;
+    /** Where titles + captions go (same choices as the Gallery block; default below). */
+    titlePosition: GalleryTitlePosition;
+    /** Title + caption alignment; unset / '' = inherit (left on the gallery page). Send '' to clear. */
+    titleAlign?: GalleryTitleAlign | '';
     /** Slight zoom on hover. */
     hoverZoom: boolean;
     /** Items per page on the gallery page (load more). */
@@ -123,6 +127,7 @@ export const DEFAULT_GALLERY_APPEARANCE: GalleryAppearance = {
     customMaxWidth: '',
     showTitles: false,
     showCaptions: false,
+    titlePosition: 'below',
     hoverZoom: true,
     perPage: 24,
     videoBadge: true,
@@ -454,4 +459,27 @@ export function galleryMasonryColumns<T,>(
         heights[best] = heights[best]! + (Number.isFinite(h,) && h > 0 ? h : 1);
     },);
     return cols;
+}
+
+/** Estimated px of a title line / a caption line under a masonry item (web + email agree). */
+export const GALLERY_MASONRY_TITLE_PX = 22;
+export const GALLERY_MASONRY_CAPTION_PX = 20;
+
+/**
+ * A masonry item's estimated height, px, at `columnWidth` px: the media at its
+ * own aspect, plus the title / caption lines when they sit OUTSIDE the
+ * picture (below / above — an overlay adds nothing), plus `extra` (padding /
+ * gap). The `heightOf` both the web view and the email pass to
+ * `galleryMasonryColumns`, so text-heavy items push the next ones to the
+ * shorter columns alike on both surfaces.
+ */
+export function galleryMasonryItemHeight(
+    item: { title?: string | null; caption?: string | null; media?: { width?: number | null; height?: number | null; } | null; },
+    columnWidth: number,
+    opts: { showTitles?: boolean; showCaptions?: boolean; overlay?: boolean; extra?: number; } = {},
+): number {
+    const text = opts.overlay
+        ? 0
+        : (opts.showTitles && item.title ? GALLERY_MASONRY_TITLE_PX : 0) + (opts.showCaptions && item.caption ? GALLERY_MASONRY_CAPTION_PX : 0);
+    return columnWidth / galleryItemAspect(item,) + text + (opts.extra ?? 0);
 }

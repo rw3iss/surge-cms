@@ -76,6 +76,9 @@ export function EntityEditorShell<TEntity,>(
     props: EntityEditorShellProps<TEntity>,
 ): JSX.Element {
     const e = props.editor;
+    // The View link follows the SAVED status (the live page exists only once saved as published),
+    // not the unsaved Status field.
+    const savedPublished = () => ((e.entity() as { status?: string; } | null)?.status ?? props.status()) === 'published';
     // Resolved ONCE (`children` memoises): reading `props.content` directly in
     // two places would build the custom content section twice.
     const customContent = children(() => props.content,);
@@ -187,11 +190,11 @@ export function EntityEditorShell<TEntity,>(
                             Not published yet → the admin preview of the saved version. */}
                         <Show when={!e.isDeleted()}>
                             <a
-                                href={props.status() === 'published' ? props.publicUrl() : `${props.publicUrl()}?preview=admin`}
+                                href={savedPublished() ? props.publicUrl() : `${props.publicUrl()}?preview=admin`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 class="admin-header__view-link"
-                                title={props.status() === 'published' ? 'Open the live page in a new tab' : 'Open a preview of the saved version in a new tab'}
+                                title={savedPublished() ? 'Open the live page in a new tab' : 'Open a preview of the saved version in a new tab'}
                             >
                                 {props.labels.viewLabel}
                             </a>

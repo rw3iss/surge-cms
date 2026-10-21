@@ -99,7 +99,8 @@ const appearance = z.object({
     thumbSize: z.number().int().optional(),
     gap: z.string().max(64,).optional(),
     aspect: z.enum(['square', '4:3', '3:2', '16:9', 'original',],).optional(),
-    fit: z.enum(['cover', 'contain',],).optional(),
+    // 'hug' too — the two-value enum refused every save with Fit = Hug (400).
+    fit: z.enum(['cover', 'contain', 'hug',],).optional(),
     radius: z.string().max(64,).optional(),
     gutter: z.enum(['site', 'custom',],).optional(),
     customGutter: z.string().max(64,).optional(),
@@ -109,6 +110,9 @@ const appearance = z.object({
     customMaxWidth: z.string().max(64,).optional(),
     showTitles: z.boolean().optional(),
     showCaptions: z.boolean().optional(),
+    titlePosition: z.enum(['below', 'above', 'overlay-top', 'overlay-bottom',],).optional(),
+    // '' = inherit (clears a saved alignment; an absent key keeps it).
+    titleAlign: z.enum(['', 'left', 'center', 'right',],).optional(),
     hoverZoom: z.boolean().optional(),
     perPage: z.number().int().optional(),
     videoBadge: z.boolean().optional(),

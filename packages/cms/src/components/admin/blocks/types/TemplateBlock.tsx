@@ -24,6 +24,10 @@ const toProps = (rows: PropRow[],): Record<string, string> => {
     return out;
 };
 
+/** A prop is read as `{{ props.<key> }}`, so the key must be a plain identifier. */
+const propKeyError = (v: string,): string | null =>
+    !v.trim() || /^[A-Za-z_][\w-]*$/.test(v.trim(),) ? null : 'Letters, digits, - and _ only, starting with a letter — read as {{ props.name }}.';
+
 export interface TemplateBlockEditProps {
     settings: Record<string, unknown>;
     onChange: (patch: Record<string, unknown>,) => void;
@@ -49,6 +53,21 @@ const TemplateBlockEdit: Component<TemplateBlockEditProps> = (props,) => {
     }, { defer: true, },),);
     const commitRows = () => props.onChange({ props: toProps(rows,), },);
 
+    /**
+     * Switch component. Slot bindings for ids the new component does not
+     * declare are dropped (they would sit in the block unseen and unused);
+     * props stay — they are often shared between similar components.
+     */
+    const selectComponent = (id: string,) => {
+        const next = (templates() ?? []).find((t,) => t.id === id);
+        const ids = new Set((next?.slots ?? []).map((sl,) => sl.id),);
+        const bound = (props.settings.slots ?? {}) as Record<string, SlotBinding>;
+        const kept = Object.fromEntries(Object.entries(bound,).filter(([k,],) => ids.has(k,)),);
+        props.onChange({ templateId: id, slots: kept, },);
+    };
+    // A component the block points at that no longer exists (deleted).
+    const missing = () => Boolean(selectedId() && templates.state === 'ready' && !selected());
+
     return (
         <div class="block-edit-form__field template-block-edit">
             <FormField
@@ -70,7 +89,7 @@ const TemplateBlockEdit: Component<TemplateBlockEditProps> = (props,) => {
                         <select
                             class="template-block-edit__select"
                             value={selectedId()}
-                            onChange={(e,) => props.onChange({ templateId: e.currentTarget.value, },)}
+                            onChange={(e,) => selectComponent(e.currentTarget.value,)}
                         >
                             <option value="">Select a component…</option>
                             {(templates() ?? []).map((t,) => <option value={t.id}>{t.name}</option>)}
@@ -87,6 +106,12 @@ const TemplateBlockEdit: Component<TemplateBlockEditProps> = (props,) => {
                     </div>
                 </Show>
             </FormField>
+
+            <Show when={missing()}>
+                <p class="form-help-muted template-block-edit__missing" role="status">
+                    The component this block used no longer exists, so it renders nothing. Choose another component.
+                </p>
+            </Show>
 
             <Show when={selected()?.description}>
                 <p class="form-help-muted">{selected()!.description}</p>
@@ -112,6 +137,7 @@ const TemplateBlockEdit: Component<TemplateBlockEditProps> = (props,) => {
                                         value={row.key}
                                         placeholder="name"
                                         aria-label="Prop name"
+                                        validate={propKeyError}
                                         onCommit={(v,) => { setRows(i(), 'key', v,); commitRows(); }}
                                     />
                                     <CommitInput

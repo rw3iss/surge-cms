@@ -256,7 +256,7 @@ const TemplateEditor: Component = () => {
         }
         if (isNew()) {
             // "+ New component" from a selected collection files it there.
-            if (isGlobal() && searchParams.collection) setCollectionId(String(searchParams.collection,),);
+            if (isGlobal() && searchParams.collection && searchParams.collection !== 'none') setCollectionId(String(searchParams.collection,),);
             captureSaved();
             const stored = autoSave.getDraft();
             if (stored) {

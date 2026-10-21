@@ -21,7 +21,7 @@
  * captions inherit the block's text-align. `itemWidth` → `--gv-item-width`
  * (column / stage tile width; grid track cap; row slide width).
  */
-import { type GalleryItem, galleryItemRadius, galleryMasonryColumns, } from '@sitesurge/types';
+import { type GalleryItem, galleryItemRadius, galleryMasonryColumns, galleryMasonryItemHeight, galleryTitlePlacement, } from '@sitesurge/types';
 import { Component, createEffect, createMemo, createSignal, For, Match, onCleanup, Show, Switch, } from 'solid-js';
 import MediaVideo from '../blocks/media/MediaVideo';
 import {
@@ -45,6 +45,12 @@ export interface GalleryViewProps {
     /** Shown when there are no items. */
     empty?: string;
 }
+
+/** Title alignment → the stage meta row's `justify-content` (it is a flex row; text-align did nothing). */
+const ALIGN_FLEX = { left: 'flex-start', center: 'center', right: 'flex-end', } as const;
+
+/** Column width the masonry placement estimate assumes (px) — only the ratio of media to text matters. */
+const MASONRY_NOMINAL_COLUMN_PX = 240;
 
 const GalleryView: Component<GalleryViewProps> = (props,) => {
     let root: HTMLDivElement | undefined;
@@ -76,7 +82,13 @@ const GalleryView: Component<GalleryViewProps> = (props,) => {
         const m = masonry();
         // Empty stacks (fewer items than columns) are dropped, so the columns
         // that remain form a narrower box the alignment can place.
-        return m.kind === 'stacks' ? galleryMasonryColumns(items(), m.columns,).filter((st,) => st.length > 0,) : [];
+        if (m.kind !== 'stacks') return [];
+        // The email's estimate (`galleryMasonryItemHeight`) at a nominal column
+        // width, so a title / caption under an item counts toward its column
+        // and both surfaces place items alike.
+        const est = { showTitles: props.settings.showTitles, showCaptions: props.settings.showCaptions, overlay: galleryTitlePlacement(props.settings,).overlay, extra: 12, };
+        return galleryMasonryColumns(items(), m.columns, (i,) => galleryMasonryItemHeight(i, MASONRY_NOMINAL_COLUMN_PX, est,),)
+            .filter((st,) => st.length > 0,);
     };
     /** Each stack keeps its share of the full width (1/N of it, minus the gaps). */
     const masonryBasis = () => {
@@ -235,14 +247,14 @@ const GalleryView: Component<GalleryViewProps> = (props,) => {
                                             <button
                                                 type="button"
                                                 class="gallery-view__stage-hit"
-                                                classList={{ 'gallery-view__stage-hit--contain': L().fit !== 'cover', }}
+                                                classList={{ 'gallery-view__stage-hit--hug': L().fit === 'hug', }}
                                                 disabled={open() !== 'lightbox'}
                                                 onClick={() => open() === 'lightbox' && setLightbox(selected(),)}
                                             >
                                                 <img
                                                     src={cur().media?.url}
                                                     alt={cur().media?.alt || cur().title || ''}
-                                                    class={L().fit !== 'cover' ? 'gallery-view__stage-img--contain' : undefined}
+                                                    class={L().fit === 'hug' ? 'gallery-view__stage-img--hug' : undefined}
                                                     style={{ 'object-fit': L().fit === 'cover' ? 'cover' : 'contain', }}
                                                 />
                                             </button>
@@ -253,7 +265,12 @@ const GalleryView: Component<GalleryViewProps> = (props,) => {
                                         </Show>
                                     </Show>
                                     <Show when={(props.settings.showTitles && cur().title) || (props.settings.showCaptions && cur().caption)}>
-                                        <div class="gallery-view__stage-meta" style={props.settings.titleAlign ? { 'text-align': props.settings.titleAlign, } : undefined}>
+                                        {/* Above or below the stage (an overlay position reads as below here). */}
+                                        <div
+                                            class="gallery-view__stage-meta"
+                                            classList={{ 'gallery-view__stage-meta--above': props.settings.titlePosition === 'above', }}
+                                            style={props.settings.titleAlign ? { 'justify-content': ALIGN_FLEX[props.settings.titleAlign], } : undefined}
+                                        >
                                             <Show when={props.settings.showTitles && cur().title}><strong>{cur().title}</strong></Show>
                                             <Show when={props.settings.showCaptions && cur().caption}><span>{cur().caption}</span></Show>
                                             <Show when={open() === 'page'}><a href={cur().url}>Open</a></Show>

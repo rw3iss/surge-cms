@@ -648,6 +648,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                                     {/* One line: property · operator · value · × (· + Add another). */}
                                     <div class="entity-search-modal__query">
                                         <select
+                                            aria-label="Property"
                                             value={c.field}
                                             onChange={(e,) => {
                                                 // Changing the property invalidates the
@@ -664,6 +665,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                                         </select>
                                         <select
                                             class="entity-search-modal__op"
+                                            aria-label="Operator"
                                             value={c.op}
                                             onChange={(e,) => {
                                                 patchClause(i(), { op: e.currentTarget.value as FilterOp, },);
@@ -679,7 +681,10 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                                             field={c.field}
                                             value={c.value}
                                             onCommit={(v,) => onFilterValueCommit(i(), v,)}
-                                            placeholder="Value (comma-separated for 'is any of')"
+                                            // Only `in` takes a list: elsewhere a picked suggestion replaces the value.
+                                            multiple={c.op === 'in'}
+                                            ariaLabel="Value"
+                                            placeholder={c.op === 'in' ? 'Values, comma-separated' : 'Value'}
                                         />
                                         {/* Every row has ×: on the only row it clears the row
                                             (removeClause never drops the last one). */}
@@ -708,7 +713,7 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                                     </Show>
                                     {/* The filter is keyed by field: a later row on the same
                                         property replaces the earlier one. Say so. */}
-                                    <Show when={c.field && clauses.slice(0, i(),).some((o,) => o.field === c.field && o.value !== '')}>
+                                    <Show when={c.field && c.value !== '' && clauses.slice(0, i(),).some((o,) => o.field === c.field && o.value !== '')}>
                                         <small class="entity-search-modal__clause-hint entity-search-modal__clause-hint--warning">
                                             Overrides the row above (one condition per property).
                                         </small>

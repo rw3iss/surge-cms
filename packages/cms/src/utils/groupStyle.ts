@@ -1,4 +1,4 @@
-import { groupLayoutOf, } from '@sitesurge/types';
+import { GROUP_MAX_COLUMNS, groupColumnTracks, groupLayoutOf, groupSlotWidth, } from '@sitesurge/types';
 import { toFlexAlign, } from './cssAlign';
 
 export interface GroupStyleOptions {
@@ -17,38 +17,16 @@ export interface GroupStyleOptions {
 }
 
 /**
- * Column tracks for a column grid from its slots' widths, or null when no
- * slot sets one (→ N equal columns).
- *
- * Percentages become proportional `fr` tracks (80% + 20% → 80fr 20fr), so the
- * gap is accounted for instead of overflowing 100%. A slot without a width
- * shares what the percentages leave (100 − sum, split evenly; 1fr if none
- * left). Any other length (300px, 20rem) is a fixed column.
+ * `grid-template-columns` tracks for a column grid from its slots' widths, or
+ * null when no slot sets one (→ N equal columns). The rule itself
+ * (`groupColumnTracks`, shared with email) lives in `@sitesurge/types`.
  */
 export function groupTracks(widths: Array<string | null | undefined>, columns: number,): string | null {
-    const cols = widths.slice(0, columns,);
-    while (cols.length < columns) cols.push(undefined,);
-    const norm = cols.map((w,) => (typeof w === 'string' ? w.trim() : ''));
-    if (!norm.some(Boolean,)) return null;
-    const pct = norm.map((w,) => (/^\d+(\.\d+)?%$/.test(w,) ? parseFloat(w,) : null));
-    const used = pct.reduce<number>((s, v,) => s + (v ?? 0), 0,);
-    const free = norm.filter((w,) => !w).length;
-    const share = free && used > 0 && used < 100 ? (100 - used) / free : null;
-    return norm.map((w, i,) => {
-        if (pct[i] != null) return `minmax(0, ${pct[i]}fr)`;
-        if (w) return `minmax(0, ${w})`;
-        return share ? `minmax(0, ${Math.round(share * 100,) / 100}fr)` : 'minmax(0, 1fr)';
-    },).join(' ',);
+    const tracks = groupColumnTracks(widths, columns,);
+    if (!tracks) return null;
+    return tracks.map((t,) => ('fixed' in t ? `minmax(0, ${t.fixed})` : `minmax(0, ${t.fr}fr)`)).join(' ',);
 }
 
-/**
- * Flex-container style for a group block. Shared by the public renderer
- * (`BlockRenderer` GroupBlock) and the admin preview (`ContentBlock`
- * GroupBlockPreview) so the two can't drift — WYSIWYG parity is the whole
- * point of the group block. `data` is the group's settings (public) or data
- * (admin); both carry the same keys. Editor-only affordances (default gap,
- * min-height) are opt-in via `options`.
- */
 /** The forced column count for a horizontal group, or `null` when the group
  *  shouldn't force columns (vertical direction, or no valid columns value).
  *  Callers add the `--cols` modifier class + set `--group-cols` when non-null. */
@@ -60,14 +38,11 @@ export function groupColumns(data: Record<string, unknown>,): number | null {
     if (direction !== 'horizontal') return null;
     const cols = Math.trunc(Number(data.columns,),);
     if (!Number.isFinite(cols,) || cols < 1) return null;
-    return Math.min(16, cols,);
+    return Math.min(GROUP_MAX_COLUMNS, cols,);
 }
 
 /** A slot's width for its group's column tracks: its Width property, else its style width. */
-export function slotWidthOf(settings: Record<string, unknown> | null | undefined, style?: Record<string, unknown> | null,): string | undefined {
-    const w = (settings?.width as string | undefined) || (style?.width as string | undefined);
-    return typeof w === 'string' && w.trim() && w.trim() !== '100%' ? w.trim() : undefined;
-}
+export const slotWidthOf = groupSlotWidth;
 
 /** Whether a horizontal group should stack to a single column on mobile.
  *  A `nowrap` horizontal group can never wrap its slots, so on a phone its
@@ -122,6 +97,14 @@ export function groupSlotItemStyle(
     };
 }
 
+/**
+ * Flex-container style for a group block. Shared by the public renderer
+ * (`BlockRenderer` GroupBlock) and the admin preview (`ContentBlock`
+ * GroupBlockPreview) so the two can't drift — WYSIWYG parity is the whole
+ * point of the group block. `data` is the group's settings (public) or data
+ * (admin); both carry the same keys. Editor-only affordances (default gap,
+ * min-height) are opt-in via `options`.
+ */
 export function groupContainerStyle(
     data: Record<string, unknown>,
     options: GroupStyleOptions = {},

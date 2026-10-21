@@ -10,6 +10,7 @@ import RichTextEditor from '../editors/RichTextEditor';
 import ConfirmModal from '../common/ConfirmModal';
 import { groupColumns, groupContainerStyle, groupSlotItemStyle, groupStacksMobile, slotWidthOf, } from '../../../utils/groupStyle';
 import { blockStyleLayoutCss, } from '../../../utils/blockStyleCss';
+import { parseCssOrder, } from '@sitesurge/types';
 import { previewBreakpoint, } from '../../../stores/previewBreakpoint';
 import { toFlexAlign, } from '../../../utils/cssAlign';
 import { BlockStyleService, } from '../../../services/blockStyles';
@@ -138,9 +139,19 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                 setShowOptionsMenu(false,);
             }
         };
+        const onKey = (e: KeyboardEvent,) => {
+            if (e.key !== 'Escape') return;
+            e.stopPropagation();
+            setShowOptionsMenu(false,);
+            optionsBtnRef?.focus();
+        };
         // Defer so the click that opened the menu doesn't immediately close it.
         document.addEventListener('pointerdown', onDocPointerDown,);
-        onCleanup(() => document.removeEventListener('pointerdown', onDocPointerDown,),);
+        document.addEventListener('keydown', onKey, true,);
+        onCleanup(() => {
+            document.removeEventListener('pointerdown', onDocPointerDown,);
+            document.removeEventListener('keydown', onKey, true,);
+        },);
     },);
 
     onCleanup(cancelHoverClose,);
@@ -280,6 +291,11 @@ const ContentBlock: Component<ContentBlockProps> = (props,) => {
                     </Show>
                     <Show when={isDisabled()}>
                         <span class="content-block__hover-tag"> (Disabled)</span>
+                    </Show>
+                    {/* A style Order moves the block visually (the up/down
+                        arrows still change its saved position) — say so. */}
+                    <Show when={editorOrder() != null}>
+                        <span class="content-block__hover-tag" title="This block's style Order places it out of its saved position."> (Order {editorOrder()})</span>
                     </Show>
                 </button>
                 <button type="button"
@@ -481,8 +497,9 @@ function blockOrderFor(block: BlockData,): string | undefined {
     const base = BlockStyleService.resolve(block,) as Record<string, any> | null;
     if (!base) return undefined;
     const pbp = previewBreakpoint();
-    const v = (pbp ? base.breakpoints?.[pbp]?.order : undefined) ?? base.order;
-    return v != null && v !== '' && /^[+-]?\d+$/.test(String(v,).trim(),) ? String(v,).trim() : undefined;
+    const bpOrder = pbp ? parseCssOrder(base.breakpoints?.[pbp]?.order,) : null;
+    const order = bpOrder ?? parseCssOrder(base.order,);
+    return order != null ? String(order,) : undefined;
 }
 
 // ─── Group + group_item preview helpers ──────────────────────────────
@@ -533,7 +550,7 @@ const GroupBlockPreview: Component<NestedPreviewProps> = (props,) => {
                     // to properly-sized items instead of full-bleed ContentBlocks.
                     <div
                         class="content-block__group-slot"
-                        style={{ ...groupSlotItemStyle(child.data ?? {}, data(),), ...(blockOrderFor(child,) != null ? { order: blockOrderFor(child,)!, } : {}), }}
+                        style={{ ...groupSlotItemStyle(child.data ?? {}, data(),), order: blockOrderFor(child,), }}
                     >
                         <ContentBlock
                             block={child}

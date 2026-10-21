@@ -36,6 +36,21 @@ async function assertMayWriteScript(
     await permissions.requirePermission({ id: user?.id, role: user?.role, }, SCRIPT_PERMISSION,);
 }
 
+/**
+ * What a non-staff reader may see of a template. The public site renders a
+ * component from its blocks and loads its script from `client.js` (enabled
+ * scripts only), so the raw source — including a DISABLED script — and the
+ * editor-only fields stay with staff.
+ */
+function forViewer<T extends { script?: string | null; scriptEnabled?: boolean; sampleRecordIds?: string[]; hasScript?: boolean; },>(
+    tpl: T,
+    user: { role?: string; } | undefined,
+): T {
+    if (isStaffRole(user?.role,)) return tpl;
+    const { script, sampleRecordIds: _sample, ...rest } = tpl;
+    return { ...rest, hasScript: Boolean(script?.trim() && tpl.scriptEnabled !== false,), } as T;
+}
+
 const idParam = z.object({ id: z.string(), },);
 const versionParam = z.object({ id: z.string(), version: z.coerce.number().int().min(1,), },);
 
@@ -129,7 +144,7 @@ export const componentsRoutes = [
         // Staff also get each component's `usages` / `usageCount`.
         handler: async ({ user, },) => {
             const list = await cbtSvc.listGlobal();
-            return isStaffRole(user?.role,) ? cbtSvc.withUsageCounts(list,) : list;
+            return isStaffRole(user?.role,) ? cbtSvc.withUsageCounts(list,) : list.map((t,) => forViewer(t, user,));
         },
     },),
 
@@ -146,7 +161,10 @@ export const componentsRoutes = [
                 type: z.string().max(100,).optional(),
             },),
         },
-        handler: async ({ query: q, },) => cbtSvc.findForRender(q.ref, q.scope, q.type,),
+        handler: async ({ query: q, user, },) => {
+            const found = await cbtSvc.findForRender(q.ref, q.scope, q.type,);
+            return 'error' in found ? found : { ...found, template: forViewer(found.template, user,), };
+        },
     },),
 
     defineRoute({
@@ -155,10 +173,10 @@ export const componentsRoutes = [
         auth: 'optional',
         summary: 'Get a global block template + its blocks',
         input: { params: idParam, },
-        handler: async ({ params, },) => {
+        handler: async ({ params, user, },) => {
             const template = await cbtSvc.findById(params.id,);
             if (!template) throw new NotFoundError(`Block template "${params.id}"`,);
-            return { ...template, blocks: await cbtSvc.findBlocksResolved(params.id,), };
+            return { ...forViewer(template, user,), blocks: await cbtSvc.findBlocksResolved(params.id,), };
         },
     },),
 

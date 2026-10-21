@@ -102,17 +102,36 @@ const ComponentsList: Component = () => {
         }
     };
 
+    /**
+     * Copy = ONE create carrying the whole block tree (one transaction, so a
+     * failure leaves no empty copy behind). Block ids are re-minted: they are
+     * table-wide primary keys, so re-sending the source's ids collided and the
+     * copy came out empty. Slots, list render and the script come along — a
+     * copy without its slots would render its `{{ slot }}` text empty.
+     */
     const handleCopy = async (t: ContentBlockTemplate,) => {
         try {
+            const blocks = await cms.components.getBlocks(t.id,);
+            const ids = new Map(blocks.map((b,) => [b.id, crypto.randomUUID(),]),);
             const created = await cms.components.create({
                 name: `${t.name} copy`,
                 description: t.description ?? undefined,
                 mode: t.mode,
                 maxRecords: t.maxRecords ?? null,
+                listRender: t.listRender,
+                slots: t.slots ?? [],
                 collectionId: t.collectionId ?? null,
+                ...(t.script != null ? { script: t.script, scriptEnabled: t.scriptEnabled !== false, } : {}),
+                blocks: blocks.map((b,) => ({
+                    id: ids.get(b.id,),
+                    parentBlockId: b.parentBlockId ? (ids.get(b.parentBlockId,) ?? null) : null,
+                    blockType: b.blockType,
+                    position: b.position,
+                    settings: b.settings ?? {},
+                    style: b.style ?? {},
+                })),
             } as never,);
-            const blocks = await cms.components.getBlocks(t.id,);
-            if (blocks.length > 0) await cms.components.saveBlocks(created.id, blocks,);
+            toast.success(`Copied as "${created.name}".`,);
             navigate(`/admin/components/${created.id}`,);
         } catch { /* error bus surfaces the toast */ }
     };

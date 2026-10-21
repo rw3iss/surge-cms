@@ -82,7 +82,8 @@ export const EventsBlock: Component<{ block: Block; preview?: boolean; }> = (pro
 
     return (
         <div class={`events-block events-block--${display().layout}`}>
-            <Show when={display().heading}>
+            {/* An empty block on the site is EMPTY (SSR + email drop the heading too). */}
+            <Show when={display().heading && (records().length > 0 || display().emptyText || loading() || props.preview || isAdminView())}>
                 <h2 class={`events-block__heading events-block__heading--${display().headingAlign}`}>{display().heading}</h2>
             </Show>
             <Show when={failedSlot()}>

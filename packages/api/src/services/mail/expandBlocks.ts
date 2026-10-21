@@ -18,7 +18,7 @@
  */
 import {
     bindingIdsIfStatic, isEventsBlockType, isSocialAutoFeed, resolveSocialCount, templateDataFor, templateDataIds, templateDataOf, templateRenderGroups, rendersOnce,
-    slotFor, type ContentBlockTemplate, type SlotBinding, type TemplateSlotContext,
+    slotFor, slotVariableUse, type ContentBlockTemplate, type SlotBinding, type TemplateSlotContext,
 } from '@sitesurge/types';
 import * as entityManager from '../../entities/entityManager';
 import * as contentBlockTemplates from '../../repositories/contentBlockTemplates.repo';
@@ -242,12 +242,13 @@ async function slotVariables(
 ): Promise<Record<string, unknown>> {
     const text = blocks.map((b,) => JSON.stringify(b.settings ?? {},)).join(' ',);
     const out: Record<string, unknown> = {};
-    if (!text.includes('{{',)) return out;
+    const use = slotVariableUse(slotCtx.slots, text,);
     // Component props from the using template block (`{{ props.layout }}`).
-    if (slotCtx.props && Object.keys(slotCtx.props,).length && /\bprops\b/.test(text,)) out.props = slotCtx.props;
-    for (const slot of slotCtx.slots ?? []) {
-        const id = slot.id.replace(/[^\w-]/g, '',);
-        if (!id || !new RegExp(`(^|[^\\w.])${id}\\b`,).test(text,)) continue;
+    // Only when some are set: binding anything resolves the text NOW, against
+    // this bag alone, and a component with no props should keep its text for
+    // the final pass (recipient `{{ user.* }}` etc.).
+    if (use.props && slotCtx.props && Object.keys(slotCtx.props,).length) out.props = slotCtx.props;
+    for (const slot of use.slots) {
         const records = await resolveSlotRecords(slotCtx, slot.id, slot.entityType, MAX_RECORDS, audience === 'email' ? { audience: 'email', } : {},);
         out[slot.id] = slot.array ? records : (records[0] ?? null);
     }

@@ -15,6 +15,10 @@ describe('filterRows', () => {
         expect(filterRows(rows, 'BEACH', 'all',).map((r,) => r.key,),).toEqual(['a',],);
         expect(filterRows(rows, 'sun', 'all',).map((r,) => r.key,),).toEqual(['a',],);
     });
+    it('featured filter keeps only featured rows', () => {
+        const mixed = [row('a', { options: { ...EMPTY_OPTIONS, isFeatured: true, }, },), row('b',),];
+        expect(filterRows(mixed, '', 'featured',).map((r,) => r.key,),).toEqual(['a',],);
+    });
     it('filters by type', () => {
         expect(filterRows(rows, '', 'video',).map((r,) => r.key,),).toEqual(['b',],);
         expect(filterRows(rows, '', 'image',).map((r,) => r.key,),).toEqual(['a',],);
@@ -38,6 +42,12 @@ describe('bulkPatches', () => {
         const r = [row('a', { options: { ...EMPTY_OPTIONS, tags: ['beach',], }, },),];
         expect(bulkPatches(r, new Set(['a',],), { kind: 'addTag', tag: ' Beach ', },).patches.size,).toBe(0,);
         expect(bulkPatches(r, new Set(['a',],), { kind: 'addTag', tag: 'Sky', },).patches.get('a',)!.options!.tags,).toEqual(['beach', 'sky',],);
+    });
+    it('featured: only rows that differ, skipping removed ones', () => {
+        const mixed = [row('a', { options: { ...EMPTY_OPTIONS, isFeatured: true, }, },), row('b',), row('x', { removed: true, },),];
+        const { patches, } = bulkPatches(mixed, new Set(['a', 'b', 'x',],), { kind: 'featured', isFeatured: true, },);
+        expect([...patches.keys(),],).toEqual(['b',],);
+        expect(patches.get('b',)?.options?.isFeatured,).toBe(true,);
     });
     it('remove: saved rows are marked, new rows leave the draft', () => {
         const { patches, drop, } = bulkPatches(rows, new Set(['a', 'n',],), { kind: 'remove', },);

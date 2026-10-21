@@ -11,7 +11,7 @@
  */
 import type { User, } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
-import { Component, createSignal, Show, } from 'solid-js';
+import { Component, createEffect, createSignal, on, Show, } from 'solid-js';
 import { useAuth, } from '../../stores/auth';
 import { userInitials, } from '../../utils/userInitials';
 import './CurrentUserCard.scss';
@@ -48,6 +48,8 @@ const CurrentUserCard: Component<CurrentUserCardProps> = (props,) => {
     const user = () => (props.user !== undefined ? props.user : auth.user);
     const name = () => userDisplayName(user(),);
     const [imgFailed, setImgFailed,] = createSignal(false,);
+    // A new picture (profile edit, another user) gets a fresh try.
+    createEffect(on(() => user()?.avatarUrl, () => setImgFailed(false,), { defer: true, },),);
     const [signingOut, setSigningOut,] = createSignal(false,);
     const profileHref = () => (typeof props.profileLink === 'string' ? props.profileLink : '/profile');
 

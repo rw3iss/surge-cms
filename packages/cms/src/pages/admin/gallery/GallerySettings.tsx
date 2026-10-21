@@ -4,7 +4,7 @@
  *   General     title, description, public URL, who may view, videos, comment defaults
  *   Appearance  layout, thumbnail size, spacing, aspect, fit, radius,
  *               gutter / padding / max width (site default or custom), titles,
- *               captions, date published (item page), hover zoom, page size,
+ *               captions (+ title position / alignment), date published (item page), hover zoom, page size,
  *               video badge, Behavior (open item action: modal / go to page;
  *               modal thumbnail carousel) — with a small live preview.
  * Everything edits a local draft; Save sends it. Text fields commit on blur.
@@ -16,6 +16,7 @@ import { A, useSearchParams, } from '@solidjs/router';
 import { Component, createMemo, createSignal, For, onMount, Show, } from 'solid-js';
 import { createStore, reconcile, unwrap, } from 'solid-js/store';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
+import AlignButtons, { type HAlign, } from '../../../components/admin/common/AlignButtons';
 import ConfirmModal from '../../../components/admin/common/ConfirmModal';
 import Toggle from '../../../components/admin/common/Toggle';
 import { FormField, } from '../../../components/admin/forms';
@@ -279,6 +280,29 @@ const GallerySettingsPage: Component = () => {
                             </FormField>
                             <Toggle checked={a().showTitles} onChange={(v,) => setA('showTitles', v,)} label="Show titles" />
                             <Toggle checked={a().showCaptions} onChange={(v,) => setA('showCaptions', v,)} label="Show captions" />
+                            <Show when={a().showTitles || a().showCaptions}>
+                                <div class="admin-form-row">
+                                    <FormField label="Title position" tooltip="Where each tile's title and caption go: under or above the picture, or on it (top or bottom). Same choices as the Gallery block.">
+                                        <select
+                                            value={a().titlePosition ?? 'below'}
+                                            onChange={(e,) => setA('titlePosition', e.currentTarget.value as GalleryAppearance['titlePosition'],)}
+                                        >
+                                            <option value="below">Below the picture</option>
+                                            <option value="above">Above the picture</option>
+                                            <option value="overlay-top">On the picture — top</option>
+                                            <option value="overlay-bottom">On the picture — bottom</option>
+                                        </select>
+                                    </FormField>
+                                    <FormField label="Title alignment" tooltip="Left, center or right. None selected = left. Click the selected button again to clear it.">
+                                        <AlignButtons
+                                            label="Title alignment"
+                                            value={(a().titleAlign || undefined) as HAlign}
+                                            // '' (not undefined) clears it: the save merges, so an absent key would keep the old value.
+                                            onChange={(v,) => setA('titleAlign', a().titleAlign === v ? '' : v,)}
+                                        />
+                                    </FormField>
+                                </div>
+                            </Show>
                             <Toggle
                                 checked={a().showPublishedDate}
                                 onChange={(v,) => setA('showPublishedDate', v,)}
@@ -383,8 +407,8 @@ const GallerySettingsPage: Component = () => {
                                                         <span class="gallery-settings__play" aria-hidden="true">&#9654;</span>
                                                     </Show>
                                                 </div>
-                                                <Show when={a().showTitles}><figcaption class="gallery-settings__tile-title">{i.title}</figcaption></Show>
-                                                <Show when={a().showCaptions && i.caption}><figcaption class="gallery-settings__tile-caption">{i.caption}</figcaption></Show>
+                                                <Show when={a().showTitles}><figcaption class="gallery-settings__tile-title" style={{ 'text-align': a().titleAlign || undefined, }}>{i.title}</figcaption></Show>
+                                                <Show when={a().showCaptions && i.caption}><figcaption class="gallery-settings__tile-caption" style={{ 'text-align': a().titleAlign || undefined, }}>{i.caption}</figcaption></Show>
                                             </figure>
                                         )}
                                     </For>

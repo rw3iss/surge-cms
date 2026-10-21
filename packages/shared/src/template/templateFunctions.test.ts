@@ -1,5 +1,5 @@
 import { describe, expect, it, } from 'vitest';
-import { COMPONENT_KIND, componentArgsFor, TEMPLATE_KIND, templateCallFor, templateRecordFor, } from './templateFunctions';
+import { COMPONENT_KIND, componentArgsFor, TEMPLATE_KIND, templateCallFor, slotVariableUse, templateRecordFor, } from './templateFunctions';
 
 describe('templateCallFor', () => {
     it('template: ref + positional record, any order', () => {
@@ -37,5 +37,22 @@ describe('templateRecordFor', () => {
         expect(templateRecordFor(templateCallFor('template', ['T',], { product: p, },), { singularVar: 'product', },).record,).toBe(p,);
         expect(templateRecordFor(templateCallFor('template', ['T', p,], {},), {},).records,).toEqual([p,],);
         expect(templateRecordFor(templateCallFor('template', ['T',], {},), {},).record,).toBeNull();
+    },);
+},);
+
+describe('slotVariableUse', () => {
+    const slots = [{ id: 'events', }, { id: 'hero', }, { id: 'eventsArchive', },];
+    it('names only slots the text mentions as a whole word', () => {
+        const u = slotVariableUse(slots, '{{ for events as e }}{{ e.title }}{{ endfor }}',);
+        expect(u.slots.map((s,) => s.id,),).toEqual(['events',],);
+        expect(u.props,).toBe(false,);
+    },);
+    it('ignores a property access with the same name and text without {{', () => {
+        expect(slotVariableUse(slots, '{{ item.hero }}',).slots,).toEqual([],);
+        expect(slotVariableUse(slots, 'events and hero',).slots,).toEqual([],);
+    },);
+    it('detects props', () => {
+        expect(slotVariableUse(slots, '{{ props.layout }}',).props,).toBe(true,);
+        expect(slotVariableUse(slots, '{{ item.props }}',).props,).toBe(false,);
     },);
 },);

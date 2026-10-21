@@ -6036,6 +6036,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "required": false
                         },
                         {
+                            "name": "dir",
+                            "type": "'asc' | 'desc'",
+                            "required": false
+                        },
+                        {
                             "name": "limit",
                             "type": "integer",
                             "required": false

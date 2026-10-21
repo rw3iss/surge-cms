@@ -132,7 +132,7 @@ export function occurrenceLabels(
         { timeZone, },
     );
     // Compact forms for cards / strips: "Oct 24" and "7:00 PM EDT" (start only).
-    const shortDate = occ.start.toLocaleDateString('en-US', { month: 'short', day: '2-digit', timeZone: tz, },);
+    const shortDate = occ.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: tz, },);
     const startTime = allDay ? 'All day' : [timeOf(occ.start,), zonePart(occ.start, timeZone,),].filter(Boolean,).join(' ',);
     return { when, dateLabel, timeLabel, shortDate, startTime, };
 }

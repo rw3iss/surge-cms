@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-21T02:02:40.039Z",
+  "generatedAt": "2026-10-21T16:28:05.526Z",
   "totalModules": 55,
   "totalRoutes": 600,
   "modules": [
@@ -5294,6 +5294,11 @@
               {
                 "name": "sort",
                 "type": "'order' | 'newest' | 'oldest' | 'title' | 'random'",
+                "required": false
+              },
+              {
+                "name": "dir",
+                "type": "'asc' | 'desc'",
                 "required": false
               },
               {

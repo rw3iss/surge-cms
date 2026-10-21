@@ -66,6 +66,21 @@ const AdminPages: Component = () => {
         }
     };
 
+    // Out of the trash: back to a draft (it was taken off the site when trashed).
+    const [restoring, setRestoring,] = createSignal<string | null>(null,);
+    const restore = async (page: { id: string; title: string; },) => {
+        setRestoring(page.id,);
+        try {
+            await cms.pages.bulk({ ids: [page.id,], action: 'status', value: 'draft', },);
+            toast.success(`"${page.title}" was restored as a draft.`,);
+            list.refetch();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Could not restore the page.',);
+        } finally {
+            setRestoring(null,);
+        }
+    };
+
     const handleSort = (sort: string,) => {
         setSearchParams({ sort, },);
     };
@@ -139,6 +154,15 @@ const AdminPages: Component = () => {
                                         </button>
                                     }
                                 >
+                                    <button
+                                        type="button"
+                                        class="ui-button ui-button--sm ui-button--secondary"
+                                        title="Take it out of the trash as a draft"
+                                        disabled={restoring() === page.id}
+                                        onClick={() => restore(page,)}
+                                    >
+                                        {restoring() === page.id ? 'Restoring…' : 'Restore'}
+                                    </button>
                                     <button
                                         type="button"
                                         class="ui-button ui-button--sm ui-button--danger"

@@ -104,6 +104,10 @@ export const TemplateBlock: Component<{
         // including an empty one — the check did nothing at all.
         const blockCount = (tpl()?.blocks ?? []).length;
         if (!id || isCycle() || !mountEl || tpl.loading || mounted) return;
+        // No script to run (public reads carry `hasScript`; staff reads the
+        // script itself): skip the client.js request entirely.
+        const t = tpl() as (ReturnType<typeof tpl> & { hasScript?: boolean; script?: string | null; scriptEnabled?: boolean; }) | null | undefined;
+        if (t && (t.hasScript ?? Boolean(t.scriptEnabled && t.script?.trim(),)) === false) return;
         mounted = true;
         let teardown: (() => void) | undefined;
         let disposed = false;

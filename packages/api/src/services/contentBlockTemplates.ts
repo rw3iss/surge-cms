@@ -89,6 +89,11 @@ export async function remove(id: string,): Promise<void> {
     if (template) await invalidate(template.entityTypeKey,);
 }
 
+/** Drop a deleted template's pending (debounced) revision snapshot. */
+export function cancelPendingRevision(id: string,): void {
+    revisions.cancelPending('content_block_template', id,);
+}
+
 export async function findBlocks(templateId: string,): Promise<ContentBlockTemplateBlock[]> {
     return repo.findBlocks(templateId,);
 }

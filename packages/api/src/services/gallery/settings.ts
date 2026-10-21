@@ -1,6 +1,6 @@
 /** Gallery settings (`gallery_settings`) + the viewer-shaped public config. */
 import {
-    DEFAULT_GALLERY_APPEARANCE, DEFAULT_GALLERY_SETTINGS, GALLERY_FITS, type GalleryAppearance, type GalleryPublicConfig, type GallerySettings, isSafeCssValue,
+    DEFAULT_GALLERY_APPEARANCE, DEFAULT_GALLERY_SETTINGS, GALLERY_FITS, GALLERY_TITLE_POSITIONS, type GalleryAppearance, type GalleryPublicConfig, type GallerySettings, isSafeCssValue,
 } from '@sitesurge/types';
 import { ValidationError, } from '../../core/errors';
 import { cache, } from '../cache';
@@ -22,13 +22,11 @@ export async function getSettings(): Promise<GallerySettings> {
 }
 
 /**
- * Refused inside a typed CSS value: the shared `isSafeCssValue` rule
- * (`@sitesurge/types`) — anything that ends the declaration or the rule, a
- * comment, `url(` / `expression(` / `@import`, quotes and a BACKSLASH (a CSS
- * escape such as `\75 rl(…)` decodes to `url(`).
+ * A CSS length/size typed by an editor — refused by the shared
+ * `isSafeCssValue` rule (`@sitesurge/types`): anything that ends the
+ * declaration or the rule, a comment, `url(` / `expression(` / `@import`,
+ * quotes and a BACKSLASH (a CSS escape such as `\75 rl(…)` decodes to `url(`).
  */
-
-/** A CSS length/size typed by an editor — anything that could escape a declaration is refused. */
 export function cssValue(v: unknown, label: string, max = 64,): string {
     const s = String(v ?? '',).trim();
     if (!s) return '';
@@ -44,7 +42,7 @@ const int = (v: unknown, min: number, max: number, label: string,): number => {
 
 const oneOf = <T extends string,>(v: unknown, allowed: readonly T[], fallback: T,): T => (allowed.includes(v as T,) ? (v as T) : fallback);
 
-function cleanAppearance(a: Partial<GalleryAppearance>,): GalleryAppearance {
+export function cleanAppearance(a: Partial<GalleryAppearance>,): GalleryAppearance {
     const d = DEFAULT_GALLERY_APPEARANCE;
     const n = { ...d, ...a, };
     return {
@@ -63,6 +61,9 @@ function cleanAppearance(a: Partial<GalleryAppearance>,): GalleryAppearance {
         customMaxWidth: cssValue(n.customMaxWidth, 'Max width',),
         showTitles: Boolean(n.showTitles,),
         showCaptions: Boolean(n.showCaptions,),
+        titlePosition: oneOf(n.titlePosition, GALLERY_TITLE_POSITIONS, d.titlePosition,),
+        // Unset = inherit; only the three alignments are kept.
+        ...(n.titleAlign === 'left' || n.titleAlign === 'center' || n.titleAlign === 'right' ? { titleAlign: n.titleAlign, } : {}),
         hoverZoom: Boolean(n.hoverZoom,),
         perPage: int(n.perPage, 4, 200, 'Items per page',),
         videoBadge: Boolean(n.videoBadge,),

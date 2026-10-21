@@ -57,6 +57,12 @@
     &__mine-tier { flex: 1 1 auto; font-weight: 600; }
     &__mine-price { color: var(--site-text-muted, #6b7280); }
 
+    &__mine-note {
+        margin: 0.5rem 0 0;
+        font-size: 0.85rem;
+        color: var(--site-text-muted, #6b7280);
+    }
+
     &__mine-flag {
         padding: 1px 6px;
         border-radius: 999px;

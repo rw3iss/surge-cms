@@ -68,6 +68,11 @@ export function isTrustedHtmlField(name: string | number | undefined): boolean {
     return TRUSTED_HTML_FIELDS.has(name) || name.endsWith('Html');
 }
 
+/** A lone identifier (`some-slug`) — the only arg form that falls back to its literal text. */
+function isBareIdent(e: Expr): e is Extract<Expr, { kind: 'path' }> {
+    return e.kind === 'path' && e.parts.length === 1 && typeof e.parts[0] === 'string';
+}
+
 /** Value functions whose result is (a transform of) their first argument. */
 const PASS_THROUGH_FUNCTIONS: ReadonlySet<string> = new Set(['truncate', 'default', 'upper', 'lower', 'trim',],);
 
@@ -75,7 +80,10 @@ const PASS_THROUGH_FUNCTIONS: ReadonlySet<string> = new Set(['truncate', 'defaul
 export function isTrustedExpr(expr: Expr): boolean {
     switch (expr.kind) {
         case 'lit': return true;
-        case 'path': return isTrustedHtmlField(expr.parts[expr.parts.length - 1]);
+        // Component props are plain strings from the using block / call
+        // (`component('x', description=user.bio)`) — never trusted HTML,
+        // whatever the key is called.
+        case 'path': return expr.parts[0] !== 'props' && isTrustedHtmlField(expr.parts[expr.parts.length - 1]);
         case 'call':
             if (expr.props.length > 0) return isTrustedHtmlField(expr.props[expr.props.length - 1]);
             // A value function passes its input through (`truncate(post.content, 200)`):
@@ -121,13 +129,15 @@ async function evalExpr(expr: Expr, scope: Scope, rt: TemplateRuntime): Promise<
             return val;
         }
         case 'call': {
-            // Evaluate args. A bare identifier arg that doesn't resolve to a
+            // Evaluate args. A BARE identifier arg that doesn't resolve to a
             // variable falls back to its literal name — so `post(some-id)` and
             // `post('some-id')` both work (forgiving for editors who omit quotes),
-            // while `post(currentPost.id)` still resolves the variable.
+            // while `post(currentPost.id)` still resolves the variable. A dotted
+            // path never falls back: `default(props.x, 'Hi')` with no `x` must
+            // see undefined, not the text "props.x".
             const args = await Promise.all(expr.args.map(async (a) => {
                 const v = await evalExpr(a, scope, rt);
-                if (v === undefined && a.kind === 'path') return a.parts.join('.');
+                if (v === undefined && isBareIdent(a)) return String(a.parts[0]);
                 return v;
             }));
             // Keyword args (`{{form(id, title=false, columns=2)}}`), evaluated
@@ -144,7 +154,7 @@ async function evalExpr(expr: Expr, scope: Scope, rt: TemplateRuntime): Promise<
                     // Forgiving (like positional args): a bare identifier that
                     // isn't a variable becomes its literal name, so `title=Hello`
                     // works unquoted alongside `title='Hello'`.
-                    if (v === undefined && ex.kind === 'path') v = ex.parts.join('.');
+                    if (v === undefined && isBareIdent(ex)) v = String(ex.parts[0]);
                     named[key] = v;
                 }
             }

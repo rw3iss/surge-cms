@@ -95,10 +95,15 @@ export async function getTicketView(
     }));
     const self = tickets.find((t,) => t.code === normalized)!;
 
+    // An email-only match needs a VERIFIED account email (same rule as
+    // my-registration) — otherwise signing up with someone else's address
+    // would reveal their phone.
+    const emailMatch = !!viewer?.email && viewer.email.toLowerCase() === reg.email.toLowerCase()
+        && (await query<{ ok: boolean; }>('SELECT email_verified AS ok FROM users WHERE id = $1', [viewer.id,],)).rows[0]?.ok === true;
     const isOwner = !!viewer && (
         isStaffRole(viewer.role as never,) ||
         (!!reg.user_id && viewer.id === reg.user_id) ||
-        (!!viewer.email && viewer.email.toLowerCase() === reg.email.toLowerCase())
+        emailMatch
     );
 
     return {

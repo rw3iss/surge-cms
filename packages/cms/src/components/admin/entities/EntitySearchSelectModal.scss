@@ -131,13 +131,6 @@
         color: $text-light;
     }
 
-    &__query {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        gap: $spacing-sm $spacing-md;
-        align-items: center;
-    }
-
     tr.is-selected {
         background: color-mix(in srgb, var(--site-primary, #{$primary-color}) 12%, transparent);
     }
@@ -170,6 +163,13 @@
     .entity-value-input { flex: 1 1 auto; min-width: 8rem; }
     select { flex: 0 1 auto; min-width: 0; max-width: 16rem; }
     > button { flex: none; white-space: nowrap; }
+
+    // A phone-width modal cannot hold four controls on one line: wrap there.
+    @media (max-width: 560px) {
+        flex-wrap: wrap;
+
+        .entity-value-input { flex-basis: 100%; }
+    }
 }
 
 // The operator is the narrowest thing in the row — it holds a symbol and a

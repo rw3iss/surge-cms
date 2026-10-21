@@ -1,7 +1,7 @@
 import type { Block, NavigationItem, Page, } from '@sitesurge/types';
 import { query, } from '../db';
 import { ConflictError, } from '../core/errors';
-import { NotFoundError, } from '../middleware/error';
+import { NotFoundError, ValidationError, } from '../middleware/error';
 import { mapRow, mapRows, } from '../utils/mapRow';
 import { sanitize, } from '../utils/sanitize';
 import { uuidOrNull, } from '../utils/uuid';
@@ -251,11 +251,40 @@ export async function populateBlockStyles(blocks: any[],): Promise<any[]> {
     return blockStyleResolution.populateBlockStyles(blocks,);
 }
 
+/**
+ * A block's parent must be a block of the SAME page, and never the block itself
+ * or one of its own descendants (a cycle drops the subtree from every render).
+ * The FK alone only proves the parent exists somewhere.
+ */
+async function assertParentOnPage(pageId: string, parentBlockId: string, selfId?: string | null,): Promise<void> {
+    if (selfId && parentBlockId === selfId) throw new ValidationError('A block cannot be its own parent.',);
+    const result = await query(
+        `WITH RECURSIVE chain AS (
+             SELECT id, page_id, parent_block_id, 1 AS depth FROM blocks WHERE id = $1
+             UNION ALL
+             SELECT b.id, b.page_id, b.parent_block_id, c.depth + 1
+               FROM blocks b JOIN chain c ON b.id = c.parent_block_id
+              WHERE c.depth < 64
+         )
+         SELECT (SELECT page_id FROM chain WHERE depth = 1) AS page_id,
+                bool_or(id = $2) AS cycles
+           FROM chain`,
+        [uuidOrNull(parentBlockId,), uuidOrNull(selfId,),],
+    );
+    const row = result.rows[0] as { page_id: string | null; cycles: boolean | null; } | undefined;
+    if (!row?.page_id) throw new ValidationError('The parent block does not exist.',);
+    if (row.page_id !== pageId) throw new ValidationError('The parent block belongs to another page.',);
+    if (row.cycles) throw new ValidationError('A block cannot be moved inside one of its own children.',);
+}
+
 export async function createBlock(pageId: string, data: Record<string, unknown>,): Promise<Block> {
     // Verify page exists
     await findByIdOrThrow('pages', pageId, 'Page',);
 
     const parentBlockId = (data.parentBlockId as string | null | undefined) ?? null;
+    if (parentBlockId) {
+        await assertParentOnPage(pageId, parentBlockId, typeof data.id === 'string' ? data.id : null,);
+    }
 
     // Next order is per-parent: top-level blocks share an order space; each
     // group_item has its own order space for its children.
@@ -338,6 +367,9 @@ export async function createBlock(pageId: string, data: Record<string, unknown>,
 }
 
 export async function updateBlock(pageId: string, blockId: string, data: Record<string, unknown>,): Promise<Block> {
+    if (typeof data.parentBlockId === 'string' && data.parentBlockId) {
+        await assertParentOnPage(pageId, data.parentBlockId, blockId,);
+    }
     const updates: string[] = [];
     const values: unknown[] = [];
 

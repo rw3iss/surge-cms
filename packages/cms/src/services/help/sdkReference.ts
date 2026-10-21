@@ -537,9 +537,9 @@ export const COMPONENT_JS_DOC: SdkDoc = {
                     ],
                 },
                 {
-                    note: 'Give a prop a default with `{{ if props.x }}{{ props.x }}{{ else }}default{{ endif }}`, not '
-                        + "`default(props.x, '…')`: a function argument that resolves to nothing is read as its literal text "
-                        + '("props.x"), the engine\'s leniency for unquoted slugs.',
+                    note: "Give a prop a default with `{{ default(props.x, 'Upcoming Events') }}` (used when the prop is missing "
+                        + 'or empty), or `{{ if props.x }}{{ props.x }}{{ else }}default{{ endif }}`. Prop values are plain text: '
+                        + 'they are always HTML-escaped, whatever the prop is called.',
                 },
                 {
                     note: 'A prop that is ADDED but left empty is different from a prop that is not added: its value is '

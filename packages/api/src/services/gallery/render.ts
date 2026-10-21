@@ -22,7 +22,9 @@
  * caller passes items already filtered for its audience (SSR: anonymous site
  * view; email: public media only).
  */
-import { galleryItemRadius, galleryMasonryColumns, galleryTitlePlacement, itemRadiusCss, } from '@sitesurge/types';
+import {
+    galleryItemRadius, galleryMasonryColumns, galleryMasonryItemHeight, galleryTitlePlacement, isSafeCssValue, itemRadiusCss,
+} from '@sitesurge/types';
 import type { GalleryAspect, GalleryBlockSettings, GalleryFit, GalleryItem, } from '@sitesurge/types';
 import { EMAIL_CONTENT_WIDTH, pxValue, } from '../mail/blocks/_util';
 import { escapeHtml, } from '../../utils/html';
@@ -96,7 +98,8 @@ export function galleryItemHtml(item: GalleryItem | null, base = '',): string {
     return item ? galleryFiguresHtml([item,], base,) : '';
 }
 
-const safeCss = (v: string | undefined,) => (v && !/[;{}<>"]/.test(v,) ? v : '');
+/** A CSS value from settings, or '' when the shared `isSafeCssValue` rule refuses it. */
+const safeCss = (v: string | undefined,) => (v && isSafeCssValue(v,) ? v : '');
 
 /** Corner radius when neither the block nor the site sets one — the web tile's own fallback (`var(--site-radius, 8px)`). */
 export const GALLERY_EMAIL_FALLBACK_RADIUS = '8px';
@@ -163,9 +166,9 @@ export function mediaAspect(i: GalleryItem,): number | null {
 }
 
 /**
- * The size, px, of media with aspect `ar` fitted INSIDE a `maxW`×`maxH` box
- * (Fit = contain): as wide as the box allows without exceeding its height.
- * The item then hugs its media instead of letterboxing it in the box.
+ * The size, px, of media with aspect `ar` fitted INSIDE a `maxW`×`maxH` box:
+ * as wide as the box allows without exceeding its height. Fit = hug sizes the
+ * item to it; Fit = contain centres a picture of this size in the full box.
  */
 export function galleryContainSize(maxW: number, maxH: number, ar: number,): { width: number; height: number; } {
     const width = Math.max(1, Math.min(maxW, Math.floor(maxH * ar,),),);
@@ -309,15 +312,15 @@ export function galleryEmailHtml(
             // Cover: the fixed box, the picture cropped to fill it (the site's object-fit: cover).
             return cellOf(src, href, alt, isVideo, w, h, 'cover', cssSrc,);
         }
-        /** The picture scaled to `width` (never stretched), its corners `corners`. */
-        const plain = (width: number, corners: string, height?: number,) =>
-            `<img class="gallery-item-media" src="${src}" alt="${alt}" width="${width}"${height ? ` height="${height}"` : ''} style="display:block;width:100%;max-width:${width}px;height:auto;border:0;outline:none;text-decoration:none;margin:${placeMargin};border-radius:${corners};" />`;
+        /** The picture scaled to `width` (never stretched), its corners `corners`, placed by `margin`. */
+        const plain = (width: number, corners: string, height?: number, margin = placeMargin,) =>
+            `<img class="gallery-item-media" src="${src}" alt="${alt}" width="${width}"${height ? ` height="${height}"` : ''} style="display:block;width:100%;max-width:${width}px;height:auto;border:0;outline:none;text-decoration:none;margin:${margin};border-radius:${corners};" />`;
         if (h && plan.fit === 'contain') {
             // Contain: the whole picture centred in the item box — every item the same size.
             const ar = mediaAspect(i,);
             if (isVideo || over) return cellOf(src, href, alt, isVideo, w, h, 'contain', cssSrc,);
             const inner = ar
-                ? (() => { const f = galleryContainSize(w, h, ar,); return plain(f.width, r, f.height,).replace(`margin:${placeMargin};`, 'margin:0 auto;',); })()
+                ? (() => { const f = galleryContainSize(w, h, ar,); return plain(f.width, r, f.height, '0 auto',); })()
                 : `<img class="gallery-item-media" src="${src}" alt="${alt}" width="${w}" style="display:block;width:auto;max-width:${w}px;height:auto;max-height:${h}px;border:0;outline:none;text-decoration:none;margin:0 auto;border-radius:${r};" />`;
             return `<table role="presentation" width="${w}" cellpadding="0" cellspacing="0" border="0" style="width:${w}px;max-width:100%;margin:${placeMargin};border-collapse:collapse"><tr><td align="center" valign="middle" height="${h}" style="height:${h}px;padding:0;text-align:center;vertical-align:middle"><a href="${href}" style="display:block;text-decoration:none;">${inner}</a></td></tr></table>`;
         }
@@ -384,10 +387,10 @@ export function galleryEmailHtml(
         // One row of column cells; each a stack of items, every item in the
         // currently-shortest column (estimated px: the media at the column
         // width + the title / caption lines + the padding).
-        const est = (i: GalleryItem,): number => {
-            const ar = mediaAspect(i,) ?? 1;
-            return w / ar + 2 * pad + (place.overlay ? 0 : (settings.showTitles && i.title ? 22 : 0) + (settings.showCaptions && i.caption ? 20 : 0));
-        };
+        // The same estimate as the web view (`galleryMasonryItemHeight`).
+        const est = (i: GalleryItem,): number => galleryMasonryItemHeight(i, w, {
+            showTitles: settings.showTitles, showCaptions: settings.showCaptions, overlay: place.overlay, extra: 2 * pad,
+        },);
         // Empty columns (fewer items than columns) are dropped: the rest keep
         // their slot width and the narrower table is placed by the alignment.
         const cols = galleryMasonryColumns(list, plan.columns, est,).filter((c,) => c.length > 0,);

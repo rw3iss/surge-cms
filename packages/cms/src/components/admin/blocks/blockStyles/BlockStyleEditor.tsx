@@ -739,11 +739,15 @@ const BlockStyleEditor: Component<BlockStyleEditorProps> = (props,) => {
                             <input
                                 type="number"
                                 step="1"
+                                min="-999999"
+                                max="999999"
                                 class="block-style-editor__custom-input"
                                 value={sv('order',) || ''}
                                 onChange={(e,) => {
                                     const raw = e.currentTarget.value.trim();
-                                    const n = raw === '' ? NaN : Math.trunc(Number(raw,),);
+                                    // Clamped to the ±999999 the API accepts (`parseCssOrder`), so a
+                                    // long number can't make the whole save fail with a 400.
+                                    const n = raw === '' ? NaN : Math.max(-999999, Math.min(999999, Math.trunc(Number(raw,),),),);
                                     update('order', Number.isFinite(n,) ? String(n,) : undefined,);
                                 }}
                                 placeholder="0"

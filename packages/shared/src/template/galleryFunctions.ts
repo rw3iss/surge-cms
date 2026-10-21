@@ -22,6 +22,8 @@
 import type { GalleryBlockLayout, GalleryBlockLayoutOptions, GalleryBlockSettings, GalleryFit, GalleryOpenMode, GalleryQuery, GalleryTitlePosition, } from '../types/gallery';
 import { DEFAULT_GALLERY_BLOCK_SETTINGS, GALLERY_FITS, GALLERY_TITLE_POSITIONS, } from '../types/gallery';
 import { itemRadiusCss, } from '../utils/blockStyleCss';
+import { isSafeCssValue, } from '../utils/cssSafety';
+import { galleryBoolOf, } from '../utils/galleryQuery';
 
 export const GALLERY_LIST_KIND = 'galleryList';
 export const GALLERY_ITEM_KIND = 'galleryItem';
@@ -60,13 +62,13 @@ export function galleryCallFor(name: string, args: unknown[], named: Record<stri
     if (coll === 'root' || UUID.test(coll,)) q.collectionId = coll;
     if (str(named.search,)) q.search = str(named.search,);
     // featured=true → only featured items; featured=false → only the others.
-    if (named.featured !== undefined) {
-        const f = str(named.featured,).toLowerCase();
-        if (f === 'true' || f === '1' || named.featured === true) q.featured = true;
-        else if (f === 'false' || f === '0' || named.featured === false) q.featured = false;
-    }
+    const featured = galleryBoolOf(named.featured,);
+    if (featured !== undefined) q.featured = featured;
     const sort = str(named.sort,);
     if (['order', 'newest', 'oldest', 'title', 'random',].includes(sort,)) q.sort = sort as GalleryQuery['sort'];
+    // dir='desc' reverses `title` (Z–A) / `order` (last first), as in the block's query.
+    const dir = str(named.dir,).toLowerCase();
+    if (dir === 'desc' || dir === 'asc') q.dir = dir;
     if (num(named.limit,) !== undefined) q.limit = num(named.limit,);
     if (num(named.page,) !== undefined) q.page = num(named.page,);
     const ids = str(named.ids,);
@@ -88,7 +90,8 @@ function layoutOpts(o: Record<string, unknown>, prefix: '' | 'mobile',): Gallery
     }
     for (const key of ['gap', 'itemWidth', 'itemHeight',] as const) {
         const s = str(o[k(key,)],);
-        if (s && !/[;{}<>"]/.test(s,)) out[key] = /^\d+(\.\d+)?$/.test(s,) ? `${s}px` : s;
+        // The shared CSS-value rule (no `url(`, comments, escapes, …), as everywhere else.
+        if (s && s.length <= 64 && isSafeCssValue(s,)) out[key] = /^\d+(\.\d+)?$/.test(s,) ? `${s}px` : s;
     }
     const aspect = str(o[k('aspect',)],);
     if (['square', '4:3', '3:2', '16:9', 'original',].includes(aspect,)) out.aspect = aspect as GalleryBlockLayoutOptions['aspect'];
