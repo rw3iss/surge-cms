@@ -163,7 +163,10 @@ export function groupContainerStyle(
     return {
         display: 'flex',
         'flex-direction': direction === 'vertical' ? 'column' : 'row',
-        'flex-wrap': (data.wrap as string) || 'wrap',
+        // A Column never wraps: a wrapping column flex box with a definite
+        // height (a group stretched by its row) spreads its slots apart instead
+        // of stacking them at their content height.
+        'flex-wrap': direction === 'vertical' ? 'nowrap' : ((data.wrap as string) || 'wrap'),
         gap,
         // Flex defaults (stretch / flex-start) match the browser's, so the
         // public renderer's previously-unset values are unchanged; the admin

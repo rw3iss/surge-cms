@@ -96,7 +96,7 @@ const GroupBlock: Component<GroupBlockProps> = (props,) => {
                     </small>
                 </Show>
 
-                <Show when={!isGrid()}>
+                <Show when={direction() === 'horizontal' || !direction()}>
                 <FormField label="Wrap" inline>
                     <select
                         value={props.data.wrap || 'wrap'}

@@ -54,3 +54,10 @@ describe('groupSlotItemStyle: column groups', () => {
         expect(groupSlotItemStyle({}, { direction: 'horizontal', },).flex,).toBe('1 1 0',);
     },);
 },);
+
+describe('groupContainerStyle: column groups never wrap', () => {
+    it('vertical → nowrap; rows keep their wrap setting', () => {
+        expect(groupContainerStyle({ direction: 'vertical', wrap: 'wrap', },)['flex-wrap'],).toBe('nowrap',);
+        expect(groupContainerStyle({ direction: 'horizontal', wrap: 'wrap', },)['flex-wrap'],).toBe('wrap',);
+    },);
+},);
