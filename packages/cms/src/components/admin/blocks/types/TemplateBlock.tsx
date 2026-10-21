@@ -78,10 +78,10 @@ const TemplateBlockEdit: Component<TemplateBlockEditProps> = (props,) => {
                         <Show when={selected()}>
                             <A
                                 href={`/admin/components/${selected()!.id}`}
-                                class="ui-button ui-button--sm ui-button--secondary template-block-edit__edit"
+                                class="template-block-edit__edit"
                                 target="_blank"
                             >
-                                Edit Component
+                                Edit component ↗
                             </A>
                         </Show>
                     </div>

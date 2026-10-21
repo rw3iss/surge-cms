@@ -26,15 +26,21 @@
         }
     }
 
+    // One centred row: "Preview data:" · the summary · Set data… (· Use auto).
     &__preview {
         display: flex;
-        flex-wrap: wrap;
         align-items: center;
         gap: $spacing-sm;
         font-size: $font-size-sm;
+
+        .data-binding-field { flex: 1 1 auto; min-width: 0; }
+        .data-binding-field__row { flex-wrap: nowrap; gap: $spacing-sm; }
+        // The summary sizes to its text, so the button follows it directly.
+        .data-binding-field__summary { flex: 0 1 auto; }
     }
 
     &__preview-label {
+        flex: none;
         color: var(--admin-text-muted, #{$text-light});
     }
 
@@ -50,7 +56,11 @@
         gap: $spacing-sm;
     }
 
+    // The two field lines, with the standard row gap between them.
     &__fields {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-md;
         flex: 1 1 auto;
         min-width: 0;
     }

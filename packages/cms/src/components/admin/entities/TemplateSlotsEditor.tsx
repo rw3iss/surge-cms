@@ -82,7 +82,7 @@ const TemplateSlotsEditor: Component<TemplateSlotsEditorProps> = (props,) => {
                             <div class="template-slots__main">
                                 <div class="template-slots__fields">
                                     <div class="admin-form-row template-slots__line">
-                                        <FormField label="ID" error={idError() ?? undefined} hint="Used by blocks to pick this slot.">
+                                        <FormField label="ID" error={idError() ?? undefined} tooltip="Used by blocks to pick this slot (and as its {{ }} variable name).">
                                             <DraftInput
                                                 value={slot.id}
                                                 validate={(v,) => slotIdError(v, otherIds(),)}

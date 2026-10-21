@@ -193,7 +193,7 @@ export function EntityEditorShell<TEntity,>(
                                 class="admin-header__view-link"
                                 title={props.status() === 'published' ? 'Open the live page in a new tab' : 'Open a preview of the saved version in a new tab'}
                             >
-                                {props.labels.viewLabel} ↗
+                                {props.labels.viewLabel}
                             </a>
                         </Show>
                         <Show when={e.isDeleted()}>

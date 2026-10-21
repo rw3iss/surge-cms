@@ -1755,3 +1755,34 @@
 }
 
 .template-block-edit__prop-add { align-self: flex-start; }
+
+// ─── Block property panels: standard spacing ───
+// The same rule admin sections use (_sections.scss), for the block Edit panel:
+// stacked rows / sections / fields get the standard $spacing-md between them,
+// however the block's own editor nests them. Containers that already space
+// their children with a flex/grid gap (.block-edit-form, .admin-form-row) are
+// skipped so nothing doubles. Zero specificity (:where) — a panel's own rule wins.
+$_panel-rows: '.admin-form-field, .admin-form-row, .ui-form-section, .form-group, .block-edit-form__field, .entity-block-edit__slots, .alert';
+:where(.block-edit-controller__form) :where(:not(.block-edit-form, .admin-form-row, .admin-form-row__action)) > :where(#{$_panel-rows}) + :where(#{$_panel-rows}) {
+  margin-top: $spacing-md;
+}
+
+// Switches laid side by side (any flex/grid row of Toggles): a horizontal gap,
+// and a smaller one between wrapped lines.
+:where(.block-edit-controller__form) :where(:has(> .toggle-control + .toggle-control)) {
+  column-gap: $spacing-md;
+  row-gap: $spacing-sm;
+}
+
+// Component block → "Edit component ↗": a plain text link beside the picker
+// (like the Entity block's "Edit template"), not a button.
+.template-block-edit__edit {
+  flex: none;
+  align-self: center;
+  font-size: $font-size-sm;
+  color: var(--site-primary, #{$primary-color});
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover, &:focus-visible { text-decoration: underline; }
+}
