@@ -4,6 +4,23 @@
 
 Surge CMS is a self-hosted, customizable content platform — pages, posts, campaigns, forms, users, media, and a live block-based editor with deep style customization. SolidJS frontend, Express + PostgreSQL backend, fully typed shared SDK.
 
+<p align="center">
+  <a href="docs/images/admin-page-editor.png">
+    <img src="docs/images/admin-page-editor.png" alt="The Surge CMS admin: editing the Home page" width="720" />
+  </a>
+</p>
+
+### Live demo
+
+Try it at **[surgecms.ryanweiss.net](https://surgecms.ryanweiss.net)** — the admin is at [/admin](https://surgecms.ryanweiss.net/admin).
+
+| | |
+|---|---|
+| **E-mail** | `admin@ryanweiss.net` |
+| **Password** | `admin` |
+
+The demo is shared and may be reset at any time.
+
 > Status: actively developed. First-run setup wizard handles install end-to-end.
 
 ---
