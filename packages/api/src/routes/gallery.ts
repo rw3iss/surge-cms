@@ -39,6 +39,7 @@ const patch = z.object({
     collectionId: z.string().uuid().nullable().optional(),
     access: accessRule.optional(),
     hiddenInGallery: z.boolean().optional(),
+    isFeatured: z.boolean().optional(),
 },) satisfies z.ZodType<GalleryItemUpdateBody>;
 
 const collectionBody = z.object({
@@ -47,6 +48,7 @@ const collectionBody = z.object({
     sortOrder: z.number().int().optional(),
     access: accessRule.optional(),
     hiddenInGallery: z.boolean().optional(),
+    isFeatured: z.boolean().optional(),
 },) satisfies z.ZodType<GalleryCollectionCreateBody & GalleryCollectionUpdateBody>;
 
 const collectionDeleteBody = z.object({
@@ -84,6 +86,7 @@ const listQuery = z.object({
     page: z.coerce.number().int().min(1,).optional(),
     seed: z.string().regex(/^[\w-]{1,32}$/,).optional(),
     listing: queryBool,
+    featured: queryBool,
 },);
 
 const collectionsQuery = z.object({ listing: queryBool, },);

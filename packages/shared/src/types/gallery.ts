@@ -223,6 +223,8 @@ export interface GalleryItem {
      * Gallery blocks, `{{gallery()}}`, email, the entity type and the admin; its own page still works.
      */
     hiddenInGallery: boolean;
+    /** A curation marker (like a product's "featured") — query it with `featured` / `{{gallery(featured=true)}}`. */
+    isFeatured: boolean;
     commentCount: number;
     /**
      * When the item was first published (the admin Publish that created it).
@@ -262,6 +264,8 @@ export interface GalleryQuery {
      * (except when `collectionId` names that collection). Absent = include them (blocks, templates, email).
      */
     listing?: boolean;
+    /** true = only featured items; false = only items NOT featured; absent = both. */
+    featured?: boolean;
 }
 
 export interface GalleryListResult {

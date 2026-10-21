@@ -21,6 +21,8 @@ export interface DraftOptions {
     access: GalleryAccessRule;
     /** Left out of the public gallery listings (still usable in blocks, templates, emails; its own page works). */
     hiddenInGallery: boolean;
+    /** Featured — a curation marker queried with `featured` / {{gallery(featured=true)}}. */
+    isFeatured: boolean;
 }
 
 export interface DraftItem {
@@ -56,7 +58,7 @@ export interface DraftItem {
 
 export const EMPTY_OPTIONS: DraftOptions = {
     titleOverride: '', captionOverride: '', tags: [], visibility: 'inherit', minTierId: null, comments: 'inherit', anonymousComments: 'inherit',
-    access: EMPTY_GALLERY_ACCESS_RULE, hiddenInGallery: false,
+    access: EMPTY_GALLERY_ACCESS_RULE, hiddenInGallery: false, isFeatured: false,
 };
 
 /** A fresh copy of a rule (arrays never shared with the store). */
@@ -80,6 +82,7 @@ export function optionsOf(i: GalleryItem,): DraftOptions {
         anonymousComments: i.anonymousComments,
         access: copyAccess(i.access,),
         hiddenInGallery: Boolean(i.hiddenInGallery,),
+        isFeatured: Boolean(i.isFeatured,),
     };
 }
 
@@ -129,6 +132,8 @@ export function patchOf(o: DraftOptions,): GalleryItemPatch {
         access: copyAccess(o.access,),
         // Likewise for a draft stored before "Hide from gallery" existed: not hidden.
         hiddenInGallery: Boolean(o.hiddenInGallery,),
+        // A draft stored before "Is featured" existed: not featured.
+        isFeatured: Boolean(o.isFeatured,),
     };
 }
 

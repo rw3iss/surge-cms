@@ -23,3 +23,11 @@ describe('toGalleryQuery sort (select modal → gallery)', () => {
         expect(toGalleryQuery({},).sort,).toBe('order',);
     },);
 },);
+
+describe('featured filter (Set data… modal)', () => {
+    it('maps the virtual `featured` filter onto GalleryQuery.featured', () => {
+        expect(toGalleryQuery({ filter: { featured: { op: 'eq', value: true, }, }, } as never,).featured,).toBe(true,);
+        expect(toGalleryQuery({ filter: { featured: 'false', }, } as never,).featured,).toBe(false,);
+        expect(toGalleryQuery({},).featured,).toBeUndefined();
+    },);
+},);

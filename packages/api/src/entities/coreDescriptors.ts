@@ -251,7 +251,7 @@ function galleryItemDescriptor(): EntityTypeDef {
             df(kind, 'mediaId', 'text', 'Media id', 5,), df(kind, 'tags', 'json', 'Tags', 6,),
             df(kind, 'collectionId', 'text', 'Collection id', 7,), df(kind, 'commentCount', 'integer', 'Comments', 8,),
             df(kind, 'publishedAt', 'datetime', 'Published', 9,), df(kind, 'createdAt', 'datetime', 'Added', 10,),
-            df(kind, 'sortOrder', 'integer', 'Order', 11,), df(kind, 'hiddenInGallery', 'boolean', 'Hidden from gallery pages', 12,),
+            df(kind, 'sortOrder', 'integer', 'Order', 11,), df(kind, 'hiddenInGallery', 'boolean', 'Hidden from gallery pages', 12,), df(kind, 'isFeatured', 'boolean', 'Featured', 13,),
         ],
         createdAt: '', updatedAt: '',
     };

@@ -20,6 +20,7 @@ block and the `{{gallery(...)}}` template function. In-admin guide:
 | `collection_id` | The collection the item is in; NULL = the gallery root (migration 153). `ON DELETE SET NULL`. |
 | `access_enabled`, `access_roles`, `access_tier_ids` | The item's own role / subscription-level rule (see Access model). |
 | `hidden_in_gallery` | **Hide from gallery** (migration 154): left out of the gallery listings only (see below). |
+| `is_featured` | **Is featured** (migration 184): a curation marker to QUERY — `GalleryQuery.featured` (`true` only featured, `false` only the others), the `featured` virtual filter in every Set data… modal / Gallery block / slot, `{{gallery(featured=true)}}`, and `isFeatured` on every item (`{{ g.isFeatured }}`). Changes nothing by itself. |
 
 `gallery_collections` (migration `153_gallery_collections.sql`): `name`
 (default "Untitled"), `description`, `sort_order`, the same three `access_*`

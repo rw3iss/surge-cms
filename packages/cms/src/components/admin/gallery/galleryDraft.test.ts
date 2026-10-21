@@ -7,7 +7,7 @@ import {
 
 const item = (id: string, o: Partial<GalleryItem> = {},): GalleryItem => ({
     id, collectionId: null, access: { enabled: false, roles: [], tierIds: [], }, mediaId: `m-${id}`, media: null, mediaType: null, title: id, caption: '', titleOverride: null, captionOverride: null, tags: [], sortOrder: 0,
-    visibility: 'inherit', minTierId: null, comments: 'inherit', anonymousComments: 'inherit', url: `/gallery/${id}`, hiddenInGallery: false,
+    visibility: 'inherit', minTierId: null, comments: 'inherit', anonymousComments: 'inherit', url: `/gallery/${id}`, hiddenInGallery: false, isFeatured: false,
     commentCount: 0, publishedAt: '', createdAt: '', updatedAt: '', ...o,
 });
 
@@ -116,5 +116,13 @@ describe('upload titles', () => {
     it('the upload title is never persisted to the stored draft', () => {
         const p = persistableDraft([{ ...staged({ uploadTitle: 'T', }), file: undefined, mediaId: 'm', },],);
         expect('uploadTitle' in p[0]!,).toBe(false,);
+    },);
+},);
+
+describe('is featured', () => {
+    it('round-trips through the draft into the publish body', () => {
+        const draft = draftFromItems([item('a', { isFeatured: true, },), item('b',),],);
+        expect(draft.map((d,) => d.options.isFeatured,),).toEqual([true, false,],);
+        expect(buildPublishBody(draft,).items.map((i,) => (i as { isFeatured?: boolean; }).isFeatured,),).toEqual([true, false,],);
     },);
 },);

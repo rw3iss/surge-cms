@@ -149,6 +149,13 @@ export default function GalleryItemPanel(props: GalleryItemPanelProps,) {
             </FormField>
 
             <Toggle
+                checked={Boolean(o().isFeatured,)}
+                onChange={(isFeatured,) => props.onChange({ isFeatured, },)}
+                label="Is featured"
+                hint="A marker you can query: Set data… → Featured = true, or {{gallery(featured=true)}} — e.g. a homepage strip of featured photos. Changes nothing on its own."
+            />
+
+            <Toggle
                 checked={Boolean(o().hiddenInGallery,)}
                 onChange={(hiddenInGallery,) => props.onChange({ hiddenInGallery, },)}
                 label="Hide from gallery"

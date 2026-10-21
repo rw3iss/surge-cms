@@ -57,3 +57,11 @@ describe('galleryItemRadius / itemRadiusCss', () => {
         expect(itemRadiusCss('1px;}x{',),).toBeUndefined();
     },);
 },);
+
+describe('gallery(featured=…)', () => {
+    it('maps featured=true / false; absent leaves it unset', () => {
+        expect(galleryCallFor('gallery', [], { featured: true, },)!.query.featured,).toBe(true,);
+        expect(galleryCallFor('gallery', [], { featured: 'false', },)!.query.featured,).toBe(false,);
+        expect(galleryCallFor('gallery', [], {},)!.query.featured,).toBeUndefined();
+    },);
+},);

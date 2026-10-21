@@ -23,6 +23,14 @@ function filterValue(f: EntityQuery['filter'], key: string,): string | undefined
     return s.trim() || undefined;
 }
 
+/** The `featured` filter value → GalleryQuery.featured (absent / unknown = both). */
+function featuredFilter(v: string | undefined,): Pick<GalleryQuery, 'featured'> {
+    const s = (v ?? '').toLowerCase();
+    if (s === 'true' || s === '1' || s === 'yes') return { featured: true, };
+    if (s === 'false' || s === '0' || s === 'no') return { featured: false, };
+    return {};
+}
+
 /** EntityQuery → GalleryQuery. */
 export function toGalleryQuery(q: EntityQuery = {},): GalleryQuery {
     // The shared select modal sends `sortBy` + `sortOrder` (or `sortOrder` alone,
@@ -38,6 +46,7 @@ export function toGalleryQuery(q: EntityQuery = {},): GalleryQuery {
     return {
         type: (filterValue(q.filter, 'type',) as GalleryQuery['type']) ?? 'all',
         tag: filterValue(q.filter, 'tag',),
+        ...featuredFilter(filterValue(q.filter, 'featured',),),
         collectionId: filterValue(q.filter, 'collection',),
         sort: (filterValue(q.filter, 'sort',) as GalleryQuery['sort']) ?? sortBy ?? 'order',
         search: q.search,
@@ -86,6 +95,11 @@ registerVirtualFilter('gallery_item', {
         const r = await dbQuery<{ t: string; }>(`SELECT DISTINCT unnest(tags) AS t FROM gallery_items ORDER BY 1 LIMIT 200`,).catch(() => ({ rows: [], }));
         return r.rows.map((x,) => ({ value: x.t, label: x.t, }));
     },
+    resolve: handledByProvider,
+},);
+registerVirtualFilter('gallery_item', {
+    key: 'featured', label: 'Featured', description: 'true = only featured items · false = only items not featured.',
+    options: async () => opts([['true', 'Featured',], ['false', 'Not featured',],],),
     resolve: handledByProvider,
 },);
 registerVirtualFilter('gallery_item', {

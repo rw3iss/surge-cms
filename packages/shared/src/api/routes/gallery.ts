@@ -29,6 +29,8 @@ export interface GalleryItemPatch {
     access?: GalleryAccessRule;
     /** Leave out of the gallery listings. Omitted = unchanged (publish too). */
     hiddenInGallery?: boolean;
+    /** Featured (a curation marker you can query). Omitted = unchanged (publish too). */
+    isFeatured?: boolean;
 }
 export type GalleryItemUpdateBody = GalleryItemPatch;
 

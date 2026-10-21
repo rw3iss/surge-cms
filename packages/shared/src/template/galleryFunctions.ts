@@ -59,6 +59,12 @@ export function galleryCallFor(name: string, args: unknown[], named: Record<stri
     const coll = str(named.collection ?? named.collectionId,);
     if (coll === 'root' || UUID.test(coll,)) q.collectionId = coll;
     if (str(named.search,)) q.search = str(named.search,);
+    // featured=true → only featured items; featured=false → only the others.
+    if (named.featured !== undefined) {
+        const f = str(named.featured,).toLowerCase();
+        if (f === 'true' || f === '1' || named.featured === true) q.featured = true;
+        else if (f === 'false' || f === '0' || named.featured === false) q.featured = false;
+    }
     const sort = str(named.sort,);
     if (['order', 'newest', 'oldest', 'title', 'random',].includes(sort,)) q.sort = sort as GalleryQuery['sort'];
     if (num(named.limit,) !== undefined) q.limit = num(named.limit,);

@@ -1312,6 +1312,7 @@ export const GALLERY_DOC: SdkDoc = {
                         ['Visibility', 'Inherit · Public · Members (signed in) · Tier (a subscription tier and above)', 'Inherit (the gallery\'s access)',],
                         ['Comments', 'Inherit · On · Off', 'Inherit (Gallery settings)',],
                         ['Anonymous comments', 'Inherit · On · Off', 'Inherit (Gallery settings)',],
+                        ['Is featured', 'A marker you can query, like a product\'s Featured: Set data… → Featured = true, {{gallery(featured=true)}}, `cms.gallery.list({ featured: true })`. Changes nothing on its own', 'Off',],
                         ['Hide from gallery', 'On: not listed on the gallery pages (grids, sidebar, prev / next, sitemap). Still used by Gallery blocks, templates and emails; its own page still works. Collections have the same switch (their items are then listed only on the collection\'s own page)', 'Off',],
                     ],
                 },

@@ -38,7 +38,7 @@ interface Row {
     id: string; media_id: string | null; title: string | null; caption: string | null; tags: string[]; sort_order: number;
     visibility: GalleryItem['visibility']; min_tier_id: string | null; comments: GalleryItem['comments'];
     anonymous_comments: GalleryItem['anonymousComments']; created_at: Date; updated_at: Date;
-    collection_id: string | null; hidden_in_gallery: boolean | null; access_enabled: boolean; access_roles: string[] | null; access_tier_ids: string[] | null;
+    collection_id: string | null; hidden_in_gallery: boolean | null; is_featured?: boolean | null; access_enabled: boolean; access_roles: string[] | null; access_tier_ids: string[] | null;
     m_id: string | null; m_mime: string | null; m_url: string | null; m_thumb: string | null; m_width: number | null; m_height: number | null;
     m_duration: number | null; m_title: string | null; m_caption: string | null; m_alt: string | null; m_credits: string | null;
     m_access: 'public' | 'private' | null; m_status: string | null; m_name: string | null; comment_count: number | null;
@@ -105,6 +105,7 @@ export function mapRow(r: Row, baseUrl: string,): GalleryItem {
         anonymousComments: r.anonymous_comments,
         url: galleryItemPath(baseUrl, r.id,),
         hiddenInGallery: Boolean(r.hidden_in_gallery,),
+        isFeatured: Boolean(r.is_featured,),
         commentCount: Number(r.comment_count ?? 0,),
         // A row is only ever INSERTed by the admin Publish (sync) and created_at is never updated, so it IS the publish date.
         publishedAt: new Date(r.created_at,).toISOString(),
@@ -142,6 +143,8 @@ export function normalizeQuery(q: Omit<GalleryQuery, 'ids'> & { ids?: string[] |
         limit: Math.min(MAX_LIMIT, Math.max(1, Math.round(Number(q.limit,) || 24,),),),
         page: Math.max(1, Math.round(Number(q.page,) || 1,),),
         listing: q.listing === true || (q.listing as unknown) === 'true' || undefined,
+        featured: q.featured === true || (q.featured as unknown) === 'true' ? true
+            : q.featured === false || (q.featured as unknown) === 'false' ? false : undefined,
     };
 }
 
@@ -205,6 +208,8 @@ async function buildWhere(q: ReturnType<typeof normalizeQuery>, opts: ListOption
         params.push(q.ids,);
         where.push(`gi.id = ANY($${params.length}::uuid[])`,);
     }
+    if (q.featured === true) where.push('gi.is_featured = true',);
+    if (q.featured === false) where.push('gi.is_featured = false',);
     if (q.type === 'image') where.push(`COALESCE(m.mime_type, '') NOT LIKE 'video/%'`,);
     if (q.type === 'video') where.push(`m.mime_type LIKE 'video/%'`,);
     if (q.tag) {
@@ -337,6 +342,7 @@ function cleanPatch(p: GalleryItemPatch,): GalleryItemPatch {
     }
     if (p.access !== undefined) out.access = cleanRule(p.access,);
     if (p.hiddenInGallery !== undefined) out.hiddenInGallery = Boolean(p.hiddenInGallery,);
+    if (p.isFeatured !== undefined) out.isFeatured = Boolean(p.isFeatured,);
     if (out.visibility === 'tier' && out.minTierId === null) throw new ValidationError('Choose a tier for a tier-only item.',);
     return out;
 }
@@ -344,7 +350,7 @@ function cleanPatch(p: GalleryItemPatch,): GalleryItemPatch {
 const COLS: Record<Exclude<keyof GalleryItemPatch, 'access'>, string> = {
     titleOverride: 'title', captionOverride: 'caption', tags: 'tags', visibility: 'visibility', minTierId: 'min_tier_id',
     comments: 'comments', anonymousComments: 'anonymous_comments', collectionId: 'collection_id',
-    hiddenInGallery: 'hidden_in_gallery',
+    hiddenInGallery: 'hidden_in_gallery', isFeatured: 'is_featured',
 };
 
 /** SET fragments for the fields PRESENT in the patch — an omitted field stays as it is. */
@@ -517,6 +523,7 @@ export function publishRows(keep: GallerySyncBody['items'], createdBy: string | 
                 visibility: p.visibility ?? 'inherit', min_tier_id: p.minTierId ?? null, comments: p.comments ?? 'inherit',
                 anonymous_comments: p.anonymousComments ?? 'inherit', created_by: createdBy, collection_id: p.collectionId ?? null,
                 access_enabled: access.enabled, access_roles: access.roles, access_tier_ids: access.tierIds, hidden_in_gallery: p.hiddenInGallery ?? false,
+                is_featured: p.isFeatured ?? false,
             },);
         }
     },);
@@ -541,15 +548,17 @@ export const BULK_UPDATE_SQL = `UPDATE gallery_items g SET
         access_roles = ${fieldOr('access_roles', textArr('access_roles',),)},
         access_tier_ids = ${fieldOr('access_tier_ids', `${textArr('access_tier_ids',)}::uuid[]`,)},
         hidden_in_gallery = ${fieldOr('hidden_in_gallery', `(e->>'hidden_in_gallery')::boolean`,)},
+        is_featured = ${fieldOr('is_featured', `(e->>'is_featured')::boolean`,)},
         updated_at = NOW()
     FROM jsonb_array_elements($1::jsonb) e
     WHERE g.id = (e->>'id')::uuid`;
 
 export const BULK_INSERT_SQL = `INSERT INTO gallery_items (media_id, sort_order, title, caption, tags, visibility, min_tier_id, comments, anonymous_comments,
-                                created_by, collection_id, access_enabled, access_roles, access_tier_ids, hidden_in_gallery)
+                                created_by, collection_id, access_enabled, access_roles, access_tier_ids, hidden_in_gallery, is_featured)
     SELECT (e->>'media_id')::uuid, (e->>'ord')::int, e->>'title', e->>'caption', ${textArr('tags',)}, e->>'visibility', (e->>'min_tier_id')::uuid,
            e->>'comments', e->>'anonymous_comments', (e->>'created_by')::uuid, (e->>'collection_id')::uuid, (e->>'access_enabled')::boolean,
-           ${textArr('access_roles',)}, ${textArr('access_tier_ids',)}::uuid[], (e->>'hidden_in_gallery')::boolean
+           ${textArr('access_roles',)}, ${textArr('access_tier_ids',)}::uuid[], (e->>'hidden_in_gallery')::boolean,
+           COALESCE((e->>'is_featured')::boolean, false)
       FROM jsonb_array_elements($1::jsonb) e
     ON CONFLICT (media_id) WHERE media_id IS NOT NULL DO UPDATE SET sort_order = EXCLUDED.sort_order, updated_at = NOW()
     RETURNING (xmax = 0) AS inserted`;

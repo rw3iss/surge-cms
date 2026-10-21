@@ -6054,6 +6054,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "name": "listing",
                             "type": "boolean | '0' | '1' | 'true' | 'false'",
                             "required": false
+                        },
+                        {
+                            "name": "featured",
+                            "type": "boolean | '0' | '1' | 'true' | 'false'",
+                            "required": false
                         }
                     ]
                 },
@@ -6165,6 +6170,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "name": "hiddenInGallery",
                             "type": "boolean",
                             "required": false
+                        },
+                        {
+                            "name": "isFeatured",
+                            "type": "boolean",
+                            "required": false
                         }
                     ]
                 },
@@ -6210,6 +6220,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                         },
                         {
                             "name": "hiddenInGallery",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
+                            "name": "isFeatured",
                             "type": "boolean",
                             "required": false
                         }
@@ -6400,6 +6415,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                         },
                         {
                             "name": "hiddenInGallery",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
+                            "name": "isFeatured",
                             "type": "boolean",
                             "required": false
                         }

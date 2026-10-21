@@ -294,3 +294,15 @@ describe('viewerSignature (F4)', () => {
         expect(items.viewerSignature(1_000_000, g({ staff: true, roles: ['admin',], },),),).toBe('staff',);
     });
 });
+
+describe('featured', () => {
+    it('normalizeQuery keeps true / false (also as text) and drops anything else', () => {
+        expect(items.normalizeQuery({ featured: true, },).featured,).toBe(true,);
+        expect(items.normalizeQuery({ featured: 'false' as never, },).featured,).toBe(false,);
+        expect(items.normalizeQuery({ featured: 'maybe' as never, },).featured,).toBeUndefined();
+    },);
+    it('a patch carries isFeatured to its column', () => {
+        expect(items.BULK_UPDATE_SQL,).toContain('is_featured = ',);
+        expect(items.BULK_INSERT_SQL,).toContain('is_featured)',);
+    },);
+},);

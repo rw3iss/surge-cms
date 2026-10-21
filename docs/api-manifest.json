@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-20T07:42:49.227Z",
+  "generatedAt": "2026-10-21T02:02:40.039Z",
   "totalModules": 55,
   "totalRoutes": 600,
   "modules": [
@@ -5315,6 +5315,11 @@
                 "name": "listing",
                 "type": "boolean | '0' | '1' | 'true' | 'false'",
                 "required": false
+              },
+              {
+                "name": "featured",
+                "type": "boolean | '0' | '1' | 'true' | 'false'",
+                "required": false
               }
             ]
           }
@@ -5406,6 +5411,11 @@
                 "name": "hiddenInGallery",
                 "type": "boolean",
                 "required": false
+              },
+              {
+                "name": "isFeatured",
+                "type": "boolean",
+                "required": false
               }
             ]
           }
@@ -5447,6 +5457,11 @@
               },
               {
                 "name": "hiddenInGallery",
+                "type": "boolean",
+                "required": false
+              },
+              {
+                "name": "isFeatured",
                 "type": "boolean",
                 "required": false
               }
@@ -5617,6 +5632,11 @@
               },
               {
                 "name": "hiddenInGallery",
+                "type": "boolean",
+                "required": false
+              },
+              {
+                "name": "isFeatured",
                 "type": "boolean",
                 "required": false
               }
