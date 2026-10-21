@@ -46,3 +46,11 @@ describe('nested groups never inherit layout', () => {
         expect(groupContainerStyle({ direction: 'horizontal', columns: 3, },)['--group-tracks'],).toBe('repeat(3, minmax(0, 1fr))',);
     },);
 },);
+
+describe('groupSlotItemStyle: column groups', () => {
+    it('stack slots at content height (no sharing of the group height)', () => {
+        expect(groupSlotItemStyle({}, { direction: 'vertical', },).flex,).toBe('0 0 auto',);
+        expect(groupSlotItemStyle({ __groupDirection: 'vertical', }, {},).flex,).toBe('0 0 auto',);
+        expect(groupSlotItemStyle({}, { direction: 'horizontal', },).flex,).toBe('1 1 0',);
+    },);
+},);

@@ -59,6 +59,8 @@ export function withSlotDefaults(child: Block, parentData: Record<string, any>,)
         maxWidth: slot.maxWidth ?? parentData.itemMaxWidth,
         minHeight: slot.minHeight ?? parentData.itemMinHeight,
         maxHeight: slot.maxHeight ?? parentData.itemMaxHeight,
+        // The slot style needs the parent's direction (a Column stacks at content height).
+        __groupDirection: parentData.direction,
     };
     return { ...child, settings: merged as any, };
 }

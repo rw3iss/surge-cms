@@ -542,6 +542,12 @@ export const COMPONENT_JS_DOC: SdkDoc = {
                         + '("props.x"), the engine\'s leniency for unquoted slugs.',
                 },
                 {
+                    note: 'A prop that is ADDED but left empty is different from a prop that is not added: its value is '
+                        + "`''`. To let an empty prop hide a line while a missing one keeps the default: "
+                        + "`{{ if props.x }}<p>{{ props.x }}</p>{{ else if props.x == '' }}{{ else }}<p>default</p>{{ endif }}` "
+                        + "(`props.x == ''` is true only for an empty prop — a missing one is undefined).",
+                },
+                {
                     p: 'Built-in blocks can read a slot too, without any template code: a **Gallery**, **Posts** or '
                         + '**Events** block inside the component set to Source → Slot shows that slot\'s records with its own layout.',
                 },

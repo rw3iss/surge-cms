@@ -105,9 +105,13 @@ export function groupSlotItemStyle(
         if (v === 'end') return 'flex-end';
         return v;
     })();
+    // A Column group stacks its slots at their content height: `1 1 0` there
+    // would share the group's HEIGHT between them, so a group stretched by its
+    // row (e.g. beside a taller sibling) spread its slots apart with empty space.
+    const vertical = ((item.__groupDirection as string | undefined) ?? (parent.direction as string | undefined)) === 'vertical';
     return {
         // A slot with an explicit width sizes to it; otherwise it shares the row.
-        flex: width ? '0 0 auto' : '1 1 0',
+        flex: width || vertical ? '0 0 auto' : '1 1 0',
         width,
         'min-width': (item.minWidth as string) || (parent.itemMinWidth as string) || undefined,
         'max-width': (item.maxWidth as string) || (parent.itemMaxWidth as string) || undefined,
