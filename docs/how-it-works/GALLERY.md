@@ -330,7 +330,9 @@ items and stashes them on `settings.__galleryItems`
   Width = the 600px body minus the block's px padding. The box limits are
   `itemHeight` (px), else the `aspect` (`original` = the picture at its
   natural height). **Fill (cover)**: the item is that box, a background-image
-  cell (VML rect for Outlook) cropped to fill it. **Fit (contain)**: the item
+  cell (VML rect for Outlook) cropped to fill it. **Fit (contain)**: the whole
+  picture centred (`valign=middle`) in a cell of the box's size, so every
+  item is the same size. **Hug**: the item
   HUGS its media — sized from the media's own `width/height`, fitted inside
   the box (`galleryContainSize`), placed per the alignment; unknown aspect →
   the picture scaled down inside the limits. Never a background colour. Every item **always links to its gallery item page**
@@ -351,6 +353,19 @@ the gallery width; a fixed Item width shrinks each slot to the item; each row
 table gets `align` + margin from `galleryEmailAlign()` (`gallery/render.ts`);
 background, radius, padding stay on the block cell.
 
+### Fit + title placement
+
+| Setting | Values | Web | Email |
+|---|---|---|---|
+| Fit (`desktop/mobile.fit`) | `cover` (default) · `contain` · `hug` | cover = box, cropped; contain = whole picture centred in the box (`object-fit: contain`, no fill), every tile the same size; hug = the tile takes the picture's shape (`tileFrame`) | cover = background cell; contain = picture centred in a fixed `w×h` cell; hug = sized from the media aspect |
+| Title position (`titlePosition`) | `below` (default) · `above` · `overlay-top` · `overlay-bottom` | the title + caption under / above the tile, or ON the picture over a dark gradient (inside the media box) | the same; ON the picture puts the text inside the background cell (white, gradient with a solid fallback); an item of unknown size falls back to below |
+| Title alignment (`titleAlign`) | `left` · `center` · `right`, empty = the block's Text Align | `text-align` on the caption (all positions, stage meta too) | `text-align` on each line |
+
+Masonry keeps every item at its own shape, so Fit does not apply there.
+`{{gallery(fit='contain', titlePosition='overlay-bottom', titleAlign='center')}}`
+takes the same values (`galleryTitlePlacement()` in `@sitesurge/types`).
+SSR figures are unchanged (title + caption under each picture, for crawlers).
+
 ### Item border radius
 
 `itemRadius` (admin: **Item border radius**; any CSS length, a bare number =
@@ -366,7 +381,7 @@ On the web it sets `--item-radius` on the gallery view (tiles, the stage
 picture and video; not the lightbox) or the video block (`.vp`,
 `.media-video__stage`, the embed wrapper). In email it is inline
 `border-radius` on each item cell / image and the Watch bar's bottom corners.
-With Fit = contain the radius lands on the media itself — web tiles hug the
+With Fit = hug the radius lands on the media itself — web tiles hug the
 media too (`tileFrame()` in `galleryLayout.ts`: the media's own aspect inside
 the item width / height, no letterbox fill), so a portrait video is a rounded
 portrait, not a rounded box with bars.

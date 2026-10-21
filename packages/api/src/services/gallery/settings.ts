@@ -1,6 +1,6 @@
 /** Gallery settings (`gallery_settings`) + the viewer-shaped public config. */
 import {
-    DEFAULT_GALLERY_APPEARANCE, DEFAULT_GALLERY_SETTINGS, type GalleryAppearance, type GalleryPublicConfig, type GallerySettings, isSafeCssValue,
+    DEFAULT_GALLERY_APPEARANCE, DEFAULT_GALLERY_SETTINGS, GALLERY_FITS, type GalleryAppearance, type GalleryPublicConfig, type GallerySettings, isSafeCssValue,
 } from '@sitesurge/types';
 import { ValidationError, } from '../../core/errors';
 import { cache, } from '../cache';
@@ -53,7 +53,7 @@ function cleanAppearance(a: Partial<GalleryAppearance>,): GalleryAppearance {
         thumbSize: int(n.thumbSize, 80, 800, 'Thumbnail size',),
         gap: cssValue(n.gap, 'Grid spacing',) || d.gap,
         aspect: oneOf(n.aspect, ['square', '4:3', '3:2', '16:9', 'original',] as const, d.aspect,),
-        fit: oneOf(n.fit, ['cover', 'contain',] as const, d.fit,),
+        fit: oneOf(n.fit, GALLERY_FITS, d.fit,),
         radius: cssValue(n.radius, 'Corner radius',),
         gutter: oneOf(n.gutter, ['site', 'custom',] as const, d.gutter,),
         customGutter: cssValue(n.customGutter, 'Gutter',) || d.customGutter,

@@ -22,8 +22,8 @@
  * caller passes items already filtered for its audience (SSR: anonymous site
  * view; email: public media only).
  */
-import { galleryItemRadius, galleryMasonryColumns, itemRadiusCss, } from '@sitesurge/types';
-import type { GalleryAspect, GalleryBlockSettings, GalleryItem, } from '@sitesurge/types';
+import { galleryItemRadius, galleryMasonryColumns, galleryTitlePlacement, itemRadiusCss, } from '@sitesurge/types';
+import type { GalleryAspect, GalleryBlockSettings, GalleryFit, GalleryItem, } from '@sitesurge/types';
 import { EMAIL_CONTENT_WIDTH, pxValue, } from '../mail/blocks/_util';
 import { escapeHtml, } from '../../utils/html';
 import { WATCH_BAR_HEIGHT, watchBarCell, } from '../mail/blocks/watchOverlay';
@@ -151,7 +151,7 @@ export interface GalleryEmailPlan {
     /** The item box, px. `itemHeight` null = the picture's natural height. */
     itemWidth: number;
     itemHeight: number | null;
-    fit: 'cover' | 'contain';
+    fit: GalleryFit;
     radius: string;
 }
 
@@ -217,7 +217,7 @@ export function galleryEmailPlan(s: Partial<GalleryBlockSettings>, env: GalleryE
         pad,
         itemWidth,
         itemHeight: masonry ? null : fixedH ?? (ratio ? Math.round(itemWidth / ratio,) : null),
-        fit: masonry ? 'cover' : d.fit === 'contain' ? 'contain' : 'cover',
+        fit: masonry ? 'cover' : d.fit === 'contain' || d.fit === 'hug' ? d.fit : 'cover',
         radius: galleryItemRadius(s,) ?? itemRadiusCss(env.siteRadius,) ?? GALLERY_EMAIL_FALLBACK_RADIUS,
     };
 }
@@ -226,9 +226,14 @@ export function galleryEmailPlan(s: Partial<GalleryBlockSettings>, env: GalleryE
  * Email gallery. Items must already be public-media only. Each item is a
  * link to its gallery item page. With a fixed box (aspect or Item height):
  *   cover    a background-image cell of the box's size, cropped (VML for Outlook);
- *   contain  the item HUGS its media — sized from the media's own aspect,
+ *   contain  the whole picture centred in a cell of the box's size (every
+ *            item the same size);
+ *   hug      the item HUGS its media — sized from the media's own aspect,
  *            fitted inside the box, placed per the alignment (unknown aspect:
  *            the picture scaled down inside the limits).
+ * Titles / captions go below (default) or above the picture, or ON it
+ * (`overlay-top` / `overlay-bottom`: white text on a dark gradient, inside the
+ * picture cell) — an item whose size is unknown falls back to below.
  * `original` aspect with no height shows the picture at its natural height.
  * Never a background colour; the item radius is on the visible media, and a
  * video's "▶ Watch" bar spans the media's width.
@@ -242,7 +247,8 @@ export function galleryEmailHtml(
     const { itemWidth: w, itemHeight: h, radius, pad, slotWidth, } = plan;
     const r = esc(radius,);
     const text = safeCss(env.textColor,) || '#333333';
-    const ta = String(env.textAlign ?? '',).trim();
+    const place = galleryTitlePlacement(settings,);
+    const ta = place.align ?? String(env.textAlign ?? '',).trim();
     const align = ['left', 'center', 'right', 'justify',].includes(ta,) ? ta : plan.mode === 'wrap' ? 'center' : 'left';
     const rowAlign: GalleryEmailAlign = env.align ?? 'center';
     const rowMargin = rowAlign === 'left' ? '0 auto 0 0' : rowAlign === 'right' ? '0 0 0 auto' : '0 auto';
@@ -257,16 +263,37 @@ export function galleryEmailHtml(
      * nothing to fill, and a cover crop fills itself — the block's own
      * background is all that may show.
      */
-    const bgCell = (src: string, href: string, alt: string, isVideo: boolean, bw: number, bh: number, size: 'cover' | 'contain', cssSrc = src,): string => {
+    const bgCell = (
+        src: string, href: string, alt: string, isVideo: boolean, bw: number, bh: number, size: 'cover' | 'contain', cssSrc = src, over = '',
+    ): string => {
         const vml = `<!--[if gte mso 9]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:${bw}px;height:${bh}px;"><v:fill type="frame" src="${src}" aspect="${size === 'cover' ? 'atleast' : 'atmost'}" /><v:textbox inset="0,0,0,0"><![endif]-->`;
-        const content = isVideo
-            ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate"><tr><td height="${Math.max(0, bh - WATCH_BAR_HEIGHT,)}" style="height:${Math.max(0, bh - WATCH_BAR_HEIGHT,)}px;font-size:0;line-height:0">&nbsp;</td></tr><tr>${watchBarCell(radius,)}</tr></table>`
-            : `<span style="display:block;height:${bh}px;font-size:0;line-height:0">&nbsp;</span>`;
+        let content: string;
+        if (over) {
+            // Title ON the picture: a full-height table, the text row at the top
+            // or the bottom (above a video's Watch bar), a flexible spacer between.
+            const spacer = '<tr><td style="font-size:0;line-height:0">&nbsp;</td></tr>';
+            const textRow = `<tr><td valign="${place.position === 'overlay-top' ? 'top' : 'bottom'}" style="padding:0">${over}</td></tr>`;
+            const bar = isVideo ? `<tr>${watchBarCell(radius,)}</tr>` : '';
+            const rows = place.position === 'overlay-top' ? textRow + spacer + bar : spacer + textRow + bar;
+            content = `<table role="presentation" width="100%" height="${bh}" cellpadding="0" cellspacing="0" border="0" style="width:100%;height:${bh}px;border-collapse:separate">${rows}</table>`;
+        } else {
+            content = isVideo
+                ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate"><tr><td height="${Math.max(0, bh - WATCH_BAR_HEIGHT,)}" style="height:${Math.max(0, bh - WATCH_BAR_HEIGHT,)}px;font-size:0;line-height:0">&nbsp;</td></tr><tr>${watchBarCell(radius,)}</tr></table>`
+                : `<span style="display:block;height:${bh}px;font-size:0;line-height:0">&nbsp;</span>`;
+        }
         return `<table role="presentation" width="${bw}" cellpadding="0" cellspacing="0" border="0" style="width:${bw}px;max-width:100%;margin:${placeMargin};border-collapse:separate"><tr><td class="gallery-item-media" background="${src}" width="${bw}" height="${bh}" valign="bottom" role="img" aria-label="${alt}" title="${alt}" style="width:${bw}px;height:${bh}px;padding:0;vertical-align:bottom;background-image:url('${cssSrc}');background-position:center center;background-size:${size};background-repeat:no-repeat;border-radius:${r}">`
             + `${vml}<a href="${href}" title="${alt}" style="display:block;text-decoration:none;color:#ffffff">${content}</a><!--[if gte mso 9]></v:textbox></v:rect><![endif]--></td></tr></table>`;
     };
 
-    const visualOf = (i: GalleryItem,): string => {
+    /** Set by `visualOf` when it placed the title ON the picture. */
+    let overlaid = false;
+    const visualOf = (i: GalleryItem, over = '',): string => {
+        overlaid = false;
+        /** A background cell carrying the overlay (when there is one). */
+        const cellOf = (src: string, href: string, alt: string, isVideo: boolean, bw: number, bh: number, size: 'cover' | 'contain', cssSrc: string,) => {
+            if (over) overlaid = true;
+            return bgCell(src, href, alt, isVideo, bw, bh, size, cssSrc, over,);
+        };
         const href = esc(absoluteGalleryUrl(i.url, base,),);
         const rawSrc = absoluteGalleryUrl(previewUrl(i,), base,);
         const src = esc(rawSrc,);
@@ -280,17 +307,26 @@ export function galleryEmailHtml(
         }
         if (h && plan.fit === 'cover') {
             // Cover: the fixed box, the picture cropped to fill it (the site's object-fit: cover).
-            return bgCell(src, href, alt, isVideo, w, h, 'cover', cssSrc,);
+            return cellOf(src, href, alt, isVideo, w, h, 'cover', cssSrc,);
         }
         /** The picture scaled to `width` (never stretched), its corners `corners`. */
         const plain = (width: number, corners: string, height?: number,) =>
             `<img class="gallery-item-media" src="${src}" alt="${alt}" width="${width}"${height ? ` height="${height}"` : ''} style="display:block;width:100%;max-width:${width}px;height:auto;border:0;outline:none;text-decoration:none;margin:${placeMargin};border-radius:${corners};" />`;
+        if (h && plan.fit === 'contain') {
+            // Contain: the whole picture centred in the item box — every item the same size.
+            const ar = mediaAspect(i,);
+            if (isVideo || over) return cellOf(src, href, alt, isVideo, w, h, 'contain', cssSrc,);
+            const inner = ar
+                ? (() => { const f = galleryContainSize(w, h, ar,); return plain(f.width, r, f.height,).replace(`margin:${placeMargin};`, 'margin:0 auto;',); })()
+                : `<img class="gallery-item-media" src="${src}" alt="${alt}" width="${w}" style="display:block;width:auto;max-width:${w}px;height:auto;max-height:${h}px;border:0;outline:none;text-decoration:none;margin:0 auto;border-radius:${r};" />`;
+            return `<table role="presentation" width="${w}" cellpadding="0" cellspacing="0" border="0" style="width:${w}px;max-width:100%;margin:${placeMargin};border-collapse:collapse"><tr><td align="center" valign="middle" height="${h}" style="height:${h}px;padding:0;text-align:center;vertical-align:middle"><a href="${href}" style="display:block;text-decoration:none;">${inner}</a></td></tr></table>`;
+        }
         if (h) {
-            // Contain: the item IS the media at its own aspect, fitted inside the box.
+            // Hug: the item IS the media at its own aspect, fitted inside the box.
             const ar = mediaAspect(i,);
             if (ar) {
                 const fit = galleryContainSize(w, h, ar,);
-                if (isVideo) return bgCell(src, href, alt, true, fit.width, fit.height, 'cover', cssSrc,);
+                if (isVideo || over) return cellOf(src, href, alt, isVideo, fit.width, fit.height, 'cover', cssSrc,);
                 return `<a href="${href}" style="display:block;text-decoration:none;">${plain(fit.width, r, fit.height,)}</a>`;
             }
             // Unknown aspect: the picture scaled down inside the limits (no box to letterbox in).
@@ -304,7 +340,7 @@ export function galleryEmailHtml(
         const ar = plan.mode === 'masonry' ? mediaAspect(i,) : null;
         if (ar) {
             const nh = Math.max(1, Math.round(w / ar,),);
-            if (isVideo) return bgCell(src, href, alt, true, w, nh, 'cover', cssSrc,);
+            if (isVideo || over) return cellOf(src, href, alt, isVideo, w, nh, 'cover', cssSrc,);
             return `<a href="${href}" style="display:block;text-decoration:none;">${plain(w, r, nh,)}</a>`;
         }
         // Natural height: the picture itself, scaled to the item width.
@@ -316,14 +352,33 @@ export function galleryEmailHtml(
         return `<a href="${href}" style="display:block;text-decoration:none;">${plain(w, r,)}</a>`;
     };
 
-    const textOf = (i: GalleryItem,): string => {
-        const title = settings.showTitles && i.title ? `<div style="padding-top:4px;font-size:14px;font-weight:bold;color:${text};text-align:${align};">${esc(i.title,)}</div>` : '';
-        const caption = settings.showCaptions && i.caption ? `<div style="padding-top:2px;font-size:13px;color:${text};text-align:${align};">${esc(i.caption,)}</div>` : '';
+    /** Title + caption lines; `on` = white on the picture's gradient. */
+    const textOf = (i: GalleryItem, on = false,): string => {
+        const color = on ? '#ffffff' : text;
+        const title = settings.showTitles && i.title ? `<div style="padding-top:${on ? 0 : 4}px;font-size:14px;font-weight:bold;color:${color};text-align:${align};">${esc(i.title,)}</div>` : '';
+        const caption = settings.showCaptions && i.caption ? `<div style="padding-top:2px;font-size:13px;color:${color};text-align:${align};">${esc(i.caption,)}</div>` : '';
+        if (!title && !caption) return '';
+        if (on) {
+            const dir = place.position === 'overlay-top' ? 'to bottom' : 'to top';
+            // Solid fallback colour first (Outlook ignores gradients).
+            return `<div style="padding:12px 14px;background-color:rgba(0,0,0,0.45);background-image:linear-gradient(${dir},rgba(0,0,0,0.75),rgba(0,0,0,0));border-radius:${place.position === 'overlay-top' ? `${r} ${r} 0 0` : `0 0 ${r} ${r}`};">${title}${caption}</div>`;
+        }
+        if (place.position === 'above') return `<div style="padding-bottom:4px;">${title.replace('padding-top:4px;', '',)}${caption}</div>`;
         return title + caption;
     };
 
+    /** The picture with its title + caption, per the title position. */
+    const itemOf = (i: GalleryItem,): string => {
+        if (place.overlay) {
+            const html = visualOf(i, textOf(i, true,),);
+            return overlaid ? html : html + textOf(i,);
+        }
+        const visual = visualOf(i,);
+        return place.position === 'above' ? textOf(i,) + visual : visual + textOf(i,);
+    };
+
     const cell = (i: GalleryItem, pct: string,): string =>
-        `<td width="${slotWidth}" align="${rowAlign}" valign="top" style="width:${pct};padding:${pad}px;vertical-align:top;">${visualOf(i,)}${textOf(i,)}</td>`;
+        `<td width="${slotWidth}" align="${rowAlign}" valign="top" style="width:${pct};padding:${pad}px;vertical-align:top;">${itemOf(i,)}</td>`;
 
     if (plan.mode === 'masonry') {
         // One row of column cells; each a stack of items, every item in the
@@ -331,14 +386,14 @@ export function galleryEmailHtml(
         // width + the title / caption lines + the padding).
         const est = (i: GalleryItem,): number => {
             const ar = mediaAspect(i,) ?? 1;
-            return w / ar + 2 * pad + (settings.showTitles && i.title ? 22 : 0) + (settings.showCaptions && i.caption ? 20 : 0);
+            return w / ar + 2 * pad + (place.overlay ? 0 : (settings.showTitles && i.title ? 22 : 0) + (settings.showCaptions && i.caption ? 20 : 0));
         };
         const cols = galleryMasonryColumns(list, plan.columns, est,);
         const pct = `${Math.floor(10000 / plan.columns,) / 100}%`;
         const cells = cols.map((idx,) => {
             const stack = idx.map((k,) => {
                 const i = list[k]!;
-                return `<tr><td align="${rowAlign}" style="padding:${pad}px;vertical-align:top;">${visualOf(i,)}${textOf(i,)}</td></tr>`;
+                return `<tr><td align="${rowAlign}" style="padding:${pad}px;vertical-align:top;">${itemOf(i,)}</td></tr>`;
             },).join('',);
             return `<td class="gallery-masonry-col" width="${slotWidth}" valign="top" style="width:${pct};padding:0;vertical-align:top;">`
                 + (stack ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;">${stack}</table>` : '')

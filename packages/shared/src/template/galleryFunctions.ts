@@ -19,8 +19,8 @@
  * the call's named args ride on the ref's `options` (evaluator), and
  * `galleryDisplayFrom(options)` turns them into render settings.
  */
-import type { GalleryBlockLayout, GalleryBlockLayoutOptions, GalleryBlockSettings, GalleryOpenMode, GalleryQuery, } from '../types/gallery';
-import { DEFAULT_GALLERY_BLOCK_SETTINGS, } from '../types/gallery';
+import type { GalleryBlockLayout, GalleryBlockLayoutOptions, GalleryBlockSettings, GalleryFit, GalleryOpenMode, GalleryQuery, GalleryTitlePosition, } from '../types/gallery';
+import { DEFAULT_GALLERY_BLOCK_SETTINGS, GALLERY_FITS, GALLERY_TITLE_POSITIONS, } from '../types/gallery';
 import { itemRadiusCss, } from '../utils/blockStyleCss';
 
 export const GALLERY_LIST_KIND = 'galleryList';
@@ -93,7 +93,17 @@ function layoutOpts(o: Record<string, unknown>, prefix: '' | 'mobile',): Gallery
     const aspect = str(o[k('aspect',)],);
     if (['square', '4:3', '3:2', '16:9', 'original',].includes(aspect,)) out.aspect = aspect as GalleryBlockLayoutOptions['aspect'];
     const fit = str(o[k('fit',)],);
-    if (fit === 'cover' || fit === 'contain') out.fit = fit;
+    if ((GALLERY_FITS as readonly string[]).includes(fit,)) out.fit = fit as GalleryFit;
+    return out;
+}
+
+/** `titlePosition='overlay-bottom'`, `titleAlign='center'` (only valid values). */
+function titleOpts(o: Record<string, unknown>,): Pick<GalleryBlockSettings, 'titlePosition' | 'titleAlign'> {
+    const out: Pick<GalleryBlockSettings, 'titlePosition' | 'titleAlign'> = {};
+    const p = str(o.titlePosition,);
+    if ((GALLERY_TITLE_POSITIONS as readonly string[]).includes(p,)) out.titlePosition = p as GalleryTitlePosition;
+    const a = str(o.titleAlign,);
+    if (a === 'left' || a === 'center' || a === 'right') out.titleAlign = a;
     return out;
 }
 
@@ -115,6 +125,7 @@ export function galleryDisplayFrom(options: Record<string, unknown> = {},): Omit
         showDots: bool(options.dots ?? options.showDots,) ?? d.showDots,
         showTitles: bool(options.titles ?? options.showTitles,) ?? d.showTitles,
         showCaptions: bool(options.captions ?? options.showCaptions,) ?? d.showCaptions,
+        ...titleOpts(options,),
         open: (['lightbox', 'page', 'none',].includes(open,) ? open : d.open) as GalleryOpenMode,
         thumbStrip: bool(options.thumbs ?? options.thumbStrip,) ?? false,
         itemRadius: itemRadiusCss(options.itemRadius ?? options.radius,),

@@ -12,7 +12,7 @@
  * Text/number inputs commit on `change` (blur / Enter), never per keystroke.
  */
 import type {
-    EntityQuery, GalleryBlockLayout, GalleryBlockLayoutOptions, GalleryBlockSettings, GalleryItem, SlotBinding,
+    EntityQuery, GalleryBlockLayout, GalleryBlockLayoutOptions, GalleryBlockSettings, GalleryFit, GalleryItem, GalleryTitlePosition, SlotBinding,
 } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
@@ -24,6 +24,7 @@ import { gallerySettingsOf, } from '../../../blocks/types/GalleryBlock';
 import { entityQueryToGalleryQuery, galleryQueryToEntityQuery, } from '../../../gallery/galleryLayout';
 import { tileSrc, } from '../../../gallery/GalleryTile';
 import DataBindingField from '../../entities/DataBindingField';
+import AlignButtons, { type HAlign, } from '../../common/AlignButtons';
 import Toggle from '../../common/Toggle';
 import { FormField, } from '../../forms';
 import './GalleryBlockEdit.scss';
@@ -297,11 +298,15 @@ const GalleryBlockEdit: Component<{
                         <option value="original">Original</option>
                     </select>
                 </FormField>
-                <FormField label="Fit">
-                    <select value={opts().fit ?? ''} onChange={(e,) => setOpt({ fit: (e.currentTarget.value || undefined) as 'cover' | 'contain' | undefined, },)}>
+                <FormField
+                    label="Fit"
+                    tooltip="How each picture sits in its item box. Fill crops it to the box. Fit shows the whole picture centred in a box the same size as every other item. Hug shrinks each box to its picture's own shape."
+                >
+                    <select value={opts().fit ?? ''} onChange={(e,) => setOpt({ fit: (e.currentTarget.value || undefined) as GalleryFit | undefined, },)}>
                         <Show when={bp() === 'mobile'}><option value="">= desktop</option></Show>
                         <option value="cover">Fill (crop)</option>
-                        <option value="contain">Fit (no crop)</option>
+                        <option value="contain">Fit (whole picture, same-size boxes)</option>
+                        <option value="hug">Hug (box takes the picture's shape)</option>
                     </select>
                 </FormField>
                 </Show>
@@ -338,6 +343,31 @@ const GalleryBlockEdit: Component<{
                 <Toggle checked={Boolean(s().showTitles,)} onChange={(v,) => set({ showTitles: v, },)} label="Show titles" />
                 <Toggle checked={Boolean(s().showCaptions,)} onChange={(v,) => set({ showCaptions: v, },)} label="Show captions" />
             </div>
+            <Show when={s().showTitles || s().showCaptions}>
+                <div class="gallery-block-edit__grid">
+                    <FormField label="Title position" tooltip="Where each item's title and caption go: under or above the picture, or on the picture (top or bottom).">
+                        <select
+                            value={s().titlePosition ?? 'below'}
+                            onChange={(e,) => {
+                                const v = e.currentTarget.value as GalleryTitlePosition;
+                                set({ titlePosition: v === 'below' ? undefined : v, },);
+                            }}
+                        >
+                            <option value="below">Below the picture</option>
+                            <option value="above">Above the picture</option>
+                            <option value="overlay-top">On the picture — top</option>
+                            <option value="overlay-bottom">On the picture — bottom</option>
+                        </select>
+                    </FormField>
+                    <FormField label="Title alignment" tooltip="Left, center or right. None selected = the block's Text Align. Click the selected button again to clear it.">
+                        <AlignButtons
+                            label="Title alignment"
+                            value={s().titleAlign as HAlign}
+                            onChange={(v,) => set({ titleAlign: s().titleAlign === v ? undefined : v, },)}
+                        />
+                    </FormField>
+                </div>
+            </Show>
             <div class="gallery-block-edit__grid">
                 <FormField label="On click">
                     <select value={s().open ?? 'lightbox'} onChange={(e,) => set({ open: e.currentTarget.value as GalleryBlockSettings['open'], },)}>

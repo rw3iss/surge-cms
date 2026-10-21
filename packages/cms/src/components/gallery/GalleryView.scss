@@ -349,6 +349,33 @@
 
   &__title { color: var(--site-text, #111); }
   &__text { color: var(--site-text-muted, #6b7280); }
+
+  // Title position: above the picture.
+  &__caption--above { padding-top: 0; padding-bottom: 6px; }
+
+  // Title ON the picture: white text over a dark gradient, at the top or bottom.
+  &__caption--overlay {
+    position: absolute;
+    right: 0;
+    left: 0;
+    z-index: 1;
+    padding: 16px 18px;
+    color: #fff;
+    pointer-events: none;
+
+    .gallery-tile__title { color: #fff; font-weight: 600; }
+    .gallery-tile__text { color: rgba(255, 255, 255, .85); }
+  }
+  &__caption--bottom { bottom: 0; background: linear-gradient(to top, rgba(0, 0, 0, .8), transparent); }
+  &__caption--top { top: 0; background: linear-gradient(to bottom, rgba(0, 0, 0, .8), transparent); }
+
+  // Fit = contain: the whole picture centred in the same box as every other
+  // item — no fill behind it, only the block's own background shows.
+  &--contain .gallery-tile__media {
+    background: none;
+
+    img { object-fit: contain; object-position: center; }
+  }
 }
 
 // ── Lightbox ──

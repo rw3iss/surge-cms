@@ -267,10 +267,11 @@ const GallerySettingsPage: Component = () => {
                                     <For each={ASPECTS}>{(x,) => <option value={x.value}>{x.label}</option>}</For>
                                 </select>
                             </FormField>
-                            <FormField label="Fit" tooltip="Cover fills the tile (cropping); Contain shows the whole image (letterboxed).">
+                            <FormField label="Fit" tooltip="Cover fills the tile (cropping); Contain shows the whole image centred in a same-size tile; Hug shrinks each tile to its image.">
                                 <select value={a().fit} onChange={(e,) => setA('fit', e.currentTarget.value as GalleryAppearance['fit'],)}>
                                     <option value="cover">Cover (crop to fill)</option>
                                     <option value="contain">Contain (whole image)</option>
+                                    <option value="hug">Hug (tile takes the image's shape)</option>
                                 </select>
                             </FormField>
                             <FormField label="Corner radius" hint="Empty = the site radius.">
@@ -376,7 +377,7 @@ const GallerySettingsPage: Component = () => {
                                                         src={i.media!.thumbnailUrl ?? i.media!.url}
                                                         alt=""
                                                         loading="lazy"
-                                                        style={{ 'object-fit': a().fit, }}
+                                                        style={{ 'object-fit': a().fit === 'contain' ? 'contain' : 'cover', }}
                                                     />
                                                     <Show when={a().videoBadge && i.media!.type === 'video'}>
                                                         <span class="gallery-settings__play" aria-hidden="true">&#9654;</span>

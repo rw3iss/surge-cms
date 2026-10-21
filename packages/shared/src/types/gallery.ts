@@ -29,6 +29,31 @@ export type GalleryLayout = 'grid' | 'masonry' | 'carousel' | 'stage';
 export type GalleryOpenMode = 'lightbox' | 'page' | 'none';
 export type GalleryAspect = 'square' | '4:3' | '3:2' | '16:9' | 'original';
 
+/**
+ * How a picture sits in its item box:
+ *   cover    fills the box, cropped
+ *   contain  the whole picture, centred in a box the same size as every other item
+ *   hug      the box shrinks to the picture's own aspect (inside the limits)
+ */
+export type GalleryFit = 'cover' | 'contain' | 'hug';
+export const GALLERY_FITS: readonly GalleryFit[] = ['cover', 'contain', 'hug',];
+
+/** Where an item's title + caption go: under / above the picture, or on it (top / bottom). */
+export type GalleryTitlePosition = 'below' | 'above' | 'overlay-top' | 'overlay-bottom';
+export const GALLERY_TITLE_POSITIONS: readonly GalleryTitlePosition[] = ['below', 'above', 'overlay-top', 'overlay-bottom',];
+export type GalleryTitleAlign = 'left' | 'center' | 'right';
+
+/** A block's title placement (defaults: below, inherit the block's text align). */
+export function galleryTitlePlacement(
+    s: { titlePosition?: unknown; titleAlign?: unknown; } | null | undefined,
+): { position: GalleryTitlePosition; align: GalleryTitleAlign | undefined; overlay: boolean; } {
+    const p = String(s?.titlePosition ?? '',);
+    const position = (GALLERY_TITLE_POSITIONS as readonly string[]).includes(p,) ? p as GalleryTitlePosition : 'below';
+    const a = String(s?.titleAlign ?? '',);
+    const align = a === 'left' || a === 'center' || a === 'right' ? a : undefined;
+    return { position, align, overlay: position === 'overlay-top' || position === 'overlay-bottom', };
+}
+
 export interface GalleryAppearance {
     layout: GalleryLayout;
     open: GalleryOpenMode;
@@ -37,7 +62,7 @@ export interface GalleryAppearance {
     /** CSS length between items. */
     gap: string;
     aspect: GalleryAspect;
-    fit: 'cover' | 'contain';
+    fit: GalleryFit;
     /** CSS length; '' = the site radius. */
     radius: string;
     /** Page side gutter: the site's (`--site-gutter`) or `customGutter`. */
@@ -313,7 +338,7 @@ export interface GalleryBlockLayoutOptions {
     itemWidth?: string;
     itemHeight?: string;
     aspect?: GalleryAspect;
-    fit?: 'cover' | 'contain';
+    fit?: GalleryFit;
     /** Rows shown before scrolling/paging (column / grid). */
     rows?: number;
 }
@@ -340,6 +365,10 @@ export interface GalleryBlockSettings {
     showDots?: boolean;
     showTitles?: boolean;
     showCaptions?: boolean;
+    /** Where the title + caption go (default below the picture). */
+    titlePosition?: GalleryTitlePosition;
+    /** Title + caption alignment; empty = the block's Text Align. */
+    titleAlign?: GalleryTitleAlign;
     /** Click: lightbox (default), the item's page, or nothing. */
     open?: GalleryOpenMode;
     /** Lightbox only: a strip of every item's thumbnail along the bottom of the modal. */

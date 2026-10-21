@@ -69,20 +69,21 @@ describe('gridTemplateColumns', () => {
     },);
 },);
 
-describe('tileFrame (Fit = contain hugs the media)', () => {
+describe('tileFrame (Fit = hug hugs the media; contain keeps the box)', () => {
     it('cover, or no box, keeps the box', () => {
         expect(tileFrame('cover', '16 / 9', '300px', 0.5625,),).toEqual({ kind: 'box', },);
-        expect(tileFrame('contain', undefined, null, 0.5625,),).toEqual({ kind: 'box', },);
+        expect(tileFrame('hug', undefined, null, 0.5625,),).toEqual({ kind: 'box', },);
+        expect(tileFrame('contain', '16 / 9', '300px', 0.5625,),).toEqual({ kind: 'box', },);
     },);
     it('contain + height: as wide as the height allows', () => {
-        expect(tileFrame('contain', '16 / 9', '300px', 0.5625,),).toEqual({ kind: 'hug', width: 'min(100%, calc(300px * 0.5625))', aspectRatio: '0.5625', },);
+        expect(tileFrame('hug', '16 / 9', '300px', 0.5625,),).toEqual({ kind: 'hug', width: 'min(100%, calc(300px * 0.5625))', aspectRatio: '0.5625', },);
     },);
     it('contain + aspect only: a share of the width', () => {
-        expect(tileFrame('contain', '1 / 1', null, 0.5,),).toEqual({ kind: 'hug', width: '50%', aspectRatio: '0.5', },);
-        expect(tileFrame('contain', '1 / 1', null, 2,),).toMatchObject({ width: '100%', },);
+        expect(tileFrame('hug', '1 / 1', null, 0.5,),).toEqual({ kind: 'hug', width: '50%', aspectRatio: '0.5', },);
+        expect(tileFrame('hug', '1 / 1', null, 2,),).toMatchObject({ width: '100%', },);
     },);
     it('contain, unknown aspect: natural inside the height limit', () => {
-        expect(tileFrame('contain', '16 / 9', '300px', null,),).toEqual({ kind: 'natural', maxHeight: '300px', },);
+        expect(tileFrame('hug', '16 / 9', '300px', null,),).toEqual({ kind: 'natural', maxHeight: '300px', },);
     },);
     it('ratioOf / mediaAspectOf', () => {
         expect(ratioOf('16 / 9',),).toBeCloseTo(1.7778, 3,);

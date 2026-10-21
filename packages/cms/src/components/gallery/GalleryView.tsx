@@ -63,6 +63,8 @@ const GalleryView: Component<GalleryViewProps> = (props,) => {
         height: L().itemHeight,
         showTitle: Boolean(props.settings.showTitles,),
         showCaption: Boolean(props.settings.showCaptions,),
+        titlePosition: props.settings.titlePosition,
+        titleAlign: props.settings.titleAlign,
         videoBadge: props.videoBadge,
         href: open() === 'page' ? item.url : null,
         onOpen: open() === 'lightbox' ? () => setLightbox(index,) : undefined,
@@ -225,15 +227,15 @@ const GalleryView: Component<GalleryViewProps> = (props,) => {
                                             <button
                                                 type="button"
                                                 class="gallery-view__stage-hit"
-                                                classList={{ 'gallery-view__stage-hit--contain': L().fit === 'contain', }}
+                                                classList={{ 'gallery-view__stage-hit--contain': L().fit !== 'cover', }}
                                                 disabled={open() !== 'lightbox'}
                                                 onClick={() => open() === 'lightbox' && setLightbox(selected(),)}
                                             >
                                                 <img
                                                     src={cur().media?.url}
                                                     alt={cur().media?.alt || cur().title || ''}
-                                                    class={L().fit === 'contain' ? 'gallery-view__stage-img--contain' : undefined}
-                                                    style={{ 'object-fit': L().fit, }}
+                                                    class={L().fit !== 'cover' ? 'gallery-view__stage-img--contain' : undefined}
+                                                    style={{ 'object-fit': L().fit === 'cover' ? 'cover' : 'contain', }}
                                                 />
                                             </button>
                                         }
@@ -243,7 +245,7 @@ const GalleryView: Component<GalleryViewProps> = (props,) => {
                                         </Show>
                                     </Show>
                                     <Show when={(props.settings.showTitles && cur().title) || (props.settings.showCaptions && cur().caption)}>
-                                        <div class="gallery-view__stage-meta">
+                                        <div class="gallery-view__stage-meta" style={props.settings.titleAlign ? { 'text-align': props.settings.titleAlign, } : undefined}>
                                             <Show when={props.settings.showTitles && cur().title}><strong>{cur().title}</strong></Show>
                                             <Show when={props.settings.showCaptions && cur().caption}><span>{cur().caption}</span></Show>
                                             <Show when={open() === 'page'}><a href={cur().url}>Open</a></Show>

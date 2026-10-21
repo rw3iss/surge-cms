@@ -4,7 +4,7 @@
  */
 import { cssLength, } from '@sitesurge/types';
 import type {
-    GalleryAppearance, GalleryAspect, GalleryBlockLayout, GalleryBlockLayoutOptions, GalleryBlockSettings, GalleryQuery,
+    GalleryAppearance, GalleryAspect, GalleryBlockLayout, GalleryBlockLayoutOptions, GalleryBlockSettings, GalleryFit, GalleryQuery,
 } from '@sitesurge/types';
 
 /** The layouts GalleryView renders (block layouts; the page uses a subset). */
@@ -28,7 +28,7 @@ export interface ResolvedGalleryLayout {
     itemWidth: string | null;
     itemHeight: string | null;
     aspect: GalleryAspect;
-    fit: 'cover' | 'contain';
+    fit: GalleryFit;
 }
 
 const set = (v: unknown,) => v !== undefined && v !== null && v !== '';
@@ -57,7 +57,7 @@ export function resolveLayout(
         itemWidth: cssLength(pick('itemWidth',),) ?? null,
         itemHeight: cssLength(pick('itemHeight',),) ?? null,
         aspect: (pick('aspect',) as GalleryAspect | undefined) ?? 'square',
-        fit: (pick('fit',) as 'cover' | 'contain' | undefined) ?? 'cover',
+        fit: (pick('fit',) as GalleryFit | undefined) ?? 'cover',
     };
 }
 
@@ -99,8 +99,8 @@ export function mediaAspectOf(m: { width?: number | null; height?: number | null
 }
 
 /**
- * The tile's media frame. Fit = contain no longer letterboxes the media in a
- * filled box: the tile HUGS the media — its own aspect, as wide as the limits
+ * The tile's media frame. Cover and contain use the fixed box (contain shows
+ * the whole picture centred in it, no fill). Fit = hug: the tile HUGS the media — its own aspect, as wide as the limits
  * allow (the tile width; the Item height, or the box aspect's height) — so the
  * item radius lands on the visible picture. Cover keeps the fixed box.
  *
@@ -108,10 +108,10 @@ export function mediaAspectOf(m: { width?: number | null; height?: number | null
  *   aspect only  width = 100% × min(1, mediaAspect / boxAspect)
  */
 export function tileFrame(
-    fit: 'cover' | 'contain' | undefined, aspect: string | undefined, height: string | null | undefined, media: number | null,
+    fit: GalleryFit | undefined, aspect: string | undefined, height: string | null | undefined, media: number | null,
 ): TileFrame {
     const box = ratioOf(aspect,);
-    if (fit !== 'contain' || (!height && !box)) return { kind: 'box', };
+    if (fit !== 'hug' || (!height && !box)) return { kind: 'box', };
     if (!media) return { kind: 'natural', maxHeight: height || undefined, };
     const r = Math.round(media * 10000,) / 10000;
     const width = height

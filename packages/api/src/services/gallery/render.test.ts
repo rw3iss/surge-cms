@@ -231,7 +231,7 @@ describe('gallery email alignment + size (block style)', () => {
     },);
 },);
 
-describe('gallery email: contain items hug their media', () => {
+describe('gallery email: hug items hug their media', () => {
     const portrait = (over = {},) => {
         const it = item({ mediaType: 'video', ...over, },);
         it.media = { ...it.media!, width: 1080, height: 1920, };
@@ -242,7 +242,7 @@ describe('gallery email: contain items hug their media', () => {
         it.media = { ...it.media!, width: 1920, height: 1080, };
         return it;
     };
-    const s = { desktop: { layout: 'column' as const, itemHeight: '300px', fit: 'contain' as const, gap: '12px', aspect: '16:9' as const, }, itemRadius: '15px', };
+    const s = { desktop: { layout: 'column' as const, itemHeight: '300px', fit: 'hug' as const, gap: '12px', aspect: '16:9' as const, }, itemRadius: '15px', };
     const mediaCell = (html: string,) => /<td class="gallery-item-media"[^>]*>/.exec(html,)?.[0] ?? '';
 
     it('galleryContainSize fits the media inside the box', () => {
@@ -350,3 +350,32 @@ describe('gallery email: masonry', () => {
         expect(html,).toContain('align="right" width="340"',);
     },);
 },);
+
+describe('gallery email: contain + title placement', () => {
+    it('contain: the whole picture centred in a box the same size for every item', () => {
+        const html = galleryEmailHtml([item(),], 'https://site', { desktop: { columns: 2, itemHeight: '150px', fit: 'contain', gap: '0', }, },);
+        expect(html,).toMatch(/<td align="center" valign="middle" height="150"/,);
+        expect(html,).toContain('width="200" height="150"',); // 800×600 fitted in 300×150
+        expect(html,).not.toContain('background-size:cover',);
+    },);
+    it('title above the picture', () => {
+        const html = galleryEmailHtml([item(),], 'https://site', { showTitles: true, titlePosition: 'above', desktop: { columns: 1, }, },);
+        expect(html.indexOf('Sunset',),).toBeLessThan(html.indexOf('gallery-item-media',),);
+    },);
+    it('title on the picture (bottom): inside the background cell, white, aligned', () => {
+        const html = galleryEmailHtml([item(),], 'https://site', {
+            showTitles: true, titlePosition: 'overlay-bottom', titleAlign: 'right', desktop: { columns: 2, itemHeight: '150px', fit: 'cover', },
+        },);
+        const cellAt = html.indexOf('class="gallery-item-media"',);
+        expect(cellAt,).toBeGreaterThan(-1,);
+        expect(html.indexOf('Sunset',),).toBeGreaterThan(cellAt,);
+        expect(html,).toContain('color:#ffffff;text-align:right',);
+        expect(html,).toContain('valign="bottom" style="padding:0"',);
+    },);
+    it('on the picture with an unknown size: falls back to below', () => {
+        const it2 = item({ media: { ...item().media!, width: null, height: null, }, },);
+        const html = galleryEmailHtml([it2,], 'https://site', { showTitles: true, titlePosition: 'overlay-top', desktop: { columns: 1, aspect: 'original', }, },);
+        expect(html.indexOf('Sunset',),).toBeGreaterThan(html.indexOf('gallery-item-media',),);
+        expect(html,).not.toContain('linear-gradient',);
+    },);
+});
