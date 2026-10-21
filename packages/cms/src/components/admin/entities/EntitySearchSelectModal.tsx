@@ -644,41 +644,65 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                     <div class="entity-search-modal__clauses">
                         <For each={clauses}>
                             {(c, i,) => (
-                                <div class="entity-search-modal__query">
-                                    <select
-                                        value={c.field}
-                                        onChange={(e,) => {
-                                            // Changing the property invalidates the
-                                            // value: it was picked from a different
-                                            // field's suggestions.
-                                            patchClause(i(), { field: e.currentTarget.value, value: '', },);
-                                            setPage(1,);
-                                        }}
-                                    >
-                                        <option value="">Property…</option>
-                                        <For each={filterFields()}>
-                                            {(f,) => <option value={f}>{fieldLabel(f,)}</option>}
-                                        </For>
-                                    </select>
-                                    <select
-                                        class="entity-search-modal__op"
-                                        value={c.op}
-                                        onChange={(e,) => {
-                                            patchClause(i(), { op: e.currentTarget.value as FilterOp, },);
-                                            setPage(1,);
-                                        }}
-                                    >
-                                        <For each={FILTER_OPS}>
-                                            {(o,) => <option value={o.op}>{o.short}</option>}
-                                        </For>
-                                    </select>
-                                    <EntityValueInput
-                                        typeKey={props.entityType}
-                                        field={c.field}
-                                        value={c.value}
-                                        onCommit={(v,) => onFilterValueCommit(i(), v,)}
-                                        placeholder="Value (comma-separated for 'is any of')"
-                                    />
+                                <div class="entity-search-modal__clause">
+                                    {/* One line: property · operator · value · × (· + Add another). */}
+                                    <div class="entity-search-modal__query">
+                                        <select
+                                            value={c.field}
+                                            onChange={(e,) => {
+                                                // Changing the property invalidates the
+                                                // value: it was picked from a different
+                                                // field's suggestions.
+                                                patchClause(i(), { field: e.currentTarget.value, value: '', },);
+                                                setPage(1,);
+                                            }}
+                                        >
+                                            <option value="">Property…</option>
+                                            <For each={filterFields()}>
+                                                {(f,) => <option value={f}>{fieldLabel(f,)}</option>}
+                                            </For>
+                                        </select>
+                                        <select
+                                            class="entity-search-modal__op"
+                                            value={c.op}
+                                            onChange={(e,) => {
+                                                patchClause(i(), { op: e.currentTarget.value as FilterOp, },);
+                                                setPage(1,);
+                                            }}
+                                        >
+                                            <For each={FILTER_OPS}>
+                                                {(o,) => <option value={o.op}>{o.short}</option>}
+                                            </For>
+                                        </select>
+                                        <EntityValueInput
+                                            typeKey={props.entityType}
+                                            field={c.field}
+                                            value={c.value}
+                                            onCommit={(v,) => onFilterValueCommit(i(), v,)}
+                                            placeholder="Value (comma-separated for 'is any of')"
+                                        />
+                                        {/* Every row has ×: on the only row it clears the row
+                                            (removeClause never drops the last one). */}
+                                        <button
+                                            type="button"
+                                            class="entity-search-modal__clause-remove"
+                                            aria-label={clauses.length > 1 ? 'Remove this criterion' : 'Clear this criterion'}
+                                            title={clauses.length > 1 ? 'Remove' : 'Clear'}
+                                            onClick={() => { removeClause(i(),); setPage(1,); }}
+                                        >
+                                            ×
+                                        </button>
+                                        <Show when={i() === clauses.length - 1}>
+                                            <button
+                                                type="button"
+                                                class="ui-button ui-button--sm ui-button--secondary"
+                                                onClick={addClause}
+                                            >
+                                                + Add another
+                                            </button>
+                                        </Show>
+                                    </div>
+                                    {/* Hints sit under the row so they never break it. */}
                                     <Show when={typeDef()?.virtualFilters?.find((v,) => v.key === c.field,)?.description}>
                                         {(d,) => <small class="entity-search-modal__clause-hint">{d()}</small>}
                                     </Show>
@@ -688,26 +712,6 @@ const EntitySearchSelectModal: Component<EntitySearchSelectModalProps> = (props,
                                         <small class="entity-search-modal__clause-hint entity-search-modal__clause-hint--warning">
                                             Overrides the row above (one condition per property).
                                         </small>
-                                    </Show>
-                                    {/* Every row has ×: on the only row it clears the row
-                                        (removeClause never drops the last one). */}
-                                    <button
-                                        type="button"
-                                        class="entity-search-modal__clause-remove"
-                                        aria-label={clauses.length > 1 ? 'Remove this criterion' : 'Clear this criterion'}
-                                        title={clauses.length > 1 ? 'Remove' : 'Clear'}
-                                        onClick={() => { removeClause(i(),); setPage(1,); }}
-                                    >
-                                        ×
-                                    </button>
-                                    <Show when={i() === clauses.length - 1}>
-                                        <button
-                                            type="button"
-                                            class="ui-button ui-button--sm ui-button--secondary"
-                                            onClick={addClause}
-                                        >
-                                            + Add another
-                                        </button>
                                     </Show>
                                 </div>
                             )}

@@ -152,15 +152,24 @@
     gap: $spacing-xs;
 }
 
+// A clause = the one-line row + any hints under it.
+.entity-search-modal__clause {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+// Property · operator · value · × (· + Add another) — always ONE line.
 .entity-search-modal__query {
     display: flex;
     align-items: center;
     gap: $spacing-sm;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 
-    // The value input takes the slack; the two selects stay their own size.
-    .entity-value-input { flex: 1 1 12rem; }
-    select { flex: 0 0 auto; }
+    // The value input takes the slack; the selects and buttons keep their size.
+    .entity-value-input { flex: 1 1 auto; min-width: 8rem; }
+    select { flex: 0 1 auto; min-width: 0; max-width: 16rem; }
+    > button { flex: none; white-space: nowrap; }
 }
 
 // The operator is the narrowest thing in the row — it holds a symbol and a
@@ -198,7 +207,6 @@
 
 // Help line under a clause on a query-only property (e.g. how subscription ranks compare).
 .entity-search-modal__clause-hint {
-    flex: 1 0 100%;
     color: var(--admin-text-muted, #{$text-light});
     font-size: $font-size-xs;
 }
