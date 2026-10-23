@@ -35,10 +35,10 @@ import { useGalleryItems, } from './useGalleryItems';
 export type GalleryCollectionPageProps = Partial<RouteSectionProps> & { id?: string; };
 
 const GalleryCollectionPage: Component<GalleryCollectionPageProps> = (props,) => {
-    const params = useParams<{ id?: string; }>();
+    const params = useParams<{ collectionId?: string; }>();
     const auth = useAuth();
     const navigate = useNavigate();
-    const id = () => props.id ?? params.id ?? '';
+    const id = () => props.id ?? params.collectionId ?? '';
     const key = () => `${id()}:${auth.user?.id ?? 'anon'}`;
 
     const [data, { refetch, },] = createResource(key, async () => {
@@ -171,12 +171,12 @@ export default GalleryCollectionPage;
  * configured base, else the 404.
  */
 export const GalleryCustomCollectionRoute: Component = () => {
-    const params = useParams<{ slug?: string; id?: string; }>();
+    const params = useParams<{ slug?: string; collectionId?: string; }>();
     const [route,] = createResource(() => loadGalleryRoute(),);
     return (
         <Show when={route() !== undefined}>
             <Show when={route() && baseSlug(route()!.baseUrl,) === (params.slug ?? '').toLowerCase()} fallback={<NotFoundPage />}>
-                <GalleryCollectionPage id={params.id} />
+                <GalleryCollectionPage id={params.collectionId} />
             </Show>
         </Show>
     );

@@ -202,16 +202,18 @@ const App: Component = () => {
 										<Route path="/forum/:category" component={ForumCategoryPage} />
 										<Route path="/forum/:category/:thread" component={ForumThreadPage} />
 										<Route path="/gallery" component={GalleryPage} />
-										<Route path="/gallery/collection/:id" component={GalleryCollectionPage} />
-										<Route path="/gallery/:id" component={GalleryItemPage} />
+										{/* Distinct param names (not `:id`): this router keeps a same-named param's OLD value while switching
+											routes, so collection → item read the collection id and 404'd. */}
+										<Route path="/gallery/collection/:collectionId" component={GalleryCollectionPage} />
+										<Route path="/gallery/:itemId" component={GalleryItemPage} />
 										{/* Video direct links land here when the viewer can't get the plain file. */}
 										<Route path="/watch/:id" component={WatchPage} />
 										{/* Sent-mail archive + web view ({{mail.viewUrl}}). */}
 										<Route path="/mail" component={MailArchivePage} />
 										<Route path="/mail/:jobId" component={MailViewPage} />
 										<Route path="/:slug" component={DynamicPage} />
-										<Route path="/:slug/:id" component={GalleryCustomItemRoute} />
-										<Route path="/:slug/collection/:id" component={GalleryCustomCollectionRoute} />
+										<Route path="/:slug/:itemId" component={GalleryCustomItemRoute} />
+										<Route path="/:slug/collection/:collectionId" component={GalleryCustomCollectionRoute} />
 										{/* Catch-all 404 lives INSIDE Layout so the
 											public Header/Footer + theme tokens
 											(--site-primary, etc.) apply. Multi-

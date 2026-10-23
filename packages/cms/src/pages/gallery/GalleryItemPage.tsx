@@ -39,10 +39,12 @@ import './gallery.scss';
 export type GalleryItemPageProps = Partial<RouteSectionProps> & { id?: string; };
 
 const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
-    const params = useParams<{ id?: string; }>();
+    // `:itemId`, not `:id` — see the routes in App.tsx (a same-named param from the
+    // previous route, e.g. a collection page, was read here and 404'd).
+    const params = useParams<{ itemId?: string; }>();
     const auth = useAuth();
     const navigate = useNavigate();
-    const id = () => props.id ?? params.id ?? '';
+    const id = () => props.id ?? params.itemId ?? '';
     const key = () => `${id()}:${auth.user?.id ?? 'anon'}`;
 
     const [data, { refetch, },] = createResource(key, async () => {
@@ -232,12 +234,12 @@ export default GalleryItemPage;
  * Wire as `<Route path="/:slug/:id" component={GalleryCustomItemRoute} />`.
  */
 export const GalleryCustomItemRoute: Component = () => {
-    const params = useParams<{ slug?: string; id?: string; }>();
+    const params = useParams<{ slug?: string; itemId?: string; }>();
     const [route,] = createResource(() => loadGalleryRoute(),);
     return (
         <Show when={route() !== undefined}>
             <Show when={route() && baseSlug(route()!.baseUrl,) === (params.slug ?? '').toLowerCase()} fallback={<NotFoundPage />}>
-                <GalleryItemPage id={params.id} />
+                <GalleryItemPage id={params.itemId} />
             </Show>
         </Show>
     );
