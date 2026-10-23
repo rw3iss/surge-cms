@@ -6,7 +6,7 @@ import {
     type SocialPlatform,
     usesPlayer,
 } from '@sitesurge/types';
-import { Component, Match, onCleanup, onMount, Show, Switch, } from 'solid-js';
+import { Component, createSignal, Match, onCleanup, Show, Switch, } from 'solid-js';
 import { attachYouTubePlayer, } from './playbackCoordinator';
 import './SocialEmbed.scss';
 
@@ -71,13 +71,16 @@ const SocialEmbed: Component<SocialEmbedProps> = (props,) => {
         showDate: props.showDate,
     },);
 
-    // Only the YouTube branch renders an iframe; every other provider is a
-    // thumbnail card that links out and has nothing to pause.
-    let ytIframe: HTMLIFrameElement | undefined;
-    onMount(() => {
-        if (!ytIframe) return;
-        onCleanup(attachYouTubePlayer(ytIframe,),);
-    },);
+    // YouTube renders a FACADE (thumbnail + play button) until tapped; only
+    // then is the real player created. A YouTube iframe is a whole page (~1 MB
+    // of script, its own process) — a Shorts feed mounted ~30 at once and
+    // crashed iOS Safari. Every other provider is a thumbnail card that links out.
+    const [playing, setPlaying,] = createSignal(false,);
+    const ytThumb = () => props.thumbnailUrl || `https://i.ytimg.com/vi/${encodeURIComponent(props.externalId,)}/hqdefault.jpg`;
+    /** The player, once created: joins the page-wide one-plays-at-a-time coordinator. */
+    const bindPlayer = (el: HTMLIFrameElement,) => {
+        onCleanup(attachYouTubePlayer(el,),);
+    };
 
     const platformUrl = () => {
         switch (props.platform) {
@@ -129,14 +132,29 @@ const SocialEmbed: Component<SocialEmbedProps> = (props,) => {
                                 and left the video its 16:9 box, with dead space below.
                                 The wrapper class already encodes the ratio, so this was
                                 a duplicate that happened to win. */}
+                            <Show
+                                when={playing()}
+                                fallback={
+                                    <button
+                                        type="button"
+                                        class="social-embed__yt-facade"
+                                        style={{ 'background-image': `url("${ytThumb().replace(/["\\]/g, '',)}")`, }}
+                                        aria-label={`Play: ${props.content || 'YouTube video'}`}
+                                        onClick={() => setPlaying(true,)}
+                                    >
+                                        <span class="social-embed__yt-play" aria-hidden="true" />
+                                    </button>
+                                }
+                            >
                             <iframe
                                 // enablejsapi=1 is what lets the page both send the
                                 // player commands and hear when it starts — without it
                                 // the frame ignores postMessage entirely. See
                                 // playbackCoordinator: only one social post plays at a
-                                // time, page-wide.
-                                src={`https://www.youtube.com/embed/${props.externalId}?enablejsapi=1`}
-                                ref={ytIframe}
+                                // time, page-wide. autoplay=1: the tap that created
+                                // the player should start it.
+                                src={`https://www.youtube.com/embed/${props.externalId}?enablejsapi=1&autoplay=1&playsinline=1`}
+                                ref={bindPlayer}
                                 width="100%"
                                 frameborder="0"
                                 // web-share matches what a hand-written embed carries; without
@@ -146,6 +164,7 @@ const SocialEmbed: Component<SocialEmbedProps> = (props,) => {
                                 loading="lazy"
                                 title={props.content || 'YouTube video'}
                             />
+                            </Show>
                         </div>
                         <SocialMeta {...props} url={platformUrl()} display={display()} />
                     </Match>
