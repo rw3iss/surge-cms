@@ -41,12 +41,15 @@ const GalleryCollectionPage: Component<GalleryCollectionPageProps> = (props,) =>
     const id = () => props.id ?? params.collectionId ?? '';
     const key = () => `${id()}:${auth.user?.id ?? 'anon'}`;
 
-    const [data, { refetch, },] = createResource(key, async () => {
+    // Ids come from the SOURCE value, not a re-read of the route param (stale
+    // during an in-app route switch — see GalleryItemPage).
+    const [data, { refetch, },] = createResource(key, async (k,) => {
+        const collectionId = k.split(':',)[0] ?? '';
         let denied: ReturnType<typeof deniedReasonOf> = null;
         if (!(await featureEnabledLoaded('gallery',))) return { config: null, collection: null, denied, };
         const [config, collection,] = await Promise.all([
             cms.gallery.config().catch(() => null as GalleryPublicConfig | null),
-            cms.gallery.collection(id(),).catch((err,) => {
+            cms.gallery.collection(collectionId,).catch((err,) => {
                 denied = deniedReasonOf(err, Boolean(auth.user,),);
                 return null as GalleryCollection | null;
             }),
@@ -73,8 +76,8 @@ const GalleryCollectionPage: Component<GalleryCollectionPageProps> = (props,) =>
     );
 
     const list = useGalleryItems(
-        () => (data()?.collection ? `${key()}:${perPage()}` : null),
-        () => ({ collectionId: id(), }),
+        () => (data()?.collection ? `${data()!.collection!.id}:${auth.user?.id ?? 'anon'}:${perPage()}` : null),
+        () => ({ collectionId: data()?.collection?.id ?? '', }),
         perPage,
     );
 

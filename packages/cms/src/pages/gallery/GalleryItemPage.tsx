@@ -47,12 +47,16 @@ const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
     const id = () => props.id ?? params.itemId ?? '';
     const key = () => `${id()}:${auth.user?.id ?? 'anon'}`;
 
-    const [data, { refetch, },] = createResource(key, async () => {
+    // Fetchers take their ids from the SOURCE value, never by re-reading the
+    // route param: during an in-app route switch this router still answers
+    // the previous value, so a thumbnail click loaded the item you came from.
+    const [data, { refetch, },] = createResource(key, async (k,) => {
+        const itemId = k.split(':',)[0] ?? '';
         let denied: ReturnType<typeof deniedReasonOf> = null;
         if (!(await featureEnabledLoaded('gallery',))) return { config: null, item: null, denied, };
         const [config, item,] = await Promise.all([
             cms.gallery.config().catch(() => null as GalleryPublicConfig | null),
-            cms.gallery.item(id(),).catch((err,) => {
+            cms.gallery.item(itemId,).catch((err,) => {
                 denied = deniedReasonOf(err, Boolean(auth.user,),);
                 return null as GalleryItem | null;
             }),
@@ -73,11 +77,12 @@ const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
     // root (= every item when no collections exist), as the gallery pages list it (`listing`: an item
     // hidden from the gallery has no neighbours). One list read; fine for typical galleries.
     const [neighbours,] = createResource(
-        () => (data()?.item ? key() : null),
-        async () => {
-            const r = await cms.gallery.list({ collectionId: data()?.item?.collectionId ?? 'root', listing: true, limit: 200, },).catch(() => null);
+        () => (data()?.item ? `${data()!.item!.id}|${data()!.item!.collectionId ?? 'root'}|${auth.user?.id ?? 'anon'}` : null),
+        async (k,) => {
+            const [itemId, collectionId,] = k.split('|',);
+            const r = await cms.gallery.list({ collectionId, listing: true, limit: 200, },).catch(() => null);
             const list = r?.items ?? [];
-            const i = list.findIndex((x,) => x.id === id(),);
+            const i = list.findIndex((x,) => x.id === itemId,);
             return { list, ...(i < 0 ? { prev: null, next: null, } : { prev: list[i - 1] ?? null, next: list[i + 1] ?? null, }), };
         },
     );
@@ -94,7 +99,7 @@ const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
     // Bring the current item into view inside the column / strip (not the page).
     let stripList: HTMLDivElement | undefined;
     createEffect(() => {
-        if (!stripItems().length || !id()) return;
+        if (!stripItems().length || !data()?.item?.id) return;
         queueMicrotask(() => requestAnimationFrame(() => {
             const el = stripList?.querySelector<HTMLElement>('.is-active',);
             if (!stripList || !el) return;
