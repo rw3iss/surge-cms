@@ -92,6 +92,9 @@ export interface GalleryAppearance {
     thumbStrip: boolean;
     /** Collection pages + item pages of collected items: a sidebar listing the collections. */
     showCollectionsSidebar: boolean;
+    /** Item DETAIL page of an item in a collection: the collection's other items as a thumbnail
+     *  column on the right (desktop) / a horizontal strip under the media (mobile). */
+    showCollectionItems: boolean;
 }
 
 export interface GallerySettings {
@@ -134,6 +137,7 @@ export const DEFAULT_GALLERY_APPEARANCE: GalleryAppearance = {
     showPublishedDate: false,
     thumbStrip: false,
     showCollectionsSidebar: false,
+    showCollectionItems: false,
 };
 
 export const DEFAULT_GALLERY_SETTINGS: GallerySettings = {

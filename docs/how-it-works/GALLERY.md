@@ -222,8 +222,16 @@ Gallery writes also drop the sitemap cache.
 
 SDK: `cms.gallery.config / list / item / collections / collection / adminCollections / createCollection / updateCollection / deleteCollection / moveItems / admin.{items,publish,update,remove,mediaLinks} / settings / updateSettings`.
 
-Settings: `appearance.showCollectionsSidebar` (default off) — a collections
-sidebar on collection pages and on item pages of collected items.
+Settings (Gallery → Settings → Behavior):
+- `appearance.showCollectionsSidebar` (default off) — a collections sidebar on
+  collection pages and on item pages of collected items. On an item page its top
+  link reads **← Gallery** (instead of "All items") and the nav above the media
+  drops its own gallery link.
+- `appearance.showCollectionItems` (default off) — on the page of an item in a
+  collection, the collection's items (the same listing as Previous / Next, up to
+  200) as thumbnails: a sticky right column on desktop, as tall as the window
+  below the header and scrollable; on mobile a horizontal strip under the
+  media, before the comments. The current item is outlined.
 
 ## Comments
 

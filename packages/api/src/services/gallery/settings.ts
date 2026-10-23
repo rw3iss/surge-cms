@@ -70,6 +70,7 @@ export function cleanAppearance(a: Partial<GalleryAppearance>,): GalleryAppearan
         showPublishedDate: Boolean(n.showPublishedDate,),
         thumbStrip: Boolean(n.thumbStrip,),
         showCollectionsSidebar: Boolean(n.showCollectionsSidebar,),
+        showCollectionItems: Boolean(n.showCollectionItems,),
     };
 }
 

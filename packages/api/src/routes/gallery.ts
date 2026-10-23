@@ -119,6 +119,7 @@ const appearance = z.object({
     showPublishedDate: z.boolean().optional(),
     thumbStrip: z.boolean().optional(),
     showCollectionsSidebar: z.boolean().optional(),
+    showCollectionItems: z.boolean().optional(),
 },);
 
 const settingsBody = z.object({

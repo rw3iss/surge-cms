@@ -48,6 +48,8 @@ export interface GalleryCollectionsLayoutProps {
     currentId: string;
     /** Gallery base URL, the "All items" link. */
     baseUrl: string;
+    /** Text of that link (default "All items"; item pages use "← Gallery"). */
+    allLabel?: string;
     children: JSX.Element;
 }
 
@@ -73,7 +75,7 @@ export const GalleryCollectionsLayout: Component<GalleryCollectionsLayoutProps> 
                 </div>
                 <aside class="gallery-layout__sidebar" aria-label="Collections">
                     <A href={props.baseUrl} end class={`gallery-layout__link gallery-layout__link--all${props.currentId ? '' : ' is-active'}`}>
-                        All items
+                        {props.allLabel ?? 'All items'}
                     </A>
                     <h2 class="gallery-layout__heading">Collections</h2>
                     <For each={props.collections}>

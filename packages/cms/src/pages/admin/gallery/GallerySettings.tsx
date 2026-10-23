@@ -383,6 +383,12 @@ const GallerySettingsPage: Component = () => {
                                 label="Show collections sidebar on pages"
                                 hint="On collection pages and on the pages of items in a collection: a sidebar listing every collection. Mobile shows a dropdown instead."
                             />
+                            <Toggle
+                                checked={a().showCollectionItems}
+                                onChange={(v,) => setA('showCollectionItems', v,)}
+                                label="Show the collection's other items on item pages"
+                                hint="On the page of an item in a collection: a scrollable column of the collection's item thumbnails on the right. Mobile shows them as a horizontal strip under the media."
+                            />
                         </section>
                         </div>
 

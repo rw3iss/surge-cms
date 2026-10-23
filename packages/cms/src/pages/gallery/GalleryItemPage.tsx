@@ -5,7 +5,11 @@
  * commenting is open, and for guests, follows the item's settings).
  *
  * In a collection, the nav links back to the collection AND the gallery, and
- * with "Show collections sidebar" on the collections sidebar sits beside it.
+ * with "Show collections sidebar" on the collections sidebar sits beside it —
+ * its top link then reads "← Gallery" and the nav drops its own gallery link.
+ * With "Show the collection's other items" on, the collection's items are a
+ * thumbnail column on the right (desktop, sticky + scrollable) or a
+ * horizontal strip under the media, before the comments (mobile).
  *
  * Missing or deleted media → the API 404s → the 404 page. An existing item
  * this viewer may not see (its rule, its collection's, or the whole gallery)
@@ -15,13 +19,14 @@
 import { formatDate, type GalleryCollection, type GalleryItem, type GalleryPublicConfig, } from '@sitesurge/types';
 import { Title, } from '@solidjs/meta';
 import { A, type RouteSectionProps, useNavigate, useParams, } from '@solidjs/router';
-import { Component, createEffect, createResource, Show, } from 'solid-js';
+import { Component, createEffect, createResource, For, Show, } from 'solid-js';
 import MediaVideo from '../../components/blocks/media/MediaVideo';
 import SeoHead from '../../components/common/seo/SeoHead';
 import UpgradeTout from '../../components/content/UpgradeTout';
 import CommentsSection from '../../components/discussions/CommentsSection';
 import { baseSlug, loadGalleryRoute, } from '../../components/gallery/galleryConfig';
 import { pageStyle, } from '../../components/gallery/galleryLayout';
+import { tileSrc, } from '../../components/gallery/GalleryTile';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
 import { isFeatureEnabled, } from '../../stores/siteSettings';
@@ -71,11 +76,19 @@ const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
             const r = await cms.gallery.list({ collectionId: data()?.item?.collectionId ?? 'root', listing: true, limit: 200, },).catch(() => null);
             const list = r?.items ?? [];
             const i = list.findIndex((x,) => x.id === id(),);
-            return i < 0 ? { prev: null, next: null, } : { prev: list[i - 1] ?? null, next: list[i + 1] ?? null, };
+            return { list, ...(i < 0 ? { prev: null, next: null, } : { prev: list[i - 1] ?? null, next: list[i + 1] ?? null, }), };
         },
     );
 
     const back = () => data()?.config?.baseUrl || '/gallery';
+    const sidebarOn = (config: GalleryPublicConfig | null | undefined, item: GalleryItem,) =>
+        Boolean(config?.appearance.showCollectionsSidebar && item.collectionId,);
+    /** The collection's items for the thumbnail column (setting on + the item is in a collection). */
+    const stripItems = (): GalleryItem[] => {
+        const d = data();
+        if (!d?.config?.appearance.showCollectionItems || !d.item?.collectionId) return [];
+        return (neighbours()?.list ?? []).filter((x,) => x.media,);
+    };
 
     // Collections: the back link's name (incl. a collection hidden from the gallery) and the sidebar
     // (`visibleCollections` drops hidden ones). Only read for an item in a collection.
@@ -116,15 +129,21 @@ const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
                                 imageAlt={item().media?.alt || undefined}
                             />
                             <GalleryCollectionsLayout
-                                enabled={Boolean(d().config?.appearance.showCollectionsSidebar && item().collectionId,)}
+                                enabled={sidebarOn(d().config, item(),)}
                                 collections={visibleCollections(collections(),)}
                                 currentId={item().collectionId ?? ''}
                                 baseUrl={back()}
+                                allLabel={`← ${d().config?.title || 'Gallery'}`}
                             >
+                                <div class="gallery-item-page__body" classList={{ 'has-strip': stripItems().length > 1, }}>
+                                <div class="gallery-item-page__main">
                                 <nav class="gallery-item-page__nav">
                                     <span class="gallery-item-page__back">
                                         <Show when={collection()}>{(c,) => <A href={c().url}>← {c().name}</A>}</Show>
-                                        <A href={back()}>← {d().config?.title || 'Gallery'}</A>
+                                        {/* The collections sidebar carries the gallery link. */}
+                                        <Show when={!(sidebarOn(d().config, item(),) && visibleCollections(collections(),).length > 0)}>
+                                            <A href={back()}>← {d().config?.title || 'Gallery'}</A>
+                                        </Show>
                                     </span>
                                     <span class="gallery-item-page__pn">
                                         <Show when={neighbours()?.prev}>{(p,) => <A href={p().url} rel="prev">‹ Previous</A>}</Show>
@@ -156,9 +175,35 @@ const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
                                         </Show>
                                     </figcaption>
                                 </figure>
-                                <Show when={isFeatureEnabled('comments',)}>
-                                    <CommentsSection targetType="gallery_item" targetId={item().id} class="gallery-item-page__comments" />
+                                </div>
+                                {/* The collection's items: a right column (desktop) / a strip under the media (mobile). */}
+                                <Show when={stripItems().length > 1}>
+                                    <aside class="gallery-item-page__strip" aria-label={collection() ? `More in ${collection()!.name}` : 'More in this collection'}>
+                                        <Show when={collection()}>{(c,) => <h2 class="gallery-item-page__strip-heading"><A href={c().url}>{c().name}</A></h2>}</Show>
+                                        <div class="gallery-item-page__strip-list">
+                                            <For each={stripItems()}>
+                                                {(it,) => (
+                                                    <A
+                                                        href={it.url}
+                                                        class="gallery-item-page__strip-item"
+                                                        classList={{ 'is-active': it.id === item().id, }}
+                                                        aria-current={it.id === item().id ? 'page' : undefined}
+                                                        title={it.title || undefined}
+                                                    >
+                                                        <img src={tileSrc(it,)} alt={it.media?.alt || it.title || ''} loading="lazy" />
+                                                        <Show when={it.media?.type === 'video'}><span class="gallery-item-page__strip-play" aria-hidden="true">▶</span></Show>
+                                                    </A>
+                                                )}
+                                            </For>
+                                        </div>
+                                    </aside>
                                 </Show>
+                                <Show when={isFeatureEnabled('comments',)}>
+                                    <div class="gallery-item-page__comments-wrap">
+                                        <CommentsSection targetType="gallery_item" targetId={item().id} class="gallery-item-page__comments" />
+                                    </div>
+                                </Show>
+                                </div>
                             </GalleryCollectionsLayout>
                         </div>
                     )}
