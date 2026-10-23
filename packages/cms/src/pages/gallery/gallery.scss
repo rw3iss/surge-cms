@@ -287,6 +287,8 @@
 }
 
 .gallery-item-page__strip-list {
+  // Offset parent of the thumbnails (centring the current one).
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: $spacing-sm;

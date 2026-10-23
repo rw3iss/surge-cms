@@ -89,6 +89,17 @@ const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
         if (!d?.config?.appearance.showCollectionItems || !d.item?.collectionId) return [];
         return (neighbours()?.list ?? []).filter((x,) => x.media,);
     };
+    // Bring the current item into view inside the column / strip (not the page).
+    let stripList: HTMLDivElement | undefined;
+    createEffect(() => {
+        if (!stripItems().length || !id()) return;
+        queueMicrotask(() => requestAnimationFrame(() => {
+            const el = stripList?.querySelector<HTMLElement>('.is-active',);
+            if (!stripList || !el) return;
+            stripList.scrollTop = el.offsetTop - (stripList.clientHeight - el.offsetHeight) / 2;
+            stripList.scrollLeft = el.offsetLeft - (stripList.clientWidth - el.offsetWidth) / 2;
+        },),);
+    },);
 
     // Collections: the back link's name (incl. a collection hidden from the gallery) and the sidebar
     // (`visibleCollections` drops hidden ones). Only read for an item in a collection.
@@ -180,7 +191,7 @@ const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
                                 <Show when={stripItems().length > 1}>
                                     <aside class="gallery-item-page__strip" aria-label={collection() ? `More in ${collection()!.name}` : 'More in this collection'}>
                                         <Show when={collection()}>{(c,) => <h2 class="gallery-item-page__strip-heading"><A href={c().url}>{c().name}</A></h2>}</Show>
-                                        <div class="gallery-item-page__strip-list">
+                                        <div class="gallery-item-page__strip-list" ref={stripList}>
                                             <For each={stripItems()}>
                                                 {(it,) => (
                                                     <A
