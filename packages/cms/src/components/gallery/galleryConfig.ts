@@ -6,13 +6,12 @@
  */
 import type { GalleryPublicConfig, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
-import { isFeatureEnabled, } from '../../stores/siteSettings';
+import { featureEnabledLoaded, } from '../../stores/siteSettings';
 
 let pending: Promise<GalleryPublicConfig | null> | null = null;
 
 export function loadGalleryRoute(): Promise<GalleryPublicConfig | null> {
-    if (!isFeatureEnabled('gallery',)) return Promise.resolve(null,);
-    pending ??= cms.gallery.config().catch(() => null);
+    pending ??= featureEnabledLoaded('gallery',).then((on,) => (on ? cms.gallery.config().catch(() => null) : null));
     return pending;
 }
 

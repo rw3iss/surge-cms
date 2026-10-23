@@ -19,7 +19,7 @@ import { appearanceToView, pageStyle, } from '../../components/gallery/galleryLa
 import GalleryView from '../../components/gallery/GalleryView';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
-import { isFeatureEnabled, } from '../../stores/siteSettings';
+import { featureEnabledLoaded, } from '../../stores/siteSettings';
 import NotFoundPage from '../NotFound';
 import { GalleryCollectionCards, visibleCollections, } from './GalleryCollections';
 import './gallery.scss';
@@ -29,7 +29,7 @@ const GalleryPage: Component = () => {
     const auth = useAuth();
     const viewerKey = () => auth.user?.id ?? 'anon';
     const [config, { refetch: refetchConfig, },] = createResource(viewerKey, () =>
-        isFeatureEnabled('gallery',) ? cms.gallery.config().catch(() => null as GalleryPublicConfig | null) : Promise.resolve(null,),);
+        featureEnabledLoaded('gallery',).then((on,) => (on ? cms.gallery.config().catch(() => null as GalleryPublicConfig | null) : null)),);
 
     const perPage = () => config()?.appearance.perPage ?? 24;
 

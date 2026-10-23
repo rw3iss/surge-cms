@@ -104,6 +104,17 @@ export function isPatreonEnabled(): boolean {
  */
 const MODULE_FEATURES: ReadonlySet<string> = new Set(['posts', 'campaigns', 'forms', 'messages',],);
 
+/**
+ * `isFeatureEnabled` for code that runs ONCE (a resource fetcher, a loader):
+ * waits for the site settings first. Before they load, `isFeatureEnabled`
+ * answers false for every opt-in feature, so a first visit (empty cache) to a
+ * feature page read "off" and rendered the 404.
+ */
+export async function featureEnabledLoaded(key: string,): Promise<boolean> {
+    await loadSiteSettings();
+    return isFeatureEnabled(key,);
+}
+
 export function isFeatureEnabled(key: string,): boolean {
     const features = siteSettings()?.features;
     if (!features) {

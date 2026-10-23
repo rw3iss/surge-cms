@@ -29,7 +29,7 @@ import { pageStyle, } from '../../components/gallery/galleryLayout';
 import { tileSrc, } from '../../components/gallery/GalleryTile';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
-import { isFeatureEnabled, } from '../../stores/siteSettings';
+import { featureEnabledLoaded, isFeatureEnabled, } from '../../stores/siteSettings';
 import { deniedReasonOf, handleAccessDenied, } from '../../utils/accessDenied';
 import NotFoundPage from '../NotFound';
 import { GalleryCollectionsLayout, visibleCollections, } from './GalleryCollections';
@@ -47,7 +47,7 @@ const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
 
     const [data, { refetch, },] = createResource(key, async () => {
         let denied: ReturnType<typeof deniedReasonOf> = null;
-        if (!isFeatureEnabled('gallery',)) return { config: null, item: null, denied, };
+        if (!(await featureEnabledLoaded('gallery',))) return { config: null, item: null, denied, };
         const [config, item,] = await Promise.all([
             cms.gallery.config().catch(() => null as GalleryPublicConfig | null),
             cms.gallery.item(id(),).catch((err,) => {
