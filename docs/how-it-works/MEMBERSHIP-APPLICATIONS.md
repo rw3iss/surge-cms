@@ -132,14 +132,16 @@ yearly) without applying again — approval is checked on the LEVEL, not the pri
 wording and the "price difference" compare prices **per month** (`perMonthCents` in
 `@sitesurge/types`), so $25 / month → $250 / year is not an "upgrade".
 
-## Dev only levels (test levels)
+## Levels hidden from the subscription tiers
 
-A level marked **Dev only** (TierModal; migration 151) is for testing a new level on the live
-site, often at a token price.
+A level with **Hide from subscription tiers** on (TierModal; was "Dev only", same column
+`subscription_plans.dev_only`, migration 151; API field `hiddenFromTiers`, `devOnly` kept as a
+deprecated alias) is not offered on `/subscribe`, at sign-up or on the profile Membership page —
+e.g. a test level at a token price, or a level you only assign by hand.
 
 | Question | Answer |
 |---|---|
-| Who sees it and can buy it | Anyone with the permission **`memberships:dev_levels`** — default admin, sysadmin and the `developer` role (main or additional). A member already on it still sees it. |
+| Who sees it and can buy it | **Nobody** through self-service — admins included. A member already on it still sees it, and an approved application's offer for it still shows. Admins assign it on the user's page (`PUT /users/:id/subscription`). (The old `memberships:dev_levels` permission is gone.) |
 | Subscription-required minimum | Exempt: it is offered and sold below the minimum, and holding it **counts as a qualifying membership** (the member is not walled). |
 | Rank (post / forum gates) | Rank **0**, like Free (migration 168). It never takes a paid rank, so a $1 test level does not move the real levels up. A gate that needs a paid tier does not open for it. |
-| Legacy `POST /payments/subscribe` | Goes through the same rules (`membership.change`) — it can no longer join an approval, Dev only or below-minimum level directly. |
+| Legacy `POST /payments/subscribe` | Goes through the same rules (`membership.change`) — it can no longer join an approval, hidden or below-minimum level directly. |

@@ -161,7 +161,7 @@ async function donateRecurring(
 /**
  * Legacy `POST /payments/subscribe` (published SDK `cms.payments.subscribe`).
  * Deprecated — use `membership.change`. It now goes THROUGH `membership.change`
- * so every rule applies (approval levels, Dev Only, hide price, the
+ * so every rule applies (approval levels, hidden levels, hide price, the
  * subscription-required minimum, settling unpaid attempts, `type: membership`
  * metadata). Before, it checked only `is_active` + a Stripe price, so a member
  * could join a level that requires approval without applying.

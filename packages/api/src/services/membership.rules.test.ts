@@ -1,5 +1,5 @@
 /**
- * The membership RULES (approval levels, Dev Only, the subscription-required
+ * The membership RULES (approval levels, hidden levels, the subscription-required
  * minimum, billing-only changes) — the choices that decide who can buy what.
  * Stripe is not called: these paths throw or answer before any Stripe write.
  */
@@ -32,7 +32,7 @@ const { preview, publicTiers, } = await import('./membership');
 
 const tier = (id: string, over: T = {},): T => ({
     id, slug: id, name: id, description: null, role: 'member', isFree: false, isActive: true, priceCents: 2500, interval: 'month', intervalCount: 1,
-    displayPrice: null, requiresApproval: false, applicationFormId: null, hidePrice: false, devOnly: false, stripePriceId: `price_${id}`,
+    displayPrice: null, requiresApproval: false, applicationFormId: null, hidePrice: false, hiddenFromTiers: false, devOnly: false, stripePriceId: `price_${id}`,
     stripeProductId: null, sortOrder: 1, ...over,
 });
 
@@ -74,24 +74,22 @@ describe('approval levels', () => {
     },);
 },);
 
-describe('Dev only levels', () => {
-    beforeEach(() => { tiers = [...tiers, tier('dev', { devOnly: true, sortOrder: 0, },),]; },);
+describe('levels hidden from the subscription tiers', () => {
+    beforeEach(() => { tiers = [...tiers, tier('hidden', { hiddenFromTiers: true, devOnly: true, sortOrder: 0, },),]; },);
 
-    it('are hidden and refused without the memberships:dev_levels permission', async () => {
-        q.mockImplementation(async (sql: string,) => sql.includes('SELECT role FROM users',) ? { rows: [{ role: 'member', },], } : { rows: [], },);
-        const cat = await publicTiers('u1',);
-        expect(cat.tiers.some((t,) => t.id === 'dev',),).toBe(false,);
-        await expect(preview('u1', 'dev',),).rejects.toThrow(/not found/i,);
+    it('are hidden from every viewer (admins included) and refused for self-service', async () => {
+        q.mockImplementation(async (sql: string,) => sql.includes('SELECT role FROM users',) ? { rows: [{ role: 'admin', },], } : { rows: [], },);
+        can.mockResolvedValue(true,);
+        expect((await publicTiers('u1',)).tiers.some((t,) => t.id === 'hidden',),).toBe(false,);
+        expect((await publicTiers(null,)).tiers.some((t,) => t.id === 'hidden',),).toBe(false,);
+        await expect(preview('u1', 'hidden',),).rejects.toThrow(/not found/i,);
     },);
 
-    it('are offered with the permission, even below the subscription-required minimum', async () => {
-        can.mockResolvedValue(true,);
-        policy.required = true;
-        policy.minimumRank = 1;
-        q.mockImplementation(async (sql: string,) => sql.includes('SELECT role FROM users',) ? { rows: [{ role: 'developer', },], } : { rows: [], },);
+    it('still show for a member already on the level', async () => {
+        currentTier = tiers.find((t,) => t.id === 'hidden',)!;
         const cat = await publicTiers('u1',);
-        expect(cat.tiers.map((t,) => t.id,),).toContain('dev',);
-        expect(can.mock.calls[0]?.[1],).toBe('memberships:dev_levels',);
+        expect(cat.tiers.map((t,) => t.id,),).toContain('hidden',);
+        currentTier = null;
     },);
 },);
 

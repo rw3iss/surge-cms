@@ -12,7 +12,7 @@ import { subscribe, } from './payments';
 beforeEach(() => { q.mockReset(); change.mockReset(); },);
 
 describe('legacy POST /payments/subscribe (S1)', () => {
-    it('goes through membership.change, so approval / Dev only / minimum rules apply', async () => {
+    it('goes through membership.change, so approval / hidden-level / minimum rules apply', async () => {
         q.mockImplementation(async (sql: string,) => sql.includes('FROM subscription_plans',) ? { rows: [{ is_free: false, stripe_price_id: 'price_1', },], } : { rows: [], },);
         change.mockRejectedValue(new Error('Club requires an application — choose Apply and an admin will review it.',),);
         await expect(subscribe('u1', 'club',),).rejects.toThrow(/requires an application/,);

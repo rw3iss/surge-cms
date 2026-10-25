@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-21T16:28:05.526Z",
+  "generatedAt": "2026-10-25T18:30:25.507Z",
   "totalModules": 55,
   "totalRoutes": 600,
   "modules": [
@@ -13505,6 +13505,11 @@
                 "required": false
               },
               {
+                "name": "hiddenFromTiers",
+                "type": "boolean",
+                "required": false
+              },
+              {
                 "name": "devOnly",
                 "type": "boolean",
                 "required": false
@@ -13584,6 +13589,11 @@
               },
               {
                 "name": "hidePrice",
+                "type": "boolean",
+                "required": false
+              },
+              {
+                "name": "hiddenFromTiers",
                 "type": "boolean",
                 "required": false
               },

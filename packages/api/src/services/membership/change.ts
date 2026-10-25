@@ -13,7 +13,7 @@ import { createCustomer, } from '../payments';
 import { ENTITLED_STATUSES, } from '../permissions';
 import { syncUserRole, } from '../subscriptionTiers';
 import { getPolicy as getSubscriptionPolicy, } from '../subscriptionAccess';
-import { seesDevOnly, tierOptions, withPrice, } from './catalog';
+import { tierOptions, withPrice, } from './catalog';
 import { activeLocalSub, current, loadCurrent, type LocalSub, } from './current';
 import { settleOpenAttempts, } from './attempts';
 import { approvedOfferFor, markApplicationStarted, } from './state';
@@ -38,7 +38,8 @@ export async function targetTier(userId: string, tierId: string, opts: { approve
     if (!found) throw new NotFoundError('Membership',);
     // An APPROVED application (hide-price levels) is the approval: buying it is allowed.
     if (offer?.tierId === tierId) opts = { ...opts, approved: true, };
-    if (found.devOnly && !found.isCurrent && !opts.approved && !(await seesDevOnly(userId,))) throw new NotFoundError('Membership',);
+    // Hidden from the tiers: not for self-service (an admin assigns it, or it is approved).
+    if (found.hiddenFromTiers && !found.isCurrent && !opts.approved) throw new NotFoundError('Membership',);
     // The chosen price (default when omitted). Same level at ANOTHER price is a
     // change (e.g. monthly → yearly), not "current".
     const priced = withPrice(found, opts.priceId,);
@@ -54,7 +55,7 @@ export async function targetTier(userId: string, tierId: string, opts: { approve
     // Subscription-required mode: below-minimum paid tiers are not for sale
     // (Free stays reachable — it is how a member cancels).
     const policy = await getSubscriptionPolicy();
-    if (policy.required && !to.isFree && !to.isCurrent && !to.devOnly && (to.rank ?? 0) < policy.minimumRank) {
+    if (policy.required && !to.isFree && !to.isCurrent && !to.hiddenFromTiers && (to.rank ?? 0) < policy.minimumRank) {
         throw new ValidationError('That membership level is not available.',);
     }
     if (!to.isFree && !to.isCurrent) {

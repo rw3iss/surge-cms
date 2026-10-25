@@ -62,7 +62,11 @@ export interface SubscriptionTier {
     /** Approval levels only: no prices shown and no card taken until approved;
      *  the approved member then chooses billing and pays. */
     hidePrice: boolean;
-    /** Shown and sold only to admins/sysadmins (testing a level on the live site). */
+    /** "Hide from subscription tiers": left out of the levels a member can
+     *  choose (/subscribe, sign-up, profile Membership) — except for a member
+     *  already on it or approved for it. Admins can still assign it by hand. */
+    hiddenFromTiers: boolean;
+    /** @deprecated Same value as `hiddenFromTiers` (the old "Dev only" name). */
     devOnly: boolean;
     /** Pending applications for this tier. */
     pendingApplications: number;
@@ -88,6 +92,8 @@ export interface SubscriptionTierBody {
     requiresApproval?: boolean;
     applicationFormId?: string | null;
     hidePrice?: boolean;
+    hiddenFromTiers?: boolean;
+    /** @deprecated Use `hiddenFromTiers` (same setting). */
     devOnly?: boolean;
     sortOrder?: number;
     /** Replaces the tier's extra permission grants. */

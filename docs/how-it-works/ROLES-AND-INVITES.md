@@ -62,13 +62,12 @@ API: `GET/POST /users/invites`, `POST /users/invites/:id/resend`,
 SDK: `cms.users.invites / invite / resendInvite / revokeInvite`,
 `cms.auth.invite / acceptInvite`.
 
-## The developer role and Dev only levels
+## The developer role
 
-The `developer` role (seeded as a member-level role) is the default holder — with admins and
-sysadmins — of the permission **`memberships:dev_levels`**, which shows and sells membership
-levels marked **Dev only**. Give it as an additional role to let someone test such levels;
-grant the permission to any other role (Settings → Permissions) instead if you prefer. Details
-and the rank / minimum rules: `MEMBERSHIP-APPLICATIONS.md` → "Dev only levels".
+The `developer` role is seeded as a member-level role (give it as an additional role). It used to
+be the default holder of `memberships:dev_levels` (seeing "Dev only" membership levels); those
+levels are now **Hide from subscription tiers**, hidden from everyone — see
+`MEMBERSHIP-APPLICATIONS.md` → "Levels hidden from the subscription tiers".
 
 ## Who may manage whom (Users admin)
 

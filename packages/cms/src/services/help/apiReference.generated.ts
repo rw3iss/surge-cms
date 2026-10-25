@@ -15655,6 +15655,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "required": false
                         },
                         {
+                            "name": "hiddenFromTiers",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
                             "name": "devOnly",
                             "type": "boolean",
                             "required": false
@@ -15738,6 +15743,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                         },
                         {
                             "name": "hidePrice",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
+                            "name": "hiddenFromTiers",
                             "type": "boolean",
                             "required": false
                         },

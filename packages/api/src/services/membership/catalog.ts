@@ -1,6 +1,6 @@
 /**
  * The tier CATALOGUE: Stripe prices (cached), each level's price options, the
- * levels a viewer may choose (`offered`: Dev only, subscription-required
+ * levels a viewer may choose (`offered`: hidden levels, subscription-required
  * minimum) and the public /subscribe list.
  */
 import type { MembershipPriceOption, MembershipPublicTiersResponse, MembershipTierOption, } from '@sitesurge/types';
@@ -10,7 +10,6 @@ import { query, } from '../../db';
 import { logger, } from '../../utils/logger';
 import { cache, CACHE_KEYS, } from '../cache';
 import { listRecurringPrices, } from '../payment/recurringPrices';
-import { can, } from '../permissions';
 import { listTiers, userSubscription, } from '../subscriptionTiers';
 import { getPolicy as getSubscriptionPolicy, type SubscriptionPolicy, } from '../subscriptionAccess';
 import { approvedOfferFor, pendingApplicationFor, } from './state';
@@ -122,7 +121,8 @@ export async function tierOptions(currentTierId: string | null, pendingTierId: s
             selectedPriceId: t.isFree ? null : t.stripePriceId ?? null,
             isApproved: !!approvedTierId && t.id === approvedTierId,
             requiresApproval: !t.isFree && t.requiresApproval,
-            devOnly: t.devOnly === true,
+            hiddenFromTiers: t.hiddenFromTiers === true,
+            devOnly: t.hiddenFromTiers === true,
             applicationFormSlug: t.requiresApproval && t.applicationFormId ? formSlugs.get(t.applicationFormId,) ?? null : null,
             isPending: !!pendingTierId && t.id === pendingTierId,
             isCurrent: t.id === currentTierId,
@@ -154,7 +154,7 @@ export async function publicTiers(userId: string | null,): Promise<MembershipPub
     }
     const policy = await getSubscriptionPolicy();
     const [pending, approved,] = await Promise.all([pendingApplicationFor(userId,), approvedOfferFor(userId,),],);
-    const tiers = offered(await tierOptions(currentId, pending?.tierId ?? null, approved?.tierId ?? null,), policy, await seesDevOnly(userId,),);
+    const tiers = offered(await tierOptions(currentId, pending?.tierId ?? null, approved?.tierId ?? null,), policy,);
     return {
         tiers, paidAvailable: tiers.some((t,) => !t.isFree), signedIn: !!userId, subscriptionRequired: policy.required,
         pendingApplication: pending, approvedOffer: approved,
@@ -166,25 +166,12 @@ export async function publicTiers(userId: string | null,): Promise<MembershipPub
  * still usable to cancel) and paid tiers below the minimum — except the
  * member's current tier, so they can still see what they have.
  */
-export function offered(tiers: MembershipTierOption[], policy: SubscriptionPolicy, seesDev = false,): MembershipTierOption[] {
-    // "Dev only" levels: admins/sysadmins and developers only (a member already on one still sees it).
-    tiers = tiers.filter((t,) => !t.devOnly || seesDev || t.isCurrent,);
+export function offered(tiers: MembershipTierOption[], policy: SubscriptionPolicy,): MembershipTierOption[] {
+    // "Hide from subscription tiers": not offered to anyone — except a member
+    // already on it, or approved for it (their application's offer).
+    tiers = tiers.filter((t,) => !t.hiddenFromTiers || t.isCurrent || t.isApproved,);
     if (!policy.required) return tiers;
-    // A dev-only level (admins testing, often at a token price) is exempt from the minimum.
-    return tiers.filter((t,) => t.isCurrent ? !t.isFree : !t.isFree && (t.devOnly || (t.rank ?? 0) >= policy.minimumRank));
-}
-
-/**
- * Sees "Dev only" levels: the `memberships:dev_levels` permission (default
- * admin, sysadmin and the `developer` role — main or additional). A
- * permission, not a role check, so an operator can let a QA role see test
- * levels, and renaming the developer role no longer silently breaks it.
- */
-export async function seesDevOnly(userId: string | null,): Promise<boolean> {
-    if (!userId) return false;
-    const r = await query<{ role: string; }>(`SELECT role FROM users WHERE id = $1`, [userId,],);
-    const u = r.rows[0];
-    if (!u) return false;
-    return can({ id: userId, role: u.role, }, 'memberships:dev_levels',);
+    // A hidden level (e.g. a test level at a token price) is exempt from the minimum.
+    return tiers.filter((t,) => t.isCurrent ? !t.isFree : !t.isFree && (t.hiddenFromTiers || (t.rank ?? 0) >= policy.minimumRank));
 }
 

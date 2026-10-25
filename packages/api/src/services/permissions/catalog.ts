@@ -142,14 +142,6 @@ export const CORE_PERMISSIONS: PermissionRegistration[] = [
         defaultRoles: ADMIN,
     },
     {
-        key: 'memberships:dev_levels',
-        feature: 'core',
-        label: 'See "Dev only" membership levels',
-        description: 'See and buy membership levels marked Dev only (test levels, often at a token price).',
-        action: 'read',
-        defaultRoles: ['admin', 'sysadmin', 'developer',],
-    },
-    {
         key: 'users:message',
         feature: 'core',
         label: 'Email users from the admin',

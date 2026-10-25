@@ -170,6 +170,7 @@ function mapTier(r: Record<string, unknown>,): SubscriptionTier {
         requiresApproval: r.requires_approval === true,
         applicationFormId: (r.application_form_id as string | null) ?? null,
         hidePrice: r.hide_price === true,
+        hiddenFromTiers: r.dev_only === true,
         devOnly: r.dev_only === true,
         pendingApplications: Number(r.pending_applications ?? 0,),
         stripePriceId: (r.stripe_price_id as string | null) ?? null,
@@ -304,7 +305,7 @@ export async function saveTier(id: string | null, body: SubscriptionTierBody, ct
                 [slug, body.name.trim(), body.description ?? null, body.role ?? 'subscriber', body.isActive ?? null,
                     stripe?.amount ?? null, stripe?.interval ?? null, body.stripePriceId || null, stripe?.productId ?? null, body.sortOrder ?? null,
                     stripe?.intervalCount ?? null, display?.priceCents ?? null, display?.interval ?? null, display ? Math.max(1, display.intervalCount || 1,) : null,
-                    body.requiresApproval ?? null, body.applicationFormId || null, body.hidePrice ?? null, body.devOnly ?? null,],
+                    body.requiresApproval ?? null, body.applicationFormId || null, body.hidePrice ?? null, body.hiddenFromTiers ?? body.devOnly ?? null,],
             );
             tid = String(r.rows[0].id,);
         } else {
@@ -338,7 +339,7 @@ export async function saveTier(id: string | null, body: SubscriptionTierBody, ct
                     body.sortOrder ?? null, stripe?.intervalCount ?? null,
                     display !== undefined, display?.priceCents ?? null, display?.interval ?? null, display ? Math.max(1, display.intervalCount || 1,) : null,
                     body.requiresApproval ?? null, body.applicationFormId !== undefined, body.applicationFormId || null,
-                    body.hidePrice ?? null, body.devOnly ?? null,],
+                    body.hidePrice ?? null, body.hiddenFromTiers ?? body.devOnly ?? null,],
             );
         }
         if (body.permissions) await setTierPermissions(c as never, tid, body.permissions, ctx.userId || null,);

@@ -41,7 +41,7 @@ const TierModal: Component<TierModalProps> = (props,) => {
         description: t?.description ?? '',
         role: t?.role ?? (t ? '' : 'subscriber'),
         isActive: t?.isActive ?? true,
-        devOnly: t?.devOnly ?? false,
+        hiddenFromTiers: t?.hiddenFromTiers ?? t?.devOnly ?? false,
         stripePriceId: t?.stripePriceId ?? '',
         // Custom price display (what members see; Stripe still bills its own price).
         displayOn: Boolean(t?.displayPrice,),
@@ -135,7 +135,7 @@ const TierModal: Component<TierModalProps> = (props,) => {
                 description: form.description || null,
                 role: form.role || null,
                 isActive: form.isActive,
-                devOnly: form.devOnly,
+                hiddenFromTiers: form.hiddenFromTiers,
                 ...(t?.isFree ? {} : {
                     stripePriceId: form.stripePriceId || null,
                     // Hidden price: leave the stored custom display untouched.
@@ -214,10 +214,13 @@ const TierModal: Component<TierModalProps> = (props,) => {
                     <FormField label="Active">
                         <Toggle checked={form.isActive} onChange={(v,) => setForm('isActive', v,)} ariaLabel="Active" />
                     </FormField>
-                    <FormField label="Dev Only" hint="When on, only signed-in admins and developers (the Developer role, main or extra) see this level on /subscribe, sign-up and the profile.">
-                        <Toggle checked={form.devOnly} onChange={(v,) => setForm('devOnly', v,)} ariaLabel="Dev Only" />
-                    </FormField>
                 </div>
+                <Toggle
+                    checked={form.hiddenFromTiers}
+                    onChange={(v,) => setForm('hiddenFromTiers', v,)}
+                    label="Hide from subscription tiers"
+                    hint="When enabled, this level is not offered as an option on the /subscribe page, at sign-up or on the profile Membership page. Members already on it keep seeing it, and you can still assign it to a member by hand."
+                />
 
                 <Show when={!t?.isFree}>
                     <Toggle

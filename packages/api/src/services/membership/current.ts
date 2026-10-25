@@ -6,7 +6,7 @@ import { getStripeClient, } from '../payment/stripe';
 import { ENTITLED_STATUSES, } from '../permissions';
 import { userSubscription, } from '../subscriptionTiers';
 import { getPolicy as getSubscriptionPolicy, } from '../subscriptionAccess';
-import { offered, seesDevOnly, tierOptions, withPrice, } from './catalog';
+import { offered, tierOptions, withPrice, } from './catalog';
 import { approvedOfferFor, lastFailedAttempt, pendingApplicationFor, } from './state';
 
 // ─── Current ─────────────────────────────────────────────────────────────
@@ -105,13 +105,13 @@ export async function current(userId: string,): Promise<MembershipCurrent> {
 }
 
 export async function overview(userId: string,): Promise<MembershipResponse> {
-    const [policy, pending, approved, seesDev,] = await Promise.all([
-        getSubscriptionPolicy(), pendingApplicationFor(userId,), approvedOfferFor(userId,), seesDevOnly(userId,),
+    const [policy, pending, approved,] = await Promise.all([
+        getSubscriptionPolicy(), pendingApplicationFor(userId,), approvedOfferFor(userId,),
     ],);
     const { cur, tiers: all, } = await loadCurrent(userId, { pendingTierId: pending?.tierId, approvedTierId: approved?.tierId, },);
     const tiers = all.map((t,) => t.isCurrent ? { ...t, currentPriceId: cur.priceId ?? t.selectedPriceId ?? null, } : t);
     return {
-        current: cur, tiers: offered(tiers, policy, seesDev,),
+        current: cur, tiers: offered(tiers, policy,),
         subscriptionRequired: policy.required, pendingApplication: pending, approvedOffer: approved,
         lastFailedAttempt: cur.tier && !cur.tier.isFree ? null : await lastFailedAttempt(userId,),
     };

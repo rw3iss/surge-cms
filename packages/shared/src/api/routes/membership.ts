@@ -57,7 +57,9 @@ export interface MembershipTierOption {
     isApproved?: boolean;
     /** Joining needs an admin's approval: the button reads "Apply". */
     requiresApproval?: boolean;
-    /** Admin-only level (only admins see it). */
+    /** Hidden from the choosable levels (shown only to a member on it / approved for it). */
+    hiddenFromTiers?: boolean;
+    /** @deprecated Same value as `hiddenFromTiers`. */
     devOnly?: boolean;
     /** Slug of the tier's application form (a published Forms entity); null = the built-in form. */
     applicationFormSlug?: string | null;
