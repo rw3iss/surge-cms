@@ -7,6 +7,10 @@
 import type { Form, } from '@sitesurge/types';
 import { Component, createSignal, For, Show, } from 'solid-js';
 import FormRenderer from '../../forms/FormRenderer';
+import { useAppearance, } from '../../../hooks/useAppearance';
+import { swatchCssVars, } from '../../../services/colorResolver';
+import { swatches, } from '../../../services/siteColors';
+import { appearanceCssVars, } from '../../../utils/appearanceStyle';
 import ModalShell from '../common/ModalShell';
 import './FormPreviewModal.scss';
 
@@ -23,6 +27,11 @@ const FormPreviewModal: Component<FormPreviewModalProps> = (props,) => {
     const [run, setRun,] = createSignal(0,);
     const reset = () => { setSent(false,); setRun(run() + 1,); };
     const close = () => { reset(); props.onClose(); };
+    // The modal renders in a portal OUTSIDE the admin root, so it does not
+    // inherit the site tokens — set the public appearance (colours, fonts,
+    // button colour, radius, swatches) on the stage, as the site's Layout does.
+    const appearance = useAppearance();
+    const stageStyle = () => ({ ...swatchCssVars(swatches(),), ...appearanceCssVars(appearance(), 'public',), });
 
     return (
         <ModalShell open={props.open} onClose={close} size="lg" showClose ariaLabel="Form preview" class="form-preview-modal">
@@ -34,7 +43,7 @@ const FormPreviewModal: Component<FormPreviewModalProps> = (props,) => {
                         Submitting checks the answers but sends nothing.
                     </p>
                 </header>
-                <div class="form-preview__stage">
+                <div class="form-preview__stage" style={stageStyle()}>
                     <Show
                         when={!sent()}
                         fallback={
