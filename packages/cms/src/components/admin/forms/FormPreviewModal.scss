@@ -1,0 +1,37 @@
+@use '../../../styles/variables' as *;
+
+// Form preview modal: the public form on a neutral page-like stage.
+.form-preview {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+  padding: $spacing-lg;
+
+  &__header {
+    h2 { margin: 0 0 $spacing-xs; }
+    p { margin: 0; }
+  }
+
+  // The site's background + text, so the form looks as it does on a page.
+  &__stage {
+    padding: $spacing-lg;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    background: var(--site-bg, #fff);
+    color: var(--site-text, #{$text-color});
+    font-family: var(--site-font, inherit);
+  }
+
+  &__sent {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: $spacing-sm;
+  }
+
+  &__sent-message {
+    margin: 0;
+    font-size: $font-size-lg;
+    font-weight: 600;
+  }
+}

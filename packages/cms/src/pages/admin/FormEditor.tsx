@@ -14,6 +14,7 @@ import Toggle from '../../components/admin/common/Toggle';
 import Tooltip from '../../components/admin/common/Tooltip';
 import RichTextEditor from '../../components/admin/editors/RichTextEditor';
 import { FormField, } from '../../components/admin/forms';
+import FormPreviewModal from '../../components/admin/forms/FormPreviewModal';
 import { useAutoSave, } from '../../hooks/useAutoSave';
 import { useEditorState, } from '../../hooks/useEditorState';
 import { useKeyboardShortcuts, } from '../../hooks/useKeyboardShortcuts';
@@ -260,6 +261,35 @@ const FormEditor: Component = () => {
         }
     };
 
+    // Preview: the editor's CURRENT state as a Form, rendered by the public FormRenderer.
+    const [previewOpen, setPreviewOpen,] = createSignal(false,);
+    const previewForm = (): Form => ({
+        id: params.id ?? 'preview',
+        title: title() || 'Untitled form',
+        slug: slug() || 'preview',
+        description: description() || undefined,
+        status: status() as Form['status'],
+        showResults: false,
+        allowMultipleSubmissions: true,
+        requiresAuth: false,
+        successMessage: successMessage() || undefined,
+        submitButtonText: submitButtonText() || undefined,
+        action: action(),
+        questions: questions().map((q, i,) => ({
+            ...q,
+            id: q.id ?? q.uiKey ?? `preview-${i}`,
+            formId: params.id ?? 'preview',
+            options: q.options.filter((o,) => o.trim(),),
+            order: i,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        }),) as Form['questions'],
+        submissionCount: 0,
+        createdBy: '',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+    });
+
     // Collapsed question cards, by a stable key (the saved id, else a client key
     // given on add / load) — survives reordering and edits.
     const [collapsed, setCollapsed,] = createSignal<Set<string>>(new Set(),);
@@ -471,6 +501,8 @@ const FormEditor: Component = () => {
                 onCancel={leaveGuard.cancelLeave}
             />
 
+            <FormPreviewModal open={previewOpen()} onClose={() => setPreviewOpen(false,)} form={previewForm()} />
+
             <div class="admin-header">
                 <h1>{isNew() ? 'New Form' : 'Edit Form'}</h1>
                 <div class="admin-header__actions">
@@ -483,6 +515,9 @@ const FormEditor: Component = () => {
                             View Responses ({form()?.submissionCount})
                         </A>
                     </Show>
+                    <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={() => setPreviewOpen(true,)}>
+                        Preview
+                    </button>
                     <EditorSaveBar
                         onSave={() => handleSubmit()}
                         onCancel={() => navigate('/admin/forms',)}
@@ -859,9 +894,14 @@ const FormEditor: Component = () => {
                     <section class="form-section">
                         <div class="section-header">
                             <h2>Questions</h2>
-                            <button type="button" class="ui-button ui-button--secondary" onClick={addQuestion}>
-                                Add Question
-                            </button>
+                            <div class="section-header__actions">
+                                <button type="button" class="link-button" onClick={() => setPreviewOpen(true,)}>
+                                    Preview
+                                </button>
+                                <button type="button" class="ui-button ui-button--secondary" onClick={addQuestion}>
+                                    Add Question
+                                </button>
+                            </div>
                         </div>
 
                         <Show when={questions().length === 0}>

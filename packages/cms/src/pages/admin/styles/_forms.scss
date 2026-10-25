@@ -30,6 +30,27 @@
       margin-bottom: 0;
     }
   }
+
+  // Right side of a section header: text links, then buttons.
+  .section-header__actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+  }
+}
+
+// A button that reads as a text link (secondary actions beside real buttons).
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: $primary-color;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover { text-decoration: underline; }
+  &:focus-visible { outline: 2px solid $primary-color; outline-offset: 2px; border-radius: 2px; }
 }
 
 
