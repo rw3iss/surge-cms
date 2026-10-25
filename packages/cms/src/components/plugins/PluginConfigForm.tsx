@@ -23,7 +23,8 @@ const PluginConfigForm: Component<{
     // Role options for `roles` fields — loaded only when the schema has one.
     const [roleList,] = createResource(
         () => fields().some((f,) => f.type === 'roles',) || null,
-        () => cms.roles.list().catch(() => []),
+        // 'anonymous' is never a signed-in user's role, so it could never match.
+        () => cms.roles.list().then((l,) => l.filter((r,) => r.key !== 'anonymous',),).catch(() => [],),
     );
     const chosen = (key: string,): string[] => (Array.isArray(values()[key],) ? values()[key] as string[] : []);
     const set = (key: string, v: unknown,): void => { setValues({ ...values(), [key]: v, },); setSaved(false,); };

@@ -131,7 +131,8 @@ export function buildHost(opts: {
         ui: { form: makeFormBuilders },
         listRoles: async () => {
             try {
-                return (await cms.roles.list()).map((r) => ({ key: r.key, label: r.label || r.key }));
+                // 'anonymous' is never a signed-in user's role, so it could never match.
+                return (await cms.roles.list()).filter((r) => r.key !== 'anonymous').map((r) => ({ key: r.key, label: r.label || r.key }));
             } catch {
                 return [];
             }
