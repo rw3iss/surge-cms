@@ -1,5 +1,4 @@
 import { A, } from '@solidjs/router';
-import Checkbox from '../../../components/ui/Checkbox';
 import { Component, createSignal, For, Show, } from 'solid-js';
 import { createSafeResource, } from '../../../hooks/createSafeResource';
 import type { ShopCollection, ShopCollectionCreateBody, ShopProduct, } from '@sitesurge/types';
@@ -212,7 +211,7 @@ const ShopCollectionsInner: Component = () => {
                                         <For each={filteredProducts()}>
                                             {(p,) => (
                                                 <div class="shop-product-editor__check">
-                                                    <Checkbox
+                                                    <Toggle
                                                         checked={draft()!.productIds.includes(p.id,)}
                                                         onChange={() => toggleProduct(p.id,)}
                                                         label={

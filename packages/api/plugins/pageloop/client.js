@@ -90,7 +90,7 @@ export default {
         el.innerHTML = '';
 
         // Admin-styled form builders provided by the host (bound to `cfg`).
-        const { group, input, checkbox, select, roles } = host.ui.form(cfg);
+        const { group, input, checkbox, select, roles, toggle } = host.ui.form(cfg);
 
         el.appendChild(group('Storage mode', select('installType', ['remote', 'local-sqlite']), 'remote: a hosted/self-hosted PageLoop server. local-sqlite: a locally-run PageLoop server (pageloop go).'));
         el.appendChild(group('PageLoop server endpoint', input('endpoint', 'url'), 'The PageLoop backend for comments + the widget bundle.'));
@@ -99,8 +99,15 @@ export default {
         el.appendChild(group('Toolbar position', select('toolbarPosition', ['top', 'bottom'])));
         el.appendChild(group('Sidebar position', select('sidebarPosition', ['right', 'left'])));
 
-        const pc = group('Allow public commenting', checkbox('publicComments'), 'If off, only signed-in users may comment.');
-        pc.classList.add('form-group--inline'); el.appendChild(pc);
+        // Switch first, then its label (the admin Toggle); older hosts lack `toggle`.
+        if (typeof toggle === 'function') {
+            const pc = document.createElement('div'); pc.className = 'form-group';
+            pc.appendChild(toggle('publicComments', 'Allow public commenting', 'If off, only signed-in users may comment.'));
+            el.appendChild(pc);
+        } else {
+            const pc = group('Allow public commenting', checkbox('publicComments'), 'If off, only signed-in users may comment.');
+            pc.classList.add('form-group--inline'); el.appendChild(pc);
+        }
         if (typeof roles === 'function') {
             el.appendChild(group(
                 'Show the widget to these roles',

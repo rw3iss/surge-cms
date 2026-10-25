@@ -13,7 +13,7 @@
  *    operator's own template or the built-in layout.
  */
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
-import Checkbox from '../../../components/ui/Checkbox';
+import Toggle from '../../../components/admin/common/Toggle';
 import { A, } from '@solidjs/router';
 import type { ShopProduct, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
@@ -207,7 +207,7 @@ const MerchandiseAnnounceModal: Component<MerchandiseAnnounceModalProps> = (prop
                             class="merch-announce__product"
                             classList={{ 'is-off': !selected().has(p.id,), }}
                         >
-                            <Checkbox
+                            <Toggle
                                 checked={selected().has(p.id,)}
                                 onChange={() => toggle(p.id,)}
                                 label={

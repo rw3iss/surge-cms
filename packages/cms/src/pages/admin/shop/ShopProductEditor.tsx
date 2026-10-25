@@ -1,5 +1,4 @@
 import { viewMediaProps, } from '@/stores/mediaViewer';
-import Checkbox from '../../../components/ui/Checkbox';
 import { useNavigate, useParams, } from '@solidjs/router';
 import { Component, createMemo, createResource, createSignal, For, onMount, Show, } from 'solid-js';
 import { createStore, produce, } from 'solid-js/store';
@@ -911,7 +910,7 @@ const ShopProductEditorInner: Component = () => {
                                     <For each={allCategories() || []}>
                                         {(c,) => (
                                             <div class="shop-product-editor__check">
-                                                <Checkbox
+                                                <Toggle
                                                     checked={categoryIds().includes(c.id,)}
                                                     onChange={() => toggleId(categoryIds, setCategoryIds, c.id,)}
                                                     label={c.name}
@@ -929,7 +928,7 @@ const ShopProductEditorInner: Component = () => {
                                     <For each={allCollections() || []}>
                                         {(c,) => (
                                             <div class="shop-product-editor__check">
-                                                <Checkbox
+                                                <Toggle
                                                     checked={collectionIds().includes(c.id,)}
                                                     onChange={() => toggleId(collectionIds, setCollectionIds, c.id,)}
                                                     label={c.title}

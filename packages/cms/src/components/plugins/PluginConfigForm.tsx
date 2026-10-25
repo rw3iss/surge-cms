@@ -2,7 +2,6 @@
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import type { Plugin, PluginConfigField, } from '@sitesurge/types';
 import Toggle from '../admin/common/Toggle';
-import { Checkbox, } from '../ui/Checkbox';
 import { cms, } from '../../services/cmsClient';
 
 const PluginConfigForm: Component<{
@@ -51,7 +50,7 @@ const PluginConfigForm: Component<{
                                     <div class="plugin-roles">
                                         <For each={roleList() ?? []} fallback={<span class="form-help-muted">Loading roles…</span>}>
                                             {(r,) => (
-                                                <Checkbox
+                                                <Toggle
                                                     checked={chosen(f.key,).includes(r.key,)}
                                                     label={r.label || r.key}
                                                     onChange={(on,) => set(f.key, on ? [...chosen(f.key,), r.key,] : chosen(f.key,).filter((k,) => k !== r.key,),)}

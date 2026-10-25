@@ -7,6 +7,8 @@
  */
 import type { PublicPlugin } from '@sitesurge/types';
 import { cms } from '../services/cmsClient';
+// The plain-DOM switch (`switchRow`) uses the admin Toggle's classes.
+import '../components/ui/Toggle.scss';
 
 export interface PluginHost {
     name: string;
@@ -52,9 +54,13 @@ export interface PluginFormBuilders {
     input(key: string, type?: string): HTMLInputElement;
     /** A `<select>` of string options two-way-bound to `cfg[key]`. */
     select(key: string, options: string[]): HTMLSelectElement;
-    /** A checkbox two-way-bound to `cfg[key]` (boolean). */
-    checkbox(key: string): HTMLInputElement;
-    /** A list of role checkboxes two-way-bound to `cfg[key]` (string[] of role keys).
+    /** An on/off SWITCH two-way-bound to `cfg[key]` (boolean) — the admin's
+     *  Toggle, not a native checkbox. Bare (no label); prefer `toggle()`. */
+    checkbox(key: string): HTMLElement;
+    /** A full switch row: the switch, then its label (and optional help under
+     *  the label), two-way-bound to `cfg[key]` (boolean). */
+    toggle(key: string, label: string, help?: string): HTMLElement;
+    /** One switch per role, two-way-bound to `cfg[key]` (string[] of role keys).
      *  Pass the roles from `host.listRoles()`. */
     roles(key: string, roles: Array<{ key: string; label: string; }>): HTMLElement;
 }
@@ -140,6 +146,51 @@ export function buildHost(opts: {
     };
 }
 
+let switchSeq = 0;
+
+/**
+ * The admin `Toggle` (`components/ui/Toggle.tsx`) as plain DOM — same markup +
+ * classes, so it is styled by the same `Toggle.scss`: the switch first, then
+ * the label (clicking the label flips it too), optional help under the label.
+ * Plugin config pages are framework-agnostic, so they cannot use the Solid component.
+ */
+function switchRow(initial: boolean, onChange: (on: boolean) => void, label?: string, help?: string): HTMLElement {
+    let on = initial;
+    const wrap = document.createElement('span');
+    wrap.className = `toggle-control${help ? ' toggle-control--with-hint' : ''}`;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.setAttribute('role', 'switch');
+    btn.className = 'toggle-control__switch';
+    const knob = document.createElement('span');
+    knob.className = 'toggle-control__knob';
+    btn.appendChild(knob);
+    const paint = () => { btn.classList.toggle('is-on', on); btn.setAttribute('aria-checked', String(on)); };
+    const flip = () => { on = !on; paint(); onChange(on); };
+    btn.addEventListener('click', flip);
+    paint();
+    if (label) {
+        const text = document.createElement('span');
+        text.className = 'toggle-control__text';
+        const l = document.createElement('span');
+        l.className = 'toggle-control__label';
+        l.id = `plugin-switch-${++switchSeq}`;
+        l.textContent = label;
+        l.addEventListener('click', flip);
+        btn.setAttribute('aria-labelledby', l.id);
+        text.appendChild(l);
+        if (help) {
+            const h = document.createElement('span');
+            h.className = 'toggle-control__hint';
+            h.textContent = help;
+            text.appendChild(h);
+        }
+        wrap.appendChild(text);
+    }
+    wrap.appendChild(btn);
+    return wrap;
+}
+
 /** Admin-styled, framework-agnostic config-form DOM builders bound to `cfg`.
  *  Shared by all plugins' `mountConfig` pages via `host.ui.form(cfg)` so they no
  *  longer each redefine these. */
@@ -182,33 +233,23 @@ function makeFormBuilders(cfg: Record<string, unknown>): PluginFormBuilders {
             return sel;
         },
         checkbox(key) {
-            const i = document.createElement('input');
-            i.type = 'checkbox';
-            i.checked = cfg[key] === true;
-            i.addEventListener('change', () => { cfg[key] = i.checked; });
-            return i;
+            return switchRow(cfg[key] === true, (on) => { cfg[key] = on; });
+        },
+        toggle(key, label, help) {
+            return switchRow(cfg[key] === true, (on) => { cfg[key] = on; }, label, help);
         },
         roles(key, roles) {
-            // Selection (which roles are included), so checkboxes — one per role.
             const wrap = document.createElement('div');
             wrap.className = 'plugin-roles';
             const chosen = (): string[] => (Array.isArray(cfg[key]) ? (cfg[key] as unknown[]).filter((x): x is string => typeof x === 'string') : []);
             for (const r of roles) {
-                const l = document.createElement('label');
-                l.className = 'plugin-roles__item';
-                const i = document.createElement('input');
-                i.type = 'checkbox';
-                i.value = r.key;
-                i.checked = chosen().includes(r.key);
-                i.addEventListener('change', () => {
+                const row = switchRow(chosen().includes(r.key), (on) => {
                     const next = new Set(chosen());
-                    if (i.checked) next.add(r.key); else next.delete(r.key);
+                    if (on) next.add(r.key); else next.delete(r.key);
                     cfg[key] = [...next];
-                });
-                const t = document.createElement('span');
-                t.textContent = r.label;
-                l.append(i, t);
-                wrap.appendChild(l);
+                }, r.label);
+                row.dataset.role = r.key;
+                wrap.appendChild(row);
             }
             if (!roles.length) {
                 const none = document.createElement('div');

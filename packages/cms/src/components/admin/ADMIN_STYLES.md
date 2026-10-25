@@ -19,13 +19,17 @@ independent toggles where that reads naturally; a set of switches where exactly
 one may be on is confusing, so keep a real radio group when the options are
 genuinely exclusive and numerous.
 
-### The one exception: selection, not settings
+**Option lists are switches too** (owner's rule, 2026-10-25): a list of
+choices in a form — roles that see a widget, a product's categories, the
+fields to collect, the products in an announcement — is one `Toggle` per
+option, **switch first, label after, on one row**. Plugin config pages (plain
+DOM) get the same switch from `host.ui.form(cfg).toggle()` / `.roles()`.
 
-Ticking rows in a table for a bulk action, or a public form's "choose all that
-apply", is **selection** — a switch says *"this is now on"*, a tick says *"this
-one is included"*. Those use `components/ui/Checkbox`, which is still
-custom-styled (its own indicator, not the browser's), so **no native checkbox is
-rendered anywhere** either way.
+### The one exception: table row selection
+
+Ticking rows in a data table for a bulk action ("select all", per-row ticks),
+the picker rows of a select modal, and a public form's "choose all that apply"
+stay `components/ui/Checkbox` (custom-styled, never the browser's own).
 
 ### The label is part of the hit area
 

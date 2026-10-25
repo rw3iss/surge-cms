@@ -1,6 +1,6 @@
 import { Component, Show, createSignal, } from 'solid-js';
 import type { SetStoreFunction, } from 'solid-js/store';
-import { Alert, Button, Checkbox, FormField, FormSection, Input, PasswordInput, Spinner, Tabs, } from '../../../components/ui';
+import { Alert, Button, FormField, Toggle, FormSection, Input, PasswordInput, Spinner, Tabs, } from '../../../components/ui';
 import { setupApi, type PostgresProbeResult, } from '../../../services/setup';
 import type { WizardState, } from '../state';
 import { pickError, } from '../state';
@@ -195,7 +195,7 @@ export const DatabaseSection: Component<DatabaseSectionProps> = (props,) => {
 
             <Show when={props.state.database.mode === 'existing'}>
                 <div class="setup-db-toggles">
-                    <Checkbox
+                    <Toggle
                         checked={Boolean(props.state.database.createRole,)}
                         onChange={(v,) => props.setState('database', 'createRole', v,)}
                         label={
@@ -208,7 +208,7 @@ export const DatabaseSection: Component<DatabaseSectionProps> = (props,) => {
                             </span>
                         }
                     />
-                    <Checkbox
+                    <Toggle
                         checked={Boolean(props.state.database.createDatabase,)}
                         onChange={(v,) => props.setState('database', 'createDatabase', v,)}
                         label={

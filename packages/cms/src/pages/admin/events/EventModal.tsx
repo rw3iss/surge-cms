@@ -24,7 +24,6 @@ import Toggle from '../../../components/admin/common/Toggle';
 import { FormField, } from '../../../components/admin/forms';
 import { CommentSwitchesFields, useCommentSwitches, } from '../../../components/discussions/admin/CommentSwitches';
 import { Tabs, } from '../../../components/ui/Tabs';
-import Checkbox from '../../../components/ui/Checkbox';
 import { cms, } from '../../../services/cmsClient';
 import { isFeatureEnabled, } from '../../../stores/siteSettings';
 import RegistrantsTable from './RegistrantsTable';
@@ -506,7 +505,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
                                 <div class="event-modal__checks">
                                     <For each={EVENT_REGISTRATION_FIELDS}>
                                         {(f,) => (
-                                            <Checkbox
+                                            <Toggle
                                                 checked={registrationFields().includes(f.key,)}
                                                 disabled={f.key === 'email'}
                                                 onChange={() => toggleField(f.key,)}

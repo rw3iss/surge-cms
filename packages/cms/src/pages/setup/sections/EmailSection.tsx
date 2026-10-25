@@ -1,6 +1,6 @@
 import { Component, Show, createSignal, } from 'solid-js';
 import type { SetStoreFunction, } from 'solid-js/store';
-import { Button, Checkbox, FormField, FormSection, Input, PasswordInput, Spinner, } from '../../../components/ui';
+import { Button, FormField, Toggle, FormSection, Input, PasswordInput, Spinner, } from '../../../components/ui';
 import { setupApi, } from '../../../services/setup';
 import type { WizardState, } from '../state';
 import { pickError, } from '../state';
@@ -55,7 +55,7 @@ export const EmailSection: Component<EmailSectionProps> = (props,) => {
                 />
             </FormField>
             <FormField label="Use TLS" hint="On for port 465; usually off for 587 (STARTTLS).">
-                <Checkbox
+                <Toggle
                     checked={Boolean(props.state.email.secure,)}
                     onChange={(v,) => props.setState('email', 'secure', v,)}
                     label={<span>Encrypted connection</span>}
