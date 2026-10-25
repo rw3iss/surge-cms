@@ -355,6 +355,7 @@ const FormEditor: Component = () => {
         setCollapsed(next,);
     };
     const [submitOpen, setSubmitOpen,] = createSignal(true,);
+    const [detailsOpen, setDetailsOpen,] = createSignal(true,);
     /** Collapse / expand every section and question card. */
     const collapseAll = () => setCollapsed(new Set([
         ...questions().map((q, i,) => keyOf(q, i,),),
@@ -1072,7 +1073,18 @@ const FormEditor: Component = () => {
                 <form onSubmit={handleSubmit} class="admin-form">
                     {/* Form Metadata Section */}
                     <section class="form-section">
-                        <h2>Form Details</h2>
+                        <h2 class="form-section__toggle" onClick={() => setDetailsOpen(!detailsOpen(),)}>
+                            <button
+                                type="button"
+                                class="collapse-arrow"
+                                classList={{ 'is-open': detailsOpen(), }}
+                                aria-expanded={detailsOpen()}
+                                aria-label={detailsOpen() ? 'Collapse Form Details' : 'Expand Form Details'}
+                                onClick={(e,) => { e.stopPropagation(); setDetailsOpen(!detailsOpen(),); }}
+                            />
+                            Form Details
+                        </h2>
+                        <Show when={detailsOpen()}>
 
                         <div class="form-columns">
                             {/* Left column (3/4) — the form's content fields */}
@@ -1209,6 +1221,7 @@ const FormEditor: Component = () => {
                                 </div>
                             </div>
                         </div>
+                        </Show>
                     </section>
 
                     {/* On-submit action */}
