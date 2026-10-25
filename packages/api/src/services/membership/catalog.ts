@@ -88,7 +88,9 @@ export async function tierOptions(currentTierId: string | null, pendingTierId: s
     const formSlugs = await applicationFormSlugs(all.flatMap((t,) => (t.requiresApproval && t.applicationFormId ? [t.applicationFormId,] : [])),);
     for (const t of all) {
         if (!t.isActive && t.id !== currentTierId) continue;
-        if (!t.isFree && !t.stripePriceId && t.id !== currentTierId) continue; // not purchasable
+        // Not purchasable — except an approval level with "Hide price": people
+        // APPLY to it (no card taken), so it needs no price to be listed.
+        if (!t.isFree && !t.stripePriceId && !(t.requiresApproval && t.hidePrice) && t.id !== currentTierId) continue;
         const p = t.stripePriceId ? prices.get(t.stripePriceId,) : undefined;
         // Every active recurring price on the level's Stripe product: its own
         // (default) price first, then the others by monthly cost.
