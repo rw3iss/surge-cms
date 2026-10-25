@@ -27,6 +27,8 @@ type QuestionKind = 'radio' | 'checkbox' | 'text' | 'textarea' | 'select' | 'num
 
 interface FormQuestion {
     id?: string;
+    /** Client-only key for an unsaved question (collapse state); never sent. */
+    uiKey?: string;
     type: QuestionKind;
     question: string;
     description?: string;
@@ -228,6 +230,7 @@ const FormEditor: Component = () => {
     // Question management
     const addQuestion = () => {
         const newQuestion: FormQuestion = {
+            uiKey: crypto.randomUUID(),
             type: 'text',
             question: '',
             description: '',
@@ -256,6 +259,19 @@ const FormEditor: Component = () => {
             markDirty();
         }
     };
+
+    // Collapsed question cards, by a stable key (the saved id, else a client key
+    // given on add / load) — survives reordering and edits.
+    const [collapsed, setCollapsed,] = createSignal<Set<string>>(new Set(),);
+    const keyOf = (q: FormQuestion, i: number,): string => q.id ?? q.uiKey ?? `i${i}`;
+    const isCollapsed = (q: FormQuestion, i: number,): boolean => collapsed().has(keyOf(q, i,),);
+    const toggleCollapsed = (q: FormQuestion, i: number,) => {
+        const next = new Set(collapsed(),);
+        const k = keyOf(q, i,);
+        if (next.has(k,)) next.delete(k,); else next.add(k,);
+        setCollapsed(next,);
+    };
+    const [submitOpen, setSubmitOpen,] = createSignal(true,);
 
     const moveQuestion = (index: number, direction: 'up' | 'down',) => {
         const newIndex = direction === 'up' ? index - 1 : index + 1;
@@ -628,7 +644,18 @@ const FormEditor: Component = () => {
 
                     {/* On-submit action */}
                     <section class="form-section">
-                        <h2>On Submit</h2>
+                        <h2 class="form-section__toggle" onClick={() => setSubmitOpen(!submitOpen(),)}>
+                            <button
+                                type="button"
+                                class="collapse-arrow"
+                                classList={{ 'is-open': submitOpen(), }}
+                                aria-expanded={submitOpen()}
+                                aria-label={submitOpen() ? 'Collapse On Submit' : 'Expand On Submit'}
+                                onClick={(e,) => { e.stopPropagation(); setSubmitOpen(!submitOpen(),); }}
+                            />
+                            On Submit
+                        </h2>
+                        <Show when={submitOpen()}>
                         <FormField
                             label="Action"
                             tooltip="What happens when someone submits this form. Subscribe and Email perform their action; by default the submission is NOT stored for those — enable 'Save submission' to also keep the response."
@@ -825,6 +852,7 @@ const FormEditor: Component = () => {
                                 </div>
                             </div>
                         </Show>
+                        </Show>
                     </section>
 
                     {/* Questions Section */}
@@ -845,9 +873,29 @@ const FormEditor: Component = () => {
                         <div class="questions-list">
                             <For each={questions()}>
                                 {(question, index,) => (
-                                    <div class="question-card">
-                                        <div class="question-header">
-                                            <span class="question-number">Question {index() + 1}</span>
+                                    <div class="question-card" classList={{ 'is-collapsed': isCollapsed(question, index(),), }}>
+                                        {/* Clicking the header (not its ↑ ↓ × buttons) collapses / expands the card. */}
+                                        <div
+                                            class="question-header"
+                                            onClick={(e,) => {
+                                                if ((e.target as HTMLElement).closest('button, a, input, select, textarea',)) return;
+                                                toggleCollapsed(question, index(),);
+                                            }}
+                                        >
+                                            <span class="question-number">
+                                                <button
+                                                    type="button"
+                                                    class="collapse-arrow"
+                                                    classList={{ 'is-open': !isCollapsed(question, index(),), }}
+                                                    aria-expanded={!isCollapsed(question, index(),)}
+                                                    aria-label={isCollapsed(question, index(),) ? `Expand question ${index() + 1}` : `Collapse question ${index() + 1}`}
+                                                    onClick={() => toggleCollapsed(question, index(),)}
+                                                />
+                                                Question {index() + 1}
+                                                <Show when={isCollapsed(question, index(),) && question.question}>
+                                                    <span class="question-summary">— {question.question}</span>
+                                                </Show>
+                                            </span>
                                             <div class="question-actions">
                                                 <button
                                                     type="button"
@@ -878,6 +926,7 @@ const FormEditor: Component = () => {
                                             </div>
                                         </div>
 
+                                        <Show when={!isCollapsed(question, index(),)}>
                                         <div class="question-body">
                                             <div class="form-row">
                                                 <div class="form-group form-group--grow">
@@ -1089,6 +1138,7 @@ const FormEditor: Component = () => {
                                                 />
                                             </div>
                                         </div>
+                                        </Show>
                                     </div>
                                 )}
                             </For>

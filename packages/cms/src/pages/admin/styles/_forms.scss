@@ -557,3 +557,64 @@
 .campaign-options__status ~ .form-group {
   margin-bottom: $spacing-md;
 }
+
+// Collapsible headers (form editor: question cards + On Submit). The arrow is a
+// real button (keyboard / screen reader); the rest of the header also toggles.
+.collapse-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.4em;
+  height: 1.4em;
+  margin-right: $spacing-xs;
+  padding: 0;
+  border: 0;
+  border-radius: $border-radius-sm;
+  background: none;
+  color: var(--admin-text-muted, #{$text-light});
+  cursor: pointer;
+  vertical-align: middle;
+
+  &::before {
+    content: '';
+    border-style: solid;
+    border-width: 0.32em 0 0.32em 0.48em;
+    border-color: transparent transparent transparent currentColor;
+    transition: transform 0.15s ease;
+  }
+
+  &.is-open::before { transform: rotate(90deg); }
+  &:hover { color: var(--admin-text, #{$text-color}); }
+  &:focus-visible { outline: 2px solid $primary-color; outline-offset: 1px; }
+}
+
+.form-section__toggle {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.question-card {
+  .question-header { cursor: pointer; user-select: none; }
+
+  .question-number {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .question-summary {
+    margin-left: $spacing-sm;
+    overflow: hidden;
+    font-weight: 400;
+    color: var(--admin-text-muted, #{$text-light});
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // Collapsed: just the header (no divider under it).
+  &.is-collapsed .question-header { border-bottom: 0; }
+}
