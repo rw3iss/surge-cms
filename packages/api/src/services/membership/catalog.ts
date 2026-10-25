@@ -145,7 +145,7 @@ export async function tierOptions(currentTierId: string | null, pendingTierId: s
  * description, else the Stripe product's. `isCurrent` marks the signed-in
  * viewer's tier; `paidAvailable` is false when the site only has free tiers.
  */
-export async function publicTiers(userId: string | null,): Promise<MembershipPublicTiersResponse> {
+export async function publicTiers(userId: string | null, levels?: string[],): Promise<MembershipPublicTiersResponse> {
     let currentId: string | null = null;
     if (userId) {
         try {
@@ -154,7 +154,13 @@ export async function publicTiers(userId: string | null,): Promise<MembershipPub
     }
     const policy = await getSubscriptionPolicy();
     const [pending, approved,] = await Promise.all([pendingApplicationFor(userId,), approvedOfferFor(userId,),],);
-    const tiers = offered(await tierOptions(currentId, pending?.tierId ?? null, approved?.tierId ?? null,), policy,);
+    const all = await tierOptions(currentId, pending?.tierId ?? null, approved?.tierId ?? null,);
+    // `levels`: exactly the named levels, in that order — hidden ones included
+    // (a page that features specific levels, e.g. partner programs). Hidden
+    // levels stay unbuyable without approval (`targetTier`); applying is open.
+    const tiers = levels?.length
+        ? levels.map((slug,) => all.find((t,) => t.slug === slug,),).filter((t,): t is MembershipTierOption => !!t,)
+        : offered(all, policy,);
     return {
         tiers, paidAvailable: tiers.some((t,) => !t.isFree), signedIn: !!userId, subscriptionRequired: policy.required,
         pendingApplication: pending, approvedOffer: approved,

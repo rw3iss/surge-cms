@@ -5963,9 +5963,15 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "membershipTiers",
-                "signature": "membershipTiers(): Promise<MembershipPublicTiersResponse>",
-                "summary": "GET /payments/membership/tiers (public) — every active tier with price + description, for a /subscribe page.",
-                "params": [],
+                "signature": "membershipTiers(levels?: string[]): Promise<MembershipPublicTiersResponse>",
+                "summary": "GET /payments/membership/tiers (public) — every active tier with price + description, for a /subscribe page; `levels` (slugs) = exactly those levels, hidden ones included.",
+                "params": [
+                    {
+                        "name": "levels",
+                        "type": "string[]",
+                        "optional": true
+                    }
+                ],
                 "returns": "Promise<MembershipPublicTiersResponse>",
                 "routes": [
                     "GET /api/v1/payments/membership/tiers"

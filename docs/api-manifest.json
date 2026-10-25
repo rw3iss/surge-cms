@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-25T18:30:25.507Z",
+  "generatedAt": "2026-10-25T22:37:03.838Z",
   "totalModules": 55,
   "totalRoutes": 600,
   "modules": [
@@ -4530,6 +4530,11 @@
                 "name": "questions",
                 "type": "object[]",
                 "required": false
+              },
+              {
+                "name": "sections",
+                "type": "object[]",
+                "required": false
               }
             ]
           }
@@ -4613,6 +4618,11 @@
                 "name": "questions",
                 "type": "object[]",
                 "required": false
+              },
+              {
+                "name": "sections",
+                "type": "object[]",
+                "required": false
               }
             ]
           }
@@ -4635,6 +4645,11 @@
               {
                 "name": "id",
                 "type": "string<uuid>",
+                "required": false
+              },
+              {
+                "name": "sectionId",
+                "type": "string | null",
                 "required": false
               },
               {
@@ -4728,6 +4743,11 @@
               {
                 "name": "id",
                 "type": "string<uuid>",
+                "required": false
+              },
+              {
+                "name": "sectionId",
+                "type": "string | null",
                 "required": false
               },
               {
@@ -8377,7 +8397,16 @@
           "path": "/membership/tiers",
           "absolutePath": "/api/v1/payments/membership/tiers",
           "auth": "optional",
-          "summary": "Public tier catalogue for /subscribe: every active tier (free included) with price + description; isCurrent for the signed-in viewer."
+          "summary": "Public tier catalogue for /subscribe: every active tier (free included) with price + description; isCurrent for the signed-in viewer. `levels=slug,slug` returns exactly those levels (in that order), hidden ones included — e.g. a partner-program page.",
+          "input": {
+            "query": [
+              {
+                "name": "levels",
+                "type": "string",
+                "required": false
+              }
+            ]
+          }
         },
         {
           "method": "GET",

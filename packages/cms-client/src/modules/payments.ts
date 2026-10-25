@@ -126,9 +126,11 @@ export class PaymentsModule extends ModuleBase {
 
     // ─── Membership (own tier) ───
 
-    /** GET /payments/membership/tiers (public) — every active tier with price + description, for a /subscribe page. */
-    membershipTiers(): Promise<MembershipPublicTiersResponse> {
-        return this.get<MembershipPublicTiersResponse>('/payments/membership/tiers', { options: { cache: false, }, },);
+    /** GET /payments/membership/tiers (public) — every active tier with price + description, for a /subscribe page; `levels` (slugs) = exactly those levels, hidden ones included. */
+    membershipTiers(levels?: string[],): Promise<MembershipPublicTiersResponse> {
+        return this.get<MembershipPublicTiersResponse>('/payments/membership/tiers', {
+            query: levels?.length ? { levels: levels.join(',',), } : undefined, options: { cache: false, },
+        },);
     }
 
     /** GET /payments/membership — current tier (incl. free) + the tiers to switch to. */

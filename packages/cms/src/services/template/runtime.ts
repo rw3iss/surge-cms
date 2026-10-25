@@ -273,6 +273,15 @@ export function buildRuntime(opts: RuntimeOptions = {}): TemplateRuntime {
             case 'user':
                 return entityRef('user', (opts.user ?? null) as Record<string, unknown> | null);
 
+            // ── membership levels ── `membershipLevels(levels='a,b')` (or the
+            // slugs positionally): /subscribe-style cards for exactly those
+            // levels, hidden ones included. Rendered by TemplateEntity.
+            case 'membershipLevels': {
+                const raw = [named?.levels, ...args,].filter((v,) => typeof v === 'string',).join(',',);
+                const levels = raw.split(',',).map((x,) => x.trim(),).filter(Boolean,);
+                return entityRef('membershipLevels', { levels, }, levels.join(',',),);
+            }
+
             // ── campaign teaser/link ── renders the campaign card (link to the
             // page) instead of the whole campaign. Accepts id OR slug, same as
             // campaign(). Shares the campaign fetch cache.

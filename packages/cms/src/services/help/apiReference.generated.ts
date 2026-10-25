@@ -5185,6 +5185,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "name": "questions",
                             "type": "object[]",
                             "required": false
+                        },
+                        {
+                            "name": "sections",
+                            "type": "object[]",
+                            "required": false
                         }
                     ]
                 },
@@ -5272,6 +5277,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "name": "questions",
                             "type": "object[]",
                             "required": false
+                        },
+                        {
+                            "name": "sections",
+                            "type": "object[]",
+                            "required": false
                         }
                     ]
                 },
@@ -5298,6 +5308,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                         {
                             "name": "id",
                             "type": "string<uuid>",
+                            "required": false
+                        },
+                        {
+                            "name": "sectionId",
+                            "type": "string | null",
                             "required": false
                         },
                         {
@@ -5395,6 +5410,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                         {
                             "name": "id",
                             "type": "string<uuid>",
+                            "required": false
+                        },
+                        {
+                            "name": "sectionId",
+                            "type": "string | null",
                             "required": false
                         },
                         {
@@ -9578,7 +9598,16 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "path": "/membership/tiers",
                 "absolutePath": "/api/v1/payments/membership/tiers",
                 "auth": "optional",
-                "summary": "Public tier catalogue for /subscribe: every active tier (free included) with price + description; isCurrent for the signed-in viewer.",
+                "summary": "Public tier catalogue for /subscribe: every active tier (free included) with price + description; isCurrent for the signed-in viewer. `levels=slug,slug` returns exactly those levels (in that order), hidden ones included — e.g. a partner-program page.",
+                "input": {
+                    "query": [
+                        {
+                            "name": "levels",
+                            "type": "string",
+                            "required": false
+                        }
+                    ]
+                },
                 "sdk": [
                     "cms.payments.membershipTiers"
                 ],

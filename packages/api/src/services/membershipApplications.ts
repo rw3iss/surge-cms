@@ -45,17 +45,18 @@ function answerText(v: unknown,): string {
     return String(v,).trim();
 }
 
-interface TierRow { id: string; name: string; is_free: boolean; requires_approval: boolean; application_form_id: string | null; stripe_price_id: string | null; }
+interface TierRow { id: string; name: string; is_free: boolean; requires_approval: boolean; application_form_id: string | null; stripe_price_id: string | null; hide_price: boolean; }
 
 async function loadTier(tierId: string,): Promise<TierRow> {
     const r = await query<TierRow>(
-        `SELECT id, name, is_free, requires_approval, application_form_id, stripe_price_id FROM subscription_plans WHERE id = $1 AND is_active IS NOT FALSE`,
+        `SELECT id, name, is_free, requires_approval, application_form_id, stripe_price_id, COALESCE(hide_price, false) AS hide_price FROM subscription_plans WHERE id = $1 AND is_active IS NOT FALSE`,
         [tierId,],
     );
     const t = r.rows[0];
     if (!t) throw new NotFoundError('Membership',);
     if (!t.requires_approval) throw new ValidationError(`${t.name} does not take applications — choose Join.`,);
-    if (!t.stripe_price_id) throw new ValidationError(`${t.name} is not available yet.`,);
+    // A "Hide price" level takes no card when applying, so it may have no price yet.
+    if (!t.stripe_price_id && !t.hide_price) throw new ValidationError(`${t.name} is not available yet.`,);
     return t;
 }
 

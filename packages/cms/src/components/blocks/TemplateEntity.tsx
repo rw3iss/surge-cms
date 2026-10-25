@@ -4,7 +4,7 @@ import {
 } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
 import type { Campaign, Form, Media, Post, } from '@sitesurge/types';
-import { Component, For, Match, Show, Switch, } from 'solid-js';
+import { Component, For, lazy, Match, Show, Switch, } from 'solid-js';
 import DiscussionList from '../discussions/DiscussionList';
 import EventCard from '../events/EventCard';
 import InlineTemplate from './InlineTemplate';
@@ -17,6 +17,8 @@ import CampaignDetail, { type CampaignDetailOptions, } from './CampaignDetail';
 import CampaignCard from './CampaignCard';
 import CampaignForm, { type CampaignFormOptions, } from './CampaignForm';
 import CampaignStatus, { type CampaignStatusOptions, } from './CampaignStatus';
+// Membership cards + the apply flow (Stripe, forms) load only when used.
+const MembershipLevels = lazy(() => import('../membership/MembershipLevels'),);
 
 /** Default renderer for a whole entity of a CUSTOM type (no bespoke component):
  *  a title + its scalar string fields. Used when a `{{recipe('id')}}`-style
@@ -110,6 +112,10 @@ const TemplateEntity: Component<{
                         </Show>
                     );
                 })()}
+            </Match>
+            {/* `{{ membershipLevels(levels='a,b') }}` — those levels as /subscribe-style cards (apply in place). */}
+            <Match when={props.kind === 'membershipLevels'}>
+                <MembershipLevels levels={((props.data?.levels as string[] | undefined) ?? [])} />
             </Match>
             <Match when={props.kind === 'form'}>
                 <FormRenderer

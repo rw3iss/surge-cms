@@ -123,8 +123,9 @@ export const paymentsRoutes = [
     // ─── Membership (own subscription tier — profile → Membership) ───
     defineRoute({
         method: 'get', path: '/membership/tiers', auth: 'optional',
-        summary: 'Public tier catalogue for /subscribe: every active tier (free included) with price + description; isCurrent for the signed-in viewer.',
-        handler: ({ userId, },) => membership.publicTiers(userId ?? null,),
+        summary: 'Public tier catalogue for /subscribe: every active tier (free included) with price + description; isCurrent for the signed-in viewer. `levels=slug,slug` returns exactly those levels (in that order), hidden ones included — e.g. a partner-program page.',
+        input: { query: z.object({ levels: z.string().max(1000,).optional(), },), },
+        handler: ({ userId, query, },) => membership.publicTiers(userId ?? null, query.levels ? query.levels.split(',',).map((s,) => s.trim(),).filter(Boolean,) : undefined,),
     },),
     defineRoute({
         method: 'get', path: '/membership', auth: 'user',
