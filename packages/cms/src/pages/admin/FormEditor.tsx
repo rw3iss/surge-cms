@@ -34,6 +34,7 @@ import { invalidateFormsCache, } from '../../services/adminData';
 import { cms, } from '../../services/cmsClient';
 import { isFeatureEnabled, } from '../../stores/siteSettings';
 import AdminTitle from '../../components/admin/common/AdminTitle';
+import { useToast, } from '../../components/common/toast';
 
 type QuestionKind = 'radio' | 'checkbox' | 'text' | 'textarea' | 'select' | 'number' | 'email' | 'date';
 
@@ -65,6 +66,7 @@ const FormEditor: Component = () => {
     const navigate = useNavigate();
     const isNew = () => !params.id || params.id === 'new';
     const { markDirty, markClean, ...leaveGuard } = useUnsavedChanges();
+    const toast = useToast();
     const { error, saving, beginSave, endSave, showError, setError, } = useEditorState();
 
     // Form metadata
@@ -99,6 +101,27 @@ const FormEditor: Component = () => {
     /** Root-level rows (sections and questions not in a section) — same objects, so unchanged cards keep their DOM. */
     const rootRows = createMemo(() => rows().filter((r,) => isFormSectionRow(r,) || !r.sectionId,),);
     const childrenOf = (sectionId: string,) => questions().filter((q,) => q.sectionId === sectionId,);
+
+    /** Questions + sections from a saved form → the editor rows (also after each save: new questions get their ids). */
+    const loadRows = (data: Pick<Form, 'questions' | 'sections'>,) => {
+        if (!Array.isArray(data.questions,)) return;
+        setRows(formRowsFromLayout(data.questions.slice().sort((a, b,) => (a.order ?? 0) - (b.order ?? 0)).map((q, index,): FormQuestion => ({
+                id: q.id,
+                sectionId: q.sectionId ?? null,
+                type: (q.type || 'text') as QuestionKind,
+                question: q.question || '',
+                description: q.description || '',
+                options: q.options || [],
+                isRequired: q.isRequired || false,
+                order: q.order ?? index,
+                width: q.width || 'full',
+                placeholder: q.placeholder || '',
+                questionAsPlaceholder: q.questionAsPlaceholder ?? false,
+                rows: q.rows ?? 4,
+                allowResize: q.allowResize ?? true,
+                maxHeight: q.maxHeight || '',
+            })), data.sections,),);
+    };
 
     // Mailing lists for the subscribe-action dropdown (loaded when needed).
     const [mailingLists,] = createResource(
@@ -205,25 +228,8 @@ const FormEditor: Component = () => {
                 setSaveSubmission(ac.saveSubmission ?? false,);
                 setAddContact(ac.addContact ?? false,);
 
-                // Load questions
-                if (data.questions && Array.isArray(data.questions,)) {
-                    setRows(formRowsFromLayout(data.questions.slice().sort((a, b,) => (a.order ?? 0) - (b.order ?? 0)).map((q, index,): FormQuestion => ({
-                        id: q.id,
-                        sectionId: q.sectionId ?? null,
-                        type: (q.type || 'text') as QuestionKind,
-                        question: q.question || '',
-                        description: q.description || '',
-                        options: q.options || [],
-                        isRequired: q.isRequired || false,
-                        order: q.order ?? index,
-                        width: q.width || 'full',
-                        placeholder: q.placeholder || '',
-                        questionAsPlaceholder: q.questionAsPlaceholder ?? false,
-                        rows: q.rows ?? 4,
-                        allowResize: q.allowResize ?? true,
-                        maxHeight: q.maxHeight || '',
-                    })), data.sections,),);
-                }
+                // Load questions + sections
+                loadRows(data,);
 
                 return data;
             }
@@ -349,6 +355,12 @@ const FormEditor: Component = () => {
         setCollapsed(next,);
     };
     const [submitOpen, setSubmitOpen,] = createSignal(true,);
+    /** Collapse / expand every section and question card. */
+    const collapseAll = () => setCollapsed(new Set([
+        ...questions().map((q, i,) => keyOf(q, i,),),
+        ...rows().filter(isFormSectionRow,).map((r,) => r.id,),
+    ],),);
+    const expandAll = () => setCollapsed(new Set<string>(),);
 
     /** ↑ / ↓ on a row: among its siblings (inside its section, or the root units). */
     const moveRow = (rowIndex: number, direction: 'up' | 'down',) => {
@@ -517,16 +529,19 @@ const FormEditor: Component = () => {
                 })),
             };
 
-            if (isNew()) {
-                await cms.forms.create(payload,);
-            } else {
-                await cms.forms.update(params.id, payload,);
-            }
-
+            // Stay on the page: a new form moves to its edit URL; an existing one
+            // reloads its questions from the response so new questions carry
+            // their ids (a second save must update them, not add them again).
+            const saved = isNew() ? await cms.forms.create(payload,) : await cms.forms.update(params.id, payload,);
             invalidateFormsCache();
             autoSave.clear();
             markClean();
-            navigate('/admin/forms',);
+            toast.success(isNew() ? 'Form created' : 'Form saved',);
+            if (isNew()) {
+                navigate(`/admin/forms/${(saved as Form).id}`, { replace: true, },);
+            } else {
+                loadRows(saved as Form,);
+            }
         } catch (err) {
             showError(err, 'An error occurred while saving',);
         } finally {
@@ -1022,6 +1037,7 @@ const FormEditor: Component = () => {
             <FormPreviewModal open={previewOpen()} onClose={() => setPreviewOpen(false,)} form={previewForm()} />
 
             <div class="admin-header">
+                <A href="/admin/forms" class="admin-header__back">← Forms</A>
                 <h1>{isNew() ? 'New Form' : 'Edit Form'}</h1>
                 <div class="admin-header__actions">
                     <AutoSaveIndicator status={autoSave.status()} lastSavedAt={autoSave.lastSavedAt()} />
@@ -1413,6 +1429,10 @@ const FormEditor: Component = () => {
                         <div class="section-header">
                             <h2>Questions</h2>
                             <div class="section-header__actions">
+                                <Show when={rows().length > 0}>
+                                    <button type="button" class="link-button" onClick={collapseAll}>Collapse all</button>
+                                    <button type="button" class="link-button" onClick={expandAll}>Expand all</button>
+                                </Show>
                                 <button type="button" class="link-button" onClick={() => setPreviewOpen(true,)}>
                                     Preview
                                 </button>
