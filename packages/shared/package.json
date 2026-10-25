@@ -4,7 +4,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "node ../../scripts/clean-stale-dist.mjs dist src && tsc",
     "test": "vitest --run --passWithNoTests --dir src",
     "watch": "tsc --watch"
   },

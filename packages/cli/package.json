@@ -24,7 +24,7 @@
     "directory": "packages/cli"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node ../../scripts/clean-stale-dist.mjs dist src && tsc -p tsconfig.json",
     "dev": "tsx src/index.ts",
     "typecheck": "tsc --noEmit"
   },
