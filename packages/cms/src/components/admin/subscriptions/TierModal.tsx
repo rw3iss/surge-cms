@@ -63,7 +63,7 @@ const TierModal: Component<TierModalProps> = (props,) => {
     const [stripe, { refetch: refetchStripe, },] = createResource(() => cms.subscriptionTiers.stripePrices().catch((): StripeSubscriptionPricesResponse => ({ connected: false, prices: [], })),);
     // Forms an application can use (all statuses; a draft cannot be submitted).
     const [formsList,] = createResource(
-        () => cms.forms.list({ limit: 200, },).then((r,) => r.data,).catch(() => [] as Array<{ id: string; title: string; status: string; }>),
+        () => cms.forms.list({ limit: 100, },) // the forms list API allows at most 100 per page (200 was refused → empty list).then((r,) => r.data,).catch(() => [] as Array<{ id: string; title: string; status: string; }>),
     );
 
     // A price is often created in Stripe WHILE this modal is open (another
