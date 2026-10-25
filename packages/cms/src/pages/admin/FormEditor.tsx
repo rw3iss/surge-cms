@@ -310,6 +310,39 @@ const FormEditor: Component = () => {
         const newQuestions = [...questions(),];
         [newQuestions[index], newQuestions[newIndex],] = [newQuestions[newIndex], newQuestions[index],];
         setQuestions(newQuestions.map((q, i,) => ({ ...q, order: i, })),);
+        markDirty();
+    };
+
+    /** Move a question from one position to another (drag and drop), renumbering all. */
+    const moveQuestionTo = (from: number, to: number,) => {
+        if (from === to || from < 0 || to < 0 || from >= questions().length || to > questions().length) return;
+        const list = [...questions(),];
+        const [moved,] = list.splice(from, 1,);
+        list.splice(to > from ? to - 1 : to, 0, moved!,);
+        setQuestions(list.map((q, i,) => ({ ...q, order: i, })),);
+        markDirty();
+    };
+
+    // Drag to sort: the card is dragged by its header; the drop lands before or
+    // after the card under the pointer (its top / bottom half).
+    const [dragFrom, setDragFrom,] = createSignal<number | null>(null,);
+    const [dropAt, setDropAt,] = createSignal<{ index: number; after: boolean; } | null>(null,);
+    const onCardDragOver = (e: DragEvent, index: number,) => {
+        if (dragFrom() === null) return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        const after = e.clientY > r.top + r.height / 2;
+        const cur = dropAt();
+        if (!cur || cur.index !== index || cur.after !== after) setDropAt({ index, after, },);
+    };
+    const onCardDrop = (e: DragEvent,) => {
+        e.preventDefault();
+        const from = dragFrom();
+        const at = dropAt();
+        if (from !== null && at) moveQuestionTo(from, at.index + (at.after ? 1 : 0),);
+        setDragFrom(null,);
+        setDropAt(null,);
     };
 
     // Option management for poll questions
@@ -910,13 +943,43 @@ const FormEditor: Component = () => {
                             </div>
                         </Show>
 
-                        <div class="questions-list">
+                        {/* Dropping in the gap between cards uses the last indicated position. */}
+                        <div
+                            class="questions-list"
+                            onDragOver={(e,) => { if (dragFrom() !== null) e.preventDefault(); }}
+                            onDrop={onCardDrop}
+                        >
                             <For each={questions()}>
                                 {(question, index,) => (
-                                    <div class="question-card" classList={{ 'is-collapsed': isCollapsed(question, index(),), }}>
-                                        {/* Clicking the header (not its ↑ ↓ × buttons) collapses / expands the card. */}
+                                    <div
+                                        class="question-card"
+                                        classList={{
+                                            'is-collapsed': isCollapsed(question, index(),),
+                                            'is-dragging': dragFrom() === index(),
+                                            'is-drop-before': dropAt()?.index === index() && !dropAt()!.after && dragFrom() !== index(),
+                                            'is-drop-after': dropAt()?.index === index() && dropAt()!.after && dragFrom() !== index(),
+                                        }}
+                                        onDragOver={(e,) => onCardDragOver(e, index(),)}
+                                        onDrop={onCardDrop}
+                                    >
+                                        {/* Clicking the header (not its ↑ ↓ × buttons) collapses / expands the card;
+                                            dragging it sorts the card. */}
                                         <div
                                             class="question-header"
+                                            draggable={true}
+                                            title="Drag to reorder · click to collapse"
+                                            onDragStart={(e,) => {
+                                                if ((e.target as HTMLElement).closest?.('button, a, input, select, textarea',)) { e.preventDefault(); return; }
+                                                setDragFrom(index(),);
+                                                if (e.dataTransfer) {
+                                                    e.dataTransfer.effectAllowed = 'move';
+                                                    e.dataTransfer.setData('text/plain', String(index(),),);
+                                                    // The whole card as the drag image, not just the header.
+                                                    const card = (e.currentTarget as HTMLElement).closest('.question-card',) as HTMLElement | null;
+                                                    if (card) e.dataTransfer.setDragImage(card, 24, 16,);
+                                                }
+                                            }}
+                                            onDragEnd={() => { setDragFrom(null,); setDropAt(null,); }}
                                             onClick={(e,) => {
                                                 if ((e.target as HTMLElement).closest('button, a, input, select, textarea',)) return;
                                                 toggleCollapsed(question, index(),);

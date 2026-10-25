@@ -639,3 +639,36 @@
   // Collapsed: just the header (no divider under it).
   &.is-collapsed .question-header { border-bottom: 0; }
 }
+
+// Drag to sort (question cards): the dragged card dims; a line marks the drop.
+.question-card {
+  position: relative;
+  overflow: visible;
+
+  .question-header {
+    cursor: grab;
+    // The card no longer clips (the drop line sits outside it), so the
+    // header rounds its own top corners — all four when collapsed.
+    border-radius: $border-radius-md $border-radius-md 0 0;
+  }
+  &.is-collapsed .question-header { border-radius: $border-radius-md; }
+  .question-header:active { cursor: grabbing; }
+
+  &.is-dragging { opacity: 0.45; }
+
+  &.is-drop-before::before,
+  &.is-drop-after::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    left: 0;
+    z-index: 2;
+    height: 3px;
+    border-radius: 2px;
+    background: $primary-color;
+    pointer-events: none;
+  }
+  // Centred in the gap between the cards.
+  &.is-drop-before::before { top: calc(-1 * #{$spacing-md} / 2 - 2px); }
+  &.is-drop-after::after { bottom: calc(-1 * #{$spacing-md} / 2 - 2px); }
+}
