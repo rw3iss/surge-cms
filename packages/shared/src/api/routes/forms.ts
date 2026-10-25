@@ -24,6 +24,8 @@ import type { BulkActionResult, } from './_shared';
  *  existing question's `id` is echoed back so the server can match rows. */
 export interface FormQuestionInput {
     id?: string;
+    /** The section this question belongs to (`sections[].id`); null = none. */
+    sectionId?: string | null;
     type: QuestionType;
     question: string;
     description?: string | null;
@@ -168,6 +170,8 @@ export interface FormCreateBody {
     actionConfig?: FormActionConfig;
     maxSubmissions?: number | null;
     questions?: FormQuestionInput[];
+    /** Question sections (headings), one level deep — see `utils/formSections`. */
+    sections?: import('../../utils/formSections').FormSection[];
 }
 
 /** POST /forms (201) — the created form. */

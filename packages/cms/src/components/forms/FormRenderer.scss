@@ -75,6 +75,31 @@
         min-width: 0;
     }
 
+    // Section heading (`utils/formSections`): its own full-width row (also in
+    // the N-column grid), the title + optional description, aligned per section.
+    &__section {
+        flex: 0 0 100%;
+        grid-column: 1 / -1;
+        min-width: 0;
+        margin-top: $spacing-md;
+
+        &:first-child { margin-top: 0; }
+    }
+
+    &__section-title {
+        margin: 0;
+        font-family: var(--site-heading-font, var(--site-font, inherit));
+        font-weight: var(--site-heading-weight, 700);
+        font-size: $font-size-xl;
+        color: var(--site-heading, inherit);
+    }
+
+    &__section-description {
+        margin: $spacing-xs 0 0;
+        color: var(--site-text-muted, #{$text-light});
+        white-space: pre-line;
+    }
+
     // Half-width field: 50% of the row (accounting for the flex gap), so two
     // halves pair up. Mobile ignores width for now → back to full width.
     &__field--half {

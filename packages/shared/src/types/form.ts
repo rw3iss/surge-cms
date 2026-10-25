@@ -17,6 +17,8 @@ export type QuestionWidth = 'full' | 'half';
 export interface FormQuestion {
     id: string;
     formId: string;
+    /** The section it belongs to (`Form.sections[].id`); null = none. */
+    sectionId?: string | null;
     type: QuestionType;
     question: string;
     description?: string;
@@ -97,6 +99,8 @@ export interface Form {
     /** Hard cap on total submissions; null/undefined = unlimited. */
     maxSubmissions?: number | null;
     questions: FormQuestion[];
+    /** Question sections (headings), one level deep — see `utils/formSections`. */
+    sections?: import('../utils/formSections').FormSection[];
     submissionCount: number;
     createdBy: string;
     createdAt: Date;

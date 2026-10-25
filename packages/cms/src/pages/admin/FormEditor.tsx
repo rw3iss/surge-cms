@@ -1,6 +1,15 @@
 import {
     deriveFieldKeys,
+    dropFormRow,
+    dropFormRowAtEnd,
     type Form,
+    formLayoutFromRows,
+    formRowsFromLayout,
+    type FormSectionRow,
+    isFormSectionRow,
+    moveFormRow,
+    normalizeFormRows,
+    removeFormSection,
     type FormActionType,
     type FormCreateBody,
     parseEmailList,
@@ -13,7 +22,9 @@ import EditorSaveBar from '../../components/admin/common/EditorSaveBar';
 import Toggle from '../../components/admin/common/Toggle';
 import Tooltip from '../../components/admin/common/Tooltip';
 import RichTextEditor from '../../components/admin/editors/RichTextEditor';
-import { FormField, } from '../../components/admin/forms';
+import { CommitInput, FormField, } from '../../components/admin/forms';
+import AlignButtons from '../../components/admin/common/AlignButtons';
+import ModalShell from '../../components/admin/common/ModalShell';
 import FormPreviewModal from '../../components/admin/forms/FormPreviewModal';
 import { useAutoSave, } from '../../hooks/useAutoSave';
 import { useEditorState, } from '../../hooks/useEditorState';
@@ -30,6 +41,8 @@ interface FormQuestion {
     id?: string;
     /** Client-only key for an unsaved question (collapse state); never sent. */
     uiKey?: string;
+    /** The section it is in (`FormSectionRow.id`); null = the root. */
+    sectionId?: string | null;
     type: QuestionKind;
     question: string;
     description?: string;
@@ -79,8 +92,13 @@ const FormEditor: Component = () => {
     const contactsEnabled = () => isFeatureEnabled('contacts',);
     const [showVars, setShowVars,] = createSignal(false,);
 
-    // Questions
-    const [questions, setQuestions,] = createSignal<FormQuestion[]>([],);
+    // Questions + sections, as ONE flat list in display order: a section row
+    // is followed by its questions (`utils/formSections` keeps it that way).
+    const [rows, setRows,] = createSignal<Array<FormQuestion | FormSectionRow>>([],);
+    const questions = createMemo(() => rows().filter((r,): r is FormQuestion => !isFormSectionRow(r,),),);
+    /** Root-level rows (sections and questions not in a section) — same objects, so unchanged cards keep their DOM. */
+    const rootRows = createMemo(() => rows().filter((r,) => isFormSectionRow(r,) || !r.sectionId,),);
+    const childrenOf = (sectionId: string,) => questions().filter((q,) => q.sectionId === sectionId,);
 
     // Mailing lists for the subscribe-action dropdown (loaded when needed).
     const [mailingLists,] = createResource(
@@ -189,8 +207,9 @@ const FormEditor: Component = () => {
 
                 // Load questions
                 if (data.questions && Array.isArray(data.questions,)) {
-                    setQuestions(data.questions.map((q, index,) => ({
+                    setRows(formRowsFromLayout(data.questions.slice().sort((a, b,) => (a.order ?? 0) - (b.order ?? 0)).map((q, index,): FormQuestion => ({
                         id: q.id,
+                        sectionId: q.sectionId ?? null,
                         type: (q.type || 'text') as QuestionKind,
                         question: q.question || '',
                         description: q.description || '',
@@ -203,7 +222,7 @@ const FormEditor: Component = () => {
                         rows: q.rows ?? 4,
                         allowResize: q.allowResize ?? true,
                         maxHeight: q.maxHeight || '',
-                    })),);
+                    })), data.sections,),);
                 }
 
                 return data;
@@ -229,9 +248,10 @@ const FormEditor: Component = () => {
     };
 
     // Question management
-    const addQuestion = () => {
+    const addQuestion = (sectionId?: string,) => {
         const newQuestion: FormQuestion = {
             uiKey: crypto.randomUUID(),
+            sectionId: sectionId ?? null,
             type: 'text',
             question: '',
             description: '',
@@ -245,18 +265,44 @@ const FormEditor: Component = () => {
             allowResize: true,
             maxHeight: '',
         };
-        setQuestions([...questions(), newQuestion,],);
+        // At the end of its section (normalize moves it there), else the end of the form.
+        setRows(normalizeFormRows([...rows(), newQuestion,],),);
+        if (sectionId && collapsed().has(sectionId,)) {
+            const next = new Set(collapsed(),);
+            next.delete(sectionId,);
+            setCollapsed(next,);
+        }
+        markDirty();
+    };
+
+    const addSection = () => {
+        setRows([...rows(), { kind: 'section', id: crypto.randomUUID(), title: '', description: '', align: 'left', },],);
+        markDirty();
+    };
+    const updateSection = (id: string, patch: Partial<Omit<FormSectionRow, 'kind' | 'id'>>,) => {
+        setRows(rows().map((r,) => isFormSectionRow(r,) && r.id === id ? { ...r, ...patch, } : r),);
+        markDirty();
+    };
+    /** Delete-section modal: the section being deleted (null = closed). */
+    const [sectionToDelete, setSectionToDelete,] = createSignal<FormSectionRow | null>(null,);
+    const deleteSection = (mode: 'delete' | 'keep',) => {
+        const sec = sectionToDelete();
+        if (!sec) return;
+        setRows(removeFormSection(rows(), sec.id, mode,),);
+        setSectionToDelete(null,);
         markDirty();
     };
 
     const updateQuestion = (index: number, updates: Partial<FormQuestion>,) => {
-        setQuestions(questions().map((q, i,) => i === index ? { ...q, ...updates, } : q),);
+        const target = questions()[index];
+        setRows(rows().map((r,) => r === target ? { ...target, ...updates, } : r),);
         markDirty();
     };
 
     const removeQuestion = (index: number,) => {
         if (confirm('Remove this question?',)) {
-            setQuestions(questions().filter((_, i,) => i !== index),);
+            const target = questions()[index];
+            setRows(rows().filter((r,) => r !== target,),);
             markDirty();
         }
     };
@@ -275,7 +321,8 @@ const FormEditor: Component = () => {
         successMessage: successMessage() || undefined,
         submitButtonText: submitButtonText() || undefined,
         action: action(),
-        questions: questions().map((q, i,) => ({
+        sections: formLayoutFromRows(rows(),).sections,
+        questions: formLayoutFromRows(rows(),).questions.map((q, i,) => ({
             ...q,
             id: q.id ?? q.uiKey ?? `preview-${i}`,
             formId: params.id ?? 'preview',
@@ -303,46 +350,46 @@ const FormEditor: Component = () => {
     };
     const [submitOpen, setSubmitOpen,] = createSignal(true,);
 
-    const moveQuestion = (index: number, direction: 'up' | 'down',) => {
-        const newIndex = direction === 'up' ? index - 1 : index + 1;
-        if (newIndex < 0 || newIndex >= questions().length) return;
-
-        const newQuestions = [...questions(),];
-        [newQuestions[index], newQuestions[newIndex],] = [newQuestions[newIndex], newQuestions[index],];
-        setQuestions(newQuestions.map((q, i,) => ({ ...q, order: i, })),);
+    /** ↑ / ↓ on a row: among its siblings (inside its section, or the root units). */
+    const moveRow = (rowIndex: number, direction: 'up' | 'down',) => {
+        const next = moveFormRow(rows(), rowIndex, direction,);
+        if (next === rows()) return;
+        setRows(next,);
         markDirty();
     };
+    const canMove = (rowIndex: number, direction: 'up' | 'down',): boolean => moveFormRow(rows(), rowIndex, direction,) !== rows();
+    const moveQuestion = (index: number, direction: 'up' | 'down',) => moveRow(rows().indexOf(questions()[index]!,), direction,);
 
-    /** Move a question from one position to another (drag and drop), renumbering all. */
-    const moveQuestionTo = (from: number, to: number,) => {
-        if (from === to || from < 0 || to < 0 || from >= questions().length || to > questions().length) return;
-        const list = [...questions(),];
-        const [moved,] = list.splice(from, 1,);
-        list.splice(to > from ? to - 1 : to, 0, moved!,);
-        setQuestions(list.map((q, i,) => ({ ...q, order: i, })),);
-        markDirty();
-    };
-
-    // Drag to sort: the card is dragged by its header; the drop lands before or
-    // after the card under the pointer (its top / bottom half).
+    // Drag to sort (questions AND sections): a card is dragged by its header;
+    // the drop lands before / after the card under the pointer. A question
+    // joins its target's section; on a section, the top half of its HEADER
+    // means "above the section" and anything below means "into it" (at the top).
     const [dragFrom, setDragFrom,] = createSignal<number | null>(null,);
     const [dropAt, setDropAt,] = createSignal<{ index: number; after: boolean; } | null>(null,);
-    const onCardDragOver = (e: DragEvent, index: number,) => {
+    const [endOver, setEndOver,] = createSignal(false,);
+    const onCardDragOver = (e: DragEvent, index: number, rectOf?: HTMLElement | null,) => {
         if (dragFrom() === null) return;
         e.preventDefault();
+        e.stopPropagation(); // a question inside a section must not also reach the section card
         if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-        const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        const r = (rectOf ?? e.currentTarget as HTMLElement).getBoundingClientRect();
         const after = e.clientY > r.top + r.height / 2;
         const cur = dropAt();
         if (!cur || cur.index !== index || cur.after !== after) setDropAt({ index, after, },);
+        if (endOver()) setEndOver(false,);
     };
     const onCardDrop = (e: DragEvent,) => {
         e.preventDefault();
+        e.stopPropagation();
         const from = dragFrom();
         const at = dropAt();
-        if (from !== null && at) moveQuestionTo(from, at.index + (at.after ? 1 : 0),);
+        if (from !== null && at) {
+            const next = dropFormRow(rows(), from, at.index, at.after,);
+            if (next !== rows()) { setRows(next,); markDirty(); }
+        }
         setDragFrom(null,);
         setDropAt(null,);
+        setEndOver(false,);
     };
 
     // Option management for poll questions
@@ -386,7 +433,7 @@ const FormEditor: Component = () => {
             emailBody: emailBody(),
             saveSubmission: saveSubmission(),
             addContact: addContact(),
-            questions: questions(),
+            rows: rows(),
         }),
     },);
 
@@ -423,6 +470,8 @@ const FormEditor: Component = () => {
 
         try {
             const parsedMax = parseInt(maxSubmissions(), 10,);
+            // Questions in display order (their index = overall order) + sections with positions.
+            const layout = formLayoutFromRows(rows(),);
             const payload: FormCreateBody = {
                 title: title(),
                 slug: slug(),
@@ -447,8 +496,10 @@ const FormEditor: Component = () => {
                     // Applies to EVERY action, including plain submit.
                     addContact: addContact(),
                 },
-                questions: questions().map((q, index,) => ({
+                sections: layout.sections,
+                questions: layout.questions.map((q, index,) => ({
                     id: q.id,
+                    sectionId: q.sectionId ?? null,
                     type: q.type,
                     question: q.question,
                     description: q.description || null,
@@ -514,6 +565,410 @@ const FormEditor: Component = () => {
 
     const isPollType = (type: string,) => ['radio', 'checkbox', 'select',].includes(type,);
 
+    /** One question card (root or inside a section). `index` = its number among all questions; `rowIndex` = its place in the flat rows (drag + move). */
+    const questionCard = (question: FormQuestion,) => {
+        const index = () => questions().indexOf(question,);
+        const rowIndex = () => rows().indexOf(question,);
+        return (
+            <div
+                class="question-card"
+                classList={{
+                    'is-collapsed': isCollapsed(question, index(),),
+                    'is-dragging': dragFrom() === rowIndex(),
+                    'is-drop-before': dropAt()?.index === rowIndex() && !dropAt()!.after && dragFrom() !== rowIndex(),
+                    'is-drop-after': dropAt()?.index === rowIndex() && dropAt()!.after && dragFrom() !== rowIndex(),
+                    'question-card--in-section': !!question.sectionId,
+                }}
+                onDragOver={(e,) => onCardDragOver(e, rowIndex(),)}
+                onDrop={onCardDrop}
+            >
+                {/* Clicking the header (not its ↑ ↓ × buttons) collapses / expands the card;
+                    dragging it sorts the card. */}
+                <div
+                    class="question-header"
+                    draggable={true}
+                    title="Drag to reorder · click to collapse"
+                    onDragStart={(e,) => {
+                        if ((e.target as HTMLElement).closest?.('button, a, input, select, textarea',)) { e.preventDefault(); return; }
+                        setDragFrom(rowIndex(),);
+                        if (e.dataTransfer) {
+                            e.dataTransfer.effectAllowed = 'move';
+                            e.dataTransfer.setData('text/plain', String(rowIndex(),),);
+                            // The whole card as the drag image, not just the header.
+                            const card = (e.currentTarget as HTMLElement).closest('.question-card',) as HTMLElement | null;
+                            if (card) e.dataTransfer.setDragImage(card, 24, 16,);
+                        }
+                    }}
+                    onDragEnd={() => { setDragFrom(null,); setDropAt(null,); setEndOver(false,); }}
+                    onClick={(e,) => {
+                        if ((e.target as HTMLElement).closest('button, a, input, select, textarea',)) return;
+                        toggleCollapsed(question, index(),);
+                    }}
+                >
+                    <span class="question-number">
+                        <button
+                            type="button"
+                            class="collapse-arrow"
+                            classList={{ 'is-open': !isCollapsed(question, index(),), }}
+                            aria-expanded={!isCollapsed(question, index(),)}
+                            aria-label={isCollapsed(question, index(),) ? `Expand question ${index() + 1}` : `Collapse question ${index() + 1}`}
+                            onClick={() => toggleCollapsed(question, index(),)}
+                        />
+                        Question {index() + 1}
+                        <Show when={isCollapsed(question, index(),) && question.question}>
+                            <span class="question-summary">— {question.question}</span>
+                        </Show>
+                    </span>
+                    <div class="question-actions">
+                        <button
+                            type="button"
+                            class="btn btn--icon"
+                            onClick={() => moveQuestion(index(), 'up',)}
+                            disabled={!canMove(rowIndex(), 'up',)}
+                            title="Move up"
+                        >
+                            ↑
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn--icon"
+                            onClick={() => moveQuestion(index(), 'down',)}
+                            disabled={!canMove(rowIndex(), 'down',)}
+                            title="Move down"
+                        >
+                            ↓
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn--icon btn--danger"
+                            onClick={() => removeQuestion(index(),)}
+                            title="Remove"
+                        >
+                            ×
+                        </button>
+                    </div>
+                </div>
+
+                <Show when={!isCollapsed(question, index(),)}>
+                <div class="question-body">
+                    <div class="form-row">
+                        <div class="form-group form-group--grow">
+                            <label>Question Text *</label>
+                            <input
+                                type="text"
+                                value={question.question}
+                                onChange={(e,) =>
+                                    updateQuestion(index(), {
+                                        question: (e.target as HTMLInputElement).value,
+                                    },)}
+                                placeholder="Enter your question..."
+                            />
+                        </div>
+
+                        <div class="form-group">
+                            <label>Type</label>
+                            <select
+                                value={question.type}
+                                onChange={(e,) =>
+                                    updateQuestion(index(), {
+                                        type: (e.target as HTMLSelectElement)
+                                            .value as FormQuestion['type'],
+                                        options: isPollType(
+                                                (e.target as HTMLSelectElement).value,
+                                            ) && question.options.length === 0 ?
+                                            ['', '',] :
+                                            question.options,
+                                    },)}
+                            >
+                                <option value="text">{questionTypeLabels.text}</option>
+                                <option value="textarea">{questionTypeLabels.textarea}</option>
+                                <option value="email">{questionTypeLabels.email}</option>
+                                <option value="number">{questionTypeLabels.number}</option>
+                                <option value="date">{questionTypeLabels.date}</option>
+                                <option value="radio">{questionTypeLabels.radio}</option>
+                                <option value="checkbox">{questionTypeLabels.checkbox}</option>
+                                <option value="select">{questionTypeLabels.select}</option>
+                            </select>
+
+                            <label style={{ 'margin-top': '0.5rem', }}>Width</label>
+                            <select
+                                value={question.width || 'full'}
+                                onChange={(e,) =>
+                                    updateQuestion(index(), {
+                                        width: (e.target as HTMLSelectElement)
+                                            .value as 'full' | 'half',
+                                    },)}
+                            >
+                                <option value="full">Full width</option>
+                                <option value="half">Half width</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <Show when={isTextInputType(question.type,)}>
+                        <div class="form-group">
+                            <Toggle
+                                checked={question.questionAsPlaceholder ?? false}
+                                onChange={(next,) =>
+                                    updateQuestion(index(), { questionAsPlaceholder: next, },)}
+                                size="sm"
+                                label={
+                                    <span
+                                        style={{
+                                            display: 'inline-flex',
+                                            'align-items': 'center',
+                                            gap: '4px',
+                                        }}
+                                    >
+                                        Use Question Text as placeholder
+                                        <Tooltip
+                                            header="Use Question Text as placeholder"
+                                            content="Hides the field's label and shows the question text inside the input as its placeholder instead. The separate Placeholder Text option is ignored while this is on."
+                                        />
+                                    </span>
+                                }
+                            />
+                        </div>
+                        <Show when={!question.questionAsPlaceholder}>
+                            <div class="form-group">
+                                <label>Placeholder Text (Optional)</label>
+                                <input
+                                    type="text"
+                                    value={question.placeholder || ''}
+                                    onChange={(e,) =>
+                                        updateQuestion(index(), {
+                                            placeholder: (e.target as HTMLInputElement).value,
+                                        },)}
+                                    placeholder="Shown inside the empty field…"
+                                />
+                            </div>
+                        </Show>
+                    </Show>
+
+                    <Show when={question.type === 'textarea'}>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Number of Rows</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={question.rows ?? 4}
+                                    onChange={(e,) =>
+                                        updateQuestion(index(), {
+                                            rows: Math.max(
+                                                1,
+                                                parseInt(
+                                                    (e.target as HTMLInputElement).value,
+                                                    10,
+                                                ) || 4,
+                                            ),
+                                        },)}
+                                />
+                            </div>
+                            <div class="form-group">
+                                <label>Resize</label>
+                                <Toggle
+                                    checked={question.allowResize ?? true}
+                                    onChange={(next,) =>
+                                        updateQuestion(index(), { allowResize: next, },)}
+                                    label="Allow Resize"
+                                    size="sm"
+                                />
+                            </div>
+                            <Show when={question.allowResize ?? true}>
+                                <div class="form-group">
+                                    <label>Max Height</label>
+                                    <input
+                                        type="text"
+                                        value={question.maxHeight || ''}
+                                        onChange={(e,) =>
+                                            updateQuestion(index(), {
+                                                maxHeight: (e.target as HTMLInputElement).value,
+                                            },)}
+                                        placeholder="e.g. 400px"
+                                    />
+                                </div>
+                            </Show>
+                        </div>
+                    </Show>
+
+                    <div class="form-group">
+                        <label>Help Text (Optional)</label>
+                        <input
+                            type="text"
+                            value={question.description || ''}
+                            onChange={(e,) =>
+                                updateQuestion(index(), {
+                                    description: (e.target as HTMLInputElement).value,
+                                },)}
+                            placeholder="Additional instructions for this question..."
+                        />
+                    </div>
+
+                    {/* Options for poll-type questions */}
+                    <Show when={isPollType(question.type,)}>
+                        <div class="options-section">
+                            <label>Answer Options</label>
+                            <div class="options-list">
+                                <For each={question.options}>
+                                    {(option, optIndex,) => (
+                                        <div class="option-row">
+                                            <span class="option-indicator">
+                                                {question.type === 'checkbox' ? '☐' : '○'}
+                                            </span>
+                                            <input
+                                                type="text"
+                                                value={option}
+                                                onChange={(e,) =>
+                                                    updateOption(
+                                                        index(),
+                                                        optIndex(),
+                                                        (e.target as HTMLInputElement).value,
+                                                    )}
+                                                placeholder={`Option ${optIndex() + 1}`}
+                                            />
+                                            <button
+                                                type="button"
+                                                class="btn btn--icon btn--small"
+                                                onClick={() =>
+                                                    removeOption(index(), optIndex(),)}
+                                                disabled={question.options.length <= 2}
+                                                title="Remove option"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    )}
+                                </For>
+                            </div>
+                            <button
+                                type="button"
+                                class="ui-button ui-button--sm ui-button--secondary"
+                                onClick={() => addOption(index(),)}
+                            >
+                                Add Option
+                            </button>
+                        </div>
+                    </Show>
+
+                    <div class="form-group">
+                        <Toggle
+                            checked={question.isRequired}
+                            onChange={(next,) =>
+                                updateQuestion(index(), { isRequired: next, },)}
+                            label="Required"
+                            size="sm"
+                        />
+                    </div>
+                </div>
+                </Show>
+            </div>
+        );
+    };
+
+    // ─── Sections ───
+    /** One section card: header (drag / collapse / ↑ ↓ ×), then — open — its
+     *  toolbar, title, alignment, description and its questions. */
+    const sectionCard = (sec: FormSectionRow,) => {
+        const rowIndex = () => rows().indexOf(sec,);
+        const kids = () => childrenOf(sec.id,);
+        const open = () => !collapsed().has(sec.id,);
+        const toggle = () => {
+            const next = new Set(collapsed(),);
+            if (next.has(sec.id,)) next.delete(sec.id,); else next.add(sec.id,);
+            setCollapsed(next,);
+        };
+        return (
+            <div
+                class="question-card question-card--section"
+                classList={{
+                    'is-collapsed': !open(),
+                    'is-dragging': dragFrom() === rowIndex(),
+                    'is-drop-before': dropAt()?.index === rowIndex() && !dropAt()!.after && dragFrom() !== rowIndex(),
+                    // A question dropped here goes INTO the section (a section dragged here goes after it).
+                    'is-drop-into': dropAt()?.index === rowIndex() && dropAt()!.after && dragFrom() !== rowIndex() && !isFormSectionRow(rows()[dragFrom() ?? -1],),
+                    'is-drop-after': dropAt()?.index === rowIndex() && dropAt()!.after && dragFrom() !== rowIndex() && isFormSectionRow(rows()[dragFrom() ?? -1],),
+                }}
+                onDragOver={(e,) => {
+                    // Before / into is decided on the HEADER: its top half = above the section.
+                    const header = (e.currentTarget as HTMLElement).querySelector(':scope > .question-header',) as HTMLElement | null;
+                    const hr = header?.getBoundingClientRect();
+                    if (hr && e.clientY > hr.bottom) {
+                        if (dragFrom() === null) return;
+                        e.preventDefault(); e.stopPropagation();
+                        const cur = dropAt();
+                        if (!cur || cur.index !== rowIndex() || !cur.after) setDropAt({ index: rowIndex(), after: true, },);
+                        return;
+                    }
+                    onCardDragOver(e, rowIndex(), header,);
+                }}
+                onDrop={onCardDrop}
+            >
+                <div
+                    class="question-header"
+                    draggable={true}
+                    title="Drag to reorder · click to collapse"
+                    onDragStart={(e,) => {
+                        if ((e.target as HTMLElement).closest?.('button, a, input, select, textarea',)) { e.preventDefault(); return; }
+                        setDragFrom(rowIndex(),);
+                        if (e.dataTransfer) {
+                            e.dataTransfer.effectAllowed = 'move';
+                            e.dataTransfer.setData('text/plain', String(rowIndex(),),);
+                        }
+                    }}
+                    onDragEnd={() => { setDragFrom(null,); setDropAt(null,); setEndOver(false,); }}
+                    onClick={(e,) => { if (!(e.target as HTMLElement).closest('button, a, input, select, textarea',)) toggle(); }}
+                >
+                    <span class="question-number">
+                        <button
+                            type="button"
+                            class="collapse-arrow"
+                            classList={{ 'is-open': open(), }}
+                            aria-expanded={open()}
+                            aria-label={open() ? 'Collapse section' : 'Expand section'}
+                            onClick={toggle}
+                        />
+                        Section
+                        <Show when={sec.title}><span class="question-summary">— {sec.title}</span></Show>
+                        <span class="question-summary question-summary--count">
+                            ({kids().length} {kids().length === 1 ? 'question' : 'questions'})
+                        </span>
+                    </span>
+                    <div class="question-actions">
+                        <button type="button" class="btn btn--icon" onClick={() => moveRow(rowIndex(), 'up',)} disabled={!canMove(rowIndex(), 'up',)} title="Move up">↑</button>
+                        <button type="button" class="btn btn--icon" onClick={() => moveRow(rowIndex(), 'down',)} disabled={!canMove(rowIndex(), 'down',)} title="Move down">↓</button>
+                        <button type="button" class="btn btn--icon btn--danger" onClick={() => setSectionToDelete(sec,)} title="Delete section">×</button>
+                    </div>
+                </div>
+                <Show when={open()}>
+                    <div class="question-body section-body">
+                        <div class="section-body__toolbar">
+                            <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={() => addQuestion(sec.id,)}>
+                                + Add Question
+                            </button>
+                        </div>
+                        <div class="admin-form-row">
+                            <FormField label="Section title">
+                                <CommitInput value={sec.title} placeholder="e.g. About you" onCommit={(v,) => updateSection(sec.id, { title: v, },)} />
+                            </FormField>
+                            <FormField label="Alignment" tooltip="Alignment of the section title and description on the form.">
+                                <AlignButtons label="Section alignment" value={sec.align} onChange={(v,) => updateSection(sec.id, { align: v, },)} />
+                            </FormField>
+                        </div>
+                        <FormField label="Description (optional)" hint="Shown under the title. Leave empty to show none.">
+                            <CommitInput multiline value={sec.description} onCommit={(v,) => updateSection(sec.id, { description: v, },)} />
+                        </FormField>
+                        <div class="section-body__questions">
+                            <For each={kids()} fallback={<p class="form-help-muted section-body__empty">No questions in this section yet — add one, or drag questions onto this section.</p>}>
+                                {(q,) => questionCard(q,)}
+                            </For>
+                        </div>
+                    </div>
+                </Show>
+            </div>
+        );
+    };
+
     return (
         <div class="admin-editor form-editor">
             <AdminTitle>{isNew() ? 'New Form' : 'Edit Form'}</AdminTitle>
@@ -533,6 +988,36 @@ const FormEditor: Component = () => {
                 onConfirm={leaveGuard.confirmLeave}
                 onCancel={leaveGuard.cancelLeave}
             />
+
+            {/* Delete a section: cancel, delete its questions too, or keep them (moved to the root). */}
+            <ModalShell open={!!sectionToDelete()} onClose={() => setSectionToDelete(null,)} size="sm" ariaLabel="Delete section">
+                <Show when={sectionToDelete()}>
+                    {(sec,) => (
+                        <div class="section-delete">
+                            <h3>Delete section{sec().title ? ` “${sec().title}”` : ''}?</h3>
+                            <Show
+                                when={childrenOf(sec().id,).length > 0}
+                                fallback={<p>This section has no questions.</p>}
+                            >
+                                <p>
+                                    It contains {childrenOf(sec().id,).length} {childrenOf(sec().id,).length === 1 ? 'question' : 'questions'}.
+                                    Delete them too, or keep them (they move out of the section, in place)?
+                                </p>
+                            </Show>
+                            <div class="section-delete__actions">
+                                <button type="button" class="ui-button ui-button--secondary" onClick={() => setSectionToDelete(null,)}>Cancel</button>
+                                <Show
+                                    when={childrenOf(sec().id,).length > 0}
+                                    fallback={<button type="button" class="ui-button ui-button--danger" onClick={() => deleteSection('keep',)}>Delete section</button>}
+                                >
+                                    <button type="button" class="ui-button ui-button--secondary" onClick={() => deleteSection('keep',)}>Keep questions, delete section</button>
+                                    <button type="button" class="ui-button ui-button--danger" onClick={() => deleteSection('delete',)}>Delete section and questions</button>
+                                </Show>
+                            </div>
+                        </div>
+                    )}
+                </Show>
+            </ModalShell>
 
             <FormPreviewModal open={previewOpen()} onClose={() => setPreviewOpen(false,)} form={previewForm()} />
 
@@ -931,15 +1416,18 @@ const FormEditor: Component = () => {
                                 <button type="button" class="link-button" onClick={() => setPreviewOpen(true,)}>
                                     Preview
                                 </button>
-                                <button type="button" class="ui-button ui-button--secondary" onClick={addQuestion}>
+                                <button type="button" class="ui-button ui-button--secondary" onClick={addSection}>
+                                    New Section
+                                </button>
+                                <button type="button" class="ui-button ui-button--secondary" onClick={() => addQuestion()}>
                                     Add Question
                                 </button>
                             </div>
                         </div>
 
-                        <Show when={questions().length === 0}>
+                        <Show when={rows().length === 0}>
                             <div class="empty-state">
-                                <p>No questions yet. Click "Add Question" to get started.</p>
+                                <p>No questions yet. Click "Add Question" to get started, or "New Section" to group questions under a heading.</p>
                             </div>
                         </Show>
 
@@ -949,306 +1437,35 @@ const FormEditor: Component = () => {
                             onDragOver={(e,) => { if (dragFrom() !== null) e.preventDefault(); }}
                             onDrop={onCardDrop}
                         >
-                            <For each={questions()}>
-                                {(question, index,) => (
-                                    <div
-                                        class="question-card"
-                                        classList={{
-                                            'is-collapsed': isCollapsed(question, index(),),
-                                            'is-dragging': dragFrom() === index(),
-                                            'is-drop-before': dropAt()?.index === index() && !dropAt()!.after && dragFrom() !== index(),
-                                            'is-drop-after': dropAt()?.index === index() && dropAt()!.after && dragFrom() !== index(),
-                                        }}
-                                        onDragOver={(e,) => onCardDragOver(e, index(),)}
-                                        onDrop={onCardDrop}
-                                    >
-                                        {/* Clicking the header (not its ↑ ↓ × buttons) collapses / expands the card;
-                                            dragging it sorts the card. */}
-                                        <div
-                                            class="question-header"
-                                            draggable={true}
-                                            title="Drag to reorder · click to collapse"
-                                            onDragStart={(e,) => {
-                                                if ((e.target as HTMLElement).closest?.('button, a, input, select, textarea',)) { e.preventDefault(); return; }
-                                                setDragFrom(index(),);
-                                                if (e.dataTransfer) {
-                                                    e.dataTransfer.effectAllowed = 'move';
-                                                    e.dataTransfer.setData('text/plain', String(index(),),);
-                                                    // The whole card as the drag image, not just the header.
-                                                    const card = (e.currentTarget as HTMLElement).closest('.question-card',) as HTMLElement | null;
-                                                    if (card) e.dataTransfer.setDragImage(card, 24, 16,);
-                                                }
-                                            }}
-                                            onDragEnd={() => { setDragFrom(null,); setDropAt(null,); }}
-                                            onClick={(e,) => {
-                                                if ((e.target as HTMLElement).closest('button, a, input, select, textarea',)) return;
-                                                toggleCollapsed(question, index(),);
-                                            }}
-                                        >
-                                            <span class="question-number">
-                                                <button
-                                                    type="button"
-                                                    class="collapse-arrow"
-                                                    classList={{ 'is-open': !isCollapsed(question, index(),), }}
-                                                    aria-expanded={!isCollapsed(question, index(),)}
-                                                    aria-label={isCollapsed(question, index(),) ? `Expand question ${index() + 1}` : `Collapse question ${index() + 1}`}
-                                                    onClick={() => toggleCollapsed(question, index(),)}
-                                                />
-                                                Question {index() + 1}
-                                                <Show when={isCollapsed(question, index(),) && question.question}>
-                                                    <span class="question-summary">— {question.question}</span>
-                                                </Show>
-                                            </span>
-                                            <div class="question-actions">
-                                                <button
-                                                    type="button"
-                                                    class="btn btn--icon"
-                                                    onClick={() => moveQuestion(index(), 'up',)}
-                                                    disabled={index() === 0}
-                                                    title="Move up"
-                                                >
-                                                    ↑
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    class="btn btn--icon"
-                                                    onClick={() => moveQuestion(index(), 'down',)}
-                                                    disabled={index() === questions().length - 1}
-                                                    title="Move down"
-                                                >
-                                                    ↓
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    class="btn btn--icon btn--danger"
-                                                    onClick={() => removeQuestion(index(),)}
-                                                    title="Remove"
-                                                >
-                                                    ×
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <Show when={!isCollapsed(question, index(),)}>
-                                        <div class="question-body">
-                                            <div class="form-row">
-                                                <div class="form-group form-group--grow">
-                                                    <label>Question Text *</label>
-                                                    <input
-                                                        type="text"
-                                                        value={question.question}
-                                                        onChange={(e,) =>
-                                                            updateQuestion(index(), {
-                                                                question: (e.target as HTMLInputElement).value,
-                                                            },)}
-                                                        placeholder="Enter your question..."
-                                                    />
-                                                </div>
-
-                                                <div class="form-group">
-                                                    <label>Type</label>
-                                                    <select
-                                                        value={question.type}
-                                                        onChange={(e,) =>
-                                                            updateQuestion(index(), {
-                                                                type: (e.target as HTMLSelectElement)
-                                                                    .value as FormQuestion['type'],
-                                                                options: isPollType(
-                                                                        (e.target as HTMLSelectElement).value,
-                                                                    ) && question.options.length === 0 ?
-                                                                    ['', '',] :
-                                                                    question.options,
-                                                            },)}
-                                                    >
-                                                        <option value="text">{questionTypeLabels.text}</option>
-                                                        <option value="textarea">{questionTypeLabels.textarea}</option>
-                                                        <option value="email">{questionTypeLabels.email}</option>
-                                                        <option value="number">{questionTypeLabels.number}</option>
-                                                        <option value="date">{questionTypeLabels.date}</option>
-                                                        <option value="radio">{questionTypeLabels.radio}</option>
-                                                        <option value="checkbox">{questionTypeLabels.checkbox}</option>
-                                                        <option value="select">{questionTypeLabels.select}</option>
-                                                    </select>
-
-                                                    <label style={{ 'margin-top': '0.5rem', }}>Width</label>
-                                                    <select
-                                                        value={question.width || 'full'}
-                                                        onChange={(e,) =>
-                                                            updateQuestion(index(), {
-                                                                width: (e.target as HTMLSelectElement)
-                                                                    .value as 'full' | 'half',
-                                                            },)}
-                                                    >
-                                                        <option value="full">Full width</option>
-                                                        <option value="half">Half width</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-
-                                            <Show when={isTextInputType(question.type,)}>
-                                                <div class="form-group">
-                                                    <Toggle
-                                                        checked={question.questionAsPlaceholder ?? false}
-                                                        onChange={(next,) =>
-                                                            updateQuestion(index(), { questionAsPlaceholder: next, },)}
-                                                        size="sm"
-                                                        label={
-                                                            <span
-                                                                style={{
-                                                                    display: 'inline-flex',
-                                                                    'align-items': 'center',
-                                                                    gap: '4px',
-                                                                }}
-                                                            >
-                                                                Use Question Text as placeholder
-                                                                <Tooltip
-                                                                    header="Use Question Text as placeholder"
-                                                                    content="Hides the field's label and shows the question text inside the input as its placeholder instead. The separate Placeholder Text option is ignored while this is on."
-                                                                />
-                                                            </span>
-                                                        }
-                                                    />
-                                                </div>
-                                                <Show when={!question.questionAsPlaceholder}>
-                                                    <div class="form-group">
-                                                        <label>Placeholder Text (Optional)</label>
-                                                        <input
-                                                            type="text"
-                                                            value={question.placeholder || ''}
-                                                            onChange={(e,) =>
-                                                                updateQuestion(index(), {
-                                                                    placeholder: (e.target as HTMLInputElement).value,
-                                                                },)}
-                                                            placeholder="Shown inside the empty field…"
-                                                        />
-                                                    </div>
-                                                </Show>
-                                            </Show>
-
-                                            <Show when={question.type === 'textarea'}>
-                                                <div class="form-row">
-                                                    <div class="form-group">
-                                                        <label>Number of Rows</label>
-                                                        <input
-                                                            type="number"
-                                                            min="1"
-                                                            value={question.rows ?? 4}
-                                                            onChange={(e,) =>
-                                                                updateQuestion(index(), {
-                                                                    rows: Math.max(
-                                                                        1,
-                                                                        parseInt(
-                                                                            (e.target as HTMLInputElement).value,
-                                                                            10,
-                                                                        ) || 4,
-                                                                    ),
-                                                                },)}
-                                                        />
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label>Resize</label>
-                                                        <Toggle
-                                                            checked={question.allowResize ?? true}
-                                                            onChange={(next,) =>
-                                                                updateQuestion(index(), { allowResize: next, },)}
-                                                            label="Allow Resize"
-                                                            size="sm"
-                                                        />
-                                                    </div>
-                                                    <Show when={question.allowResize ?? true}>
-                                                        <div class="form-group">
-                                                            <label>Max Height</label>
-                                                            <input
-                                                                type="text"
-                                                                value={question.maxHeight || ''}
-                                                                onChange={(e,) =>
-                                                                    updateQuestion(index(), {
-                                                                        maxHeight: (e.target as HTMLInputElement).value,
-                                                                    },)}
-                                                                placeholder="e.g. 400px"
-                                                            />
-                                                        </div>
-                                                    </Show>
-                                                </div>
-                                            </Show>
-
-                                            <div class="form-group">
-                                                <label>Help Text (Optional)</label>
-                                                <input
-                                                    type="text"
-                                                    value={question.description || ''}
-                                                    onChange={(e,) =>
-                                                        updateQuestion(index(), {
-                                                            description: (e.target as HTMLInputElement).value,
-                                                        },)}
-                                                    placeholder="Additional instructions for this question..."
-                                                />
-                                            </div>
-
-                                            {/* Options for poll-type questions */}
-                                            <Show when={isPollType(question.type,)}>
-                                                <div class="options-section">
-                                                    <label>Answer Options</label>
-                                                    <div class="options-list">
-                                                        <For each={question.options}>
-                                                            {(option, optIndex,) => (
-                                                                <div class="option-row">
-                                                                    <span class="option-indicator">
-                                                                        {question.type === 'checkbox' ? '☐' : '○'}
-                                                                    </span>
-                                                                    <input
-                                                                        type="text"
-                                                                        value={option}
-                                                                        onChange={(e,) =>
-                                                                            updateOption(
-                                                                                index(),
-                                                                                optIndex(),
-                                                                                (e.target as HTMLInputElement).value,
-                                                                            )}
-                                                                        placeholder={`Option ${optIndex() + 1}`}
-                                                                    />
-                                                                    <button
-                                                                        type="button"
-                                                                        class="btn btn--icon btn--small"
-                                                                        onClick={() =>
-                                                                            removeOption(index(), optIndex(),)}
-                                                                        disabled={question.options.length <= 2}
-                                                                        title="Remove option"
-                                                                    >
-                                                                        ×
-                                                                    </button>
-                                                                </div>
-                                                            )}
-                                                        </For>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        class="ui-button ui-button--sm ui-button--secondary"
-                                                        onClick={() => addOption(index(),)}
-                                                    >
-                                                        Add Option
-                                                    </button>
-                                                </div>
-                                            </Show>
-
-                                            <div class="form-group">
-                                                <Toggle
-                                                    checked={question.isRequired}
-                                                    onChange={(next,) =>
-                                                        updateQuestion(index(), { isRequired: next, },)}
-                                                    label="Required"
-                                                    size="sm"
-                                                />
-                                            </div>
-                                        </div>
-                                        </Show>
-                                    </div>
+                            <For each={rootRows()}>
+                                {(row,) => (
+                                    <Show when={isFormSectionRow(row,) ? row : null} fallback={questionCard(row as FormQuestion,)}>
+                                        {(sec,) => sectionCard(sec(),)}
+                                    </Show>
                                 )}
                             </For>
+                            {/* While dragging: a target to move a question out of its section to the end. */}
+                            <Show when={dragFrom() !== null}>
+                                <div
+                                    class="questions-list__end"
+                                    classList={{ 'is-over': endOver(), }}
+                                    onDragOver={(e,) => { e.preventDefault(); e.stopPropagation(); setDropAt(null,); setEndOver(true,); }}
+                                    onDragLeave={() => setEndOver(false,)}
+                                    onDrop={(e,) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        const from = dragFrom();
+                                        if (from !== null) { setRows(dropFormRowAtEnd(rows(), from,),); markDirty(); }
+                                        setDragFrom(null,); setDropAt(null,); setEndOver(false,);
+                                    }}
+                                >
+                                    Drop here to move to the end (outside any section)
+                                </div>
+                            </Show>
                         </div>
 
                         <Show when={questions().length > 0}>
-                            <button type="button" class="ui-button ui-button--secondary" onClick={addQuestion}>
+                            <button type="button" class="ui-button ui-button--secondary" onClick={() => addQuestion()}>
                                 Add Another Question
                             </button>
                         </Show>

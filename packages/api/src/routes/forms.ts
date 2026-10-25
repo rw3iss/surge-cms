@@ -18,6 +18,7 @@ import * as forms from '../services/forms';
 const questionSchema = z.object({
     // Present on update so the server can match existing rows (new questions omit it).
     id: z.string().uuid().optional(),
+    sectionId: z.string().max(64,).nullish(),
     type: z.enum(['radio', 'checkbox', 'text', 'textarea', 'select', 'number', 'email', 'date',],),
     question: z.string().min(1,),
     description: z.string().nullish(),
@@ -63,6 +64,13 @@ const formSchema = z.object({
     actionConfig: actionConfigSchema.optional(),
     maxSubmissions: z.number().int().min(0,).nullish(),
     questions: z.array(questionSchema,).optional(),
+    sections: z.array(z.object({
+        id: z.string().min(1,).max(64,),
+        title: z.string().max(300,),
+        description: z.string().max(2000,).nullish(),
+        align: z.enum(['left', 'center', 'right',],).nullish(),
+        position: z.number().int().min(0,),
+    },),).max(200,).optional(),
 },) satisfies z.ZodType<FormCreateBody>;
 
 const submissionSchema = z.object({

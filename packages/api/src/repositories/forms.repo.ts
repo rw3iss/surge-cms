@@ -1,4 +1,5 @@
 import type { Form, FormQuestion, FormSubmission, } from '@sitesurge/types';
+import { cleanFormSections, } from '@sitesurge/types';
 import { query, transaction, } from '../db';
 import { NotFoundError, ValidationError, } from '../middleware/error';
 import { mapRow, mapRows, } from '../utils/mapRow';
@@ -83,8 +84,8 @@ export async function createForm(data: Record<string, unknown>, userId: string,)
     const result = await query(
         `INSERT INTO forms (title, slug, description, status, show_results,
                         allow_multiple_submissions, requires_auth, success_message,
-                        submit_button_text, action, action_config, max_submissions, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                        submit_button_text, action, action_config, max_submissions, created_by, sections)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
      RETURNING *`,
         [
             data.title,
@@ -102,6 +103,7 @@ export async function createForm(data: Record<string, unknown>, userId: string,)
             // created_by is a UUID FK; synthetic actors (api-key:<name>,
             // system) become NULL.
             uuidOrNull(userId,),
+            JSON.stringify(cleanFormSections(data.sections,),),
         ],
     );
 
@@ -142,6 +144,12 @@ export async function updateForm(id: string, data: Record<string, unknown>,): Pr
     if (data.actionConfig !== undefined) {
         values.push(JSON.stringify(data.actionConfig,),);
         updates.push(`action_config = $${values.length}`,);
+    }
+
+    // Sections (JSONB): sanitized; questions reference them by `section_id`.
+    if (data.sections !== undefined) {
+        values.push(JSON.stringify(cleanFormSections(data.sections,),),);
+        updates.push(`sections = $${values.length}`,);
     }
 
     if (data.status === 'closed') {
@@ -188,8 +196,8 @@ export async function createQuestion(formId: string, data: Record<string, unknow
     const result = await query(
         `INSERT INTO form_questions (form_id, type, question, description, options,
                                  is_required, "order", validation, width,
-                                 placeholder, question_as_placeholder, "rows", allow_resize, max_height)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                                 placeholder, question_as_placeholder, "rows", allow_resize, max_height, section_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
      RETURNING *`,
         [
             formId,
@@ -206,6 +214,7 @@ export async function createQuestion(formId: string, data: Record<string, unknow
             (data.rows as number | undefined) ?? null,
             data.allowResize ?? true,
             (data.maxHeight as string | undefined) || null,
+            (data.sectionId as string | null | undefined) || null,
         ],
     );
 
@@ -233,6 +242,7 @@ export async function updateQuestion(
         rows: '"rows"',
         allowResize: 'allow_resize',
         maxHeight: 'max_height',
+        sectionId: 'section_id',
     };
 
     for (const [key, dbCol,] of Object.entries(fieldMap,)) {
@@ -308,6 +318,7 @@ export async function syncQuestions(
             const rows = (raw.rows as number | undefined) ?? null;
             const allowResize = (raw.allowResize as boolean | undefined) ?? true;
             const maxHeight = (raw.maxHeight as string | undefined) || null;
+            const sectionId = (raw.sectionId as string | null | undefined) || null;
 
             if (qid && existingIds.has(qid,)) {
                 await client.query(
@@ -315,23 +326,23 @@ export async function syncQuestions(
                      SET type = $1, question = $2, description = $3, options = $4,
                          is_required = $5, "order" = $6, validation = $7, width = $8,
                          placeholder = $9, question_as_placeholder = $10, "rows" = $11,
-                         allow_resize = $12, max_height = $13, updated_at = NOW()
+                         allow_resize = $12, max_height = $13, section_id = $16, updated_at = NOW()
                      WHERE id = $14 AND form_id = $15`,
                     [raw.type, raw.question, raw.description ?? null, options,
                         raw.isRequired ?? false, order, validation, width,
-                        placeholder, questionAsPlaceholder, rows, allowResize, maxHeight, qid, formId,],
+                        placeholder, questionAsPlaceholder, rows, allowResize, maxHeight, qid, formId, sectionId,],
                 );
                 kept.push(qid,);
             } else {
                 const ins = await client.query<{ id: string; }>(
                     `INSERT INTO form_questions (form_id, type, question, description, options,
                                                  is_required, "order", validation, width,
-                                                 placeholder, question_as_placeholder, "rows", allow_resize, max_height)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                                                 placeholder, question_as_placeholder, "rows", allow_resize, max_height, section_id)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
                      RETURNING id`,
                     [formId, raw.type, raw.question, raw.description ?? null, options,
                         raw.isRequired ?? false, order, validation, width,
-                        placeholder, questionAsPlaceholder, rows, allowResize, maxHeight,],
+                        placeholder, questionAsPlaceholder, rows, allowResize, maxHeight, sectionId,],
                 );
                 kept.push(ins.rows[0].id,);
             }

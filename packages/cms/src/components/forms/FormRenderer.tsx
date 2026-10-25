@@ -10,7 +10,10 @@ import type {
 } from '@sitesurge/types';
 import { Component, createSignal, For, Match, Show, Switch, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
+import { type FormSection, formLayoutItems, } from '@sitesurge/types';
 import './FormRenderer.scss';
+
+type SectionItem = { kind: 'section'; section: FormSection; };
 
 interface FormRendererProps {
     form: Form;
@@ -62,6 +65,25 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
         if (typeof t === 'string') return t;
         return props.form.title || null;
     };
+    /**
+     * Questions in order with their SECTION headings (`utils/formSections`):
+     * a heading is its own full-width row, followed by its questions.
+     */
+    const renderItems = (): Array<{ kind: 'question'; question: FormQuestion; } | SectionItem> => {
+        const sorted = props.form.questions.slice().sort((a, b,) => (a.order ?? 0) - (b.order ?? 0));
+        const out: Array<{ kind: 'question'; question: FormQuestion; } | SectionItem> = [];
+        for (const it of formLayoutItems(sorted, props.form.sections,)) {
+            if (it.kind === 'question') out.push(it,);
+            else { out.push({ kind: 'section', section: it.section, },); for (const q of it.questions) out.push({ kind: 'question', question: q, },); }
+        }
+        return out;
+    };
+    const sectionHeading = (item: SectionItem,) => (
+        <div class="form-renderer__section" style={{ 'text-align': item.section.align || 'left', }}>
+            <Show when={item.section.title}><h3 class="form-renderer__section-title">{item.section.title}</h3></Show>
+            <Show when={item.section.description}><p class="form-renderer__section-description">{item.section.description}</p></Show>
+        </div>
+    );
     /** Column count for the fields grid (1–8). */
     const cols = (): number => Math.max(1, Math.min(8, Math.trunc(Number(props.columns,) || 1,),),);
     const [answers, setAnswers,] = createSignal<Record<string, unknown>>({ ...(props.initialAnswers ?? {}), },);
@@ -183,8 +205,12 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                         }}
                         noValidate
                     >
-                        <For each={props.form.questions}>
-                            {(q: FormQuestion,) => (
+                        <For each={renderItems()}>
+                            {(item,) => (
+                                <Show when={item.kind === 'question' ? item.question : null} fallback={sectionHeading(item as SectionItem,)}>
+                                    {(qq,) => {
+                                        const q: FormQuestion = qq();
+                                        return (
                                 <div
                                     class="form-renderer__field"
                                     classList={{
@@ -337,6 +363,9 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                                         </span>
                                     </Show>
                                 </div>
+                                        );
+                                    }}
+                                </Show>
                             )}
                         </For>
 

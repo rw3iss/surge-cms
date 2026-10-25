@@ -672,3 +672,78 @@
   &.is-drop-before::before { top: calc(-1 * #{$spacing-md} / 2 - 2px); }
   &.is-drop-after::after { bottom: calc(-1 * #{$spacing-md} / 2 - 2px); }
 }
+
+// ── Form sections (form editor) ──
+// A section card holds its own fields and, below them, its question cards.
+.question-card--section {
+  border-color: color.adjust($border-color, $lightness: -8%);
+  background: $background;
+
+  > .question-header {
+    background: color.adjust($background-dark, $lightness: -5%);
+
+    .question-number { font-size: $font-size-sm; text-transform: uppercase; letter-spacing: 0.04em; }
+  }
+
+  // A question dropped on the section joins it (at the top).
+  &.is-drop-into {
+    outline: 2px dashed $primary-color;
+    outline-offset: 2px;
+  }
+}
+
+.section-body {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+
+  &__toolbar {
+    display: flex;
+    justify-content: flex-end;
+    gap: $spacing-sm;
+    padding-bottom: $spacing-sm;
+    border-bottom: 1px solid $border-color;
+  }
+
+  &__questions {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+  }
+
+  &__empty { margin: 0; }
+}
+
+.question-summary--count { margin-left: $spacing-xs; }
+
+// While dragging: drop here to move to the end, outside any section.
+.questions-list__end {
+  padding: $spacing-md;
+  border: 2px dashed $border-color;
+  border-radius: $border-radius-md;
+  color: $text-light;
+  font-size: $font-size-sm;
+  text-align: center;
+
+  &.is-over {
+    border-color: $primary-color;
+    color: $primary-color;
+  }
+}
+
+// Delete-section modal (ModalShell adds no padding).
+.section-delete {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+  padding: $spacing-lg;
+
+  h3, p { margin: 0; }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: $spacing-sm;
+  }
+}
