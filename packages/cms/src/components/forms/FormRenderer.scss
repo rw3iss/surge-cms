@@ -9,7 +9,9 @@
         font-family: var(--site-heading-font, var(--site-font, inherit));
         font-weight: var(--site-heading-weight, 700);
         color: var(--site-heading, inherit);
-        margin: 0 0 $spacing-xs;
+        // Space below the title whether or not a description follows; the
+        // description adds none above, and the same space below itself.
+        margin: 0 0 $spacing-md;
         font-size: $font-size-2xl;
         line-height: 1.2;
     }
@@ -17,7 +19,7 @@
     &__subtitle {
         color: inherit;
         opacity: 0.8;
-        margin: 0 0 $spacing-lg;
+        margin: 0 0 $spacing-md;
         font-size: $font-size-base;
         line-height: 1.5;
     }
