@@ -17,10 +17,10 @@ the Surge CMS public site via the Plugin system — the reference plugin.
   throwing fallback. Idempotent.
 - **`client.js`** — framework-agnostic:
   - `mountWidget(el, host)` loads the UMD bundle and calls `PageLoop.init()` with
-    the saved config. Respects the `adminOnly` gate (the host only mounts it for
-    admins when that's set).
+    the saved config. Respects the `visibleRoles` gate (the host only mounts it for
+    users holding one of the chosen roles; none = everyone).
   - `mountConfig(el, host)` renders a custom vanilla config page (endpoint,
-    project ID, storage mode, public commenting, admin-only, theme, positions)
+    project ID, storage mode, public commenting, visible roles, theme, positions)
     with Save + Test-connection — demonstrating the plugin config-page API.
 
 ## Configure

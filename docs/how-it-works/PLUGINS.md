@@ -32,11 +32,14 @@ plugins/<name>/
   "adminOnlyToggle": true,
   "configSchema": [                // host renders a form from this if no custom mountConfig
     { "key": "endpoint", "label": "Server endpoint", "type": "url", "required": true },
-    { "key": "adminOnly", "label": "Admins only", "type": "boolean", "default": false }
+    { "key": "visibleRoles", "label": "Show the widget to these roles", "type": "roles", "default": [] }
   ]
 }
 ```
-Field types: `string | url | number | boolean | select | secret | textarea`.
+Field types: `string | url | number | boolean | select | secret | textarea | roles`.
+`roles` is a multi-select of the site's roles (built-in + custom), stored as a
+`string[]` of role keys. A custom `mountConfig` page gets the same picker with
+`host.ui.form(cfg).roles(key, await host.listRoles())`.
 `secret` fields are stripped from the public projection.
 
 ### `server.js` — Node hooks (all optional, idempotent, self-detecting)
@@ -101,7 +104,10 @@ policy is recomputed on every enable/disable/configure/uninstall + at boot.
 
 `discovered → installed → enabled ⇄ disabled → (uninstalled)`. Hooks run in a
 transaction with a `pg_advisory_xact_lock('plugin:<name>')`. Enabling the widget
-respects the per-plugin `adminOnly` config (mounts only for signed-in admins).
+respects the per-plugin `visibleRoles` config: the public widget mounts only for a
+signed-in user whose main role OR any extra role is in the list (`pluginVisibleTo`
+in `@sitesurge/types`); an empty list = every visitor. The legacy boolean
+`adminOnly` still reads as admin + sysadmin when no roles are chosen.
 
 Public widgets mount from a **single host at the app root** (`App.tsx`), above
 both the public `Layout` and the `AdminLayout`. So a widget loads on every

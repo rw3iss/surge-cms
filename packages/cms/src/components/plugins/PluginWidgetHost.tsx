@@ -1,11 +1,13 @@
 /**
  * Mounts enabled plugins' public-site widgets. Framework-agnostic: each plugin
  * bundle is dynamically imported and given a plain DOM element + host context.
- * Per-plugin `adminOnly` config gates the widget to signed-in admins.
+ * Per-plugin `visibleRoles` config gates the widget to users holding any of
+ * those roles (main or extra role); none = everyone. The legacy `adminOnly`
+ * flag still reads as admin + sysadmin (`pluginVisibleTo`).
  * Rendered once in the public Layout (after the footer).
  */
 import { Component, For, createResource, onCleanup, onMount } from 'solid-js';
-import type { PublicPlugin } from '@sitesurge/types';
+import { pluginVisibleTo, type PublicPlugin } from '@sitesurge/types';
 import { cms } from '../../services/cmsClient';
 import { useAuth, useIsAdmin } from '../../stores/auth';
 import { siteSettings } from '../../stores/siteSettings';
@@ -70,7 +72,7 @@ const PluginWidgetHost: Component = () => {
 
     const visible = (): PublicPlugin[] =>
         (plugins() ?? []).filter(
-            (p) => p.clientUrl && p.capabilities.includes('public-widget') && (!p.adminOnly || isAdmin()),
+            (p) => p.clientUrl && p.capabilities.includes('public-widget') && pluginVisibleTo(p, auth.user as { role?: string; extraRoles?: string[]; } | null,),
         );
 
     return (

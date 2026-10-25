@@ -749,3 +749,20 @@
 .api-key__created-value { flex: 1; word-break: break-all; }
 .api-key__scopes { gap: 6px; margin-bottom: $spacing-sm; }
 .role-manager__actions { text-align: right; white-space: nowrap; }
+
+// Plugin config: a role picker (`host.ui.form(cfg).roles()` / a `roles` schema field).
+.plugin-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-xs $spacing-md;
+
+  &__item {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-xs;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: normal;
+    cursor: pointer;
+  }
+}

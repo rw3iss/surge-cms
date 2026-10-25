@@ -74,17 +74,23 @@ export default {
         });
     },
 
-    mountConfig(el, host) {
+    async mountConfig(el, host) {
         const cfg = {
             installType: 'remote', endpoint: 'https://pageloop.dev', projectId: '',
-            publicComments: false, adminOnly: false, theme: 'auto',
+            publicComments: false, visibleRoles: [], theme: 'auto',
             toolbarPosition: 'top', sidebarPosition: 'right',
             ...(host.config || {}),
         };
+        // Migrate the old "Show only to signed-in admins" switch to the role list.
+        if (cfg.adminOnly === true && (!Array.isArray(cfg.visibleRoles) || !cfg.visibleRoles.length)) {
+            cfg.visibleRoles = ['admin', 'sysadmin'];
+        }
+        cfg.adminOnly = false;
+        const roleOptions = typeof host.listRoles === 'function' ? await host.listRoles() : [];
         el.innerHTML = '';
 
         // Admin-styled form builders provided by the host (bound to `cfg`).
-        const { group, input, checkbox, select } = host.ui.form(cfg);
+        const { group, input, checkbox, select, roles } = host.ui.form(cfg);
 
         el.appendChild(group('Storage mode', select('installType', ['remote', 'local-sqlite']), 'remote: a hosted/self-hosted PageLoop server. local-sqlite: a locally-run PageLoop server (pageloop go).'));
         el.appendChild(group('PageLoop server endpoint', input('endpoint', 'url'), 'The PageLoop backend for comments + the widget bundle.'));
@@ -95,8 +101,18 @@ export default {
 
         const pc = group('Allow public commenting', checkbox('publicComments'), 'If off, only signed-in users may comment.');
         pc.classList.add('form-group--inline'); el.appendChild(pc);
-        const ao = group('Show only to signed-in admins', checkbox('adminOnly'), 'When on, the widget renders only for logged-in admins; otherwise for everyone.');
-        ao.classList.add('form-group--inline'); el.appendChild(ao);
+        if (typeof roles === 'function') {
+            el.appendChild(group(
+                'Show the widget to these roles',
+                roles('visibleRoles', roleOptions),
+                'The widget loads only for signed-in users with at least one of these roles (main or extra role). None chosen = every visitor.',
+            ));
+        } else {
+            // An older CMS host without the role picker: keep the admins-only switch.
+            cfg.adminOnly = (host.config || {}).adminOnly === true;
+            const ao = group('Show only to signed-in admins', checkbox('adminOnly'), 'When on, the widget renders only for logged-in admins; otherwise for everyone.');
+            ao.classList.add('form-group--inline'); el.appendChild(ao);
+        }
 
         const status = document.createElement('div'); status.className = 'text-muted text-sm'; status.style.marginTop = '.5em';
 

@@ -2,7 +2,7 @@
   "name": "pageloop",
   "label": "PageLoop Comments",
   "description": "Drop-in commenting / annotation layer (PageLoop) for your public site.",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "author": "Surge CMS",
   "homepage": "https://pageloop.dev",
   "apiVersion": 1,
@@ -15,7 +15,7 @@
     { "key": "endpoint", "label": "PageLoop server endpoint", "type": "url", "required": true, "default": "https://pageloop.dev", "help": "The PageLoop backend that stores comments and serves data + the widget bundle." },
     { "key": "projectId", "label": "Project ID / slug", "type": "string", "required": true, "help": "The PageLoop project this site's comments belong to." },
     { "key": "publicComments", "label": "Allow public commenting", "type": "boolean", "default": false, "help": "If off, only signed-in users may comment (enforced by your PageLoop project)." },
-    { "key": "adminOnly", "label": "Show only to signed-in admins", "type": "boolean", "default": false, "help": "When on, the widget renders only for logged-in admins; otherwise it shows for all visitors." },
+    { "key": "visibleRoles", "label": "Show the widget to these roles", "type": "roles", "default": [], "help": "The widget loads only for signed-in users with at least one of the chosen roles (main or extra role). None chosen = every visitor." },
     { "key": "theme", "label": "Theme", "type": "select", "options": ["auto", "light", "dark"], "default": "auto" },
     { "key": "toolbarPosition", "label": "Toolbar position", "type": "select", "options": ["top", "bottom"], "default": "top" },
     { "key": "sidebarPosition", "label": "Sidebar position", "type": "select", "options": ["right", "left"], "default": "right" }

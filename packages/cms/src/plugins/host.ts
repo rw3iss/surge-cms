@@ -6,6 +6,7 @@
  * CMS ever moves off SolidJS).
  */
 import type { PublicPlugin } from '@sitesurge/types';
+import { cms } from '../services/cmsClient';
 
 export interface PluginHost {
     name: string;
@@ -37,6 +38,9 @@ export interface PluginHost {
     ui: {
         form(cfg: Record<string, unknown>): PluginFormBuilders;
     };
+    /** The site's roles (built-in + custom) for a role picker — admin config
+     *  pages only (the endpoint is admin-gated); [] when unavailable. */
+    listRoles(): Promise<Array<{ key: string; label: string; }>>;
 }
 
 /** DOM builders returned by `host.ui.form(cfg)`. Match the admin form styling
@@ -50,6 +54,9 @@ export interface PluginFormBuilders {
     select(key: string, options: string[]): HTMLSelectElement;
     /** A checkbox two-way-bound to `cfg[key]` (boolean). */
     checkbox(key: string): HTMLInputElement;
+    /** A list of role checkboxes two-way-bound to `cfg[key]` (string[] of role keys).
+     *  Pass the roles from `host.listRoles()`. */
+    roles(key: string, roles: Array<{ key: string; label: string; }>): HTMLElement;
 }
 
 /** A plugin's browser module (default export). */
@@ -122,6 +129,13 @@ export function buildHost(opts: {
         },
         onCleanup: (fn) => opts.cleanups.push(fn),
         ui: { form: makeFormBuilders },
+        listRoles: async () => {
+            try {
+                return (await cms.roles.list()).map((r) => ({ key: r.key, label: r.label || r.key }));
+            } catch {
+                return [];
+            }
+        },
     };
 }
 
@@ -172,6 +186,36 @@ function makeFormBuilders(cfg: Record<string, unknown>): PluginFormBuilders {
             i.checked = cfg[key] === true;
             i.addEventListener('change', () => { cfg[key] = i.checked; });
             return i;
+        },
+        roles(key, roles) {
+            // Selection (which roles are included), so checkboxes — one per role.
+            const wrap = document.createElement('div');
+            wrap.className = 'plugin-roles';
+            const chosen = (): string[] => (Array.isArray(cfg[key]) ? (cfg[key] as unknown[]).filter((x): x is string => typeof x === 'string') : []);
+            for (const r of roles) {
+                const l = document.createElement('label');
+                l.className = 'plugin-roles__item';
+                const i = document.createElement('input');
+                i.type = 'checkbox';
+                i.value = r.key;
+                i.checked = chosen().includes(r.key);
+                i.addEventListener('change', () => {
+                    const next = new Set(chosen());
+                    if (i.checked) next.add(r.key); else next.delete(r.key);
+                    cfg[key] = [...next];
+                });
+                const t = document.createElement('span');
+                t.textContent = r.label;
+                l.append(i, t);
+                wrap.appendChild(l);
+            }
+            if (!roles.length) {
+                const none = document.createElement('div');
+                none.className = 'form-help-muted';
+                none.textContent = 'Roles could not be loaded.';
+                wrap.appendChild(none);
+            }
+            return wrap;
         },
     };
 }

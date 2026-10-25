@@ -10,7 +10,9 @@ export type PluginSource = 'manual' | 'upload' | 'marketplace';
 
 /** Field types for the host-rendered declarative config form. */
 export type PluginConfigFieldType =
-    | 'string' | 'url' | 'number' | 'boolean' | 'select' | 'secret' | 'textarea';
+    | 'string' | 'url' | 'number' | 'boolean' | 'select' | 'secret' | 'textarea'
+    /** A multi-select of the site's roles (built-in + custom); value = role keys (string[]). */
+    | 'roles';
 
 /** A single config field a plugin declares in its manifest `configSchema`. */
 export interface PluginConfigField {
@@ -18,7 +20,7 @@ export interface PluginConfigField {
     label: string;
     type: PluginConfigFieldType;
     required?: boolean;
-    default?: string | number | boolean;
+    default?: string | number | boolean | string[];
     /** Options for `select`. */
     options?: string[];
     help?: string;
@@ -104,8 +106,33 @@ export interface PublicPlugin {
     clientUrl: string | null;
     /** Public-safe config subset (secret fields stripped). */
     config: Record<string, unknown>;
-    /** Widget renders only for signed-in admins when true. */
+    /** Legacy: widget renders only for signed-in admins when true (superseded by `visibleRoles`). */
     adminOnly: boolean;
+    /** Roles that see the public widget (config `visibleRoles`); empty = everyone
+     *  (or admins only when the legacy `adminOnly` is on). See `pluginVisibleTo`. */
+    visibleRoles: string[];
+}
+
+/**
+ * May this viewer see a plugin's public widget? A user matches when their main
+ * role OR any extra role is one of `visibleRoles` (exact keys — pick each role
+ * that should see it, e.g. sysadmin, admin, developer). No roles chosen = every
+ * visitor, signed in or not; the legacy `adminOnly` flag reads as admin + sysadmin.
+ */
+export function pluginVisibleTo(
+    p: Pick<PublicPlugin, 'adminOnly' | 'visibleRoles'>,
+    user: { role?: string | null; extraRoles?: string[] | null; } | null | undefined,
+): boolean {
+    const roles = p.visibleRoles?.length ? p.visibleRoles : p.adminOnly ? ['admin', 'sysadmin',] : [];
+    if (!roles.length) return true;
+    if (!user) return false;
+    const mine = [user.role, ...(user.extraRoles ?? []),].filter(Boolean,) as string[];
+    return mine.some((r,) => roles.includes(r,),);
+}
+
+/** A config value → a clean role-key list (strings only, de-duplicated). */
+export function pluginRoleList(v: unknown,): string[] {
+    return Array.isArray(v,) ? [...new Set(v.filter((x,): x is string => typeof x === 'string' && x.trim() !== '',).map((x,) => x.trim(),),),] : [];
 }
 
 /** A marketplace search result (stubbed in v1). */

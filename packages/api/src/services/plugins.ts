@@ -15,6 +15,7 @@ import type {
     PluginUpdateResult,
     PublicPlugin,
 } from '@sitesurge/types';
+import { pluginRoleList, } from '@sitesurge/types';
 import * as repo from '../repositories/plugins.repo';
 import { setPluginCspOrigins, type PluginCspOrigins } from '../middleware/csp';
 import { logAudit } from './audit';
@@ -183,6 +184,7 @@ export async function listEnabledPublic(): Promise<PublicPlugin[]> {
             clientUrl: p.manifest.client ? `/api/v1/plugins/${p.name}/client.js` : null,
             config: publicConfig,
             adminOnly: p.config.adminOnly === true,
+            visibleRoles: pluginRoleList(p.config.visibleRoles,),
         };
     });
 }
@@ -235,6 +237,10 @@ export async function saveConfig(name: string, cfg: Record<string, unknown>, ctx
     if (mod?.validateConfig) {
         const res = mod.validateConfig(cfg);
         if (!res.ok) throw new ValidationError('Invalid plugin config', res.errors);
+    }
+    // `roles` fields are stored as a clean string[] of role keys, whatever the client sent.
+    for (const f of row.manifest.configSchema ?? []) {
+        if (f.type === 'roles' && f.key in cfg) cfg = { ...cfg, [f.key]: pluginRoleList(cfg[f.key]) };
     }
     const merged = { ...row.config, ...cfg };
     const updated = await repo.setConfig(name, merged);

@@ -1,7 +1,9 @@
 /** Host-rendered declarative config form, driven by a plugin's manifest configSchema. */
-import { Component, createSignal, For, Show, } from 'solid-js';
+import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import type { Plugin, PluginConfigField, } from '@sitesurge/types';
 import Toggle from '../admin/common/Toggle';
+import { Checkbox, } from '../ui/Checkbox';
+import { cms, } from '../../services/cmsClient';
 
 const PluginConfigForm: Component<{
     plugin: Plugin;
@@ -10,7 +12,7 @@ const PluginConfigForm: Component<{
     const fields = (): PluginConfigField[] => props.plugin.manifest?.configSchema ?? [];
     const initial = (): Record<string, unknown> => {
         const out: Record<string, unknown> = {};
-        for (const f of fields()) out[f.key] = props.plugin.config[f.key] ?? f.default ?? (f.type === 'boolean' ? false : '');
+        for (const f of fields()) out[f.key] = props.plugin.config[f.key] ?? f.default ?? (f.type === 'boolean' ? false : f.type === 'roles' ? [] : '');
         return out;
     };
     const [values, setValues,] = createSignal<Record<string, unknown>>(initial(),);
@@ -18,6 +20,12 @@ const PluginConfigForm: Component<{
     const [saved, setSaved,] = createSignal(false,);
     const [err, setErr,] = createSignal<string | null>(null,);
 
+    // Role options for `roles` fields — loaded only when the schema has one.
+    const [roleList,] = createResource(
+        () => fields().some((f,) => f.type === 'roles',) || null,
+        () => cms.roles.list().catch(() => []),
+    );
+    const chosen = (key: string,): string[] => (Array.isArray(values()[key],) ? values()[key] as string[] : []);
     const set = (key: string, v: unknown,): void => { setValues({ ...values(), [key]: v, },); setSaved(false,); };
 
     async function save(): Promise<void> {
@@ -37,6 +45,20 @@ const PluginConfigForm: Component<{
                             <Show when={f.help}><div class="form-help-muted">{f.help}</div></Show>
                             {f.type === 'boolean'
                                 ? <Toggle checked={values()[f.key] === true} onChange={(next,) => set(f.key, next,)} />
+                                : f.type === 'roles'
+                                ? (
+                                    <div class="plugin-roles">
+                                        <For each={roleList() ?? []} fallback={<span class="form-help-muted">Loading roles…</span>}>
+                                            {(r,) => (
+                                                <Checkbox
+                                                    checked={chosen(f.key,).includes(r.key,)}
+                                                    label={r.label || r.key}
+                                                    onChange={(on,) => set(f.key, on ? [...chosen(f.key,), r.key,] : chosen(f.key,).filter((k,) => k !== r.key,),)}
+                                                />
+                                            )}
+                                        </For>
+                                    </div>
+                                )
                                 : f.type === 'select'
                                 ? (
                                     <select class="input" value={String(values()[f.key] ?? '',)} onChange={(e,) => set(f.key, e.currentTarget.value,)}>
