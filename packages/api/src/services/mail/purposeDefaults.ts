@@ -181,10 +181,15 @@ export async function defaultPurposeHtml(
         case 'membership_application_rejected': {
             const tier = pick(ctx, 'tier.name',) || 'membership';
             const note = pick(ctx, 'note',);
-            body = H('About your application',)
+            body = H(`Your Application for ${tier}`,)
                 + greeting(name,)
                 + P(`Thank you for applying for <strong>${escapeHtml(tier,)}</strong>. We are not able to approve your application at this time.`,)
-                + (note ? P(escapeHtml(note,),) : '')
+                // The reviewer's reason (Reject dialog), when one was given.
+                + (note
+                    ? `<div style="margin:0 0 16px;padding:12px 16px;border-left:3px solid #e5e7eb;background:#f9fafb">`
+                        + `<p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#6b7280">Reason</p>`
+                        + `<p style="margin:0;font-size:15px;line-height:1.5;color:#111">${escapeHtml(note,).replace(/\r?\n/g, '<br>',)}</p></div>`
+                    : '')
                 + (pick(ctx, 'application.card',) === 'yes' ? MUTED('Your card was not charged.',) : '');
             break;
         }

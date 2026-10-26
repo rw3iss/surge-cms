@@ -242,10 +242,11 @@ export const MAIL_PURPOSES: MailPurposeMeta[] = [
         defaultEnabled: true,
         defaultSubject: 'Your {{tier.name}} application',
         variables: [
-            { name: 'application.card', description: '"yes" when the applicant saved a card (the "not charged" line).', example: 'yes', },
+            { name: 'application.card', description: '"yes" when the applicant saved a card for a PRICED level (the "not charged" line).', example: 'yes', },
             ...USER_VARS,
             { name: 'tier.name', description: 'The membership level.', example: "Founder's Club", },
-            { name: 'note', description: "The reviewer's note (may be empty).", example: 'We are full this season.', },
+            { name: 'reason', description: "The rejection reason from the Reject dialog (may be empty). Same as `note`.", example: 'We are full this season.', },
+            { name: 'note', description: "The reviewer's reason (may be empty).", example: 'We are full this season.', },
         ],
     },
     {

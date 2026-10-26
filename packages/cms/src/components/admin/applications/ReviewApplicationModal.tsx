@@ -29,6 +29,8 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
     const toast = useToast();
     const [app, { refetch, },] = createResource(() => props.applicationId, (id,) => cms.membershipApplications.getById(id,),);
     const [note, setNote,] = createSignal('',);
+    /** The rejection reason (the Reject dialog) — emailed to the applicant. */
+    let reasonEl: HTMLTextAreaElement | undefined;
     const [confirm, setConfirm,] = createSignal<'approve' | 'reject' | 'withdraw' | null>(null,);
     const [busy, setBusy,] = createSignal(false,);
 
@@ -37,7 +39,8 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
         if (!action) return;
         setBusy(true,);
         try {
-            const body = note().trim() ? { note: note().trim(), } : {};
+            const text = (action === 'reject' ? reasonEl?.value ?? '' : note()).trim();
+            const body = text ? { note: text, } : {};
             if (action === 'withdraw') {
                 await cms.membershipApplications.withdrawOffer(props.applicationId,);
                 toast.success('Offer withdrawn. The applicant can no longer start this membership.',);
@@ -52,7 +55,7 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                     : 'Approved — the membership is active and billing has started.',);
             } else {
                 await cms.membershipApplications.reject(props.applicationId, body,);
-                toast.success('Application rejected. The applicant was emailed; nothing was charged.',);
+                toast.success(text ? 'Application rejected. The applicant was emailed with your reason.' : 'Application rejected. The applicant was emailed.',);
             }
             setConfirm(null,);
             props.onDecided();
@@ -207,7 +210,7 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                             </Show>
 
                             <Show when={a().status === 'pending'}>
-                                <FormField label="Note (optional)" hint="Kept with the decision. A rejection note is included in the email to the applicant.">
+                                <FormField label="Approval note (optional)" hint="Kept with the decision and included in the approval email. A rejection reason is asked for when you reject.">
                                     <textarea rows={2} value={note()} onBlur={(e,) => setNote(e.currentTarget.value,)} />
                                 </FormField>
                                 <div class="review-application__footer">
@@ -253,14 +256,18 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                             <ConfirmModal
                                 open={confirm() === 'reject'}
                                 title="Reject this application?"
-                                message="The applicant is emailed and their card is not charged."
+                                message={`The applicant is emailed${a().card && !a().tierHidePrice ? ' and their card is not charged' : ''}.`}
                                 confirmLabel="Reject"
                                 busyLabel="Rejecting…"
                                 loading={busy()}
                                 danger
                                 onConfirm={() => void decide()}
                                 onCancel={() => setConfirm(null,)}
-                            />
+                            >
+                                <FormField label="Reason (optional)" hint="Included in the rejection email to the applicant, and kept with the decision.">
+                                    <textarea ref={reasonEl} rows={4} value={note()} placeholder="e.g. We are not taking new contributors in your area right now." />
+                                </FormField>
+                            </ConfirmModal>
                         </>
                     )}
                 </Show>

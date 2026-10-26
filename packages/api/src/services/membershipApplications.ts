@@ -788,8 +788,15 @@ export async function reject(id: string, note: string | undefined, ctx: AuditCon
                 user: { name: app.user?.displayName ?? '', email: app.contactEmail, },
                 tier: { name: app.tierName, },
                 note: note?.trim() ?? '',
-                // The "your card was not charged" line only when a card was saved.
-                application: { program: app.tierRoleOnly ? 'yes' : '', card: (a as { payment_method_id?: string | null; }).payment_method_id ? 'yes' : '', },
+                reason: note?.trim() ?? '',
+                // "Your card was not charged" only for a PRICED level the applicant
+                // saved a card for (not a program / "Hide price" / no-price level).
+                application: {
+                    program: app.tierRoleOnly ? 'yes' : '',
+                    card: (a as { payment_method_id?: string | null; }).payment_method_id && !app.tierRoleOnly && !app.tierHidePrice
+                        && (await query<{ p: string | null; }>(`SELECT stripe_price_id AS p FROM subscription_plans WHERE id = $1`, [a.plan_id,],)).rows[0]?.p
+                        ? 'yes' : '',
+                },
             },
         },).catch(() => {},);
     }
