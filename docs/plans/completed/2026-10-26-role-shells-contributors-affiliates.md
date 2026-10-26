@@ -1,6 +1,6 @@
 # Role routing, role admin shells, contributors, affiliates + discount codes — plan
 
-> **STATUS 2026-10-26 — IN PROGRESS.** Approved; building in the phase order below.
+> **STATUS 2026-10-26 — DONE.** All 6 phases implemented, deployed and checked on production (see the closing notes).
 
 ## Where we start (facts that shape the design)
 
@@ -146,3 +146,21 @@ Resolution: the user's highest-priority role that HAS a shell (same priority as 
 3. The refund window before a commission becomes payable is **configurable, default 30 days**.
 4. A contributor **is the public author** of their post (byline + member page).
 5. A discount code **always applies to shop merchandise**; each code has an option to **also apply to event tickets** (offered when Events is on).
+
+
+## Closing notes (2026-10-26)
+
+**Status:** all six phases are live on surgemedia.us. Phases 1–4 (login routes, permission modes + own scope, role admin shells, contributors) were built on `main`; Phases 5–6 (discount codes, affiliates) on a parallel branch, merged in `Merge affiliate track`.
+
+**Verified on production:** role routes + the ambassador → affiliate rename; a temporary contributor account (lands on /admin, Dashboard + Posts only, submit → `pending_review` + badge + reviewer box, other posts 404, staff routes 403); a temporary 10% code (check, checkout preview −$3.50 on a $35 item, bad code refused); the `affiliates` feature enabled (migration 193) and Shop → Affiliates listing the 3 affiliate-role users.
+
+**Fixed along the way:**
+- `posts:write` had `contributor` in its DEFAULT roles on production (full scope) — set back to staff; "requires approval" now applies to every writer (`shapeStatus`).
+- The login response now carries `extraRoles` (the admin shell resolved only after `/auth/me`).
+- Permission + role caches are per process: with `CLUSTER_WORKERS=2` a feature enabled (or a default changed) on one worker reached the other only on restart → 30 s TTL + reload on an unknown key.
+
+**Not done / to watch:**
+- Stripe Connect Express onboarding + payouts are untested end to end: the shop's Stripe account must have **Connect** enabled, and the webhook endpoint must send `account.updated` (documented in AFFILIATES-AND-DISCOUNTS.md and the Affiliate program settings tab). Automatic payouts are OFF until a schedule is chosen there.
+- No "payout sent" email yet.
+- Role admin shells are code-only (`ROLE_SHELLS`); a per-role shell choice stored on `roles` can come later.
+- Correction made in place (Phase 6): commission = (commission − buyer discount)% of the merchandise subtotal BEFORE the discount (the plan said "after", which would count the buyer discount twice).
