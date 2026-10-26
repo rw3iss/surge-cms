@@ -65,8 +65,11 @@ export async function onboardingLink(userId: string, email: string | null,): Pro
             metadata: { userId, purpose: 'affiliate', },
         }, { idempotencyKey: `affiliate-account:${userId}:${window}`, },).catch((e: unknown,) => {
             const msg = (e as Error).message ?? '';
-            if (/signed up for Connect/i.test(msg,)) {
-                throw new AppError(503, 'CONNECT_NOT_ENABLED', 'Payouts are not set up yet — the shop has not enabled Stripe Connect. Please try again later.',);
+            // Stripe Connect not ready on the platform account: not signed up, or
+            // the platform profile (questionnaire) not completed yet.
+            if (/signed up for Connect|complete your platform profile/i.test(msg,)) {
+                logger.warn('Affiliate onboarding: Stripe Connect is not ready on the shop account', { stripe: msg, },);
+                throw new AppError(503, 'CONNECT_NOT_ENABLED', 'Payouts are not set up yet — the shop has not finished setting up Stripe Connect. Please try again later.',);
             }
             throw e;
         },);
