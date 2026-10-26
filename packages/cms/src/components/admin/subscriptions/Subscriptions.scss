@@ -158,7 +158,7 @@
 
     // FormField brings its own top margin; the grid gap does the spacing here.
     > * { margin: 0; min-width: 0; max-width: none; }
-    input, select { width: 100%; }
+    input, select { width: 100%; max-width: none; }
   }
   &__actions-row {
     display: flex;
