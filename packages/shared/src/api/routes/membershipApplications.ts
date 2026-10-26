@@ -144,3 +144,31 @@ export interface MembershipApplicationsSummaryResponse {
 }
 
 export interface MembershipApplicationDecisionBody { note?: string; }
+
+// ─── Programs (Profile → Membership → Programs) ──────────────────────
+
+/**
+ * One program ("Add its role only" level) the member holds or applied to.
+ * `member` = holds its role; else the latest application's state
+ * (`withdrawn` also covers a program the member left).
+ */
+export interface MembershipProgramStatus {
+    tierId: string;
+    name: string;
+    slug: string | null;
+    /** Markdown, as on the level cards. */
+    description: string | null;
+    role: string | null;
+    status: 'member' | 'pending' | 'rejected' | 'withdrawn';
+    applicationId: string | null;
+    appliedAt: string | null;
+    decidedAt: string | null;
+}
+
+/** GET /payments/membership/programs. */
+export type MembershipProgramsResponse = MembershipProgramStatus[];
+
+/** POST /payments/membership/apply/withdraw — none = the pending MEMBERSHIP application. */
+export interface MembershipApplyWithdrawBody {
+    applicationId?: string | null;
+}

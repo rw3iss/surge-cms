@@ -19,6 +19,7 @@ import { useSearchParams, } from '@solidjs/router';
 import { ApplicationPayment, ApplyModal, } from '../membership/MembershipApplication';
 import PriceChoice from '../membership/PriceChoice';
 import Markdown from '../common/Markdown';
+import MembershipPrograms from './MembershipPrograms';
 import { defaultPriceId, leadPriceId, freq, money, per, priceOptionFreq, shownPrice, tierAtPrice, } from '../../utils/membershipFormat';
 import type { MembershipPreviewResponse, MembershipResponse, MembershipTierOption, } from '@sitesurge/types';
 import { cms, } from '../../services/cmsClient';
@@ -650,6 +651,7 @@ const MembershipPanel: Component = () => {
                     <Show when={error()}><div class="membership__error">{error()}</div></Show>
                 </Show>
             </Show>
+            <Show when={view() === 'overview'}><MembershipPrograms /></Show>
             <Show when={applying()}>
                 <ApplyModal
                     tier={applying()!}

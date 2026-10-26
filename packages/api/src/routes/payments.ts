@@ -1,7 +1,7 @@
 import rateLimit, { ipKeyGenerator, } from 'express-rate-limit';
 import { RedisRateLimitStore, } from '../middleware/rateLimitStore';
 import * as applications from '../services/membershipApplications';
-import type { MembershipApplyBody, MembershipApplySubmitBody, } from '@sitesurge/types';
+import type { MembershipApplyBody, MembershipApplySubmitBody, MembershipApplyWithdrawBody, } from '@sitesurge/types';
 /**
  * Payment routes (Stripe). Thin shell over `services/payments.ts`.
  *
@@ -205,9 +205,24 @@ export const paymentsRoutes = [
     },),
     defineRoute({
         method: 'post', path: '/membership/apply/withdraw', auth: 'user',
-        summary: 'Withdraw your own pending membership application.',
-        handler: async ({ userId, },) => {
-            await applications.withdraw(userId!,);
+        summary: 'Withdraw (cancel) your own pending application: `applicationId`, else your pending membership application. The team is notified.',
+        input: { body: z.object({ applicationId: z.string().uuid().nullable().optional(), },).optional() satisfies z.ZodType<MembershipApplyWithdrawBody | undefined>, },
+        handler: async ({ userId, body, },) => {
+            await applications.withdraw(userId!, body?.applicationId ?? null,);
+            return { ok: true, };
+        },
+    },),
+    defineRoute({
+        method: 'get', path: '/membership/programs', auth: 'user',
+        summary: 'Your programs ("Add its role only" levels): the ones you hold or applied to, with the latest application state.',
+        handler: ({ userId, },) => applications.myPrograms(userId!,),
+    },),
+    defineRoute({
+        method: 'post', path: '/membership/programs/:tierId/leave', auth: 'user',
+        summary: "Leave a program: removes its role from your account; the team is notified.",
+        input: { params: z.object({ tierId: z.string().uuid(), },), },
+        handler: async ({ userId, params, },) => {
+            await applications.leaveProgram(userId!, params.tierId,);
             return { ok: true, };
         },
     },),

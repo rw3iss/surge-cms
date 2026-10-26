@@ -9,7 +9,7 @@ import type {
     PaymentsAdminSubscriptionsQuery, PaymentsAdminSubscriptionsResponse,
     PaymentsAdminTransactionsQuery, PaymentsAdminTransactionsResponse,
     PaymentsAdminUserTransactionsResponse,
-    PaymentContext, PaymentPublishableKeyResponse, RecurringDonation, RecurringDonationUpdateBody, } from '@sitesurge/types';
+    PaymentContext, PaymentPublishableKeyResponse, RecurringDonation, RecurringDonationUpdateBody, MembershipProgramsResponse, } from '@sitesurge/types';
 import type { Paginated, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 import type { MembershipChangeResponse, MembershipPreviewResponse, MembershipResponse, MembershipPublicTiersResponse, } from '@sitesurge/types';
@@ -183,9 +183,21 @@ export class PaymentsModule extends ModuleBase {
         return this.mutate<MembershipApplyResponse>('POST', '/payments/membership/apply/claim', { body, invalidates: ['payments', 'auth',], },);
     }
 
-    /** POST /payments/membership/apply/withdraw — withdraw your pending application. */
-    withdrawMembershipApplication(): Promise<{ ok: true; }> {
-        return this.mutate<{ ok: true; }>('POST', '/payments/membership/apply/withdraw', { invalidates: ['payments', 'auth',], },);
+    /** POST /payments/membership/apply/withdraw — withdraw (cancel) a pending application: `applicationId`, else your pending membership application. */
+    withdrawMembershipApplication(applicationId?: string,): Promise<{ ok: true; }> {
+        return this.mutate<{ ok: true; }>('POST', '/payments/membership/apply/withdraw', {
+            body: applicationId ? { applicationId, } : {}, invalidates: ['payments', 'auth',],
+        },);
+    }
+
+    /** GET /payments/membership/programs — your programs ("Add its role only" levels) and their state. */
+    membershipPrograms(): Promise<MembershipProgramsResponse> {
+        return this.get<MembershipProgramsResponse>('/payments/membership/programs', { options: { cache: false, }, },);
+    }
+
+    /** POST /payments/membership/programs/:tierId/leave — leave a program (its role is removed). */
+    leaveMembershipProgram(tierId: string,): Promise<{ ok: true; }> {
+        return this.mutate<{ ok: true; }>('POST', '/payments/membership/programs/:tierId/leave', { params: { tierId, }, invalidates: ['payments', 'auth',], },);
     }
 
     /** POST /payments/membership/card/setup — SetupIntent secret; confirm it with the new card. */

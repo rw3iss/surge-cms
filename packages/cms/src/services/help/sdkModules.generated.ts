@@ -5979,6 +5979,22 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 ]
             },
             {
+                "name": "leaveMembershipProgram",
+                "signature": "leaveMembershipProgram(tierId: string): Promise<{ ok: true; }>",
+                "summary": "POST /payments/membership/programs/:tierId/leave — leave a program (its role is removed).",
+                "params": [
+                    {
+                        "name": "tierId",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<{ ok: true; }>",
+                "routes": [
+                    "POST /api/v1/payments/membership/programs/:tierId/leave"
+                ]
+            },
+            {
                 "name": "membership",
                 "signature": "membership(): Promise<MembershipResponse>",
                 "summary": "GET /payments/membership — current tier (incl. free) + the tiers to switch to.",
@@ -5996,6 +6012,16 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "returns": "Promise<MembershipCardSetupResponse>",
                 "routes": [
                     "POST /api/v1/payments/membership/card/setup"
+                ]
+            },
+            {
+                "name": "membershipPrograms",
+                "signature": "membershipPrograms(): Promise<MembershipProgramsResponse>",
+                "summary": "GET /payments/membership/programs — your programs (\"Add its role only\" levels) and their state.",
+                "params": [],
+                "returns": "Promise<MembershipProgramsResponse>",
+                "routes": [
+                    "GET /api/v1/payments/membership/programs"
                 ]
             },
             {
@@ -6210,9 +6236,15 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "withdrawMembershipApplication",
-                "signature": "withdrawMembershipApplication(): Promise<{ ok: true; }>",
-                "summary": "POST /payments/membership/apply/withdraw — withdraw your pending application.",
-                "params": [],
+                "signature": "withdrawMembershipApplication(applicationId?: string): Promise<{ ok: true; }>",
+                "summary": "POST /payments/membership/apply/withdraw — withdraw (cancel) a pending application: `applicationId`, else your pending membership application.",
+                "params": [
+                    {
+                        "name": "applicationId",
+                        "type": "string",
+                        "optional": true
+                    }
+                ],
                 "returns": "Promise<{ ok: true; }>",
                 "routes": [
                     "POST /api/v1/payments/membership/apply/withdraw"
@@ -10237,4 +10269,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 51;
-export const SDK_METHOD_COUNT = 597;
+export const SDK_METHOD_COUNT = 599;

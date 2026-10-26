@@ -20,6 +20,7 @@ import type Stripe from 'stripe';
 import type {
     MembershipApplication, MembershipApplicationAnswer, MembershipApplicationsListQuery, MembershipApplicationStatus,
     MembershipApplyBody, MembershipApplyCardBody, MembershipApplyResponse, MembershipApplySubmitBody, MembershipApplySubmitResponse,
+    MembershipProgramStatus,
 } from '@sitesurge/types';
 import { DEFAULT_APPLICATION_FIELDS, } from '@sitesurge/types';
 import { config, } from '../config';
@@ -253,8 +254,10 @@ export function receiptNext(o: { signedIn: boolean; noCard: boolean; },): string
  * approve", "withdrawn"), on the same `membership_application` notification
  * as the first notice, with the same deep link — so reviewers need not poll.
  */
-function applicationFollowUp(applicationId: string, userId: string, tierName: string, kind: 'card' | 'withdrawn',): void {
-    const title = kind === 'card' ? 'Membership application ready to approve' : 'Membership application withdrawn';
+function applicationFollowUp(applicationId: string | null, userId: string, tierName: string, kind: 'card' | 'withdrawn' | 'left',): void {
+    const title = kind === 'card' ? 'Membership application ready to approve'
+        : kind === 'left' ? `Member left ${tierName}`
+        : 'Membership application withdrawn';
     void notifyWith('membership_application', async () => {
         const person = await notifyUser({ userId, },);
         const who = personLabel(person, 'An applicant',);
@@ -263,15 +266,22 @@ function applicationFollowUp(applicationId: string, userId: string, tierName: st
             subject: `${title} — ${who} (${tierName})`,
             intro: kind === 'card'
                 ? `${who} added their card for ${tierName}. The application can now be approved.`
-                : `${who} withdrew their application for ${tierName}.`,
+                : kind === 'left'
+                ? `${who} left ${tierName}. Its role was removed from their account.`
+                : `${who} withdrew (cancelled) their application for ${tierName}.`,
             person,
             personHeading: 'Applicant',
             sections: [{ heading: 'Application', rows: [{ label: 'Level', value: tierName, },], },],
-            links: [
-                ...(kind === 'card' ? [{ label: 'Review application', url: `/admin/users?application=${applicationId}`, },] : []),
-                { label: 'All pending applications', url: '/admin/users?approval=pending', },
-                ...(person?.adminUrl ? [{ label: 'View member', url: person.adminUrl, },] : []),
-            ],
+            links: kind === 'card'
+                ? [
+                    { label: 'Review application', url: `/admin/users?application=${applicationId}`, },
+                    { label: 'All pending applications', url: '/admin/users?approval=pending', },
+                    ...(person?.adminUrl ? [{ label: 'View member', url: person.adminUrl, },] : []),
+                ]
+                : [
+                    ...(person?.adminUrl ? [{ label: 'View member', url: person.adminUrl, },] : []),
+                    { label: 'All pending applications', url: '/admin/users?approval=pending', },
+                ],
         },);
     }, { subject: `${title}: ${tierName}`, text: `${title}: ${tierName}.`, },);
 }
@@ -338,7 +348,15 @@ export async function submit(body: MembershipApplySubmitBody, ctx: ApplyContext,
             context: {
                 user: { name: c.answers.find((x,) => /^(full )?name$/i.test(x.label.trim(),),)?.value ?? '', email: c.email, },
                 tier: { name: tier.name, },
-                application: { next: receiptNext({ signedIn: !!ctx.userId, noCard: hide, },), claimUrl: claimUrl(id, tier.id, token,), },
+                application: {
+                    next: receiptNext({ signedIn: !!ctx.userId, noCard: hide || tier.role_only, },),
+                    // "Finish my application" only when something is left to do:
+                    // signed out (create the account), or a card still to add.
+                    claimUrl: !ctx.userId || !(hide || tier.role_only) ? claimUrl(id, tier.id, token,) : '',
+                    // Signed in with nothing to do: where the member follows it.
+                    viewUrl: ctx.userId ? siteUrl('/profile?tab=membership',) : '',
+                    program: tier.role_only ? 'yes' : '',
+                },
             },
         },).catch((e: unknown,) => logger.warn('application receipt email failed', { error: (e as Error).message, },),);
     }
@@ -766,20 +784,94 @@ export async function reject(id: string, note: string | undefined, ctx: AuditCon
     if (app.contactEmail) {
         void sendPurposeMail('membership_application_rejected', {
             to: app.contactEmail,
-            context: { user: { name: app.user?.displayName ?? '', email: app.contactEmail, }, tier: { name: app.tierName, }, note: note?.trim() ?? '', },
+            context: {
+                user: { name: app.user?.displayName ?? '', email: app.contactEmail, },
+                tier: { name: app.tierName, },
+                note: note?.trim() ?? '',
+                // The "your card was not charged" line only when a card was saved.
+                application: { program: app.tierRoleOnly ? 'yes' : '', card: (a as { payment_method_id?: string | null; }).payment_method_id ? 'yes' : '', },
+            },
         },).catch(() => {},);
     }
     return app;
 }
 
-/** The member withdraws their own pending application. */
-export async function withdraw(userId: string,): Promise<void> {
+/**
+ * The member withdraws their own pending application: `applicationId` = that
+ * one; none = their pending MEMBERSHIP application (program applications are
+ * withdrawn one by one). The team gets a "withdrawn" notice per application.
+ */
+export async function withdraw(userId: string, applicationId?: string | null,): Promise<void> {
     const r = await query<{ id: string; plan_id: string; }>(
-        `UPDATE membership_applications SET status = 'withdrawn', updated_at = NOW() WHERE user_id = $1 AND status = 'pending' RETURNING id, plan_id`, [userId,],
+        `UPDATE membership_applications SET status = 'withdrawn', updated_at = NOW()
+          WHERE user_id = $1 AND status = 'pending' AND (CASE WHEN $2::uuid IS NULL THEN program = false ELSE id = $2::uuid END)
+          RETURNING id, plan_id`,
+        [userId, applicationId ?? null,],
     );
-    if (r.rows.length) {
-        await setUserApproval(userId, null,);
-        const tierName = (await query<{ name: string; }>(`SELECT name FROM subscription_plans WHERE id = $1`, [r.rows[0].plan_id,],)).rows[0]?.name ?? 'membership';
-        applicationFollowUp(r.rows[0].id, userId, tierName, 'withdrawn',);
+    if (applicationId && !r.rows.length) throw new NotFoundError('Pending application',);
+    if (!r.rows.length) return;
+    await setUserApproval(userId, null,);
+    for (const row of r.rows) {
+        const tierName = (await query<{ name: string; }>(`SELECT name FROM subscription_plans WHERE id = $1`, [row.plan_id,],)).rows[0]?.name ?? 'membership';
+        applicationFollowUp(row.id, userId, tierName, 'withdrawn',);
     }
+}
+
+/**
+ * The member's PROGRAMS ("Add its role only" levels) — every program they hold
+ * the role of or have applied to, with the latest application's state, for
+ * Profile → Membership → Programs.
+ */
+export async function myPrograms(userId: string,): Promise<MembershipProgramStatus[]> {
+    const [plans, apps, user,] = await Promise.all([
+        query<{ id: string; name: string; slug: string | null; description: string | null; role: string | null; }>(
+            `SELECT id, name, slug, description, role FROM subscription_plans WHERE role_only = true AND is_active IS NOT FALSE ORDER BY sort_order, name`,
+        ),
+        query<{ id: string; plan_id: string; status: string; created_at: Date; decided_at: Date | null; }>(
+            `SELECT DISTINCT ON (plan_id) id, plan_id, status, created_at, decided_at FROM membership_applications
+              WHERE user_id = $1 ORDER BY plan_id, created_at DESC`,
+            [userId,],
+        ),
+        query<{ role: string; extra_roles: string[] | null; }>(`SELECT role, extra_roles FROM users WHERE id = $1`, [userId,],),
+    ],);
+    const held = new Set([user.rows[0]?.role, ...(user.rows[0]?.extra_roles ?? []),].filter(Boolean,),);
+    const out: MembershipProgramStatus[] = [];
+    for (const p of plans.rows) {
+        const a = apps.rows.find((x,) => x.plan_id === p.id,);
+        const member = !!p.role && held.has(p.role,);
+        if (!member && !a) continue;
+        out.push({
+            tierId: p.id,
+            name: p.name,
+            slug: p.slug,
+            description: p.description,
+            role: p.role,
+            status: member ? 'member' : (a!.status === 'approved' ? 'withdrawn' : a!.status as MembershipProgramStatus['status']),
+            applicationId: a?.id ?? null,
+            appliedAt: a ? new Date(a.created_at,).toISOString() : null,
+            decidedAt: a?.decided_at ? new Date(a.decided_at,).toISOString() : null,
+        },);
+    }
+    return out;
+}
+
+/** The member leaves a program: its role is removed; the team is told. */
+export async function leaveProgram(userId: string, tierId: string,): Promise<void> {
+    const t = (await query<{ name: string; role: string | null; role_only: boolean; }>(
+        `SELECT name, role, role_only FROM subscription_plans WHERE id = $1`, [tierId,],
+    )).rows[0];
+    if (!t?.role_only || !t.role) throw new NotFoundError('Program',);
+    const u = (await query<{ extra_roles: string[] | null; }>(`SELECT extra_roles FROM users WHERE id = $1`, [userId,],)).rows[0];
+    if (!u?.extra_roles?.includes(t.role,)) throw new ValidationError(`You are not part of ${t.name}.`,);
+    const { setExtraRoles, } = await import('./users.js');
+    await setExtraRoles(userId, u.extra_roles.filter((r,) => r !== t.role,),);
+    // The approval stays on record as withdrawn, so the program reads "Left".
+    const app = await query<{ id: string; }>(
+        `UPDATE membership_applications SET status = 'withdrawn', updated_at = NOW()
+          WHERE id = (SELECT id FROM membership_applications WHERE user_id = $1 AND plan_id = $2 AND status = 'approved' ORDER BY created_at DESC LIMIT 1)
+          RETURNING id`,
+        [userId, tierId,],
+    );
+    await logAudit({ userId, action: 'leave_program', entityType: 'membership_application', entityId: app.rows[0]?.id ?? tierId, newValues: { tierId, role: t.role, }, },);
+    applicationFollowUp(app.rows[0]?.id ?? null, userId, t.name, 'left',);
 }

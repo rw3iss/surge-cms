@@ -125,6 +125,17 @@ approval, has no price and takes no card.
 | Buying it | Refused — a program is joined by applying. |
 | Removing it | Remove the role from the user's additional roles (user page). |
 
+### Members manage their programs (Profile → Membership → Programs)
+
+The Membership tab lists every program the member belongs to or applied to (`GET /payments/membership/programs`, `cms.payments.membershipPrograms()`; hidden when there are none), with its state — Member / Pending review / Not approved / Withdrawn:
+
+- **Cancel application** (pending) → `POST /payments/membership/apply/withdraw { applicationId }` (`cms.payments.withdrawMembershipApplication(id)`). Without an id it withdraws only the pending MEMBERSHIP application — never the program ones.
+- **Leave program** (member) → `POST /payments/membership/programs/:tierId/leave` (`cms.payments.leaveMembershipProgram(tierId)`): removes the role from the member's additional roles; the approval is kept on record as withdrawn.
+
+Both send the team a notice on the **Membership application** notification (Settings → Notifications), with **View member** (the user's admin page) as the first link.
+
+The "Application received" email's button reads **Finish my application** only when something is left to do (signed out → create the account; a card still to add); a signed-in program applicant gets **View my applications** (`application.viewUrl`). The "not approved" email mentions the card only when one was saved (`application.card`).
+
 ## Linking applications to accounts
 
 An application sent while signed out is linked to an account when:

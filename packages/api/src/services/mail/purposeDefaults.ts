@@ -145,11 +145,13 @@ export async function defaultPurposeHtml(
         case 'membership_application_received': {
             const tier = pick(ctx, 'tier.name',) || 'membership';
             const url = pick(ctx, 'application.claimUrl',);
+            const view = pick(ctx, 'application.viewUrl',);
             body = H('Application received',)
                 + greeting(name,)
                 + P(`Thank you for applying for <strong>${escapeHtml(tier,)}</strong>. Your request has been submitted, and someone from our team will contact you soon.`,)
                 + (pick(ctx, 'application.next',) ? P(escapeHtml(pick(ctx, 'application.next',),),) : '')
-                + (url ? button(url, 'Finish my application',) : '');
+                // Something left to do (account / card) → finish it; else follow it.
+                + (url ? button(url, 'Finish my application',) : view ? button(view, 'View my applications',) : '');
             break;
         }
 
@@ -183,7 +185,7 @@ export async function defaultPurposeHtml(
                 + greeting(name,)
                 + P(`Thank you for applying for <strong>${escapeHtml(tier,)}</strong>. We are not able to approve your application at this time.`,)
                 + (note ? P(escapeHtml(note,),) : '')
-                + MUTED('Your card was not charged.',);
+                + (pick(ctx, 'application.card',) === 'yes' ? MUTED('Your card was not charged.',) : '');
             break;
         }
 

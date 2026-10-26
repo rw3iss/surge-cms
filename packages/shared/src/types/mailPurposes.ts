@@ -209,7 +209,9 @@ export const MAIL_PURPOSES: MailPurposeMeta[] = [
             ...USER_VARS,
             { name: 'tier.name', description: 'The membership level applied for.', example: "Founder's Club", },
             { name: 'application.next', description: 'What the applicant still has to do (plain text).', example: 'Create your account with this email address and add your card.', },
-            { name: 'application.claimUrl', description: 'Link to finish the application (it attaches it to their account).', example: 'https://example.com/profile?tab=membership&…', },
+            { name: 'application.claimUrl', description: 'Link to finish the application — only when something is left to do (create the account, add a card); empty otherwise.', example: 'https://example.com/profile?tab=membership&…', },
+            { name: 'application.viewUrl', description: 'Signed-in applicants: where they follow their applications (Profile → Membership).', example: 'https://example.com/profile?tab=membership', },
+            { name: 'application.program', description: '"yes" for a program ("Add its role only" level).', example: 'yes', },
         ],
     },
     {
@@ -240,6 +242,7 @@ export const MAIL_PURPOSES: MailPurposeMeta[] = [
         defaultEnabled: true,
         defaultSubject: 'Your {{tier.name}} application',
         variables: [
+            { name: 'application.card', description: '"yes" when the applicant saved a card (the "not charged" line).', example: 'yes', },
             ...USER_VARS,
             { name: 'tier.name', description: 'The membership level.', example: "Founder's Club", },
             { name: 'note', description: "The reviewer's note (may be empty).", example: 'We are full this season.', },

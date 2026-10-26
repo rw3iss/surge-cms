@@ -9881,9 +9881,49 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "path": "/membership/apply/withdraw",
                 "absolutePath": "/api/v1/payments/membership/apply/withdraw",
                 "auth": "user",
-                "summary": "Withdraw your own pending membership application.",
+                "summary": "Withdraw (cancel) your own pending application: `applicationId`, else your pending membership application. The team is notified.",
+                "input": {
+                    "body": [
+                        {
+                            "name": "applicationId",
+                            "type": "string<uuid> | null",
+                            "required": false
+                        }
+                    ]
+                },
                 "sdk": [
                     "cms.payments.withdrawMembershipApplication"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/membership/programs",
+                "absolutePath": "/api/v1/payments/membership/programs",
+                "auth": "user",
+                "summary": "Your programs (\"Add its role only\" levels): the ones you hold or applied to, with the latest application state.",
+                "sdk": [
+                    "cms.payments.membershipPrograms"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/membership/programs/:tierId/leave",
+                "absolutePath": "/api/v1/payments/membership/programs/:tierId/leave",
+                "auth": "user",
+                "summary": "Leave a program: removes its role from your account; the team is notified.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "tierId",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.payments.leaveMembershipProgram"
                 ],
                 "sdkStatus": "method"
             },
@@ -17476,4 +17516,4 @@ export const API_MODULES: ApiModuleDoc[] = [
 ];
 
 export const API_MODULE_COUNT = 55;
-export const API_ROUTE_COUNT = 602;
+export const API_ROUTE_COUNT = 604;
