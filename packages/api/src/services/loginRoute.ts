@@ -24,6 +24,12 @@ async function roles(): Promise<LoginRouteRole[]> {
     return list;
 }
 
+/** A user's additional roles (`users.extra_roles`). */
+export async function extraRolesOf(userId: string,): Promise<string[]> {
+    const r = await query<{ extra_roles: string[] | null; }>(`SELECT extra_roles FROM users WHERE id = $1`, [userId,],).catch(() => ({ rows: [], }),);
+    return r.rows[0]?.extra_roles ?? [];
+}
+
 export async function loginRouteForUser(user: { id: string; role?: string | null; } | null | undefined,): Promise<string> {
     if (!user) return '';
     try {

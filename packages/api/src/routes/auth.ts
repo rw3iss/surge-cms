@@ -29,7 +29,7 @@ import type {
 } from '@sitesurge/types';
 import { config, } from '../config';
 import { accessState, getPolicy as getSubscriptionPolicy, } from '../services/subscriptionAccess';
-import { loginRouteForUser, } from '../services/loginRoute';
+import { extraRolesOf, loginRouteForUser, } from '../services/loginRoute';
 import { resendVerification, } from '../services/mail/verification';
 import { defineRoute, } from '../api/defineRoute';
 import { AppError, ForbiddenError, UnauthorizedError, } from '../core/errors';
@@ -272,6 +272,11 @@ export const authRoutes = [
             },);
 
             // Subscription-required mode: tell the SPA at once where this member stands.
+            // The additional roles too (contributor, affiliate…): the SPA picks the
+            // admin shell / landing page from them right after sign-in.
+            if (authResponse.user && !authResponse.user.extraRoles) {
+                authResponse.user.extraRoles = await extraRolesOf(authResponse.user.id,);
+            }
             return { ...authResponse, access: await accessState(authResponse.user,), loginRoute: await loginRouteForUser(authResponse.user,), };
         },
     },),
