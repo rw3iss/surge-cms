@@ -21,7 +21,7 @@ import type {
     RoleCreateBody, RoleDef, RoleUpdateBody, StripeSubscriptionPricesResponse, SubscriptionTier,
     SubscriptionTierBody, SubscriptionTierOption, UserSubscriptionInfo,
 } from '@sitesurge/types';
-import { isStaffRole, } from '@sitesurge/types';
+import { isStaffRole, normalizeLoginRoute, } from '@sitesurge/types';
 import { ConflictError, NotFoundError, ValidationError, } from '../core/errors';
 import { query, transaction, } from '../db';
 import { logger, } from '../utils/logger';
@@ -31,6 +31,7 @@ import { listRecurringPrices, } from './payment/recurringPrices';
 import { getStripeClient, } from './payment/stripe';
 import { ENTITLED_STATUSES, invalidatePermissionCache, invalidatePlan, invalidateRoles, } from './permissions';
 import type { AuditContext, } from './types';
+import { invalidateLoginRoutes, } from './loginRoute';
 
 const BUILTIN = new Set(['anonymous', 'member', 'editor', 'admin', 'sysadmin',],);
 
@@ -44,6 +45,8 @@ function mapRole(r: Record<string, unknown>,): RoleDef {
         baseRole: (r.base_role as string | null) ?? null,
         isSystem: Boolean(r.is_system,),
         sortOrder: Number(r.sort_order ?? 0,),
+        loginRoute: (r.login_route as string | null) ?? null,
+        loginPriority: Number(r.login_priority ?? 0,),
         userCount: r.user_count != null ? Number(r.user_count,) : undefined,
     };
 }
@@ -82,10 +85,12 @@ export async function createRole(body: RoleCreateBody, ctx: AuditContext,): Prom
     await assertMemberLevelBase(body.baseRole ?? 'member', key,);
     try {
         const r = await query(
-            `INSERT INTO roles (key, label, description, base_role, is_system, sort_order)
-             VALUES ($1, $2, $3, $4, false, 50) RETURNING *`,
-            [key, body.label.trim(), body.description ?? null, body.baseRole ?? 'member',],
+            `INSERT INTO roles (key, label, description, base_role, is_system, sort_order, login_route, login_priority)
+             VALUES ($1, $2, $3, $4, false, 50, $5, $6) RETURNING *`,
+            [key, body.label.trim(), body.description ?? null, body.baseRole ?? 'member',
+                body.loginRoute === undefined ? null : normalizeLoginRoute(body.loginRoute,), body.loginPriority ?? 0,],
         );
+        invalidateLoginRoutes();
         invalidateRoles();
         invalidatePermissionCache();
         await logAudit({ userId: ctx.userId, action: 'create', entityType: 'role', entityId: key, newValues: body as never, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
@@ -99,14 +104,24 @@ export async function createRole(body: RoleCreateBody, ctx: AuditContext,): Prom
 export async function updateRole(key: string, body: RoleUpdateBody, ctx: AuditContext,): Promise<RoleDef> {
     const existing = (await roleMap()).get(key,);
     if (!existing) throw new NotFoundError('Role',);
-    if (existing.isSystem) throw new ValidationError('Built-in roles cannot be changed.',);
+    // Built-in roles: only their landing page ("Default page after sign-in") may change.
+    if (existing.isSystem && (body.label !== undefined || body.description !== undefined || body.baseRole !== undefined)) {
+        throw new ValidationError('Built-in roles cannot be changed (only their page after sign-in).',);
+    }
     if (body.baseRole !== undefined) await assertMemberLevelBase(body.baseRole, key,);
+    if (body.loginRoute != null && normalizeLoginRoute(body.loginRoute,) === null) {
+        throw new ValidationError('The page after sign-in must be a path on this site, e.g. admin or profile?tab=membership.',);
+    }
     const r = await query(
         `UPDATE roles SET label = COALESCE($2, label), description = COALESCE($3, description),
-                base_role = CASE WHEN $5 THEN $4 ELSE base_role END, updated_at = NOW()
+                base_role = CASE WHEN $5 THEN $4 ELSE base_role END,
+                login_route = CASE WHEN $7 THEN $6 ELSE login_route END,
+                login_priority = COALESCE($8, login_priority), updated_at = NOW()
           WHERE key = $1 RETURNING *`,
-        [key, body.label?.trim() || null, body.description ?? null, body.baseRole ?? null, body.baseRole !== undefined,],
+        [key, body.label?.trim() || null, body.description ?? null, body.baseRole ?? null, body.baseRole !== undefined,
+            body.loginRoute === undefined ? null : normalizeLoginRoute(body.loginRoute,), body.loginRoute !== undefined, body.loginPriority ?? null,],
     );
+    invalidateLoginRoutes();
     invalidateRoles();
     invalidatePermissionCache();
     await logAudit({ userId: ctx.userId, action: 'update', entityType: 'role', entityId: key, newValues: body as never, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);

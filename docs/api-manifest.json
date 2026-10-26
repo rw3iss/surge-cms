@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T18:11:25.274Z",
+  "generatedAt": "2026-10-26T21:15:28.714Z",
   "totalModules": 55,
   "totalRoutes": 604,
   "modules": [
@@ -10727,6 +10727,16 @@
                 "name": "baseRole",
                 "type": "string | null",
                 "required": false
+              },
+              {
+                "name": "loginRoute",
+                "type": "string | null",
+                "required": false
+              },
+              {
+                "name": "loginPriority",
+                "type": "integer",
+                "required": false
               }
             ]
           }
@@ -10759,6 +10769,16 @@
               {
                 "name": "baseRole",
                 "type": "string | null",
+                "required": false
+              },
+              {
+                "name": "loginRoute",
+                "type": "string | null",
+                "required": false
+              },
+              {
+                "name": "loginPriority",
+                "type": "integer",
                 "required": false
               }
             ]

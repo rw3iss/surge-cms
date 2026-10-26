@@ -220,7 +220,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "login",
-                "signature": "login(credentials: LoginCredentials & { rememberMe?: boolean; }): Promise<AuthResponse>",
+                "signature": "login(credentials: LoginCredentials & { rememberMe?: boolean; }): Promise<AuthLoginResponse>",
                 "summary": "POST /auth/login — delegates to the AuthManager (persists tokens).",
                 "params": [
                     {
@@ -229,7 +229,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                         "optional": false
                     }
                 ],
-                "returns": "Promise<AuthResponse>",
+                "returns": "Promise<AuthLoginResponse>",
                 "routes": [
                     "POST /api/v1/auth/login"
                 ]

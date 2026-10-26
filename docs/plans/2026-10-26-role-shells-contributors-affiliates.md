@@ -1,6 +1,6 @@
 # Role routing, role admin shells, contributors, affiliates + discount codes — plan
 
-> **STATUS 2026-10-26 — PROPOSED.** Design only; nothing built yet. Build in the phase order below.
+> **STATUS 2026-10-26 — IN PROGRESS.** Approved; building in the phase order below.
 
 ## Where we start (facts that shape the design)
 
@@ -34,6 +34,8 @@
 **Wire-up:** `GET /auth/me` + login responses carry `loginRoute`. `Login.tsx` `afterLogin()` → `?redirect=` wins, else `/${loginRoute}`. Admin **Settings → Permissions → Roles**: "Default page after sign-in" text field (strip `/` on blur, hint "empty = homepage") + priority number.
 
 **Tests:** rule unit tests (priority, base inheritance, sanitising), login redirect.
+
+> **STATUS 2026-10-26 — DONE.** Migration 189 (+ `ambassador` → `affiliate` rename), `loginRouteFor` + tests, `services/loginRoute.ts`, `loginRoute` on login + `/auth/me`, Login redirect, Roles editor (built-ins: route only). Docs: ROLES-AND-INVITES.md, CLAUDE.md.
 
 ## Phase 2 — Permission modes + ownership (foundation for contributors)
 
@@ -126,10 +128,10 @@ Resolution: the user's highest-priority role that HAS a shell (same priority as 
 
 1 → 2 → 3 → 4 is the contributor track; 5 → 6 is the affiliate track (6 needs 1 for its login route). The two tracks are independent after Phase 1.
 
-## Open questions
+## Decisions (2026-10-26)
 
-1. Affiliate role key: keep `ambassador` (the Affiliate program's role today) or rename to `affiliate`?
-2. Payout cadence: manual "Pay out" button first, or a monthly automatic transfer?
-3. Refund window before commission becomes payable (proposed 30 days)?
-4. Should a contributor's post show them as the public author (byline/member page), or "Surge Media staff"?
-5. Discount codes for event tickets too, or merchandise only at first?
+1. The affiliate role key is **`affiliate`** — the seeded `ambassador` role is renamed (migration 189 moves every reference).
+2. Payouts: a manual **Pay out** is always available, plus **automatic payouts on a configurable schedule** (off / weekly / every 2 weeks / monthly).
+3. The refund window before a commission becomes payable is **configurable, default 30 days**.
+4. A contributor **is the public author** of their post (byline + member page).
+5. A discount code **always applies to shop merchandise**; each code has an option to **also apply to event tickets** (offered when Events is on).

@@ -29,7 +29,10 @@ const Login: Component = () => {
         if (a?.restricted && a.reason === 'subscription' && !isAdminRole(role,)) {
             return target.startsWith('/subscribe',) || target.startsWith('/profile?tab=membership',) ? target : '/profile?tab=membership';
         }
-        return target || (isAdminRole(role,) ? '/admin' : '/');
+        if (target) return target;
+        // The role's "page after sign-in" (highest priority among all the user's roles).
+        if (auth.loginRoute != null) return `/${auth.loginRoute}`;
+        return isAdminRole(role,) ? '/admin' : '/';
     };
 
     /** Post-login destination from `?redirect=` or `?return=` (either works).

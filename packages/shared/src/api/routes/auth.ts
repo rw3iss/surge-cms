@@ -47,7 +47,11 @@ export interface AuthLoginBody extends LoginCredentials {
 
 /** POST /auth/login — the authenticated user plus fresh tokens. Also sets
  *  the httpOnly cookie pair. */
-export type AuthLoginResponse = AuthResponse;
+export type AuthLoginResponse = AuthResponse & {
+    access?: import('../../types/user').MemberAccessState;
+    /** Where this user lands after sign-in (no leading slash; '' = homepage). */
+    loginRoute?: string;
+};
 
 // ─── POST /auth/register ──────────────────────────────────────────
 
@@ -142,6 +146,8 @@ export interface AuthMeResponse {
     user: User;
     /** Subscription-required mode state (always present; `restricted:false` when the mode is off). */
     access?: import('../../types/user').MemberAccessState;
+    /** Where this user lands after sign-in (no leading slash; '' = homepage) — `loginRouteFor` over all their roles. */
+    loginRoute?: string;
 }
 
 // ─── PUT /auth/me ─────────────────────────────────────────────────

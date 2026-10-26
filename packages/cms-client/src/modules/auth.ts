@@ -1,6 +1,6 @@
 import type { UserInviteAcceptBody, UserInvitePublic, } from '@sitesurge/types';
 import type {
-    AuthResponse, LoginCredentials, AuthPatreonResponse,
+    AuthResponse, AuthLoginResponse, LoginCredentials, AuthPatreonResponse,
     AuthLogoutAllResponse, AuthMeResponse, AuthPatreonSyncResponse, AuthAutologinResponse,
     AuthRegisterBody, AuthRegisterResponse,
     AuthUpdateProfileBody, AuthUpdateProfileResponse, AuthAvatarResponse,
@@ -44,7 +44,7 @@ export class AuthModule extends ModuleBase implements AuthRuntime {
     onExpired(cb: () => void,): () => void { return this.manager.onExpired(cb,); }
 
     /** POST /auth/login — delegates to the AuthManager (persists tokens). */
-    login(credentials: LoginCredentials & { rememberMe?: boolean; },): Promise<AuthResponse> {
+    login(credentials: LoginCredentials & { rememberMe?: boolean; },): Promise<AuthLoginResponse> {
         return this.manager.login(credentials,);
     }
 

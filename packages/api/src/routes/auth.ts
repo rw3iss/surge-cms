@@ -29,6 +29,7 @@ import type {
 } from '@sitesurge/types';
 import { config, } from '../config';
 import { accessState, getPolicy as getSubscriptionPolicy, } from '../services/subscriptionAccess';
+import { loginRouteForUser, } from '../services/loginRoute';
 import { resendVerification, } from '../services/mail/verification';
 import { defineRoute, } from '../api/defineRoute';
 import { AppError, ForbiddenError, UnauthorizedError, } from '../core/errors';
@@ -271,7 +272,7 @@ export const authRoutes = [
             },);
 
             // Subscription-required mode: tell the SPA at once where this member stands.
-            return { ...authResponse, access: await accessState(authResponse.user,), };
+            return { ...authResponse, access: await accessState(authResponse.user,), loginRoute: await loginRouteForUser(authResponse.user,), };
         },
     },),
 
@@ -526,7 +527,7 @@ export const authRoutes = [
         handler: async ({ user, },) => {
             // An account created before handles existed gets one on first read.
             if (user && !user.handle) user.handle = await ensureHandle(user.id,).catch(() => null);
-            return { user, access: await accessState(user,), };
+            return { user, access: await accessState(user,), loginRoute: await loginRouteForUser(user,), };
         },
     },),
 

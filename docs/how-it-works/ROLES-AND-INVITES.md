@@ -1,4 +1,4 @@
-# Additional roles, sign-in roles and invites (e.g. brand ambassadors)
+# Additional roles, sign-in roles and invites (e.g. affiliates)
 
 ## Two kinds of role on a user
 
@@ -9,12 +9,12 @@
 
 So a person can pay for **Membership** (main role `subscriber`) and be an
 **Ambassador** (additional role) at the same time; cancelling the membership
-moves the main role back to `member` and keeps `ambassador`.
+moves the main role back to `member` and keeps `affiliate`.
 
 Permissions combine both: the main role's chain first, then each additional
 role's chain (`permissions/subjects.enrich`). An explicit grant on the main role
-decides first; role DEFAULTS consider every role. Grant ambassadors their own
-abilities in Settings → Permissions (role `ambassador`). Additional roles are
+decides first; role DEFAULTS consider every role. Grant affiliates their own
+abilities in Settings → Permissions (role `affiliate`). Additional roles are
 member-level only — staff roles stay a main-role decision.
 
 The Users table's Role filter matches the main role OR an additional role.
@@ -26,14 +26,14 @@ Users → Settings → **"Roles that can sign in without a membership"**
 in when they have a qualifying membership **or** any of these roles (main or
 additional) — `subscriptionAccess.hasAccessRole`, `access.viaRole`.
 
-Recommended for brand ambassadors: keep the minimum membership at the paid
+Recommended for affiliates: keep the minimum membership at the paid
 level ("Membership or higher") and tick **Ambassador** here. Ambassadors then
-sign in without paying; everyone else still needs a membership; an ambassador
+sign in without paying; everyone else still needs a membership; an affiliate
 who also subscribes simply has both.
 
 Content gated by a membership TIER (posts, forum, events, live shows) still
-follows the tier: an ambassador without a paid membership sees public content
-plus whatever you grant the `ambassador` role.
+follows the tier: an affiliate without a paid membership sees public content
+plus whatever you grant the `affiliate` role.
 
 ## Invites
 
@@ -84,3 +84,18 @@ On top of the `admin` route tier, each action has a permission (default admin + 
 `users:read`, `users:write`, `users:delete`, `users.password:set`, `users:ban`, `users:bulk`
 (bulk also checks the action's own permission), `users:verify` (resend a verification link /
 mark an email verified from the user page).
+
+
+## Page after sign-in (role login routes)
+
+Each role has a **Page after sign-in** (Settings → Permissions → Roles → Edit; built-in roles too) and a **priority** (`roles.login_route` / `login_priority`, migration 189). The route is a site path WITHOUT the leading slash (`admin`, `profile?tab=affiliate`); empty = the homepage; unset = inherit the base role's. After signing in, a user goes to the route of the highest-priority role among ALL their roles — main and additional — so a subscriber who joins the Contributor program lands in the admin. A `?redirect=` on the login link still wins.
+
+| Role | Page after sign-in | Priority |
+|---|---|---|
+| admin, sysadmin | `admin` | 100 |
+| editor | `admin` | 90 |
+| contributor | `admin` | 50 |
+| affiliate | `profile?tab=affiliate` | 40 |
+| member (and roles built on it) | homepage | 0 |
+
+The rule is ONE function, `loginRouteFor` (`@sitesurge/types` `utils/loginRoute.ts`); the server returns the result as `loginRoute` from `POST /auth/login` and `GET /auth/me` (`services/loginRoute.ts`). Migration 189 also renamed the seeded `ambassador` role to **`affiliate`** (users, additional roles, levels, grants, invites, gallery rules, plugin and settings role lists).

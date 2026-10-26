@@ -14,6 +14,7 @@ export * from './donationIntervals';
 export * from './formFields';
 export * from './formSections';
 export * from './systemPages';
+export * from './loginRoute';
 export * from './markdown';
 export * from './pageTitle';
 export * from './recurrence';

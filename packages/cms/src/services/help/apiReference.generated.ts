@@ -12328,6 +12328,16 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "name": "baseRole",
                             "type": "string | null",
                             "required": false
+                        },
+                        {
+                            "name": "loginRoute",
+                            "type": "string | null",
+                            "required": false
+                        },
+                        {
+                            "name": "loginPriority",
+                            "type": "integer",
+                            "required": false
                         }
                     ]
                 },
@@ -12364,6 +12374,16 @@ export const API_MODULES: ApiModuleDoc[] = [
                         {
                             "name": "baseRole",
                             "type": "string | null",
+                            "required": false
+                        },
+                        {
+                            "name": "loginRoute",
+                            "type": "string | null",
+                            "required": false
+                        },
+                        {
+                            "name": "loginPriority",
+                            "type": "integer",
                             "required": false
                         }
                     ]

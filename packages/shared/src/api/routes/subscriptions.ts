@@ -17,6 +17,12 @@ export interface RoleDef {
     /** Built-in: cannot be edited, renamed or deleted. */
     isSystem: boolean;
     sortOrder: number;
+    /** Where this role lands after sign-in: a site path WITHOUT the leading
+     *  slash (`''` = homepage); null = inherit from the base role. See
+     *  `loginRouteFor` (utils/loginRoute.ts). Editable on built-in roles too. */
+    loginRoute: string | null;
+    /** Among a user's roles, the highest priority decides the landing page. */
+    loginPriority: number;
     /** Users with this role. */
     userCount?: number;
 }
@@ -26,6 +32,8 @@ export interface RoleCreateBody {
     label: string;
     description?: string;
     baseRole?: string | null;
+    loginRoute?: string | null;
+    loginPriority?: number;
 }
 export type RoleUpdateBody = Partial<Omit<RoleCreateBody, 'key'>>;
 

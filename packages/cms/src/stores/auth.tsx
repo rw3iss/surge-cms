@@ -21,6 +21,12 @@ interface AuthState {
      * subscribe / membership / account pages. Null when signed out.
      */
     access: MemberAccessState | null;
+    /**
+     * Where this user lands after sign-in (no leading slash; '' = homepage):
+     * the highest-priority route among ALL their roles (role "page after
+     * sign-in", Settings → Permissions → Roles). Null when signed out.
+     */
+    loginRoute: string | null;
 }
 
 interface AuthContextValue extends AuthState {
@@ -52,12 +58,13 @@ export const AuthProvider: ParentComponent = (props,) => {
     const [isLoading, setIsLoading,] = createSignal(true,);
     const [sessionExpired, setSessionExpired,] = createSignal(false,);
     const [access, setAccess,] = createSignal<MemberAccessState | null>(null,);
+    const [loginRoute, setLoginRoute,] = createSignal<string | null>(null,);
     const [contactPrompt, setContactPrompt,] = createSignal<Contact | null>(null,);
     // Guards the one-shot contact-match check per signed-in session.
     let contactChecked = false;
 
     const isAuthenticated = () => !!user();
-    createEffect(on(user, (u,) => { if (!u) setAccess(null,); }, { defer: true, },),);
+    createEffect(on(user, (u,) => { if (!u) { setAccess(null,); setLoginRoute(null,); } }, { defer: true, },),);
 
     // Post responses are shaped per viewer (subscription gating: a sample for
     // one, the full article for another), but the SDK's local cache is keyed
@@ -122,6 +129,7 @@ export const AuthProvider: ParentComponent = (props,) => {
             if (res?.user) {
                 setUser(res.user,);
                 setAccess(res.access ?? null,);
+                setLoginRoute(res.loginRoute ?? null,);
             } else if (!await tryAutologin()) {
                 setUser(null,);
             }
@@ -153,7 +161,8 @@ export const AuthProvider: ParentComponent = (props,) => {
             setContactPrompt(null,);
             setUser(res.user,);
             // The login response carries the access state (subscription-required mode).
-            setAccess((res as { access?: MemberAccessState; }).access ?? null,);
+            setAccess(res.access ?? null,);
+            setLoginRoute(res.loginRoute ?? null,);
         } finally {
             setIsLoading(false,);
         }
@@ -202,6 +211,7 @@ export const AuthProvider: ParentComponent = (props,) => {
             if (res?.user) {
                 setUser(res.user,);
                 setAccess(res.access ?? null,);
+                setLoginRoute(res.loginRoute ?? null,);
                 setSessionExpired(false,);
                 return true;
             }
@@ -322,6 +332,9 @@ export const AuthProvider: ParentComponent = (props,) => {
         },
         get access() {
             return access();
+        },
+        get loginRoute() {
+            return loginRoute();
         },
         login,
         loginWithPatreon,

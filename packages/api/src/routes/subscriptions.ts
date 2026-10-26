@@ -50,6 +50,7 @@ export const rolesRoutes = [
             body: z.object({
                 key: z.string(), label: z.string().trim().min(1,).max(80,),
                 description: z.string().max(500,).optional(), baseRole: z.string().nullable().optional(),
+                loginRoute: z.string().max(200,).nullable().optional(), loginPriority: z.number().int().min(-1000,).max(1000,).optional(),
             },) satisfies z.ZodType<RoleCreateBody>,
         },
         handler: async ({ body, user, audit, },) => {
@@ -65,6 +66,7 @@ export const rolesRoutes = [
             body: z.object({
                 label: z.string().trim().min(1,).max(80,).optional(),
                 description: z.string().max(500,).optional(), baseRole: z.string().nullable().optional(),
+                loginRoute: z.string().max(200,).nullable().optional(), loginPriority: z.number().int().min(-1000,).max(1000,).optional(),
             },) satisfies z.ZodType<RoleUpdateBody>,
         },
         handler: async ({ params, body, user, audit, },) => {

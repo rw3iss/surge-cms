@@ -1,4 +1,4 @@
-import type { AuthResponse, LoginCredentials, } from '@sitesurge/types';
+import type { AuthLoginResponse, AuthResponse, LoginCredentials, } from '@sitesurge/types';
 import type { AuthMode, AuthTokens, TokenStore, } from '../types';
 import { Emitter, } from '../events';
 import { performRequest, } from '../request';
@@ -27,7 +27,7 @@ export interface AuthRuntime {
     authHeaders(method: string,): Promise<Record<string, string>>;
     getTokens(): AuthTokens | null;
     refresh(): Promise<AuthResponse>;
-    login(credentials: LoginCredentials & { rememberMe?: boolean; },): Promise<AuthResponse>;
+    login(credentials: LoginCredentials & { rememberMe?: boolean; },): Promise<AuthLoginResponse>;
     logout(): Promise<void>;
     isAuthenticated(): boolean;
     setApiKey(key: string,): void;
@@ -100,12 +100,12 @@ export class AuthManager implements AuthRuntime {
         return token;
     }
 
-    async login(credentials: LoginCredentials & { rememberMe?: boolean; },): Promise<AuthResponse> {
+    async login(credentials: LoginCredentials & { rememberMe?: boolean; },): Promise<AuthLoginResponse> {
         // Cookie mode: attach the CSRF header (and trigger the one-time
         // csrf-token round-trip) exactly like logout does — the server
         // guards POST /auth/login, so a header-less login is rejected
         // with CSRF_ERROR. Bearer/apiKey modes return no header here.
-        const res = await performRequest<AuthResponse>({
+        const res = await performRequest<AuthLoginResponse>({
             fetchImpl: this.fetchImpl, method: 'POST', url: `${this.apiBase}/auth/login`,
             headers: await this.authHeaders('POST',), body: credentials, timeoutMs: 30_000,
         },);
