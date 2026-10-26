@@ -368,7 +368,7 @@ const SubscriptionSignup: Component = () => {
             {/* 4 · Done */}
             <Show when={step() === 'done' && applied()}>
                 <div class="join__success">
-                    <ApplicationDone tierName={tier()?.name ?? 'membership'} noCard={noCard()} />
+                    <ApplicationDone tierName={tier()?.name ?? 'membership'} noCard={noCard()} program={!!tier()?.roleOnly} />
                     <A href="/profile?tab=membership" class="join__btn join__btn--primary">View my account</A>
                 </div>
             </Show>

@@ -30,6 +30,7 @@ import PriceChoice from './PriceChoice';
 import { mountStripeCard, saveCardForLater, type MountedCard, } from '../../utils/stripeCard';
 import FormRenderer from '../forms/FormRenderer';
 import { Portal, } from 'solid-js/web';
+import { A, } from '@solidjs/router';
 import './MembershipApplication.scss';
 
 /** The built-in application form, as a Form FormRenderer can draw. */
@@ -223,23 +224,29 @@ export const ApplicationPayment: Component<{
     );
 };
 
-/** "Thanks — pending approval" (shared by the modal and the sign-up flow). */
-export const ApplicationDone: Component<{ tierName: string; noCard?: boolean; }> = (props,) => (
-    <div class="membership-apply__done">
-        <h3>You're all set</h3>
-        <Show
-            when={props.noCard}
-            fallback={
-                <p>
-                    Your application for <strong>{props.tierName}</strong> is complete. Expect a phone call from someone from {siteName()} soon;
-                    we will also email you once it is reviewed. Your card is saved but <strong>will not be charged unless your application is approved</strong>.
-                </p>
-            }
-        >
-            <p>
-                Your application for <strong>{props.tierName}</strong> is complete. Expect a phone call from someone from {siteName()} soon;
-                we will also email you once it is reviewed. <strong>Nothing is charged now.</strong> When you are approved, sign in to see
-                the pricing, choose your billing and start your membership.
+/** "Thanks — pending approval" (shared by the modal and the sign-up flow): the
+ *  ONE confirmation after applying. `program` = an "Add its role only" level
+ *  (no billing, so no pricing line). */
+export const ApplicationDone: Component<{ tierName: string; noCard?: boolean; program?: boolean; signedOut?: boolean; }> = (props,) => (
+    <div class="membership-apply__done" role="status">
+        <h3>Your request has been submitted</h3>
+        <p>
+            Thank you for applying for <strong>{props.tierName}</strong>. Expect a phone call from someone from {siteName()} soon;
+            we will also email you once your application is reviewed.
+        </p>
+        <Show when={!props.program}>
+            <p class="membership-apply__muted">
+                <Show
+                    when={props.noCard}
+                    fallback={<>Your card is saved but <strong>will not be charged unless your application is approved</strong>.</>}
+                >
+                    <strong>Nothing is charged now.</strong> When you are approved, sign in to see the pricing, choose your billing and start your membership.
+                </Show>
+            </p>
+        </Show>
+        <Show when={props.signedOut}>
+            <p class="membership-apply__muted">
+                Create your account with the same email address to follow your application — it is attached to your account when you sign up.
             </p>
         </Show>
     </div>
@@ -297,15 +304,27 @@ export const ApplyModal: Component<{
                             <PriceChoice tier={props.tier} selected={price()} onSelect={setPrice} />
                         </div>
                     </Show>
-                    <p class="membership-apply__muted">This membership requires approval. Tell us about yourself:</p>
+                    <p class="membership-apply__muted">This {props.tier.roleOnly ? 'program' : 'membership'} requires approval. Tell us about yourself:</p>
                     <ApplicationQuestions
                         tier={props.tier}
                         prefill={{ name: auth.user?.displayName, email: auth.user?.email, }}
                         onCollected={async (a,) => {
                             setSubmitted(await submitApplication(props.tier, a, noCard() ? null : price(),),);
-                            setStep('submitted',);
                             void auth.refreshUser();
                             props.onApplied();
+                            // No card to add (programs, "Hide price" levels): complete it now
+                            // and show the ONE confirmation. A failure falls back to the
+                            // submitted step, whose Finish retries.
+                            if (noCard() && !auth.user) {
+                                // Signed out: the application is in; it attaches to the account
+                                // made later with this email (sign-up / verified sign-in).
+                                setStep('done',);
+                            } else if (noCard()) {
+                                await finishNoCard();
+                                if (step() !== 'done') setStep('submitted',);
+                            } else {
+                                setStep('submitted',);
+                            }
                         }}
                     />
                 </Show>
@@ -327,9 +346,12 @@ export const ApplyModal: Component<{
                     />
                 </Show>
                 <Show when={step() === 'done'}>
-                    <ApplicationDone tierName={props.tier.name} noCard={noCard()} />
+                    <ApplicationDone tierName={props.tier.name} noCard={noCard()} program={!!props.tier.roleOnly} signedOut={!auth.user} />
                     <div class="membership-apply__actions">
-                        <button type="button" class="btn btn--primary" onClick={() => props.onClose()}>Close</button>
+                        <Show when={!auth.user}>
+                            <A href="/join" class="btn btn--outline" onClick={() => props.onClose()}>Create my account</A>
+                        </Show>
+                        <button type="button" class="btn btn--primary" onClick={() => props.onClose()}>Finish</button>
                     </div>
                 </Show>
             </div>
