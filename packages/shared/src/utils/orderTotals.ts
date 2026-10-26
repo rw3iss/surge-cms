@@ -12,6 +12,8 @@ export interface OrderTotalsInput {
     shippingCents: number;
     taxCents: number;
     discountCents?: number | null;
+    /** The discount code used — shown as "Discount (CODE)". */
+    discountCode?: string | null;
     totalCents: number;
     currency?: string | null;
     shippingMethod?: string | null;
@@ -91,7 +93,10 @@ export function orderTotalsLines(order: OrderTotalsInput, shipping?: OrderTotals
     }
     lines.push({ key: 'tax', label: 'Tax', cents: order.taxCents, value: fmt(order.taxCents,), },);
     const discount = order.discountCents ?? 0;
-    if (discount > 0) lines.push({ key: 'discount', label: 'Discount', cents: -discount, value: `-${fmt(discount,)}`, },);
+    if (discount > 0) {
+        const label = order.discountCode ? `Discount (${order.discountCode})` : 'Discount';
+        lines.push({ key: 'discount', label, cents: -discount, value: `-${fmt(discount,)}`, },);
+    }
     lines.push({ key: 'total', label: 'Total', cents: order.totalCents, value: fmt(order.totalCents,), grand: true, },);
     return lines;
 }

@@ -43,6 +43,8 @@ import { searchRoutes, } from './search';
 import { settingsRoutes, } from './settings';
 import { shopRoutes, } from './shop';
 import { shopProviderRoutes, } from './shopProviders';
+import { shopDiscountRoutes, } from './shopDiscounts';
+import { affiliateRoutes, } from './affiliates';
 import { pluginsRoutes, } from './plugins';
 import { sitemapRoutes, } from './sitemap';
 import { socialRoutes, } from './social';
@@ -95,7 +97,10 @@ router.use('/mail', registerModule('mail', mailSendRoutes, { mountPath: '/api/v1
 router.use('/mail-schedules', registerModule('mail-schedules', mailSchedulesRoutes, { mountPath: '/api/v1/mail-schedules', feature: 'mailing_lists', },),);
 router.use('/lists', registerModule('lists', listsPublicRoutes, { mountPath: '/api/v1/lists', },),);
 router.use('/shop/providers', registerModule('shop-providers', shopProviderRoutes, { mountPath: '/api/v1/shop/providers', feature: 'shop', },),);
+router.use('/shop/discounts', registerModule('shop-discounts', shopDiscountRoutes, { mountPath: '/api/v1/shop/discounts', feature: 'shop', },),);
 router.use('/shop', registerModule('shop', shopRoutes, { mountPath: '/api/v1/shop', feature: 'shop', },),);
+// Affiliate program (requires shop) — every route 404s while the feature is off.
+router.use('/affiliates', registerModule('affiliates', affiliateRoutes, { mountPath: '/api/v1/affiliates', feature: 'affiliates', },),);
 router.use('/plugins', registerModule('plugins', pluginsRoutes, { mountPath: '/api/v1/plugins', feature: 'plugins', },),);
 router.use('/contacts', registerModule('contacts', contactsRoutes, { mountPath: '/api/v1/contacts', feature: 'contacts', },),);
 // `feature: 'events'` makes every route here 404 while the module is disabled.

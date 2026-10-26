@@ -257,6 +257,27 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
 
             await cache.invalidateCampaignCache();
             logger.info('Donation refunded via webhook', { chargeId: charge.id, },);
+
+            // A FULLY refunded shop order (refunded in Stripe directly): its
+            // discount use stops counting and an affiliate commission reverses.
+            if (charge.refunded) {
+                const order = await query<{ id: string; }>(`SELECT id FROM shop_orders WHERE stripe_charge_id = $1`, [charge.id,],)
+                    .catch(() => ({ rows: [] as { id: string; }[], }),);
+                if (order.rows[0]) {
+                    const { markOrderRefunded, } = await import('../shop/discounts.js');
+                    await markOrderRefunded(order.rows[0].id,);
+                }
+            }
+            break;
+        }
+
+        // Stripe Connect: an affiliate's Express account changed (onboarding finished, payouts enabled…).
+        case 'account.updated': {
+            const account = event.data.object as Stripe.Account;
+            if (account.metadata?.purpose === 'affiliate') {
+                const { syncAccount, } = await import('../affiliates/stripeConnect.js');
+                await syncAccount(account,);
+            }
             break;
         }
 

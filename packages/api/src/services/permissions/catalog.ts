@@ -387,6 +387,29 @@ export const FEATURE_PERMISSIONS: Record<string, PermissionRegistration[]> = {
             // Money leaves the account — admin-only until an operator widens it.
             defaultRoles: ADMIN,
         },
+        // ── Discount codes (Shop → Discount codes) ──
+        {
+            key: 'shop.discounts:manage', feature: 'shop', label: 'Manage discount codes',
+            description: 'Create, edit, disable and delete site-wide and affiliate discount codes.',
+            action: 'admin', defaultRoles: ADMIN,
+        },
+        {
+            key: 'shop.discounts:use', feature: 'shop', label: 'Use discount codes at checkout',
+            description: 'Each code can narrow this further to membership levels or roles.',
+            action: 'write', defaultAccess: 'everyone',
+        },
+    ],
+    affiliates: [
+        {
+            key: 'affiliates:manage', feature: 'affiliates', label: 'Manage the affiliate program',
+            description: 'See affiliates, their sales and earnings; assign codes; pay out commissions.',
+            action: 'admin', defaultRoles: ADMIN,
+        },
+        {
+            key: 'affiliates:self', feature: 'affiliates', label: 'Use the affiliate page',
+            description: 'Profile → Affiliate program, for members holding the affiliate role (Shop → Settings).',
+            action: 'read', defaultRoles: MEMBERS,
+        },
     ],
     events: [
         { key: 'events:read', feature: 'events', label: 'View events', action: 'read', defaultRoles: STAFF, },

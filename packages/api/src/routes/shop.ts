@@ -212,6 +212,7 @@ const checkoutPreviewSchema = z.object({
     items: z.array(checkoutLineSchema,),
     shippingAddress: addressSchema.nullish(),
     shippingMethod: z.union([z.string(), z.record(z.string(), z.string(),),],).optional(),
+    discountCode: z.string().trim().max(64,).nullish(),
 },) satisfies z.ZodType<ShopCheckoutPreviewBody>;
 
 const checkoutSchema = z.object({
@@ -221,6 +222,7 @@ const checkoutSchema = z.object({
     shippingAddress: addressSchema.nullish(),
     billingAddress: addressSchema.nullish(),
     shippingMethod: z.union([z.string(), z.record(z.string(), z.string(),),],).optional(),
+    discountCode: z.string().trim().max(64,).nullish(),
 },) satisfies z.ZodType<ShopCheckoutBody>;
 
 const orderListQuery = z.object({

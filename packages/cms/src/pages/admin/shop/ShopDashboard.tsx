@@ -11,6 +11,7 @@ import ShopifyManagedBanner from './ShopifyManagedBanner';
 import { formatCents, formatDate, } from './shopUtils';
 import { isShopifyActive, shopifyAdminUrl, shopifySource, } from '../../../services/shopifySource';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
+import { isFeatureEnabled, } from '../../../stores/siteSettings';
 
 const ShopDashboardInner: Component = () => {
     // Recent orders (rows for the table) + the true total for the nav count.
@@ -26,6 +27,8 @@ const ShopDashboardInner: Component = () => {
     // Real period figures in one server round-trip (paid revenue for 7 / 30
     // days, to ship, needs attention, low stock, product counts) — the old
     // headline summed whichever of the last 10 orders happened to be paid.
+    // Affiliate program card (only while the feature is on).
+    const [affiliateStats,] = createResource(() => isFeatureEnabled('affiliates',) || null, () => cms.affiliates.adminStats().catch(() => null,),);
     const [stats, { refetch: refetchStats, },] = createSafeResource<ShopStats | null>(
         async () => cms.shop.orders.stats(),
         null,
@@ -81,6 +84,8 @@ const ShopDashboardInner: Component = () => {
         { href: '/admin/shop/categories', label: 'Categories', count: categoriesCount() ?? 0, },
         { href: '/admin/shop/collections', label: 'Collections', count: collectionsCount() ?? 0, },
         { href: '/admin/shop/reviews', label: 'Reviews', count: reviewsCount() ?? 0, },
+        { href: '/admin/shop/discounts', label: 'Discount codes', count: null, },
+        ...(isFeatureEnabled('affiliates',) ? [{ href: '/admin/shop/affiliates', label: 'Affiliates', count: null, },] : []),
         // Settings is deliberately NOT here — it's a header action, like
         // /admin/users. The left nav lists things you have a countable number
         // of; configuration isn't one of them.
@@ -201,6 +206,18 @@ const ShopDashboardInner: Component = () => {
                                     <A href="/admin/shop/orders?attention=1" class="table-link">
                                         {st().needsAttention} need{st().needsAttention === 1 ? 's' : ''} attention
                                     </A>
+                                </div>
+                            )}
+                        </Show>
+                        <Show when={affiliateStats()}>
+                            {(a,) => (
+                                <div class="shop-admin__card stat-card">
+                                    <span class="stat-card__label">Affiliates · last 30 days</span>
+                                    <span class="stat-card__value">{formatCents(a().salesCents30d, a().currency,)}</span>
+                                    <span class="form-help-muted">
+                                        {formatCents(a().commissionCents30d, a().currency,)} commission · {formatCents(a().availableCents, a().currency,)} payable now
+                                    </span>
+                                    <A href="/admin/shop/affiliates" class="table-link">Manage {a().members} affiliate{a().members === 1 ? '' : 's'}</A>
                                 </div>
                             )}
                         </Show>

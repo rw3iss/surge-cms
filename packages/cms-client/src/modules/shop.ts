@@ -1,4 +1,9 @@
 import type {
+    ShopDiscountCheckResponse,
+    ShopDiscountCode,
+    ShopDiscountCodeBody,
+    ShopDiscountListQuery,
+    ShopDiscountRedemption,
     ShopOrderFulfilment,
     ShopStats,
     Paginated,
@@ -307,6 +312,33 @@ export class ShopModule extends ModuleBase {
         receiptUrl: (orderNumber: string, accessKey?: string | null,): string =>
             `${this.core.config.apiBase}/shop/orders/${encodeURIComponent(orderNumber,)}/receipt`
                 + (accessKey ? `?k=${encodeURIComponent(accessKey,)}` : ''),
+    };
+
+    /**
+     * Discount codes (`/shop/discounts`) — site-wide and affiliate codes, one
+     * engine. Management needs `shop.discounts:manage`; `check` is public.
+     */
+    readonly discounts = {
+        /** GET /shop/discounts — codes with their paid-use counts (`type`: site | affiliate). */
+        list: (query: ShopDiscountListQuery = {},): Promise<ShopDiscountCode[]> =>
+            this.get('/shop/discounts', { query: query as Record<string, unknown>, options: { cache: false, }, },),
+        /** GET /shop/discounts/:id */
+        get: (id: string,): Promise<ShopDiscountCode> => this.get('/shop/discounts/:id', { params: { id, }, options: { cache: false, }, },),
+        /** GET /shop/discounts/:id/redemptions — paid orders that used it. */
+        redemptions: (id: string,): Promise<ShopDiscountRedemption[]> =>
+            this.get('/shop/discounts/:id/redemptions', { params: { id, }, options: { cache: false, }, },),
+        /** POST /shop/discounts */
+        create: (body: ShopDiscountCodeBody,): Promise<ShopDiscountCode> =>
+            this.mutate('POST', '/shop/discounts', { body, invalidates: ['shop',], },),
+        /** PUT /shop/discounts/:id (partial) */
+        update: (id: string, body: ShopDiscountCodeBody,): Promise<ShopDiscountCode> =>
+            this.mutate('PUT', '/shop/discounts/:id', { params: { id, }, body, invalidates: ['shop',], },),
+        /** DELETE /shop/discounts/:id (soft) */
+        remove: (id: string,): Promise<{ ok: true; }> =>
+            this.mutate('DELETE', '/shop/discounts/:id', { params: { id, }, invalidates: ['shop',], },),
+        /** POST /shop/discounts/check — is this code usable by me? (totals come from the checkout preview) */
+        check: (code: string,): Promise<ShopDiscountCheckResponse> =>
+            this.mutate('POST', '/shop/discounts/check', { body: { code, }, },),
     };
 
     /**

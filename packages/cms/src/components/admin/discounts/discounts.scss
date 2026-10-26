@@ -1,0 +1,99 @@
+@use '../../../styles/variables' as *;
+@use '../../membership/status' as *;
+
+// Discount code modal + table (Shop → Discount codes, Shop → Affiliates).
+.discount-modal {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+  padding: $spacing-lg;
+  max-height: 85vh;
+  overflow-y: auto;
+
+  &__title { margin: 0; font-size: 1.15rem; }
+
+  &__options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-sm $spacing-lg;
+  }
+
+  &__error {
+    margin: 0;
+    color: var(--admin-danger, #b91c1c);
+    font-size: 0.9rem;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: $spacing-sm;
+  }
+}
+
+.discount-table {
+  &__code {
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+  &__row--off td { opacity: 0.6; }
+  &__actions { white-space: nowrap; text-align: right; }
+}
+
+.discount-search {
+  width: 100%;
+  max-width: 320px;
+  margin-bottom: $spacing-md;
+  padding: $spacing-sm $spacing-md;
+  border: 1px solid var(--admin-border, #{$border-color});
+  border-radius: 6px;
+  font: inherit;
+}
+
+// Stat cards row (affiliates).
+.affiliate-admin {
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: $spacing-md;
+    margin-bottom: $spacing-lg;
+  }
+  &__stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: $spacing-md;
+    border: 1px solid var(--admin-border, #{$border-color});
+    border-radius: 8px;
+
+    span { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--admin-text-muted, #{$text-light}); }
+    strong { font-size: 1.25rem; }
+  }
+  &__member {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    padding: $spacing-lg;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+  &__member-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: $spacing-md;
+
+    h2 { margin: 0; font-size: 1.15rem; }
+  }
+  &__badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    background: var(--admin-bg-subtle, #f3f4f6);
+
+    &--ok { @include status-fill(success); }
+    &--warn { @include status-fill(warning); }
+  }
+}

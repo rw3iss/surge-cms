@@ -2,6 +2,7 @@ import { createResource, ParentComponent, Show, } from 'solid-js';
 import { lazy, } from 'solid-js';
 import FeatureReadyGuard from '../../components/common/FeatureReadyGuard';
 import { loadShopSettings, storeEnabled, } from '../../stores/shopSettings';
+import { captureDiscountCodeFromUrl, } from '../../services/discountCode';
 
 const NotFoundPage = lazy(() => import('../NotFound'));
 
@@ -34,6 +35,9 @@ const NotFoundPage = lazy(() => import('../NotFound'));
 const ShopStoreGuard: ParentComponent<{
     requireStoreEnabled?: boolean | (() => boolean);
 }> = (props,) => {
+    // An affiliate share link (`/shop?code=XYZ`): remember the code for checkout.
+    captureDiscountCodeFromUrl();
+
     // Resolve settings before deciding, or a closed store flashes its contents
     // for a frame before the 404 replaces it.
     const [ready,] = createResource(async () => {

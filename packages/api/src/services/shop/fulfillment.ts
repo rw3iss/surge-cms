@@ -108,6 +108,11 @@ export async function fulfillShopOrder(paymentIntent: Stripe.PaymentIntent,): Pr
 
     logger.info('Shop order fulfilled via webhook', { orderId, paymentIntentId: paymentIntent.id, },);
 
+    // A discount code: record the paid use (and an affiliate's commission).
+    // Never throws — the payment already happened.
+    const { recordRedemption, } = await import('./discounts.js');
+    await recordRedemption(orderId,);
+
     // Event tickets bought through the cart: register the attendee and issue
     // the codes now that the money is in. Post-commit and best-effort, like
     // the supplier step — the charge stands either way, and a failure here is

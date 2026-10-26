@@ -691,6 +691,53 @@
             padding-top: $spacing-sm;
             font-size: $font-size-lg;
         }
+
+        &--discount { color: var(--site-primary, #{$primary-color}); }
+    }
+
+    // Discount code: input + Apply, or the applied code with Remove.
+    &__discount {
+        margin: $spacing-md 0;
+    }
+    &__discount-form {
+        display: flex;
+        gap: $spacing-sm;
+    }
+    &__discount-input {
+        flex: 1 1 auto;
+        min-width: 0;
+        padding: $spacing-sm $spacing-md;
+        border: 1px solid var(--site-border, #{$border-color});
+        border-radius: var(--site-radius, 6px);
+        font: inherit;
+        text-transform: uppercase;
+
+        &::placeholder { text-transform: none; }
+    }
+    &__discount-apply { flex: 0 0 auto; }
+    &__discount-applied {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: $spacing-sm;
+        padding: $spacing-sm $spacing-md;
+        border: 1px dashed var(--site-primary, #{$primary-color});
+        border-radius: var(--site-radius, 6px);
+        font-size: $font-size-sm;
+    }
+    &__discount-remove {
+        border: 0;
+        background: none;
+        padding: 0;
+        font: inherit;
+        color: var(--site-text-muted, #6b7280);
+        text-decoration: underline;
+        cursor: pointer;
+    }
+    &__discount-error {
+        margin: $spacing-xs 0 0;
+        font-size: $font-size-sm;
+        color: var(--site-danger, #b91c1c);
     }
 
     &__updating {

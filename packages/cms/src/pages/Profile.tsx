@@ -1,5 +1,7 @@
 import { A, useNavigate, useSearchParams, } from '@solidjs/router';
-import { Component, createEffect, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
+import { Component, createEffect, createMemo, createResource, createSignal, For, lazy, Show, } from 'solid-js';
+
+const AffiliatePanel = lazy(() => import('../components/profile/AffiliatePanel'));
 import {
     COUNTRIES, formatCurrency, isKnownCountry, isKnownTimeZone, isKnownUsState,
     normalizeCountry, normalizeUsState, TIMEZONES, US_STATES, splitFullName, } from '@sitesurge/types';
@@ -20,7 +22,7 @@ import './Profile.scss';
 
 const BIO_MAX = 250;
 
-type Tab = 'profile' | 'membership' | 'orders' | 'donations' | 'messages';
+type Tab = 'profile' | 'membership' | 'orders' | 'donations' | 'messages' | 'affiliate';
 
 /**
  * Self-service user profile (`/profile`). Tabbed: Profile (edit details),
@@ -85,6 +87,12 @@ const Profile: Component = () => {
     // donor manages a recurring donation, which they reach from the link in
     // the donation form's thank-you message.
     const showDonations = () => isFeatureEnabled('campaigns',);
+    // Affiliate program tab: the feature is on AND the member holds the affiliate role.
+    const [affiliateStatus,] = createResource(
+        () => (isFeatureEnabled('affiliates',) && auth.user?.id) || null,
+        () => cms.affiliates.status().then((r,) => r.affiliate,).catch(() => false,),
+    );
+    const showAffiliate = () => affiliateStatus() === true;
 
     const TABS = (): { key: Tab; label: string; }[] => [
         { key: 'profile', label: 'Profile', },
@@ -92,6 +100,7 @@ const Profile: Component = () => {
         ...(showOrders() ? [{ key: 'orders' as Tab, label: 'Orders', },] : []),
         ...(showDonations() ? [{ key: 'donations' as Tab, label: 'Donations', },] : []),
         ...(showMessages() ? [{ key: 'messages' as Tab, label: 'Messages', },] : []),
+        ...(showAffiliate() ? [{ key: 'affiliate' as Tab, label: 'Affiliate program', },] : []),
     ];
 
     const validTab = (t: string | undefined,): Tab => {
@@ -99,6 +108,8 @@ const Profile: Component = () => {
         if (t === 'orders' && showOrders()) return 'orders';
         if (t === 'donations' && showDonations()) return 'donations';
         if (t === 'messages' && showMessages()) return 'messages';
+        // While the affiliate check loads, keep the requested tab (the login route lands here).
+        if (t === 'affiliate' && (showAffiliate() || affiliateStatus.loading)) return 'affiliate';
         // A member walled by subscription-required mode lands on Membership.
         if (!t && auth.access?.restricted && auth.access.reason === 'subscription') return 'membership';
         return 'profile';
@@ -882,6 +893,9 @@ const Profile: Component = () => {
                     </Show>
 
                     {/* ── Messages tab ── */}
+                    <Show when={tab() === 'affiliate' && showAffiliate()}>
+                        <AffiliatePanel />
+                    </Show>
                     <Show when={tab() === 'messages'}>
                         <div class="profile__card">
                             <Show

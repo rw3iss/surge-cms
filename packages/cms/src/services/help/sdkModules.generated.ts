@@ -49,6 +49,183 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         ]
     },
     {
+        "namespace": "affiliates",
+        "className": "AffiliatesModule",
+        "summary": "affiliates namespace (feature `affiliates`, requires `shop`). `me*` is the signed-in affiliate's own page; `admin*` + settings need `affiliates:manage`. Affiliate codes are discount codes — edit/delete them with `cms.shop.discounts`.",
+        "methods": [
+            {
+                "name": "adminCreateCode",
+                "signature": "adminCreateCode(userId: string, body: ShopDiscountCodeBody): Promise<ShopDiscountCode>",
+                "summary": "POST /affiliates/admin/members/:userId/codes — give an affiliate a code.",
+                "params": [
+                    {
+                        "name": "userId",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "body",
+                        "type": "ShopDiscountCodeBody",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<ShopDiscountCode>",
+                "routes": [
+                    "POST /api/v1/affiliates/admin/members/:userId/codes"
+                ]
+            },
+            {
+                "name": "adminMember",
+                "signature": "adminMember(userId: string): Promise<AffiliateMemberDetail>",
+                "summary": "GET /affiliates/admin/members/:userId",
+                "params": [
+                    {
+                        "name": "userId",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<AffiliateMemberDetail>",
+                "routes": [
+                    "GET /api/v1/affiliates/admin/members/:userId"
+                ]
+            },
+            {
+                "name": "adminMembers",
+                "signature": "adminMembers(): Promise<AffiliateMember[]>",
+                "summary": "GET /affiliates/admin/members",
+                "params": [],
+                "returns": "Promise<AffiliateMember[]>",
+                "routes": [
+                    "GET /api/v1/affiliates/admin/members"
+                ]
+            },
+            {
+                "name": "adminPayout",
+                "signature": "adminPayout(userId: string): Promise<AffiliatePayoutResult>",
+                "summary": "POST /affiliates/admin/members/:userId/payout — pay out their payable commission now.",
+                "params": [
+                    {
+                        "name": "userId",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<AffiliatePayoutResult>",
+                "routes": [
+                    "POST /api/v1/affiliates/admin/members/:userId/payout"
+                ]
+            },
+            {
+                "name": "adminStats",
+                "signature": "adminStats(): Promise<AffiliateStats>",
+                "summary": "GET /affiliates/admin/stats",
+                "params": [],
+                "returns": "Promise<AffiliateStats>",
+                "routes": [
+                    "GET /api/v1/affiliates/admin/stats"
+                ]
+            },
+            {
+                "name": "me",
+                "signature": "me(): Promise<AffiliateMeResponse>",
+                "summary": "GET /affiliates/me — Stripe status, balance, codes, commissions, payouts.",
+                "params": [],
+                "returns": "Promise<AffiliateMeResponse>",
+                "routes": [
+                    "GET /api/v1/affiliates/me"
+                ]
+            },
+            {
+                "name": "setCodeSplit",
+                "signature": "setCodeSplit(id: string, buyerDiscountPercent: number): Promise<AffiliateCode>",
+                "summary": "PUT /affiliates/me/codes/:id — how much of the commission buyers get as a discount.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "buyerDiscountPercent",
+                        "type": "number",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<AffiliateCode>",
+                "routes": [
+                    "PUT /api/v1/affiliates/me/codes/:id"
+                ]
+            },
+            {
+                "name": "settings",
+                "signature": "settings(): Promise<AffiliateSettings>",
+                "summary": "GET /affiliates/settings",
+                "params": [],
+                "returns": "Promise<AffiliateSettings>",
+                "routes": [
+                    "GET /api/v1/affiliates/settings"
+                ]
+            },
+            {
+                "name": "status",
+                "signature": "status(): Promise<{ affiliate: boolean; }>",
+                "summary": "GET /affiliates/me/status — is the caller an affiliate?",
+                "params": [],
+                "returns": "Promise<{ affiliate: boolean; }>",
+                "routes": [
+                    "GET /api/v1/affiliates/me/status"
+                ]
+            },
+            {
+                "name": "stripeDashboard",
+                "signature": "stripeDashboard(): Promise<AffiliateLinkResponse>",
+                "summary": "POST /affiliates/me/stripe/dashboard — a one-time Express dashboard link.",
+                "params": [],
+                "returns": "Promise<AffiliateLinkResponse>",
+                "routes": [
+                    "POST /api/v1/affiliates/me/stripe/dashboard"
+                ]
+            },
+            {
+                "name": "stripeOnboard",
+                "signature": "stripeOnboard(): Promise<AffiliateLinkResponse>",
+                "summary": "POST /affiliates/me/stripe/onboard — the Stripe Express onboarding link.",
+                "params": [],
+                "returns": "Promise<AffiliateLinkResponse>",
+                "routes": [
+                    "POST /api/v1/affiliates/me/stripe/onboard"
+                ]
+            },
+            {
+                "name": "stripeRefresh",
+                "signature": "stripeRefresh(): Promise<AffiliateStripeStatus>",
+                "summary": "POST /affiliates/me/stripe/refresh — re-read the Stripe account status.",
+                "params": [],
+                "returns": "Promise<AffiliateStripeStatus>",
+                "routes": [
+                    "POST /api/v1/affiliates/me/stripe/refresh"
+                ]
+            },
+            {
+                "name": "updateSettings",
+                "signature": "updateSettings(body: AffiliateSettingsBody): Promise<AffiliateSettings>",
+                "summary": "PUT /affiliates/settings",
+                "params": [
+                    {
+                        "name": "body",
+                        "type": "AffiliateSettingsBody",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<AffiliateSettings>",
+                "routes": [
+                    "PUT /api/v1/affiliates/settings"
+                ]
+            }
+        ]
+    },
+    {
         "namespace": "apiKeys",
         "className": "ApiKeysModule",
         "summary": "/api-keys namespace (all admin) — list/create/revoke.",
@@ -8521,6 +8698,124 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 ]
             },
             {
+                "name": "discounts.check",
+                "signature": "discounts.check(code: string): Promise<ShopDiscountCheckResponse>",
+                "summary": "POST /shop/discounts/check — is this code usable by me? (totals come from the checkout preview)",
+                "params": [
+                    {
+                        "name": "code",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<ShopDiscountCheckResponse>",
+                "routes": [
+                    "POST /api/v1/shop/discounts/check"
+                ]
+            },
+            {
+                "name": "discounts.create",
+                "signature": "discounts.create(body: ShopDiscountCodeBody): Promise<ShopDiscountCode>",
+                "summary": "POST /shop/discounts",
+                "params": [
+                    {
+                        "name": "body",
+                        "type": "ShopDiscountCodeBody",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<ShopDiscountCode>",
+                "routes": [
+                    "POST /api/v1/shop/discounts"
+                ]
+            },
+            {
+                "name": "discounts.get",
+                "signature": "discounts.get(id: string): Promise<ShopDiscountCode>",
+                "summary": "GET /shop/discounts/:id",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<ShopDiscountCode>",
+                "routes": [
+                    "GET /api/v1/shop/discounts/:id"
+                ]
+            },
+            {
+                "name": "discounts.list",
+                "signature": "discounts.list(query: ShopDiscountListQuery = {}): Promise<ShopDiscountCode[]>",
+                "summary": "GET /shop/discounts — codes with their paid-use counts (`type`: site | affiliate).",
+                "params": [
+                    {
+                        "name": "query",
+                        "type": "ShopDiscountListQuery",
+                        "optional": true,
+                        "default": "{}"
+                    }
+                ],
+                "returns": "Promise<ShopDiscountCode[]>",
+                "routes": [
+                    "GET /api/v1/shop/discounts"
+                ]
+            },
+            {
+                "name": "discounts.redemptions",
+                "signature": "discounts.redemptions(id: string): Promise<ShopDiscountRedemption[]>",
+                "summary": "GET /shop/discounts/:id/redemptions — paid orders that used it.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<ShopDiscountRedemption[]>",
+                "routes": [
+                    "GET /api/v1/shop/discounts/:id/redemptions"
+                ]
+            },
+            {
+                "name": "discounts.remove",
+                "signature": "discounts.remove(id: string): Promise<{ ok: true; }>",
+                "summary": "DELETE /shop/discounts/:id (soft)",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<{ ok: true; }>",
+                "routes": [
+                    "DELETE /api/v1/shop/discounts/:id"
+                ]
+            },
+            {
+                "name": "discounts.update",
+                "signature": "discounts.update(id: string, body: ShopDiscountCodeBody): Promise<ShopDiscountCode>",
+                "summary": "PUT /shop/discounts/:id (partial)",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "body",
+                        "type": "ShopDiscountCodeBody",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<ShopDiscountCode>",
+                "routes": [
+                    "PUT /api/v1/shop/discounts/:id"
+                ]
+            },
+            {
                 "name": "merchandise.announce",
                 "signature": "merchandise.announce(body: { productIds: string[]; subject?: string; intro?: string; }): Promise<{ jobId: string; recipients: number; products: number; usedCustomTemplate: boolean; }>",
                 "summary": "POST /shop/merchandise/announce — queue the send, mark them announced.",
@@ -10289,5 +10584,5 @@ export const SDK_MODULES: SdkModuleDoc[] = [
     }
 ];
 
-export const SDK_MODULE_COUNT = 51;
-export const SDK_METHOD_COUNT = 600;
+export const SDK_MODULE_COUNT = 52;
+export const SDK_METHOD_COUNT = 620;

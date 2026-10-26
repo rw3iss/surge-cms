@@ -31,6 +31,7 @@ import { initPrintifyCron, } from './services/printify/cron';
 import { initFulfilmentSyncCron, } from './services/shop/fulfilmentSync';
 import { initScheduledPublisher, } from './services/scheduledPublisher';
 import { initMerchandiseAnnounce, } from './services/shop/merchandiseAnnounceCron';
+import { initAffiliatePayouts, } from './services/affiliates/cron';
 import { initBackupCron, } from './services/backup/cron';
 import { initMailScheduleCron, } from './services/mail/scheduleCron';
 import { initEventReminderCron, } from './services/events/reminderCron';
@@ -154,6 +155,7 @@ async function bootRunningMode(
         // No-op unless the shop feature is on and auto-send is enabled; the handler
         // checks both, so registration is unconditional and cheap.
         initMerchandiseAnnounce();
+        initAffiliatePayouts();
         initBackupCron();
         // Sweeps due mailing-list schedules. No-ops when the feature is off.
         initMailScheduleCron();

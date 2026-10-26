@@ -9,6 +9,7 @@ import { isShopifyActive, shopifySource, } from '../../services/shopifySource';
 import { useAuth, } from '../../stores/auth';
 import { cartItems, cartSubtotal, clearCart, removeFromCart, } from '../../stores/shopCart';
 import { money, shipBreakdown, } from './shopFormat';
+import { forgetDiscountCode, rememberDiscountCode, storedDiscountCode, } from '../../services/discountCode';
 import ShopStoreGuard from './ShopStoreGuard';
 import AccessRequiredNotice from '../../components/common/AccessRequiredNotice';
 import { accessErrorOf, type AccessRequired, } from '../../utils/accessRequired';
@@ -47,6 +48,10 @@ const ShopCheckoutInner: Component = () => {
         { useAdditionalItemRate?: boolean; additionalItemCents?: number; } | undefined
     >(undefined,);
     const [shippingMethod, setShippingMethod,] = createSignal<string | undefined>(undefined,);
+    // Discount code: pre-filled from an affiliate link (`?code=`, remembered 30 days).
+    // `codeInput` is what is typed; `appliedCode` is what the preview is asked to apply.
+    const [codeInput, setCodeInput,] = createSignal(storedDiscountCode(),);
+    const [appliedCode, setAppliedCode,] = createSignal(storedDiscountCode(),);
     const [previewing, setPreviewing,] = createSignal(false,);
     const [cardReady, setCardReady,] = createSignal(false,);
     const [cardComplete, setCardComplete,] = createSignal(false,);
@@ -135,8 +140,11 @@ const ShopCheckoutInner: Component = () => {
                 items: lines(),
                 shippingAddress: shippingAddress(),
                 shippingMethod: Object.keys(groupMethod(),).length ? groupMethod() : shippingMethod(),
+                discountCode: appliedCode() || undefined,
             },);
             setTotals(t,);
+            // Keep a code that works (it survives a reload); forget one that does not apply.
+            if (t.discountCode) rememberDiscountCode(t.discountCode,);
             setAccessError(null,);
             // Prune cart lines the server reports as unavailable (e.g. a variant
             // whose id changed on a resync) so they don't wedge checkout.
@@ -165,6 +173,15 @@ const ShopCheckoutInner: Component = () => {
         } finally {
             setPreviewing(false,);
         }
+    };
+
+    /** Apply (or clear) the typed discount code and re-price. */
+    const applyCode = (code: string,) => {
+        const c = code.trim();
+        setCodeInput(c,);
+        setAppliedCode(c,);
+        if (!c) forgetDiscountCode();
+        void runPreview();
     };
 
     /** Pick a shipping method + re-price immediately. */
@@ -300,6 +317,8 @@ const ShopCheckoutInner: Component = () => {
                 shippingAddress: shippingAddress(),
                 billingAddress: shippingAddress(),
                 shippingMethod: Object.keys(groupMethod(),).length ? groupMethod() : shippingMethod(),
+                // Only a code the preview accepted (an unusable one would refuse the order).
+                discountCode: totals()?.discountCode || undefined,
             },);
 
             if (!clientSecret) {
@@ -571,11 +590,57 @@ const ShopCheckoutInner: Component = () => {
                         <Show when={notice()}>
                             <p class="shop-checkout__notice">{notice()}</p>
                         </Show>
+                        <div class="shop-checkout__discount">
+                            <Show
+                                when={totals()?.discountCode}
+                                fallback={
+                                    <div class="shop-checkout__discount-form">
+                                        <input
+                                            type="text"
+                                            class="shop-checkout__discount-input"
+                                            placeholder="Discount code"
+                                            aria-label="Discount code"
+                                            value={codeInput()}
+                                            disabled={step() === 'confirm'}
+                                            onInput={(e,) => setCodeInput(e.currentTarget.value,)}
+                                            onKeyDown={(e,) => { if (e.key === 'Enter') { e.preventDefault(); applyCode(codeInput(),); } }}
+                                        />
+                                        <button
+                                            type="button"
+                                            class="btn btn--outline shop-checkout__discount-apply"
+                                            disabled={!codeInput().trim() || previewing() || step() === 'confirm'}
+                                            onClick={() => applyCode(codeInput(),)}
+                                        >
+                                            Apply
+                                        </button>
+                                    </div>
+                                }
+                            >
+                                <div class="shop-checkout__discount-applied">
+                                    <span>
+                                        <strong>{totals()!.discountCode}</strong>
+                                        <Show when={totals()!.discountSummary}> — {totals()!.discountSummary}</Show>
+                                    </span>
+                                    <Show when={step() !== 'confirm'}>
+                                        <button type="button" class="shop-checkout__discount-remove" onClick={() => applyCode('',)}>Remove</button>
+                                    </Show>
+                                </div>
+                            </Show>
+                            <Show when={appliedCode() && totals()?.discountError}>
+                                <p class="shop-checkout__discount-error" role="alert">{totals()!.discountError}</p>
+                            </Show>
+                        </div>
                         <div class="shop-checkout__totals">
                             <div class="shop-checkout__total-row">
                                 <span>Subtotal</span>
                                 <span>{money(totals()?.subtotalCents ?? cartSubtotal(), totals()?.currency,)}</span>
                             </div>
+                            <Show when={(totals()?.discountCents ?? 0) > 0}>
+                                <div class="shop-checkout__total-row shop-checkout__total-row--discount">
+                                    <span>Discount ({totals()!.discountCode})</span>
+                                    <span>-{money(totals()!.discountCents!, totals()!.currency,)}</span>
+                                </div>
+                            </Show>
                             <Show when={totals()}>
                                 {(t,) => (
                                     <>

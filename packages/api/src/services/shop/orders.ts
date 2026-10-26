@@ -224,6 +224,9 @@ export async function update(id: string, patch: OrderUpdatePatch, ctx: AuditCont
 
     if (patch.status === 'refunded' && existing.status !== 'refunded') {
         await refundOrder(existing,);
+        // The code use stops counting; an affiliate commission is reversed.
+        const { markOrderRefunded, } = await import('./discounts.js');
+        await markOrderRefunded(id,);
     }
 
     await repo.updateOrder(id, {

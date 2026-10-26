@@ -68,6 +68,8 @@ export * from './routes/membershipApplications';
 export * from './routes/membership';
 export * from './routes/mailSend';
 export * from './routes/shop';
+export * from './routes/shopDiscounts';
+export * from './routes/affiliates';
 export * from './routes/utils';
 export * from './routes/plugins';
 export * from './routes/contacts';

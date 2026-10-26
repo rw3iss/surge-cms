@@ -412,6 +412,9 @@ export interface ShopCheckoutPreviewBody {
      *  'express'). Omit to let the server default (cheapest / standard).
      *  A record chooses per fulfilment group; a bare string applies to all. */
     shippingMethod?: string | Record<string, string>;
+    /** A discount code (case-insensitive). Preview: an unusable code is
+     *  reported in `discountError`, never thrown. */
+    discountCode?: string | null;
 }
 
 /** One selectable shipping option: an id, a display label, and its total cost
@@ -446,6 +449,14 @@ export interface ShopCheckoutTotals {
     /** Per-fulfiller breakdown. Always returned; the storefront renders it as
      *  sections or collapses it depending on the shop's `cartDisplay`. */
     groups?: ShopCheckoutGroup[];
+    /** The applied discount (cents, already taken off `totalCents`). */
+    discountCents?: number;
+    /** The applied code, as stored (canonical case). */
+    discountCode?: string;
+    /** Human summary of the applied code ("10% off merchandise"). */
+    discountSummary?: string;
+    /** Why the entered code was not applied (preview only). */
+    discountError?: string;
 }
 
 export interface ShopCheckoutGroup {
@@ -477,6 +488,8 @@ export interface ShopCheckoutBody {
     /** The shipping method the buyer selected (from the preview options).
      *  A record chooses per fulfilment group; a bare string applies to all. */
     shippingMethod?: string | Record<string, string>;
+    /** A discount code; refused (400) when it cannot be used. */
+    discountCode?: string | null;
 }
 
 /** POST /shop/checkout — the PaymentIntent client secret + order refs. */
