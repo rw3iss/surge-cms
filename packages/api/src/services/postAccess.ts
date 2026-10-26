@@ -40,6 +40,40 @@ export async function postAccess(
     return scope;
 }
 
+/**
+ * Map a requested status through the writer's `posts:publish` MODE — for every
+ * person (any scope, staff too): allow → as asked; approval → `pending_review`
+ * (+ `submitted`); deny → draft. API keys are not shaped (admin-equivalent).
+ * Refuses changing a published post when publishing needs approval.
+ */
+export async function shapeStatus(
+    user: PostActor & { id: string; },
+    body: Record<string, unknown>,
+    current: { status: string; } | null,
+): Promise<{ body: Record<string, unknown>; submitted: boolean; }> {
+    const out: Record<string, unknown> = { ...body, };
+    const mode = await checkMode({ id: user.id, role: user.role, }, 'posts:publish',);
+    if (mode === 'allow') {
+        if (out.status === 'pending_review' && !current) out.status = 'draft';
+        return { body: out, submitted: false, };
+    }
+    if (current && (current.status === 'published' || current.status === 'scheduled')) {
+        throw new ForbiddenError('This post is published — ask an editor to change it.',);
+    }
+    let submitted = false;
+    const wanted = out.status as string | undefined;
+    if (wanted === 'published' || wanted === 'scheduled' || wanted === 'pending_review') {
+        if (mode === 'approval') {
+            out.status = 'pending_review';
+            out.publishAt = null;
+            submitted = current?.status !== 'pending_review';
+        } else {
+            out.status = 'draft';
+        }
+    }
+    return { body: out, submitted, };
+}
+
 /** Fields only staff (or `any`-scope users) may set. */
 const STAFF_ONLY_FIELDS = ['authorId', 'requiredTierId', 'gateHidden', 'gateShowSample', 'gateSamplePercent', 'publishedAt',] as const;
 
@@ -59,27 +93,9 @@ export async function shapeOwnPostWrite(
     if (!current) out.authorId = user.id;
     if (out.postType === 'live') throw new ForbiddenError('Live shows are created by staff.',);
 
-    const mode = await checkMode({ id: user.id, role: user.role, }, 'posts:publish',);
-    if (current && (current.status === 'published' || current.status === 'scheduled') && mode !== 'allow') {
-        throw new ForbiddenError('This post is published — ask an editor to change it.',);
-    }
-    let submitted = false;
-    const wanted = out.status as string | undefined;
-    if (wanted === 'published' || wanted === 'scheduled' || wanted === 'pending_review') {
-        if (mode === 'allow') {
-            if (wanted === 'pending_review') out.status = 'draft';
-        } else if (mode === 'approval') {
-            out.status = 'pending_review';
-            out.publishAt = null;
-            submitted = current?.status !== 'pending_review';
-        } else {
-            out.status = 'draft';
-        }
-    } else if (wanted === 'archived' || wanted === 'deleted') {
-        // Own drafts are deleted, not archived/trashed by a contributor.
-        out.status = 'draft';
-    }
-    return { body: out, submitted, };
+    // Own drafts are deleted, not archived/trashed by a contributor.
+    if (out.status === 'archived' || out.status === 'deleted') out.status = 'draft';
+    return shapeStatus(user, out, current,);
 }
 
 export async function postStatus(id: string,): Promise<{ status: string; authorId: string | null; title: string; } | null> {

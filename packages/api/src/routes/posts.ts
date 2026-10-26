@@ -2,7 +2,7 @@ import { BANNER_HEIGHT_MAX, BANNER_POSITION_CUSTOM_MAX, isValidBannerHeight, isV
 import * as liveReplays from '../services/liveReplays';
 import * as postSettings from '../services/postSettings';
 import { requirePermission, } from '../services/permissions';
-import { postAccess, postStatus, shapeOwnPostWrite, } from '../services/postAccess';
+import { postAccess, postStatus, shapeOwnPostWrite, shapeStatus, } from '../services/postAccess';
 import * as postReview from '../services/postReview';
 import type { PostsSettingsBody, } from '@sitesurge/types';
 import { ALL_BLOCK_TYPES, isPostType, } from '@sitesurge/types';
@@ -301,7 +301,10 @@ export const postsRoutes = [
             const scope = await postAccess(user, 'write', undefined, apiKey,);
             let data: Record<string, unknown> = body;
             let submitted = false;
+            // Own scope: contributor rules. Anyone else (not an API key): the
+            // posts:publish MODE still applies — "requires approval" holds for any scope.
             if (scope === 'own') ({ body: data, submitted, } = await shapeOwnPostWrite({ ...user!, id: user!.id!, }, body, null,));
+            else if (!apiKey && user?.id) ({ body: data, submitted, } = await shapeStatus({ ...user, id: user.id, }, body, null,));
             const post = await posts.create(data, audit(),);
             if (submitted) postReview.submitted(post.id, user!.id!,);
             return reply(post, { status: 201, },);
@@ -314,9 +317,11 @@ export const postsRoutes = [
         input: { params: idParams, body: postSchema.partial(), },
         handler: async ({ params, body, user, apiKey, audit, },) => {
             const scope = await postAccess(user, 'write', params.id, apiKey,);
-            if (scope !== 'own') return posts.update(params.id, body, audit(),);
+            if (apiKey || !user?.id) return posts.update(params.id, body, audit(),);
             const current = await postStatus(params.id,);
-            const shaped = await shapeOwnPostWrite({ ...user!, id: user!.id!, }, body, current,);
+            const shaped = scope === 'own'
+                ? await shapeOwnPostWrite({ ...user, id: user.id, }, body, current,)
+                : await shapeStatus({ ...user, id: user.id, }, body, current,);
             const post = await posts.update(params.id, shaped.body, audit(),);
             if (shaped.submitted) postReview.submitted(params.id, user!.id!,);
             return post;

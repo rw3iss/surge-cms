@@ -57,3 +57,18 @@ describe('shapeOwnPostWrite', () => {
         await expect(shapeOwnPostWrite(contributor, { postType: 'live', }, null,),).rejects.toThrow(/live/i,);
     },);
 },);
+
+describe('shapeStatus (any scope)', () => {
+    it('approval mode still holds for a writer with full scope', async () => {
+        perms.mode = 'approval';
+        const { shapeStatus, } = await import('./postAccess');
+        const r = await shapeStatus({ id: 'u2', role: 'member', }, { status: 'published', title: 'x', }, null,);
+        expect(r.body.status,).toBe('pending_review',);
+        expect(r.submitted,).toBe(true,);
+    },);
+    it('allow leaves the status alone', async () => {
+        perms.mode = 'allow';
+        const { shapeStatus, } = await import('./postAccess');
+        expect((await shapeStatus({ id: 'e', role: 'editor', }, { status: 'published', }, { status: 'draft', },)).body.status,).toBe('published',);
+    },);
+},);
