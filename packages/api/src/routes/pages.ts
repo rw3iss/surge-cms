@@ -1,4 +1,4 @@
-import { ALL_BLOCK_TYPES, } from '@sitesurge/types';
+import { ALL_BLOCK_TYPES, isSystemPageKey, } from '@sitesurge/types';
 import type {
     AssertCompatible,
     PageBlockBody,
@@ -27,6 +27,8 @@ const pageSchema = z.object({
     status: z.enum(['draft', 'published', 'scheduled', 'archived', 'deleted',],).optional(),
     publishAt: z.string().datetime().nullable().optional(),
     isHomepage: z.boolean().optional(),
+    /** "Use as page": a SYSTEM_PAGES key, or null for None. */
+    systemPage: z.string().refine(isSystemPageKey, 'Unknown system page',).nullable().optional(),
     showTitle: z.boolean().optional(),
     applyPagePadding: z.boolean().optional(),
     applySiteGutter: z.boolean().optional(),

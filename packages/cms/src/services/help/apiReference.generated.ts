@@ -9299,6 +9299,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "required": false
                         },
                         {
+                            "name": "systemPage",
+                            "type": "string | null",
+                            "required": false
+                        },
+                        {
                             "name": "showTitle",
                             "type": "boolean",
                             "required": false
@@ -9433,6 +9438,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                         {
                             "name": "isHomepage",
                             "type": "boolean",
+                            "required": false
+                        },
+                        {
+                            "name": "systemPage",
+                            "type": "string | null",
                             "required": false
                         },
                         {

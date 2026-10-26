@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T01:32:53.278Z",
+  "generatedAt": "2026-10-26T06:22:05.358Z",
   "totalModules": 55,
   "totalRoutes": 601,
   "modules": [
@@ -8122,6 +8122,11 @@
                 "required": false
               },
               {
+                "name": "systemPage",
+                "type": "string | null",
+                "required": false
+              },
+              {
                 "name": "showTitle",
                 "type": "boolean",
                 "required": false
@@ -8252,6 +8257,11 @@
               {
                 "name": "isHomepage",
                 "type": "boolean",
+                "required": false
+              },
+              {
+                "name": "systemPage",
+                "type": "string | null",
                 "required": false
               },
               {

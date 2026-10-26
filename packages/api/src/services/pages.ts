@@ -176,11 +176,35 @@ export async function getPublicBySlug(
  * `pageSchema`); this method assumes the input is already shape-
  * checked. Audit-logs the creation, invalidates the page cache.
  */
+/**
+ * Resolve the "Use as page" key a write asks for — `systemPage`, or the legacy
+ * `isHomepage` flag — into `data.systemPage` + the `is_homepage` mirror, and
+ * take that key away from any other page. `undefined` = the write leaves it alone.
+ * Returns the page that lost the key, so the save can say so.
+ */
+async function claimSystemPage(
+    data: Record<string, unknown>,
+    selfId: string | null,
+    current: string | null,
+): Promise<{ id: string; title: string; } | null> {
+    let key: string | null | undefined;
+    if ('systemPage' in data) key = (data.systemPage as string | null) || null;
+    else if ('isHomepage' in data) key = data.isHomepage ? 'home' : (current === 'home' ? null : current);
+    delete data.isHomepage;
+    if (key === undefined) return null;
+    data.systemPage = key;
+    data.isHomepage = key === 'home';
+    return key && key !== current ? repo.releaseSystemPage(key, selfId,) : null;
+}
+
 export async function create(data: Record<string, unknown>, ctx: AuditContext,): Promise<Page> {
+    const replaced = await claimSystemPage(data, null, null,);
     const page = await repo.createPage(data, ctx.userId,);
+    page.systemPageReplaced = replaced;
     await cache.invalidatePageCache();
-    // The public settings carry the "open without a subscription" page paths.
-    if (data.openAccess) await cache.invalidateSettingsCache();
+    // The public settings carry the "open without a subscription" page paths
+    // and the "Use as page" assignments.
+    if (data.openAccess || data.systemPage) await cache.invalidateSettingsCache();
     await logAudit({
         userId: ctx.userId,
         action: 'create',
@@ -198,10 +222,13 @@ export async function update(
     patch: Record<string, unknown>,
     ctx: AuditContext,
 ): Promise<Page> {
+    const before = ('systemPage' in patch || 'isHomepage' in patch) ? await getById(id,) : null;
+    const replaced = await claimSystemPage(patch, id, (before?.systemPage as string | null | undefined) ?? null,);
     const page = await repo.updatePage(id, patch,);
+    page.systemPageReplaced = replaced;
     await cache.invalidatePageCache(id,);
-    // Open-page paths ride on the public settings (subscription-required mode).
-    if ('openAccess' in patch || 'slug' in patch || 'status' in patch || 'isHomepage' in patch) await cache.invalidateSettingsCache();
+    // Open-page paths + "Use as page" assignments ride on the public settings.
+    if ('openAccess' in patch || 'slug' in patch || 'status' in patch || 'systemPage' in patch) await cache.invalidateSettingsCache();
     // Snapshot AFTER the writes settle, not before this one. A save is many
     // requests (this update plus a call per block); snapshotting here would
     // capture the page mid-save and miss the blocks entirely.
@@ -223,6 +250,7 @@ export async function remove(id: string, ctx: AuditContext,): Promise<Page | nul
     if (!existing) return null;
     await repo.deletePage(id,);
     await cache.invalidatePageCache(id,);
+    if (existing.systemPage) await cache.invalidateSettingsCache();
     await logAudit({
         userId: ctx.userId,
         action: 'delete',
@@ -386,6 +414,7 @@ export async function bulk(body: unknown, ctx: AuditContext,): Promise<BulkActio
         softDelete: true,
         // Deleting from the trash = permanent (the page and its blocks).
         purgeTrashed: async (ids,) => { for (const id of ids) await remove(id, ctx,); },
-        onInvalidate: () => cache.invalidatePageCache(),
+        // A status change can publish / unpublish a "Use as page" page.
+        onInvalidate: async () => { await cache.invalidatePageCache(); await cache.invalidateSettingsCache(); },
     },);
 }

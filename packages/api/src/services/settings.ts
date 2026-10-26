@@ -18,6 +18,8 @@
 // Circular with siteAssets (it reads getPublicSettings); safe, both are only
 // called at request time, never during module evaluation.
 import type { SiteSettings, } from '@sitesurge/types';
+import { getSystemPage, } from '@sitesurge/types';
+import { findSystemPageSlugs, } from '../repositories/pages.repo';
 import { config, } from '../config';
 import { query, } from '../db';
 import { FEATURE_REGISTRY, FeatureKey, featureSettingKey, } from '../features/registry';
@@ -238,10 +240,17 @@ export async function computePublicFeatures(
 async function publicMembershipPolicy(settings: Record<string, unknown>,): Promise<NonNullable<SiteSettings['membership']>> {
     const users = (settings[USERS_SETTINGS.key] ?? {}) as { requireSubscription?: boolean; };
     if (users.requireSubscription !== true) return { required: false, openPaths: [], };
-    const r = await query<{ slug: string; is_homepage: boolean; }>(
-        `SELECT slug, is_homepage FROM pages WHERE open_access = true AND status = 'published'`,
-    ).catch(() => ({ rows: [] as { slug: string; is_homepage: boolean; }[], }));
-    return { required: true, openPaths: r.rows.map((p,) => (p.is_homepage ? '/' : `/${p.slug}`)), };
+    const r = await query<{ slug: string; system_page: string | null; }>(
+        `SELECT slug, system_page FROM pages WHERE open_access = true AND status = 'published'`,
+    ).catch(() => ({ rows: [] as { slug: string; system_page: string | null; }[], }));
+    // A page standing in for a system page is served at that route as well.
+    return {
+        required: true,
+        openPaths: r.rows.flatMap((p,) => {
+            const sys = getSystemPage(p.system_page,);
+            return sys ? [sys.path, `/${p.slug}`,] : [`/${p.slug}`,];
+        },),
+    };
 }
 
 export async function getPublicSettings(): Promise<SiteSettings> {
@@ -298,6 +307,9 @@ export async function getPublicSettings(): Promise<SiteSettings> {
         seo: (settings.seo as SiteSettings['seo']) || {},
         features,
         membership: await publicMembershipPolicy(settings,),
+        // "Use as page" assignments (key → slug) so each built-in route knows
+        // whether a CMS page replaces it, with no extra request per navigation.
+        systemPages: await findSystemPageSlugs().catch(() => ({})),
     };
 
     // Include Shopify config if configured (storefront tokens are public)

@@ -151,18 +151,36 @@ export async function findPageById(id: string,): Promise<Page> {
     return findByIdOrThrow<Page>('pages', id, 'Page',);
 }
 
-export async function createPage(data: Record<string, unknown>, userId: string,): Promise<Page> {
-    if (data.isHomepage) {
-        await query(`UPDATE pages SET is_homepage = false WHERE is_homepage = true`,);
-    }
+/**
+ * Take a system page key ("Use as page") away from whichever OTHER page holds it,
+ * so the caller can assign it. Returns that page (to report it), or null.
+ */
+export async function releaseSystemPage(key: string, exceptId: string | null,): Promise<{ id: string; title: string; } | null> {
+    const r = await query<{ id: string; title: string; }>(
+        `UPDATE pages SET system_page = NULL, is_homepage = false, updated_at = NOW()
+          WHERE system_page = $1 AND ($2::uuid IS NULL OR id <> $2::uuid)
+          RETURNING id, title`,
+        [key, exceptId,],
+    );
+    return r.rows[0] ?? null;
+}
 
+/** Published pages that stand in for a system page: key → slug. */
+export async function findSystemPageSlugs(): Promise<Record<string, string>> {
+    const r = await query<{ system_page: string; slug: string; }>(
+        `SELECT system_page, slug FROM pages WHERE system_page IS NOT NULL AND status = 'published'`,
+    );
+    return Object.fromEntries(r.rows.map((row,) => [row.system_page, row.slug,]),);
+}
+
+export async function createPage(data: Record<string, unknown>, userId: string,): Promise<Page> {
     const result = await query(
         `INSERT INTO pages (slug, title, description, meta_title, meta_description,
                         meta_keywords, og_image, status, is_homepage, show_title,
                         apply_page_padding, apply_site_gutter, header_style, header_position,
                         background_color, custom_css,
-                        show_in_nav, nav_order, is_private, access_level, created_by, publish_at, open_access)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+                        show_in_nav, nav_order, is_private, access_level, created_by, publish_at, open_access, system_page)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
      RETURNING *`,
         [
             data.slug,
@@ -195,6 +213,7 @@ export async function createPage(data: Record<string, unknown>, userId: string,)
             uuidOrNull(userId,),
             data.publishAt || null,
             data.openAccess === true,
+            (data.systemPage as string) || null,
         ],
     );
 
@@ -204,9 +223,6 @@ export async function createPage(data: Record<string, unknown>, userId: string,)
 }
 
 export async function updatePage(id: string, data: Record<string, unknown>,): Promise<Page> {
-    if (data.isHomepage) {
-        await query(`UPDATE pages SET is_homepage = false WHERE is_homepage = true AND id != $1`, [id,],);
-    }
     return updateById<Page>('pages', id, data, 'Page',);
 }
 

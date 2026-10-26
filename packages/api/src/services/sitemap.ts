@@ -99,6 +99,8 @@ export async function buildSitemap(): Promise<string> {
         query<SitemapRow>(
             `SELECT slug, updated_at FROM pages
              WHERE status = 'published' AND is_private = false AND is_homepage = false
+               -- A "Use as page" page is listed at its system route (static list), not its slug.
+               AND system_page IS NULL
              ORDER BY updated_at DESC`,
         ),
         query<SitemapRow>(

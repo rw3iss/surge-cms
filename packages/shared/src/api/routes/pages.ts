@@ -195,7 +195,10 @@ export interface PageCreateBody {
     status?: 'draft' | 'published' | 'scheduled' | 'archived' | 'deleted';
     /** ISO date-time */
     publishAt?: string | null;
+    /** Legacy: true = `systemPage: 'home'`; false clears it when the page is the homepage. */
     isHomepage?: boolean;
+    /** "Use as page" (a `SYSTEM_PAGES` key) or null for None. Takes the key over from any other page. */
+    systemPage?: string | null;
     showTitle?: boolean;
     applyPagePadding?: boolean;
     applySiteGutter?: boolean;

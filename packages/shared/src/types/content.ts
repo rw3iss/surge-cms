@@ -14,7 +14,12 @@ export interface Page {
     metaKeywords?: string[];
     ogImage?: string;
     status: PageStatus;
+    /** Mirror of `systemPage === 'home'` (kept for older clients). */
     isHomepage: boolean;
+    /** "Use as page": the built-in screen this page replaces (a `SYSTEM_PAGES` key), else null. */
+    systemPage?: string | null;
+    /** Save responses only: the page that held `systemPage` before and was set back to None. */
+    systemPageReplaced?: { id: string; title: string; } | null;
     showInNav: boolean;
     navOrder: number;
     isPrivate: boolean;
@@ -489,6 +494,8 @@ export interface SiteSettings {
     /** Subscription-required mode (Users → Settings). `openPaths` = pages a
      *  member without an active subscription may still open. */
     membership?: { required: boolean; openPaths: string[]; };
+    /** "Use as page" assignments of PUBLISHED pages: system page key → page slug. */
+    systemPages?: Record<string, string>;
 }
 
 /**

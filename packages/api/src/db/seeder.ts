@@ -71,8 +71,9 @@ async function seedDefaultSettings(pool: Pool, adminId: string | null,): Promise
  */
 async function seedHomepage(pool: Pool, adminId: string | null,): Promise<void> {
     const homeRes = await pool.query<{ id: string; }>(
-        `INSERT INTO pages (slug, title, description, status, is_homepage, show_in_nav, nav_order, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO pages (slug, title, description, status, is_homepage, show_in_nav, nav_order, created_by, system_page)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
+                 CASE WHEN EXISTS (SELECT 1 FROM pages WHERE system_page = 'home') THEN NULL ELSE 'home' END)
          ON CONFLICT (slug) DO UPDATE SET title = EXCLUDED.title, updated_at = NOW()
          RETURNING id`,
         ['home', 'Home', 'Welcome', 'published', true, true, 0, adminId,],

@@ -6,6 +6,7 @@ import { Layout, } from './components/layout';
 import { ToastProvider, } from './components/common/toast';
 import { AuthProvider, } from './stores/auth';
 import PluginWidgetHost from './components/plugins/PluginWidgetHost';
+import SystemPageRoute from './components/common/SystemPageRoute';
 import './styles/global.scss';
 
 // Lazy load pages for code splitting
@@ -126,6 +127,15 @@ const AdminForumCategories = lazy(() => import('./pages/admin/forum/ForumCategor
 const AdminForumSettings = lazy(() => import('./pages/admin/forum/ForumSettings'));
 // Gallery (feature `gallery`): public page at the configurable base URL (default /gallery; a custom one is routed by DynamicPage).
 const GalleryPage = lazy(() => import('./pages/gallery/GalleryPage'));
+
+/**
+ * A built-in route a CMS page may replace ("Use as page"; registry SYSTEM_PAGES
+ * in @sitesurge/types). Built once per key so the router keeps one component.
+ * /shop does this inside ShopIndex (its store guard depends on the choice) and
+ * the homepage through Home (`cms.pages.homepage()`).
+ */
+const systemRoute = (key: string, Builtin: Component<any>,): Component<any> =>
+	(props,) => <SystemPageRoute pageKey={key}><Builtin {...props} /></SystemPageRoute>;
 const GalleryItemPage = lazy(() => import('./pages/gallery/GalleryItemPage'));
 // `/<custom gallery base>/:id` — renders the 404 page for any other first segment.
 const GalleryCustomItemRoute = lazy(() => import('./pages/gallery/GalleryItemPage').then((m) => ({ default: m.GalleryCustomItemRoute, })));
@@ -170,10 +180,10 @@ const App: Component = () => {
 										<Route path="/invite/:token" component={AcceptInvitePage} />
 										<Route path="/forgot-password" component={ForgotPasswordPage} />
 										<Route path="/reset-password" component={ResetPasswordPage} />
-										<Route path="/posts" component={PostsPage} />
+										<Route path="/posts" component={systemRoute('posts', PostsPage,)} />
 										<Route path="/posts/:slug" component={PostPage} />
 										<Route path="/donate" component={DynamicPage} />
-										<Route path="/subscribe" component={SubscribePage} />
+										<Route path="/subscribe" component={systemRoute('subscribe', SubscribePage,)} />
 										<Route path="/campaigns/:slug" component={CampaignPage} />
 										<Route path="/shop" component={ShopIndexPage} />
 										<Route path="/shop/cart" component={ShopCartPage} />
@@ -183,7 +193,7 @@ const App: Component = () => {
 										<Route path="/shop/orders/:number" component={ShopOrderConfirmationPage} />
 										<Route path="/shop/:slug" component={ShopProductPage} />
 										<Route path="/forms/:slug" component={FormPage} />
-										<Route path="/search" component={SearchPage} />
+										<Route path="/search" component={systemRoute('search', SearchPage,)} />
 										{/* Self-service user profile. The page self-guards:
 											redirects to /login when signed out, and to home
 											when the `users` feature is off. */}
@@ -191,17 +201,17 @@ const App: Component = () => {
 										{/* Dynamic page route - must be last among
 											single-segment paths. */}
 										{/* Declared before the /:slug catch-all, or DynamicPage swallows them. */}
-										<Route path="/wiki" component={WikiIndexPage} />
+										<Route path="/wiki" component={systemRoute('wiki', WikiIndexPage,)} />
 										<Route path="/wiki/search" component={WikiSearchPage} />
 										<Route path="/wiki/:ref" component={WikiPageViewPage} />
-										<Route path="/events" component={EventsPage} />
+										<Route path="/events" component={systemRoute('events', EventsPage,)} />
 										<Route path="/events/:slug" component={EventDetailPage} />
 										<Route path="/tickets/:code" component={EventTicketPage} />
 										<Route path="/members/:handle" component={MemberPage} />
-										<Route path="/forum" component={ForumIndexPage} />
+										<Route path="/forum" component={systemRoute('forum', ForumIndexPage,)} />
 										<Route path="/forum/:category" component={ForumCategoryPage} />
 										<Route path="/forum/:category/:thread" component={ForumThreadPage} />
-										<Route path="/gallery" component={GalleryPage} />
+										<Route path="/gallery" component={systemRoute('gallery', GalleryPage,)} />
 										{/* Distinct param names (not `:id`): this router keeps a same-named param's OLD value while switching
 											routes, so collection → item read the collection id and 404'd. */}
 										<Route path="/gallery/collection/:collectionId" component={GalleryCollectionPage} />
@@ -209,7 +219,7 @@ const App: Component = () => {
 										{/* Video direct links land here when the viewer can't get the plain file. */}
 										<Route path="/watch/:id" component={WatchPage} />
 										{/* Sent-mail archive + web view ({{mail.viewUrl}}). */}
-										<Route path="/mail" component={MailArchivePage} />
+										<Route path="/mail" component={systemRoute('mail', MailArchivePage,)} />
 										<Route path="/mail/:jobId" component={MailViewPage} />
 										<Route path="/:slug" component={DynamicPage} />
 										<Route path="/:slug/:itemId" component={GalleryCustomItemRoute} />

@@ -3,6 +3,7 @@
  * Matches URLs to content types and builds the appropriate meta tags.
  */
 import type { SiteFooterSettings, SiteHeaderSettings, } from '@sitesurge/types';
+import { SYSTEM_PAGES, } from '@sitesurge/types';
 import { config, } from '../../config';
 import { query, } from '../../db';
 import { mapRow, } from '../../utils/mapRow';
@@ -346,6 +347,108 @@ async function buildHomeBody(siteName: string, siteDescription: string,): Promis
 }
 
 /**
+ * Meta + indexable body for a published CMS page, served at `url` (its own
+ * `/<slug>`, or the system route it stands in for — "Use as page").
+ */
+async function cmsPageMeta(
+    where: { slug: string; } | { systemPage: string; },
+    url: string,
+    SITE_NAME: string,
+    logo: string | undefined,
+): Promise<MetaTags | null> {
+    const res = await query(
+        `SELECT id, title, slug, description, meta_title, meta_description,
+                meta_keywords, og_image, updated_at, title_alignment, show_title
+         FROM pages WHERE ${'slug' in where ? 'slug' : 'system_page'} = $1 AND status = 'published'`,
+        ['slug' in where ? where.slug : where.systemPage,],
+    ).catch(() => null);
+    const row = res?.rows[0];
+    if (row) {
+        const page = mapRow(row,) as any;
+        const title = page.metaTitle || page.title;
+        const description = page.metaDescription || page.description ||
+            `${page.title} — ${SITE_NAME}`;
+        const image = page.ogImage || logo;
+
+        // Fetch the page's blocks for SSR body rendering. We
+        // only need text-relevant fields; the body builder
+        // skips dynamic block types it can't index anyway.
+        // Errors fall back to a title-only body so SSR never
+        // breaks for a page that's missing its blocks row.
+        let flatBlocks: SsrBlockInput[] = [];
+        try {
+            const blocksRes = await query<{
+                id: string;
+                parent_block_id: string | null;
+                type: string;
+                title: string | null;
+                content: string | null;
+                settings: Record<string, unknown> | null;
+            }>(
+                // Include id + parent_block_id and order by parent first so
+                // the tree assembler can nest children (group/group_item).
+                `SELECT id, parent_block_id, type, title, content, settings FROM blocks
+                 WHERE page_id = $1 AND is_visible = true
+                 ORDER BY parent_block_id NULLS FIRST, "order" ASC, created_at ASC, id ASC`,
+                [page.id,],
+            );
+            flatBlocks = blocksRes.rows.map((r,) => ({
+                id: r.id,
+                parentBlockId: r.parent_block_id,
+                type: r.type,
+                title: r.title,
+                content: r.content,
+                settings: r.settings,
+            }));
+        } catch { /* ignore — fall through to title-only body */ }
+
+        // Resolve any {{ … }} template syntax in block content (flat, before
+        // tree assembly) so crawlers see real content — including nested
+        // blocks. The `page` entity is exposed to the templates.
+        flatBlocks = await Promise.all(flatBlocks.map(async (b,) => ({
+            ...b,
+            content: await resolveContentForSsr(b.content, { page, },),
+        })),);
+        flatBlocks = await expandSsrDynamicBlocks(flatBlocks,);
+        // Assemble the flat list into a tree so container blocks recurse.
+        const blocks = assembleSsrBlockTree(flatBlocks,);
+
+        return {
+            title,
+            description,
+            canonical: url,
+            type: 'website',
+            image,
+            imageAlt: page.title,
+            modifiedAt: page.updatedAt,
+            keywords: page.metaKeywords,
+            siteName: SITE_NAME,
+            aeoSummary: truncateText(stripHtml(description,), 280,) || undefined,
+            aeoEntityType: 'WebPage',
+            jsonLd: [
+                buildWebPageSchema({
+                    name: title,
+                    description,
+                    url,
+                    publisherName: SITE_NAME,
+                },),
+                buildBreadcrumbSchema([
+                    { name: 'Home', url: siteUrl(), },
+                    { name: page.title, url, },
+                ],),
+            ],
+            body: buildPageBody({
+                title: page.title,
+                showTitle: page.showTitle !== false,
+                description: page.description,
+                blocks,
+            },),
+        };
+    }
+    return null;
+}
+
+/**
  * Resolve a URL path to its meta tags by looking up the content in the DB.
  * Returns null if the path is not a known public route (let the SPA handle it).
  */
@@ -411,6 +514,13 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
             ],
             body: await buildHomeBody(SITE_NAME, SITE_DESCRIPTION,),
         };
+    }
+
+    // ─── "Use as page": a CMS page standing in for a built-in route ───
+    const sys = SYSTEM_PAGES.find((p,) => p.key !== 'home' && p.path === path,);
+    if (sys) {
+        const meta = await cmsPageMeta({ systemPage: sys.key, }, url, SITE_NAME, logo,);
+        if (meta) return meta;
     }
 
     // ─── Posts listing ───
@@ -658,95 +768,8 @@ async function resolveRouteMetaInner(pathname: string,): Promise<MetaTags | null
     // Try to match as a CMS page slug (also handles /donate, etc. when stored as a page)
     const slug = path.slice(1,);
     if (slug && !slug.includes('/',)) {
-        const res = await query(
-            `SELECT id, title, slug, description, meta_title, meta_description,
-                    meta_keywords, og_image, updated_at, title_alignment, show_title
-             FROM pages WHERE slug = $1 AND status = 'published'`,
-            [slug,],
-        ).catch(() => null);
-        const row = res?.rows[0];
-        if (row) {
-            const page = mapRow(row,) as any;
-            const title = page.metaTitle || page.title;
-            const description = page.metaDescription || page.description ||
-                `${page.title} — ${SITE_NAME}`;
-            const image = page.ogImage || logo;
-
-            // Fetch the page's blocks for SSR body rendering. We
-            // only need text-relevant fields; the body builder
-            // skips dynamic block types it can't index anyway.
-            // Errors fall back to a title-only body so SSR never
-            // breaks for a page that's missing its blocks row.
-            let flatBlocks: SsrBlockInput[] = [];
-            try {
-                const blocksRes = await query<{
-                    id: string;
-                    parent_block_id: string | null;
-                    type: string;
-                    title: string | null;
-                    content: string | null;
-                    settings: Record<string, unknown> | null;
-                }>(
-                    // Include id + parent_block_id and order by parent first so
-                    // the tree assembler can nest children (group/group_item).
-                    `SELECT id, parent_block_id, type, title, content, settings FROM blocks
-                     WHERE page_id = $1 AND is_visible = true
-                     ORDER BY parent_block_id NULLS FIRST, "order" ASC, created_at ASC, id ASC`,
-                    [page.id,],
-                );
-                flatBlocks = blocksRes.rows.map((r,) => ({
-                    id: r.id,
-                    parentBlockId: r.parent_block_id,
-                    type: r.type,
-                    title: r.title,
-                    content: r.content,
-                    settings: r.settings,
-                }));
-            } catch { /* ignore — fall through to title-only body */ }
-
-            // Resolve any {{ … }} template syntax in block content (flat, before
-            // tree assembly) so crawlers see real content — including nested
-            // blocks. The `page` entity is exposed to the templates.
-            flatBlocks = await Promise.all(flatBlocks.map(async (b,) => ({
-                ...b,
-                content: await resolveContentForSsr(b.content, { page, },),
-            })),);
-            flatBlocks = await expandSsrDynamicBlocks(flatBlocks,);
-            // Assemble the flat list into a tree so container blocks recurse.
-            const blocks = assembleSsrBlockTree(flatBlocks,);
-
-            return {
-                title,
-                description,
-                canonical: url,
-                type: 'website',
-                image,
-                imageAlt: page.title,
-                modifiedAt: page.updatedAt,
-                keywords: page.metaKeywords,
-                siteName: SITE_NAME,
-                aeoSummary: truncateText(stripHtml(description,), 280,) || undefined,
-                aeoEntityType: 'WebPage',
-                jsonLd: [
-                    buildWebPageSchema({
-                        name: title,
-                        description,
-                        url,
-                        publisherName: SITE_NAME,
-                    },),
-                    buildBreadcrumbSchema([
-                        { name: 'Home', url: siteUrl(), },
-                        { name: page.title, url, },
-                    ],),
-                ],
-                body: buildPageBody({
-                    title: page.title,
-                    showTitle: page.showTitle !== false,
-                    description: page.description,
-                    blocks,
-                },),
-            };
-        }
+        const meta = await cmsPageMeta({ slug, }, url, SITE_NAME, logo,);
+        if (meta) return meta;
     }
 
     // ─── Nothing matched ───

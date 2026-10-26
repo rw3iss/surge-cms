@@ -50,7 +50,6 @@ describe('shop settings service', () => {
             // notification defaults to grouped because the operator needs the
             // breakdown regardless.
             cartDisplay: 'combined',
-            storefrontMode: 'builtin',
             orderEmailDisplay: 'combined',
             adminNotificationDisplay: 'grouped',
         },);
@@ -112,7 +111,7 @@ describe('shop settings service', () => {
         // `merchandiseSignupEnabled` is a boolean "should the tout render?".
         // Note what is deliberately ABSENT: `newMerchandiseListId`. The list id
         // stays server-side so a visitor can't retarget the subscription.
-        const allowed = ['businessName', 'cartDisplay', 'merchandiseSignupEnabled', 'storefrontMode', 'currency', 'currencyDisplay', 'shipping', 'storeEnabled', 'stripePublishableKey', 'taxEnabled',];
+        const allowed = ['businessName', 'cartDisplay', 'merchandiseSignupEnabled', 'currency', 'currencyDisplay', 'shipping', 'storeEnabled', 'stripePublishableKey', 'taxEnabled',];
         expect(Object.keys(pub.settings,).every((k,) => allowed.includes(k,)),).toBe(true,);
     },);
 

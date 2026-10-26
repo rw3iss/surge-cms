@@ -3,14 +3,14 @@ import { A, useSearchParams, } from '@solidjs/router';
 import { Component, createEffect, createResource, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
 import SeoHead from '../../components/common/seo/SeoHead';
 import { cms, } from '../../services/cmsClient';
-import { siteName, } from '../../stores/siteSettings';
+import { siteName, siteSettings, } from '../../stores/siteSettings';
 import MerchandiseSignup from './MerchandiseSignup';
 import ProductCard from './ProductCard';
 import ShopStoreGuard from './ShopStoreGuard';
 import { useOverridePageSettings, } from '../../hooks/useOverridePageSettings';
 import { createLiveResource, } from '../../hooks/createLiveResource';
 import DynamicPage from '../DynamicPage';
-import { storefrontMode, } from '../../stores/shopSettings';
+import { systemPageSlug, } from '../../components/common/SystemPageRoute';
 import PageCustomCss from '../../components/common/PageCustomCss';
 import { money, } from './shopFormat';
 import { isShopifyActive, shopifySource, } from '../../services/shopifySource';
@@ -382,23 +382,24 @@ const ShopIndexInner: Component = () => {
 };
 
 const ShopIndex: Component = () => {
-    // `page` mode points /shop at the operator's own CMS page. That page is
-    // ordinary content, so it stays reachable with the store CLOSED — closing
-    // the store shouldn't take down a marketing page. The built-in grid is the
-    // opposite: closed, it has nothing to sell, so it 404s.
+    // A CMS page set to "Use as page: Shop" replaces the built-in grid at /shop
+    // (registry SYSTEM_PAGES). That page is ordinary content, so it stays
+    // reachable with the store CLOSED — closing the store shouldn't take down a
+    // marketing page. The built-in grid is the opposite: closed, it has nothing
+    // to sell, so it 404s.
     //
     // The guard owns the readiness wait, the 404 and the loading state; this
     // component only decides WHICH storefront to render.
-    const usesOwnPage = () => storefrontMode() === 'page';
+    const ownPage = () => systemPageSlug('shop',);
 
     return (
-        <ShopStoreGuard requireStoreEnabled={() => !usesOwnPage()}>
-            {/* DynamicPage falls back to a not-found state when no `shop` page
-                exists, which is the "otherwise 404" case. */}
-            <Show when={usesOwnPage()} fallback={<ShopIndexInner />}>
-                <DynamicPage slugOverride="shop" />
+        <Show when={siteSettings()}>
+        <ShopStoreGuard requireStoreEnabled={() => !ownPage()}>
+            <Show when={ownPage()} keyed fallback={<ShopIndexInner />}>
+                {(slug,) => <DynamicPage slugOverride={slug} canonicalPath="/shop" />}
             </Show>
         </ShopStoreGuard>
+        </Show>
     );
 };
 

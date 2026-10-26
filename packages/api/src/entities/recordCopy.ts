@@ -124,6 +124,7 @@ async function cloneBaseRow(
     }
 
     const EXCLUDE = new Set(['id', 'created_at', 'updated_at',],);
+    const SINGLETON_COLUMNS = new Set(['pages.system_page',],);
     const insertCols: string[] = [];
     const selectExprs: string[] = [];
     const params: unknown[] = [sourceId]; // $1 = source id (WHERE)
@@ -138,6 +139,14 @@ async function cloneBaseRow(
         const hasOverride = Object.hasOwn(overrides, c.name,);
         if (hasOverride && !unique.has(c.name,)) {
             params.push(overrides[c.name],);
+            selectExprs.push(`$${params.length}`,);
+            continue;
+        }
+
+        // A singleton ASSIGNMENT (`pages.system_page`, "Use as page") is never
+        // inherited — suffixing it would make an invalid key.
+        if (SINGLETON_COLUMNS.has(`${table}.${c.name}`,)) {
+            params.push(null,);
             selectExprs.push(`$${params.length}`,);
             continue;
         }

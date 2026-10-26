@@ -17,6 +17,7 @@ import './DynamicPage.scss';
 
 const NotFoundPage = lazy(() => import('./NotFound'));
 const GalleryPage = lazy(() => import('./gallery/GalleryPage'));
+const SystemPageRoute = lazy(() => import('../components/common/SystemPageRoute'));
 
 interface LockedContent {
     accessLevel: ContentAccessLevel;
@@ -30,8 +31,8 @@ interface LockedContent {
 /**
  * `slugOverride` renders a different slug than the URL — used by routes served
  * by a bespoke component that can be configured to show a CMS page instead
- * (/shop with `storefrontMode: 'page'`). The URL stays /shop; only the content
- * comes from the page.
+ * (a page set to "Use as page", via `SystemPageRoute`). The URL stays the
+ * route's; only the content comes from the page.
  *
  * Intersected with the router's section props so this stays usable directly as
  * a <Route component>. An all-optional interface is a "weak type" to
@@ -40,6 +41,9 @@ interface LockedContent {
  */
 export type DynamicPageProps = Partial<RouteSectionProps> & {
     slugOverride?: string;
+    /** The URL the page is served at when it stands in for a system route
+     *  ("Use as page", e.g. `/shop`) — used for the canonical link. */
+    canonicalPath?: string;
 };
 
 const DynamicPageContent: Component<DynamicPageProps> = (props,) => {
@@ -48,7 +52,7 @@ const DynamicPageContent: Component<DynamicPageProps> = (props,) => {
     const navigate = useNavigate();
     const auth = useAuth();
     const slug = () => props.slugOverride || params.slug || location.pathname.replace(/^\//, '',);
-    const canonicalUrl = () => `${window.location.origin}/${slug()}`;
+    const canonicalUrl = () => `${window.location.origin}${props.canonicalPath ?? `/${slug()}`}`;
     const [lockedContent, setLockedContent,] = createSignal<LockedContent | null>(null,);
 
     const isPreviewMode = () => {
@@ -220,7 +224,7 @@ const DynamicPage: Component<DynamicPageProps> = (props,) => {
     return (
         <Show when={ready()}>
             <Show when={isGallery()} fallback={<DynamicPageContent {...props} />}>
-                <GalleryPage />
+                <SystemPageRoute pageKey="gallery"><GalleryPage /></SystemPageRoute>
             </Show>
         </Show>
     );

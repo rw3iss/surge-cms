@@ -73,11 +73,6 @@ export const shopSettingsLoaded = loaded;
  */
 export const storeEnabled = (): boolean => settings()?.storeEnabled === true;
 
-/** `page` = the operator points /shop at their own CMS page instead of the
- *  built-in product grid. */
-export const storefrontMode = (): 'builtin' | 'page' =>
-    settings()?.storefrontMode === 'page' ? 'page' : 'builtin';
-
 /** Test seam — lets a test set state without a network call. */
 export function __setShopSettingsForTest(value: ShopPublicSettings | null,): void {
     setSettings(value,);

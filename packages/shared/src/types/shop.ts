@@ -377,16 +377,6 @@ export interface ShopSettings {
      * print suppliers bill us, not the customer.
      */
     cartDisplay?: 'combined' | 'grouped';
-    /**
-     * What `/shop` renders.
-     *
-     * `builtin` is the product grid shipped with the CMS. `page` renders the
-     * `shop` CMS page's own content blocks instead, so an operator can design
-     * their own storefront landing page and still keep /shop/:slug, cart and
-     * checkout. Falls back to `builtin` when no `shop` page exists, so choosing
-     * it can never leave a blank storefront.
-     */
-    storefrontMode?: 'builtin' | 'page';
     /** Buyer emails, the confirmation page and the PDF receipt. Only offered
      *  when `cartDisplay` is `grouped` — a grouped email after a combined cart
      *  tells the buyer something the checkout never did. */
@@ -439,7 +429,6 @@ export interface ShopPublicSettings {
     /** Whether the storefront shows a section per fulfiller. Display only —
      *  the buyer always pays once. */
     cartDisplay?: 'combined' | 'grouped';
-    storefrontMode?: 'builtin' | 'page';
 }
 
 // ── Admin: dashboard stats + per-supplier fulfilment ─────────────────

@@ -1,6 +1,8 @@
-import { siteSettings, } from '../../stores/siteSettings';
+import { isFeatureEnabled, reloadSiteSettings, siteSettings, } from '../../stores/siteSettings';
 import { NotFoundError, } from '@sitesurge/client';
-import { buildBlockTree, type Page, } from '@sitesurge/types';
+import { availableSystemPages, buildBlockTree, getSystemPage, SYSTEM_PAGES, type Page, } from '@sitesurge/types';
+
+const systemPageLabel = (key: string,) => getSystemPage(key,)?.label ?? key;
 import { useNavigate, } from '@solidjs/router';
 import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
 import ColorPicker from '../../components/admin/appearance/ColorPicker';
@@ -101,13 +103,20 @@ const AdminPageEditor: Component = () => {
     const [accessLevel, setAccessLevel,] = createSignal('public',);
     /** Subscription-required mode: members without a subscription may still open this page. */
     const [openAccess, setOpenAccess,] = createSignal(false,);
-    // Whether this page is the site's homepage. The slug stays a normal
-    // string (still required, still URL-safe) — we use this flag rather
-    // than overloading the slug to mean "/" or empty. Only one page can
-    // be the homepage at a time; the backend clears the flag on others
-    // when this page saves with isHomepage=true.
-    const [isHomepage, setIsHomepage,] = createSignal(false,);
+    // "Use as page": the built-in screen this page replaces (SYSTEM_PAGES key —
+    // 'home' = the site root), '' = None. One page per key; saving takes it over
+    // from any other page and the save reports which one.
+    const [systemPage, setSystemPage,] = createSignal('',);
     const toast = useToast();
+    /** Core options + those whose feature is on (a page already set to one stays listed). */
+    const systemPageOptions = () => availableSystemPages(isFeatureEnabled,).concat(
+        SYSTEM_PAGES.filter((p,) => p.key === systemPage() && p.feature && !isFeatureEnabled(p.feature,),),
+    );
+    /** Another PUBLISHED page holding the chosen key (drafts are reported after the save). */
+    const currentHolder = () => {
+        const held = systemPage() ? siteSettings()?.systemPages?.[systemPage()] : undefined;
+        return held && held !== (editor.entity() as Page | undefined)?.slug ? held : null;
+    };
 
     // Per-block create/update/delete/reorder sync (page-specific; posts
     // embed their blocks in the save payload instead).
@@ -174,7 +183,7 @@ const AdminPageEditor: Component = () => {
             status: status(),
             accessLevel: accessLevel(),
             openAccess: openAccess(),
-            isHomepage: isHomepage(),
+            systemPage: systemPage(),
             showTitle: showTitle(),
             applyPagePadding: applyPagePadding(),
             applySiteGutter: applySiteGutter(),
@@ -196,7 +205,7 @@ const AdminPageEditor: Component = () => {
                 status: status(),
                 accessLevel: accessLevel(),
                 openAccess: openAccess(),
-                isHomepage: isHomepage(),
+                systemPage: systemPage() || null,
                 showTitle: showTitle(),
                 applyPagePadding: applyPagePadding(),
                 applySiteGutter: applySiteGutter(),
@@ -208,12 +217,14 @@ const AdminPageEditor: Component = () => {
                 customCss: customCss(),
             };
             let pageId = ctx.id;
-            if (ctx.isNew) {
-                const created = await cms.pages.create(data as any,);
-                pageId = (created as any).id;
-            } else {
-                await cms.pages.update(ctx.id, data as any,);
+            const before = (editor.entity() as Page | undefined)?.systemPage ?? null;
+            const saved = (ctx.isNew ? await cms.pages.create(data as any,) : await cms.pages.update(ctx.id, data as any,)) as Page;
+            if (ctx.isNew) pageId = saved.id;
+            if (saved?.systemPageReplaced) {
+                toast.info(`'${saved.systemPageReplaced.title}' was the ${systemPageLabel(systemPage(),)} page — it is set back to None.`,);
             }
+            // The public settings carry the assignments (previews + the public routes).
+            if ((data.systemPage ?? null) !== before || data.status !== editor.entity()?.status) void reloadSiteSettings();
             // On a brand-new page nothing is saved yet, so diff against an
             // empty snapshot → every block is created.
             if (pageId) {
@@ -251,7 +262,8 @@ const AdminPageEditor: Component = () => {
         if (d.headerPosition != null) setHeaderPosition(d.headerPosition,);
         if (d.backgroundColor != null) setBackgroundColor(d.backgroundColor,);
         if (d.customCss != null) setCustomCss(d.customCss,);
-        if (d.isHomepage != null) setIsHomepage(Boolean(d.isHomepage,),);
+        if (d.systemPage != null) setSystemPage(String(d.systemPage,),);
+        else if (d.isHomepage != null) setSystemPage(d.isHomepage ? 'home' : '',);
         if (Array.isArray(d.blocks,)) editor.setBlocks(d.blocks as BlockData[],);
     };
 
@@ -279,7 +291,7 @@ const AdminPageEditor: Component = () => {
         setHeaderPosition((p as any).headerPosition || '',);
         setBackgroundColor((p as any).backgroundColor || '',);
         setCustomCss((p as any).customCss || '',);
-        setIsHomepage(Boolean((p as any).isHomepage,),);
+        setSystemPage(p.systemPage || (p.isHomepage ? 'home' : ''),);
         const blockList = (p as any).blocks as any[] | undefined;
         if (blockList?.length) {
             const converted = blockList.map((b,) => pageBlockToBlockData(b,));
@@ -321,8 +333,8 @@ const AdminPageEditor: Component = () => {
             }
             headerExtra={
                 <>
-                    <Show when={isHomepage()}>
-                        <span class="editor-pill editor-pill--homepage">Homepage</span>
+                    <Show when={systemPage()}>
+                        <span class="editor-pill editor-pill--homepage">{systemPageLabel(systemPage(),)}</span>
                     </Show>
                     <span class={`editor-pill editor-pill--${status()}`}>{status()}</span>
                     <span class={`editor-pill editor-pill--${accessLevel()}`}>{accessLevel()}</span>
@@ -372,223 +384,31 @@ const AdminPageEditor: Component = () => {
                         so spacing / typography stay consistent. */
                     }
                     <div class="form-group page-editor__homepage-section">
-                        <div class="page-editor__homepage-toggle">
-                            <Toggle
-                                checked={showTitle()}
-                                onChange={(next,) => {
-                                    setShowTitle(next,);
-                                    editor.markDirty();
-                                }}
-                                label="Show title on page"
-                            />
-                            <Tooltip
-                                header="Show title on page"
-                                content="When on, the page renderer prints this page's title as a heading above the content blocks. Turn it off when your first block (e.g. a hero or carousel) already provides the visual headline and you don't want a duplicate."
-                            />
-                        </div>
-                        <div class="page-editor__homepage-toggle">
-                            <Toggle
-                                checked={applyPagePadding()}
-                                onChange={(next,) => {
-                                    setApplyPagePadding(next,);
-                                    editor.markDirty();
-                                }}
-                                label="Apply Page Padding"
-                            />
-                            <Tooltip
-                                header="Apply Page Padding"
-                                content="Apply the site's Page Padding (Settings → Appearance → Layout) to the top and bottom of this page. Default 0 until you set a value there — useful for pushing content down below a floating header."
-                            />
-                        </div>
-                        <div class="page-editor__homepage-toggle">
-                            <Toggle
-                                checked={applySiteGutter()}
-                                onChange={(next,) => {
-                                    setApplySiteGutter(next,);
-                                    editor.markDirty();
-                                }}
-                                label="Apply Site Gutter"
-                            />
-                            <Tooltip
-                                header="Apply Site Gutter"
-                                content="Apply the site's Gutter (left/right padding) to this page's content. Turn off for a full-bleed page."
-                            />
-                        </div>
-                        <div class="page-editor__header-row">
-                            <div class="form-group">
-                                <label>Header Style</label>
-                                <div class="u-flex-row" style={{ 'align-items': 'center', gap: '6px', }}>
-                                    <select
-                                        value={headerStyle()}
-                                        onChange={(e,) => {
-                                            setHeaderStyle(e.currentTarget.value,);
-                                            editor.markDirty();
-                                        }}
-                                    >
-                                        <option value="">- (use site default)</option>
-                                        <option value="default">Default</option>
-                                        <option value="alt">Alt</option>
-                                    </select>
-                                    <Tooltip
-                                        header="Header Style"
-                                        content="Which Site Header colors this page renders. '-' follows the site's 'Default Page Header Style' (Settings → Site Header). 'Default' forces the regular header colors; 'Alt' forces the alternate colors — handy when the page has its own background behind a floating header."
-                                    />
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label>Header Position</label>
-                                <div class="u-flex-row" style={{ 'align-items': 'center', gap: '6px', }}>
-                                    <select
-                                        value={headerPosition()}
-                                        onChange={(e,) => {
-                                            setHeaderPosition(e.currentTarget.value,);
-                                            editor.markDirty();
-                                        }}
-                                    >
-                                        <option value="">- (use site default)</option>
-                                        <option value="static">Static</option>
-                                        <option value="float">Float</option>
-                                    </select>
-                                    <Tooltip
-                                        header="Header Position"
-                                        content="How the site header sits on this page. '-' follows the site's 'Header Position' (Settings → Site Header). 'Static' renders the header at the top with the content below it; 'Float' places the header above (overlaying) the page content."
-                                    />
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label>Page Background Color</label>
-                                <div class="u-flex-row" style={{ 'align-items': 'center', gap: '6px', }}>
-                                    {
-                                        /* Same picker as Settings → Appearance → Colors, so a
-                                        swatch chosen here stays linked: editing the swatch
-                                        later reflows into every page using it. Clearing
-                                        returns the page to the site background. */
-                                    }
-                                    <ColorPicker
-                                        value={backgroundColor()}
-                                        onChange={(hex,) => {
-                                            setBackgroundColor(hex,);
-                                            editor.markDirty();
-                                        }}
-                                        clearable
-                                        onClear={() => {
-                                            setBackgroundColor('',);
-                                            editor.markDirty();
-                                        }}
-                                    />
-                                    <Tooltip
-                                        header="Page Background Color"
-                                        content="Background for this page's content area. Empty inherits the site background (Settings → Appearance → Colors). Pick a swatch to stay linked to it, or enter a custom colour."
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {
-                            /* Full-width row beneath the property columns: a code
-                            editor is unusable squeezed into a half column.
-                            Collapsed until asked for, since most pages never
-                            need one — but auto-open when the page already has
-                            CSS, so it is never silently hidden. */
-                        }
-                        <div class="editor-properties__css">
-                            <Show
-                                when={showCss() || customCss().trim()}
-                                fallback={
-                                    <button
-                                        type="button"
-                                        class="ui-button ui-button--secondary ui-button--sm"
-                                        onClick={() => setShowCss(true,)}
-                                    >
-                                        + Add Custom CSS
-                                    </button>
-                                }
+                        <FormField
+                            label="Use as page"
+                            tooltip="Show this page in place of a built-in page, at that page's address. One page per built-in page."
+                        >
+                            <select
+                                value={systemPage()}
+                                onChange={(e,) => { setSystemPage(e.currentTarget.value,); editor.markDirty(); }}
                             >
-                                <div class="editor-properties__css-head">
-                                    <label>Custom CSS</label>
-                                    <Tooltip
-                                        header="Custom CSS"
-                                        content="Rendered after this page's own styles, so these rules win. Useful for restyling parts of a built-in template — the shop's title and sidebar, say — without a setting per element. Tab indents by the amount set in Settings → Appearance → Code tab width."
-                                    />
-                                    <span class="editor-properties__css-spacer" />
-                                    <Show when={customCss().trim()}>
-                                        <button
-                                            type="button"
-                                            class="ui-button ui-button--ghost ui-button--sm"
-                                            onClick={() => {
-                                                if (!confirm("Remove this page's custom CSS?",)) return;
-                                                setCustomCss('',);
-                                                setShowCss(false,);
-                                                editor.markDirty();
-                                            }}
-                                        >
-                                            Clear
-                                        </button>
-                                    </Show>
-                                </div>
-                                <CssEditor
-                                    value={customCss()}
-                                    onChange={(next,) => {
-                                        setCustomCss(next,);
-                                        editor.markDirty();
-                                    }}
-                                    tabWidth={codeTabWidth()}
-                                    height="280px"
-                                />
-                            </Show>
-                        </div>
-                    </div>
-                </div>
-                <div class="editor-properties__sidebar">
-                    <FormField label="Status">
-                        <select
-                            value={status()}
-                            onChange={(e,) => {
-                                setStatus(e.currentTarget.value,);
-                                editor.markDirty();
-                            }}
-                        >
-                            <option value="draft">Draft</option>
-                            <option value="published">Published</option>
-                            <option value="archived">Archived</option>
-                        </select>
-                    </FormField>
-                    <FormField label="Access">
-                        <select
-                            value={accessLevel()}
-                            onChange={(e,) => {
-                                setAccessLevel(e.currentTarget.value,);
-                                editor.markDirty();
-                            }}
-                        >
-                            <option value="public">Public</option>
-                            <option value="member">Members Only</option>
-                            <option value="patron">Patrons Only</option>
-                        </select>
-                    </FormField>
-                    <Show when={siteSettings()?.membership?.required}>
-                        <div class="form-group">
-                            <Toggle
-                                checked={openAccess()}
-                                onChange={(v,) => { setOpenAccess(v,); editor.markDirty(); }}
-                                label="Open without a membership"
-                                hint="A membership is required on this site (Users → Settings). Members without one can still open this page — use it for landing, about or legal pages."
-                            />
-                        </div>
-                    </Show>
-                    <div class="form-group page-editor__homepage-section">
-                        <Toggle
-                            checked={isHomepage()}
-                            onChange={(next,) => {
-                                setIsHomepage(next,);
-                                editor.markDirty();
-                            }}
-                            label="Use as homepage"
-                        />
+                                <option value="">None</option>
+                                <For each={systemPageOptions()}>
+                                    {(o,) => <option value={o.key}>{o.label} ({o.path})</option>}
+                                </For>
+                            </select>
+                        </FormField>
                         <small class="form-help page-editor__homepage-help">
-                            Show this page at <code>/</code>. The page is still reachable at{' '}
-                            <code>/{slug() || 'slug'}</code>. Must be <strong>published</strong>{' '}
-                            to appear on the public site. Only one page can be the homepage at a time.
+                            <Show
+                                when={systemPage()}
+                                fallback={<>An ordinary page at <code>/{slug() || 'slug'}</code>.</>}
+                            >
+                                Shown at <code>{getSystemPage(systemPage(),)?.path}</code> instead of the built-in page, and still at{' '}
+                                <code>/{slug() || 'slug'}</code>. Must be <strong>published</strong> to appear.
+                                <Show when={currentHolder()}>
+                                    {' '}<strong>/{currentHolder()}</strong> is the {systemPageLabel(systemPage(),)} page now — saving replaces it (it goes back to None).
+                                </Show>
+                            </Show>
                         </small>
                     </div>
                 </div>

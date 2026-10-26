@@ -8,7 +8,7 @@
  */
 import { beforeEach, describe, expect, it, } from 'vitest';
 import type { ShopPublicSettings, } from '@sitesurge/types';
-import { __setShopSettingsForTest, storeEnabled, storefrontMode, } from './shopSettings';
+import { __setShopSettingsForTest, storeEnabled, } from './shopSettings';
 
 const base = { currency: 'USD', taxEnabled: false, businessName: 'X', } as ShopPublicSettings;
 
@@ -37,20 +37,3 @@ describe('storeEnabled', () => {
     },);
 },);
 
-describe('storefrontMode', () => {
-    it('defaults to the built-in grid', () => {
-        __setShopSettingsForTest({ ...base, storeEnabled: true, },);
-        expect(storefrontMode(),).toBe('builtin',);
-    },);
-
-    it('reports page mode when set', () => {
-        __setShopSettingsForTest({ ...base, storeEnabled: true, storefrontMode: 'page', },);
-        expect(storefrontMode(),).toBe('page',);
-    },);
-
-    it('is independent of storeEnabled — a closed store can still use its own page', () => {
-        __setShopSettingsForTest({ ...base, storeEnabled: false, storefrontMode: 'page', },);
-        expect(storefrontMode(),).toBe('page',);
-        expect(storeEnabled(),).toBe(false,);
-    },);
-},);

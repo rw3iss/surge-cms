@@ -8,6 +8,7 @@
  */
 import { z, } from 'zod';
 import type { PageBlockBody, PageCreateBody, } from '@sitesurge/types';
+import { SYSTEM_PAGE_KEYS, } from '@sitesurge/types';
 import { defaultBlockData, } from '../catalog/blockTypes';
 import { newBlockId, } from '../util/ids';
 import { defineTool, type ToolDef, type ToolContext, } from '../tool';
@@ -55,7 +56,10 @@ const pageCreateShape = {
     ogImage: z.string().optional().describe('Open Graph image URL.',),
     status: z.enum(['draft', 'published', 'scheduled', 'archived', 'deleted',],).optional().describe('Publication status (default draft).',),
     publishAt: z.string().nullable().optional().describe('ISO date-time to publish (for status="scheduled").',),
-    isHomepage: z.boolean().optional().describe('Flag this page as the site homepage.',),
+    isHomepage: z.boolean().optional().describe('Legacy: same as systemPage "home".',),
+    systemPage: z.enum(SYSTEM_PAGE_KEYS as [string, ...string[]],).nullable().optional().describe(
+        '"Use as page": show this page in place of a built-in page (home = the site root, shop = /shop, subscribe, posts, …). null = none. Takes it over from any other page.',
+    ),
     showTitle: z.boolean().optional().describe('Whether to render the page title (default true).',),
     showInNav: z.boolean().optional().describe('Include this page in the main navigation.',),
     navOrder: z.number().optional().describe('Sort order within the navigation.',),
@@ -124,7 +128,7 @@ const tools = [
     defineTool({
         name: 'create_page',
         description:
-            'Create a page (no blocks yet — add them with add_page_block). Set slug + title; optionally SEO (metaTitle/metaDescription/metaKeywords/ogImage), status, publishAt, isHomepage, showTitle, navigation (showInNav/navOrder), and access (isPrivate/accessLevel). Returns the created page with an empty block tree.',
+            'Create a page (no blocks yet — add them with add_page_block). Set slug + title; optionally SEO (metaTitle/metaDescription/metaKeywords/ogImage), status, publishAt, systemPage, showTitle, navigation (showInNav/navOrder), and access (isPrivate/accessLevel). Returns the created page with an empty block tree.',
         write: true,
         inputSchema: pageCreateShape,
         handler: async (args, ctx: ToolContext,) => {
@@ -134,7 +138,7 @@ const tools = [
     defineTool({
         name: 'update_page',
         description:
-            'Update a page (partial). Only the fields you pass change. Manages navigation membership/order via showInNav/navOrder/isHomepage. Returns the updated page with blocks.',
+            'Update a page (partial). Only the fields you pass change. Manages navigation membership/order via showInNav/navOrder, and which built-in page it replaces via systemPage. Returns the updated page with blocks.',
         write: true,
         inputSchema: {
             id: z.string().describe('Page id.',),
