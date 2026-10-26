@@ -26,6 +26,8 @@ export interface PostFilters {
     sort?: string;
     /** Restrict to one post type (`posts.post_type`). */
     postType?: string;
+    /** Only posts by this author (`posts.author_id`) — the own-scope admin listing. */
+    authorId?: string;
     tag?: string;
     category?: string;
     publishedOnly?: boolean;
@@ -261,6 +263,11 @@ export async function findAllPosts(
     if (filters.postType) {
         params.push(filters.postType,);
         whereClause += ` AND p.post_type = $${params.length}`;
+    }
+    if (filters.authorId) {
+        // Own-scope listing (contributors): only the posts they wrote.
+        params.push(filters.authorId,);
+        whereClause += ` AND p.author_id = $${params.length}`;
     }
     if (filters.search) {
         whereClause += ` AND ${ilikeSearch(['p.title', 'p.slug',], filters.search, params,)}`;

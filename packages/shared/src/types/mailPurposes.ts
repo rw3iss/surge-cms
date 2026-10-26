@@ -406,6 +406,39 @@ export const MAIL_PURPOSES: MailPurposeMeta[] = [
         ],
     },
 
+    // ── Posts (contributors) ──
+    {
+        key: 'post_submitted_admin',
+        label: 'Post submitted for review (staff alert)',
+        description: 'Internal alert when a contributor submits a post for review. Goes to the addresses in Settings → Notifications → Post submitted for review.',
+        feature: 'posts',
+        audience: 'admin',
+        defaultEnabled: true,
+        defaultSubject: 'Post to review: {{post.title}}',
+        variables: [
+            { name: 'post.title', description: 'The post title.', },
+            { name: 'post.url', description: 'Link to the post in the admin editor (review it there).', },
+            { name: 'author.name', description: 'The contributor.', },
+            { name: 'author.email', description: "The contributor's email.", },
+        ],
+    },
+    {
+        key: 'post_review_result',
+        label: 'Post review result',
+        description: 'Sent to a contributor when their post is published or returned with a note.',
+        feature: 'posts',
+        audience: 'user',
+        defaultEnabled: true,
+        defaultSubject: '{{ if review.approved }}Your post is published: {{post.title}}{{ else }}Your post needs changes: {{post.title}}{{ endif }}',
+        variables: [
+            ...USER_VARS,
+            { name: 'post.title', description: 'The post title.', },
+            { name: 'post.url', description: 'The published post (approved) or its editor (returned).', },
+            { name: 'review.approved', description: '"yes" when published; empty when returned.', example: 'yes', },
+            { name: 'review.note', description: "The reviewer's note (may be empty).", example: 'Please add a source for the second quote.', },
+        ],
+    },
+
     // ── Forms ──
     {
         key: 'form_submission_admin',

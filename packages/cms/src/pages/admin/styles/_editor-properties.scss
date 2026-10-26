@@ -617,3 +617,23 @@
     flex: 1;
   }
 }
+
+// Post review (contributors): the reviewer's box on a post waiting for review,
+// and the author's "returned" note.
+.post-review-box {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-md;
+  padding: $spacing-md;
+  border: 1px solid color.adjust($info-bg, $lightness: -12%);
+  border-radius: 8px;
+  background: $info-bg;
+  color: $info-fg;
+
+  textarea { width: 100%; }
+
+  &__actions { display: flex; flex-wrap: wrap; gap: $spacing-sm; justify-content: flex-end; }
+
+  &--returned { border-color: $warning-border; background: $warning-bg; color: $warning-fg; }
+}

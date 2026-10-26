@@ -19,6 +19,7 @@ import type { UserSubscriptionAssignBody, } from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { AppError, } from '../core/errors';
 import * as users from '../services/users';
+import { postAccess, } from '../services/postAccess';
 
 // ─── Avatar upload (multer disk staging under DATA_DIR/avatars) ──────
 
@@ -119,9 +120,13 @@ export const usersRoutes = [
     // Staff-accessible minimal list for the post-author dropdown — id /
     // displayName / role only, no sensitive fields. Declared before /:id.
     defineRoute({
-        method: 'get', path: '/authors', auth: 'staff',
-        summary: 'List staff users (admin/sysadmin/editor) for author attribution.',
-        handler: async () => reply(await users.listAuthors(),),
+        method: 'get', path: '/authors', auth: 'userOrKey',
+        summary: 'Users who can be a post author: staff + users with a role that may write their own posts (contributors). A contributor gets only themselves.',
+        handler: async ({ user, apiKey, },) => {
+            const scope = await postAccess(user, 'write', undefined, apiKey,);
+            if (scope === 'own') return reply([{ id: user!.id!, displayName: (user as { displayName?: string; }).displayName ?? '', role: user!.role ?? 'member', },],);
+            return reply(await users.listAuthors(),);
+        },
     },),
 
     defineRoute({

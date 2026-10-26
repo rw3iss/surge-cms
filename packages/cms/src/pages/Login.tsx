@@ -4,6 +4,7 @@ import { Component, createEffect, createSignal, on, Show, } from 'solid-js';
 import LoginForm from '../components/auth/LoginForm';
 import SeoHead from '../components/common/seo/SeoHead';
 import { useAuth, } from '../stores/auth';
+import { canEnterAdmin, } from '../admin/shells';
 import { siteName, } from '../stores/siteSettings';
 import { type AccessDeniedReason, deniedMessage, parseDeniedReason, safeReturnPath, shouldRetryAfterSignin, } from '../utils/accessDenied';
 import { choiceTarget, takeChoice, } from '../utils/membershipChoice';
@@ -26,7 +27,8 @@ const Login: Component = () => {
         const chosen = takeChoice();
         const target = returnTarget() || (chosen ? choiceTarget(chosen,) : '');
         const a = auth.access;
-        if (a?.restricted && a.reason === 'subscription' && !isAdminRole(role,)) {
+        // A role that works in the admin (e.g. a contributor) is not walled there.
+        if (a?.restricted && a.reason === 'subscription' && !isAdminRole(role,) && !canEnterAdmin(auth.user,)) {
             return target.startsWith('/subscribe',) || target.startsWith('/profile?tab=membership',) ? target : '/profile?tab=membership';
         }
         if (target) return target;

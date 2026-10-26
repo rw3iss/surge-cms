@@ -129,10 +129,15 @@ export interface BlockSettings {
     [key: string]: unknown;
 }
 
-export type PostStatus = 'draft' | 'published' | 'archived';
+/** `pending_review` = a contributor's post waiting for a reviewer (approval-mode `posts:publish`). */
+export type PostStatus = 'draft' | 'published' | 'archived' | 'pending_review';
 
 export interface Post {
     id: string;
+    /** Contributor review: when it was submitted, and the reviewer's note when returned/approved. */
+    submittedAt?: string | null;
+    reviewedAt?: string | null;
+    reviewNote?: string | null;
     slug: string;
     title: string;
     excerpt?: string;

@@ -274,13 +274,18 @@ export interface MediaListResult {
 }
 
 /** Paginated admin list with type/types filters, search, and sorting. */
-export async function list(q: MediaListQuery,): Promise<MediaListResult> {
+export async function list(q: MediaListQuery, opts: { uploadedBy?: string; } = {},): Promise<MediaListResult> {
     const page = Number(q.page ?? 1,);
     const limit = Number(q.limit ?? 50,);
     const offset = (page - 1) * limit;
 
     let whereClause = 'WHERE 1=1';
     const params: unknown[] = [];
+    // Own-scope listing (contributors): only what they uploaded.
+    if (opts.uploadedBy) {
+        params.push(opts.uploadedBy,);
+        whereClause += ` AND uploaded_by = $${params.length}`;
+    }
 
     if (q.types) {
         // Support comma-separated types, e.g. ?types=image,video

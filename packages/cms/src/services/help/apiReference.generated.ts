@@ -8122,8 +8122,8 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "method": "POST",
                 "path": "/",
                 "absolutePath": "/api/v1/media",
-                "auth": "staff",
-                "summary": "Upload a single file (multipart, field \"file\"; optional title/alt/caption).",
+                "auth": "userOrKey",
+                "summary": "Upload a single file (multipart, field \"file\"; optional title/alt/caption). Staff, or media:write_own.",
                 "sdk": [
                     "cms.media.upload"
                 ],
@@ -8133,8 +8133,8 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "method": "POST",
                 "path": "/block-upload",
                 "absolutePath": "/api/v1/media/block-upload",
-                "auth": "staff",
-                "summary": "Upload a file for a content block (multipart, field \"file\"; postId/blockId).",
+                "auth": "userOrKey",
+                "summary": "Upload a file for a content block (multipart, field \"file\"; postId/blockId). Staff, or media:write_own.",
                 "sdk": [
                     "cms.media.blockUpload"
                 ],
@@ -8155,8 +8155,8 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "method": "GET",
                 "path": "/",
                 "absolutePath": "/api/v1/media",
-                "auth": "staff",
-                "summary": "Paginated media list (type/types/search/sort filters).",
+                "auth": "userOrKey",
+                "summary": "Paginated media list (type/types/search/sort filters). media:read_own users see only their uploads.",
                 "input": {
                     "query": [
                         {
@@ -10549,6 +10549,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "name": "granted",
                             "type": "boolean",
                             "required": false
+                        },
+                        {
+                            "name": "mode",
+                            "type": "'allow' | 'approval'",
+                            "required": false
                         }
                     ]
                 },
@@ -10994,8 +10999,8 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "method": "GET",
                 "path": "/settings",
                 "absolutePath": "/api/v1/posts/settings",
-                "auth": "staff",
-                "summary": "Posts settings (General, per type, Live Show provider — secrets masked) + the live provider catalogue.",
+                "auth": "userOrKey",
+                "summary": "Posts settings (General, per type, Live Show provider — secrets masked) + the live provider catalogue. Staff, or a user who may write posts.",
                 "sdk": [
                     "cms.posts.settings"
                 ],
@@ -11142,11 +11147,43 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "sdkStatus": "method"
             },
             {
+                "method": "POST",
+                "path": "/:id/review",
+                "absolutePath": "/api/v1/posts/:id/review",
+                "auth": "staff",
+                "summary": "Approve (publish) or return (to draft, with a note) a post waiting for review. Needs posts:publish (plain allow).",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string",
+                            "required": true
+                        }
+                    ],
+                    "body": [
+                        {
+                            "name": "action",
+                            "type": "'approve' | 'return'",
+                            "required": true
+                        },
+                        {
+                            "name": "note",
+                            "type": "string",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.posts.review"
+                ],
+                "sdkStatus": "method"
+            },
+            {
                 "method": "GET",
                 "path": "/:id",
                 "absolutePath": "/api/v1/posts/:id",
-                "auth": "staff",
-                "summary": "Fetch a post by id (any status).",
+                "auth": "userOrKey",
+                "summary": "Fetch a post by id (any status). Staff, or the author with posts:read_own.",
                 "input": {
                     "params": [
                         {
@@ -11165,8 +11202,8 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "method": "POST",
                 "path": "/",
                 "absolutePath": "/api/v1/posts",
-                "auth": "staff",
-                "summary": "Create a post.",
+                "auth": "userOrKey",
+                "summary": "Create a post. Staff, or a contributor (posts:write_own — they are the author; \"publish\" with approval becomes pending_review).",
                 "input": {
                     "body": [
                         {
@@ -11201,7 +11238,7 @@ export const API_MODULES: ApiModuleDoc[] = [
                         },
                         {
                             "name": "status",
-                            "type": "'draft' | 'published' | 'scheduled' | 'archived' | 'deleted'",
+                            "type": "'draft' | 'published' | 'scheduled' | 'archived' | 'deleted' | 'pending_review'",
                             "required": false
                         },
                         {
@@ -11330,8 +11367,8 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "method": "PUT",
                 "path": "/:id",
                 "absolutePath": "/api/v1/posts/:id",
-                "auth": "staff",
-                "summary": "Update a post. Snapshots a revision first.",
+                "auth": "userOrKey",
+                "summary": "Update a post. Snapshots a revision first. Staff, or its author with posts:write_own (see POST /posts).",
                 "input": {
                     "params": [
                         {
@@ -11373,7 +11410,7 @@ export const API_MODULES: ApiModuleDoc[] = [
                         },
                         {
                             "name": "status",
-                            "type": "'draft' | 'published' | 'scheduled' | 'archived' | 'deleted'",
+                            "type": "'draft' | 'published' | 'scheduled' | 'archived' | 'deleted' | 'pending_review'",
                             "required": false
                         },
                         {
@@ -11502,8 +11539,8 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "method": "DELETE",
                 "path": "/:id",
                 "absolutePath": "/api/v1/posts/:id",
-                "auth": "staff",
-                "summary": "Delete a post.",
+                "auth": "userOrKey",
+                "summary": "Delete a post. Staff, or its author (posts:delete_own) while it is not published.",
                 "input": {
                     "params": [
                         {
@@ -11522,8 +11559,8 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "method": "GET",
                 "path": "/:id/revisions",
                 "absolutePath": "/api/v1/posts/:id/revisions",
-                "auth": "staff",
-                "summary": "List a post's saved revisions.",
+                "auth": "userOrKey",
+                "summary": "List a post's saved revisions (staff, or its author).",
                 "input": {
                     "params": [
                         {
@@ -11542,8 +11579,8 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "method": "POST",
                 "path": "/:id/revisions",
                 "absolutePath": "/api/v1/posts/:id/revisions",
-                "auth": "staff",
-                "summary": "Snapshot the post's current state as a revision.",
+                "auth": "userOrKey",
+                "summary": "Snapshot the post's current state as a revision (staff, or its author).",
                 "input": {
                     "params": [
                         {
@@ -11562,8 +11599,8 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "method": "GET",
                 "path": "/:id/revisions/:version",
                 "absolutePath": "/api/v1/posts/:id/revisions/:version",
-                "auth": "staff",
-                "summary": "Fetch one revision snapshot.",
+                "auth": "userOrKey",
+                "summary": "Fetch one revision snapshot (staff, or its author).",
                 "input": {
                     "params": [
                         {
@@ -12025,8 +12062,8 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "method": "PUT",
                 "path": "/:id/blocks/reorder",
                 "absolutePath": "/api/v1/posts/:id/blocks/reorder",
-                "auth": "staff",
-                "summary": "Reorder a post's content blocks.",
+                "auth": "userOrKey",
+                "summary": "Reorder a post's content blocks (staff, or its author).",
                 "input": {
                     "params": [
                         {
@@ -16005,8 +16042,8 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "method": "GET",
                 "path": "/authors",
                 "absolutePath": "/api/v1/users/authors",
-                "auth": "staff",
-                "summary": "List staff users (admin/sysadmin/editor) for author attribution.",
+                "auth": "userOrKey",
+                "summary": "Users who can be a post author: staff + users with a role that may write their own posts (contributors). A contributor gets only themselves.",
                 "sdk": [
                     "cms.users.authors"
                 ],
@@ -17536,4 +17573,4 @@ export const API_MODULES: ApiModuleDoc[] = [
 ];
 
 export const API_MODULE_COUNT = 55;
-export const API_ROUTE_COUNT = 604;
+export const API_ROUTE_COUNT = 605;

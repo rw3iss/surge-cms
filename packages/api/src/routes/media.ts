@@ -21,6 +21,7 @@
  */
 import fs from 'fs/promises';
 import multer from 'multer';
+import type { RequestHandler, } from 'express';
 import { nanoid, } from '../utils/nanoid';
 import path from 'path';
 import { z, } from 'zod';
@@ -29,11 +30,11 @@ import type {
     MediaUpdateBody, MediaUsageQuery, MediaUsageResponse,
 } from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
-import { ValidationError, } from '../core/errors';
+import { ForbiddenError, ValidationError, } from '../core/errors';
 import * as media from '../services/media';
 import { assertNotInUse, findMediaUsageCached, } from '../services/mediaUsage';
 import { isAllowedType, maxFileBytes, } from '../services/mediaUploadPolicy';
-import { requirePermission, } from '../services/permissions';
+import { requirePermission, scopeFor, } from '../services/permissions';
 import type { UploadFile, } from '../services/media';
 
 const multerDestDir = media.multerDestDir;
@@ -50,6 +51,26 @@ export async function guardMedia(ctx: GuardCtx, key: 'media:read' | 'media:write
     if (ctx.apiKey) return;
     await requirePermission({ id: ctx.user?.id, role: ctx.user?.role, }, key,);
 }
+
+/**
+ * The routes a role admin shell uses (upload + the picker list): `any` for
+ * staff / API keys / a plain `media:*` grant, `own` for a user with only
+ * `media:*_own` (contributors — the list is limited to their uploads).
+ */
+async function mediaScope(ctx: GuardCtx, action: 'read' | 'write',): Promise<'any' | 'own'> {
+    if (ctx.apiKey) return 'any';
+    if (!ctx.user?.id) throw new ForbiddenError('Sign in first.',);
+    const scope = await scopeFor({ id: ctx.user.id, role: ctx.user.role, }, 'media', action,);
+    if (!scope) throw new ForbiddenError(`You do not have permission to do this (media:${action}).`,);
+    return scope;
+}
+
+/** Run BEFORE multer on the shell-open upload routes, so a member without an
+ *  upload permission is refused before any bytes reach the temp folder. */
+const canUpload: RequestHandler = (req, _res, next,) => {
+    const r = req as unknown as { user?: GuardCtx['user']; apiKey?: unknown; };
+    mediaScope({ user: r.user, apiKey: r.apiKey, }, 'write',).then(() => next(), next,);
+};
 
 const storage = multer.diskStorage({
     destination: async (_req, _file, cb,) => {
@@ -127,12 +148,12 @@ function reqFiles(req: { files?: unknown; },): UploadFile[] | undefined {
 export const mediaRoutes = [
 
     defineRoute({
-        method: 'post', path: '/', auth: 'staff',
-        summary: 'Upload a single file (multipart, field "file"; optional title/alt/caption).',
-        pre: [upload.single('file',),],
+        method: 'post', path: '/', auth: 'userOrKey',
+        summary: 'Upload a single file (multipart, field "file"; optional title/alt/caption). Staff, or media:write_own.',
+        pre: [canUpload, upload.single('file',),],
         handler: async (ctx,) => {
             const { req, audit, } = ctx;
-            await guardMedia(ctx, 'media:write',);
+            await mediaScope(ctx, 'write',);
             const body = req.body as { alt?: string; caption?: string; title?: string; };
             const title = typeof body.title === 'string' ? body.title : undefined;
             const result = await media.upload(reqFile(req,), body.alt, body.caption, audit(), title,);
@@ -141,12 +162,12 @@ export const mediaRoutes = [
     },),
 
     defineRoute({
-        method: 'post', path: '/block-upload', auth: 'staff',
-        summary: 'Upload a file for a content block (multipart, field "file"; postId/blockId).',
-        pre: [upload.single('file',),],
+        method: 'post', path: '/block-upload', auth: 'userOrKey',
+        summary: 'Upload a file for a content block (multipart, field "file"; postId/blockId). Staff, or media:write_own.',
+        pre: [canUpload, upload.single('file',),],
         handler: async (ctx,) => {
             const { req, audit, } = ctx;
-            await guardMedia(ctx, 'media:write',);
+            await mediaScope(ctx, 'write',);
             const body = req.body as { postId?: string; blockId?: string; };
             const result = await media.blockUpload(reqFile(req,), body.postId, body.blockId, audit(),);
             return reply(result, { status: 201, },);
@@ -166,12 +187,12 @@ export const mediaRoutes = [
     },),
 
     defineRoute({
-        method: 'get', path: '/', auth: 'staff',
-        summary: 'Paginated media list (type/types/search/sort filters).',
+        method: 'get', path: '/', auth: 'userOrKey',
+        summary: 'Paginated media list (type/types/search/sort filters). media:read_own users see only their uploads.',
         input: { query: listQuery, },
         handler: async (ctx,) => {
-            await guardMedia(ctx, 'media:read',);
-            const result = await media.list(ctx.query,);
+            const scope = await mediaScope(ctx, 'read',);
+            const result = await media.list(ctx.query, { uploadedBy: scope === 'own' ? ctx.user!.id : undefined, },);
             return reply(result.data, {
                 meta: {
                     page: result.page,

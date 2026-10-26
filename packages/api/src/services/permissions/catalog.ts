@@ -216,6 +216,23 @@ export const CORE_PERMISSIONS: PermissionRegistration[] = [
         action: 'write',
         defaultRoles: STAFF,
     },
+    // Own media (contributors): upload, and see only what they uploaded.
+    {
+        key: 'media:read_own',
+        feature: 'core',
+        label: 'View own uploads',
+        description: 'See only the media they uploaded (the picker in their post editor).',
+        action: 'read',
+        defaultRoles: ['contributor',],
+    },
+    {
+        key: 'media:write_own',
+        feature: 'core',
+        label: 'Upload media',
+        description: 'Upload images and files for their own content.',
+        action: 'write',
+        defaultRoles: ['contributor',],
+    },
     {
         key: 'pages:read',
         feature: 'core',

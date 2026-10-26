@@ -248,6 +248,29 @@ export async function defaultPurposeHtml(
                 + (pick(ctx, 'shop.url',) ? button(pick(ctx, 'shop.url',), 'Shop now',) : '');
             break;
 
+        case 'post_submitted_admin':
+            body = H('Post submitted for review',)
+                + P(`<strong>${escapeHtml(pick(ctx, 'author.name',) || 'A contributor',)}</strong> submitted <strong>${escapeHtml(pick(ctx, 'post.title',),)}</strong> for review.`,)
+                + (pick(ctx, 'post.url',) ? button(pick(ctx, 'post.url',), 'Review the post',) : '');
+            break;
+
+        case 'post_review_result': {
+            const ok = pick(ctx, 'review.approved',) === 'yes';
+            const note = pick(ctx, 'review.note',);
+            body = H(ok ? 'Your post is published' : 'Your post needs changes',)
+                + greeting(name,)
+                + P(ok
+                    ? `Good news — <strong>${escapeHtml(pick(ctx, 'post.title',),)}</strong> was reviewed and is now published.`
+                    : `<strong>${escapeHtml(pick(ctx, 'post.title',),)}</strong> was reviewed and returned to you as a draft.`,)
+                + (note
+                    ? `<div style="margin:0 0 16px;padding:12px 16px;border-left:3px solid #e5e7eb;background:#f9fafb">`
+                        + `<p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#6b7280">Note from the editor</p>`
+                        + `<p style="margin:0;font-size:15px;line-height:1.5;color:#111">${escapeHtml(note,).replace(/\r?\n/g, '<br>',)}</p></div>`
+                    : '')
+                + (pick(ctx, 'post.url',) ? button(pick(ctx, 'post.url',), ok ? 'Read it' : 'Edit your post',) : '');
+            break;
+        }
+
         case 'form_submission_admin':
             body = H('New form submission',)
                 + P(`Someone submitted <strong>${escapeHtml(pick(ctx, 'form.title',),)}</strong> on ${escapeHtml(siteName,)}.`,)

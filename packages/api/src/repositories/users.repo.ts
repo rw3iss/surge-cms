@@ -27,11 +27,12 @@ export interface UserFilters {
  *  holding a content-editing role (admin / sysadmin / editor). Returns
  *  only id / displayName / role — no emails, bans, or subscription data —
  *  so it's safe to expose at the `staff` tier. */
-export async function listStaffAuthors(): Promise<Array<{ id: string; displayName: string; role: string; }>> {
+export async function listStaffAuthors(extraRoles: string[] = [],): Promise<Array<{ id: string; displayName: string; role: string; }>> {
     const result = await query(
         `SELECT id, display_name, role FROM users
-         WHERE role IN ('admin', 'sysadmin', 'editor') AND is_active = true
+         WHERE (role IN ('admin', 'sysadmin', 'editor') OR role = ANY($1) OR extra_roles && $1::text[]) AND is_active = true
          ORDER BY display_name ASC`,
+        [extraRoles,],
     );
     return result.rows.map((r,) => ({ id: r.id, displayName: r.display_name, role: r.role, }));
 }

@@ -70,6 +70,7 @@ export const ROUTE_COVERAGE: string[] = [
     'GET /api/v1/posts/:id/revisions',
     'GET /api/v1/posts/:id/revisions/:version',
     'POST /api/v1/posts/:id/revisions/:version/restore',
+    'POST /api/v1/posts/:id/review',
     'PUT /api/v1/posts/:id/blocks/reorder',
 
     // ── pages ──

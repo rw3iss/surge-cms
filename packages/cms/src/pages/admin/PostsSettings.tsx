@@ -16,6 +16,7 @@ import { FormField, } from '../../components/admin/forms';
 import LiveProviderSettings from '../../components/admin/posts/settings/LiveProviderSettings';
 import { useToast, } from '../../components/common/toast';
 import { cms, } from '../../services/cmsClient';
+import EmailTemplatesPanel, { type PurposeConfig, } from '../../components/admin/mail/EmailTemplatesPanel';
 
 interface PanelCtx {
     providers: () => LiveProviderDescriptor[];
@@ -48,9 +49,12 @@ const AdminPostsSettings: Component = () => {
     const [provider, setProvider,] = createSignal<string | null>(null,);
     const [configs, setConfigs,] = createStore<Record<string, Record<string, unknown>>>({},);
 
+    /** Mail purposes (Email templates tab): post review emails. */
+    const [mailPurposes, setMailPurposes,] = createSignal<Record<string, PurposeConfig>>({},);
     const tabs = () => [
         { key: 'general', label: 'General', },
         ...Object.keys(TYPE_PANELS,).map((k,) => ({ key: k, label: getPostType(k,).label, })),
+        { key: 'emails', label: 'Email templates', },
     ];
     const tab = () => (tabs().some((t,) => t.key === params.tab,) ? params.tab! : 'general');
 
@@ -65,6 +69,7 @@ const AdminPostsSettings: Component = () => {
         try {
             const r = await cms.posts.settings();
             apply(r.settings, r.liveProviders,);
+            setMailPurposes(((await cms.settings.getMailPurposes().catch(() => ({}),)) as Record<string, PurposeConfig>) ?? {},);
         } catch (e) {
             toast.error(`Could not load settings: ${(e as Error).message}`,);
         } finally {
@@ -82,6 +87,7 @@ const AdminPostsSettings: Component = () => {
                 live: { provider: provider(), providers: JSON.parse(JSON.stringify(unwrap(configs,),),), },
             },);
             apply(r.settings, r.liveProviders,);
+            await cms.settings.setMailPurposes(mailPurposes() as Record<string, unknown>,);
             toast.success('Posts settings saved',);
         } catch (e) {
             toast.error(`Save failed: ${(e as Error).message}`,);
@@ -132,6 +138,10 @@ const AdminPostsSettings: Component = () => {
                             </FormField>
                         </div>
                     </section>
+                </Show>
+
+                <Show when={tab() === 'emails'}>
+                    <EmailTemplatesPanel feature="posts" value={mailPurposes()} onChange={setMailPurposes} />
                 </Show>
 
                 <Show when={tab() !== 'general' && TYPE_PANELS[tab()]}>

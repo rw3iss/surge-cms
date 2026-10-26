@@ -1,0 +1,39 @@
+@use '../../styles/variables' as *;
+
+.contributor-dashboard {
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: $spacing-md;
+    margin: $spacing-lg 0;
+  }
+  &__stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: $spacing-md;
+    border: 1px solid var(--admin-border, #{$border-color});
+    border-radius: 10px;
+    color: inherit;
+    text-decoration: none;
+
+    &:hover { border-color: $primary-color; }
+  }
+  &__count { font-size: 1.8rem; font-weight: 700; }
+  &__stat--pending_review &__count { color: $warning-fg; }
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    li {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 0.75rem;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid var(--admin-border, #{$border-color});
+    }
+  }
+  &__note { flex-basis: 100%; font-size: 0.85rem; color: $warning-fg; }
+}

@@ -64,6 +64,11 @@ function jwtOrApiKey(
     return [combined as RequestHandler,];
 }
 
+/** Any signed-in user OR an API key (`userOrKey` tier) — permissions decide in the handler. */
+export function userOrApiKey(): RequestHandler[] {
+    return jwtOrApiKey((_req, _res, next,) => next(),);
+}
+
 export function adminOrApiKey(): RequestHandler[] {
     return jwtOrApiKey(requireAdmin,);
 }

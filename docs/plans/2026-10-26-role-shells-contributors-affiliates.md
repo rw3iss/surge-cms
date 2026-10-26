@@ -73,6 +73,8 @@ Resolution: the user's highest-priority role that HAS a shell (same priority as 
 
 **Who may enter the shell:** `AdminLayout` gate changes from `isStaffRole(role)` to `isStaffRole(role) || hasAdminShell(user)` (a role with a shell). Server side, admin routes stay `staff` EXCEPT the ones a shell needs, which move to `user` tier + permission (`posts` list/get/create/update/delete + post block CRUD + media upload for their own images). Every other admin route keeps `staff`, so entering the shell grants nothing by itself.
 
+> **STATUS 2026-10-26 — DONE.** `admin/shells` (ROLE_SHELLS, adminShellFor, canEnterAdmin) + `admin/dashboards` (DASHBOARDS, RoleDashboard, ContributorDashboard). The staff dashboard stays at `pages/admin/Dashboard.tsx` and is registered as `default` (moving the file bought nothing). Nav items got ids + permissions; AdminLayout gate = staff or a shell; shell users are kept to their paths; presence/search hidden for them. Shells stay code-only (no `roles.admin_shell` column yet).
+
 ## Phase 4 — Contributors
 
 - **Post status `pending_review`** (migration 191; add to `PostStatus` + route enums). A save with `posts:publish` in `approval` mode turns "Publish" into **Submit for review** → `pending_review`; `submitted_at`, `reviewed_by`, `review_note` columns.
@@ -80,6 +82,8 @@ Resolution: the user's highest-priority role that HAS a shell (same priority as 
 - **Grants** (seed for `contributor`): `posts:read_own`, `posts:write_own`, `posts:delete_own` (drafts only), `posts:publish` in **approval** mode, `media:write` limited to own uploads (new `media:write_own`, `media.created_by`).
 - **Admin review:** `/admin/posts` gets a **Pending review** filter + badge (count in the sidebar like comment moderation); the post editor shows **Approve & publish** / **Return with note** for reviewers (`posts:publish` allow). Mail purposes `post_submitted_admin` (team) and `post_review_result` (author: published / returned with note).
 - **Guardrails:** contributors can't set post type `live`, featured/SEO-sensitive fields stay editable but gated content options (`required_tier_id`, gate) are staff-only; content goes through the existing sanitiser; rate limit on submissions.
+
+> **STATUS 2026-10-26 — DONE.** Migration 191 (`pending_review`, review columns, contributor `posts:publish` approval grant); new auth tier `userOrKey`; `services/postAccess.ts` + tests; posts/media/authors routes opened with permission checks (media checked before multer); `services/postReview.ts` + `POST /posts/:id/review` + SDK `cms.posts.review`; notification `post_submitted`, mail purposes `post_submitted_admin` / `post_review_result` (Posts → Settings → Email templates); editor: Submit for review, reviewer box, returned note, staff-only fields hidden; Posts list filter + sidebar badge; `media:read_own`/`media:write_own`; `/users/authors` includes contributors. Guide: CONTRIBUTORS-AND-ROLE-SHELLS.md.
 
 ## Phase 5 — Discount codes (generic engine, `shop`)
 

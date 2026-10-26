@@ -1,5 +1,7 @@
 import { A, useNavigate, } from '@solidjs/router';
-import { Component, createEffect, createSignal, For, } from 'solid-js';
+import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
+import { adminShellFor, } from '../../admin/shells';
+import { useAuth, } from '../../stores/auth';
 import { formatDateShort as formatDate, getPostType, } from '@sitesurge/types';
 import ModalShell from '../../components/admin/common/ModalShell';
 import { PostTypeIcon, usePostTypes, } from '../../components/admin/posts/usePostTypes';
@@ -38,8 +40,11 @@ const AdminPosts: Component = () => {
     },);
 
     const navigate = useNavigate();
+    const auth = useAuth();
+    /** A role-shell user (contributor): their own posts only, no settings / bulk / live shows. */
+    const shell = () => adminShellFor(auth.user,);
     const postTypes = usePostTypes();
-    const creatableTypes = () => postTypes().filter((t,) => t.creatable !== false);
+    const creatableTypes = () => postTypes().filter((t,) => t.creatable !== false && !(shell() && t.key === 'live'),);
     const [showCreate, setShowCreate,] = createSignal(false,);
     // Posts → Settings → General → Default post type: highlighted in the picker.
     const [defaultType, setDefaultType,] = createSignal('article',);
@@ -59,7 +64,7 @@ const AdminPosts: Component = () => {
             <div class="admin-header">
                 <h1>Posts</h1>
                 <div class="admin-header__actions">
-                    <A href="/admin/posts/settings" class="ui-button ui-button--secondary">Settings</A>
+                    <Show when={!shell()}><A href="/admin/posts/settings" class="ui-button ui-button--secondary">Settings</A></Show>
                     <button type="button" class="ui-button ui-button--primary" onClick={() => setShowCreate(true,)}>New Post</button>
                 </div>
             </div>
@@ -99,10 +104,11 @@ const AdminPosts: Component = () => {
                 >
                     <option value="">All</option>
                     <option value="draft">Draft</option>
+                    <option value="pending_review">Waiting for review</option>
                     <option value="published">Published</option>
                     <option value="scheduled">Scheduled</option>
                     <option value="archived">Archived</option>
-                    <option value="deleted">Deleted</option>
+                    <Show when={!shell()}><option value="deleted">Deleted</option></Show>
                 </select>
             </div>
             <DataTable
@@ -110,7 +116,8 @@ const AdminPosts: Component = () => {
                 loading={list.loading()}
                 emptyMessage="No posts found."
                 sort={{ current: currentSort(), onSort: handleSort, }}
-                bulk={{
+                // Bulk actions are staff-only (a contributor works post by post).
+                bulk={shell() ? undefined : {
                     selectedCount: bulk.selectedCount,
                     isSelected: bulk.isSelected,
                     toggle: bulk.toggle,
@@ -143,7 +150,7 @@ const AdminPosts: Component = () => {
                             );
                         },
                     },
-                    { header: 'Status', sortField: 'status', cell: (post: any,) => <span class={`badge ${getStatusBadgeClass(post.status,)}`}>{post.status}</span>, },
+                    { header: 'Status', sortField: 'status', cell: (post: any,) => <span class={`badge ${getStatusBadgeClass(post.status,)}`}>{post.status === 'pending_review' ? 'waiting for review' : post.status}</span>, },
                     { header: 'Blocks', cell: (post: any,) => post.blockCount || 0, },
                     { header: 'Published', sortField: 'date', cell: (post: any,) => formatDate(post.publishedAt,), },
                     { header: 'Modified', sortField: 'updated', cell: (post: any,) => formatDate(post.updatedAt,), },

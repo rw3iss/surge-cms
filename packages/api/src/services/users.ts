@@ -70,8 +70,17 @@ async function deleteStoredAvatar(avatarUrl: string | null | undefined,): Promis
 // ─── Reads ────────────────────────────────────────────────────────
 
 /** Staff users for the post-author dropdown (id/displayName/role only). */
+/**
+ * Post authors: staff + users whose main or additional role may write their
+ * own posts (`posts:write_own` — contributors), so a contributor's post shows
+ * them in the editor's Author select.
+ */
 export async function listAuthors(): Promise<Array<{ id: string; displayName: string; role: string; }>> {
-    return repo.listStaffAuthors();
+    const roles = (await query<{ key: string; }>(`SELECT key FROM roles WHERE NOT (key = ANY($1))`, [['anonymous', 'admin', 'sysadmin', 'editor',],],)).rows;
+    const { can, } = await import('./permissions/index.js');
+    const writers: string[] = [];
+    for (const r of roles) if (await can({ role: r.key, }, 'posts:write_own',)) writers.push(r.key,);
+    return repo.listStaffAuthors(writers,);
 }
 
 export async function list(

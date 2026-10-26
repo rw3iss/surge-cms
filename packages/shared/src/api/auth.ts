@@ -10,8 +10,11 @@
  *   admin    — admin/sysadmin role required.
  *   apiKey   — admin-equivalent access for standalone clients via API
  *              key (Phase 2). Until then it behaves like `admin`.
+ *   userOrKey — any signed-in user OR an API key; the HANDLER decides with
+ *              permissions (e.g. contributors on their own posts —
+ *              `services/postAccess.ts`). For routes a role admin shell opens.
  */
-export const AUTH_TIERS = ['public', 'optional', 'user', 'staff', 'admin', 'apiKey',] as const;
+export const AUTH_TIERS = ['public', 'optional', 'user', 'staff', 'admin', 'apiKey', 'userOrKey',] as const;
 
 export type AuthTier = (typeof AUTH_TIERS)[number];
 

@@ -35,7 +35,10 @@ describe('media routes (S1)', () => {
         '%s checks a media permission',
         (name, block,) => {
             const write = !name.startsWith('get',);
-            expect(block,).toContain(`guardMedia(ctx, '${write ? 'media:write' : 'media:read'}'`,);
+            // The routes a role admin shell opens (upload, list) go through
+            // mediaScope — media:* for staff, media:*_own for contributors.
+            const viaScope = block.includes(`mediaScope(ctx, '${write ? 'write' : 'read'}'`,);
+            expect(viaScope || block.includes(`guardMedia(ctx, '${write ? 'media:write' : 'media:read'}'`,),).toBe(true,);
         },
     );
 });

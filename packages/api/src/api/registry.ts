@@ -3,7 +3,7 @@ import type { NextFunction, RequestHandler, Response, } from 'express';
 import type { AuthTier, } from '@sitesurge/types';
 import { authenticate, AuthenticatedRequest, } from '../middleware/auth';
 import { auditFromRequest, } from '../services/types';
-import { adminOrApiKey, optionalOrApiKey, staffOrApiKey, } from './apiKeyAuth';
+import { adminOrApiKey, optionalOrApiKey, staffOrApiKey, userOrApiKey, } from './apiKeyAuth';
 import type { ApiKeyRequest, } from './apiKeyAuth';
 import { isReply, } from './types';
 import type { RouteDef, } from './types';
@@ -32,6 +32,7 @@ export function authMiddlewaresFor(tier: AuthTier,): RequestHandler[] {
         case 'staff': return staffOrApiKey();
         case 'admin': return adminOrApiKey();
         case 'apiKey': return adminOrApiKey();
+        case 'userOrKey': return userOrApiKey();
     }
 }
 

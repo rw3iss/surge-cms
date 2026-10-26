@@ -16,6 +16,7 @@ import { swatchCssVars, } from '../../services/colorResolver';
 import { loadSwatches, swatches as swatchesSignal, } from '../../services/siteColors';
 import { adminAppearance, adminAppearanceCssVars, loadAdminAppearance, } from '../../stores/adminAppearance';
 import { useAuth, } from '../../stores/auth';
+import { adminShellFor, canEnterAdmin, } from '../../admin/shells';
 import { isFeatureEnabled, loadSiteSettings, siteLogo, siteName, } from '../../stores/siteSettings';
 import { ensureFontFaces, } from '../../services/fonts';
 import { appearanceCssVars, richTextTypographyCss, } from '../../utils/appearanceStyle';
@@ -62,6 +63,10 @@ function NavIcon(props: { name: string; },) {
 }
 
 interface NavItem {
+    /** Stable id — what a role admin shell lists (`admin/shells`). */
+    id: string;
+    /** A role-shell user needs ANY of these permissions to see the item. */
+    permission?: string[];
     path: string;
     label: string;
     icon: string;
@@ -98,47 +103,58 @@ async function refreshModerationCount(): Promise<void> {
 }
 const commentsOnly = () => isFeatureEnabled('comments',);
 
+// ─── Posts waiting for review (contributors' submissions), staff only ───
+const [reviewCount, setReviewCount,] = createSignal(0,);
+async function refreshReviewCount(): Promise<void> {
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+    if (!isFeatureEnabled('posts',)) { setReviewCount(0,); return; }
+    try {
+        const r = await cms.posts.list({ status: 'pending_review', limit: 1, sort: 'updated_desc', } as never,);
+        setReviewCount(Number((r as { meta?: { total?: number; }; }).meta?.total ?? 0,),);
+    } catch { /* no access → no badge */ }
+}
+
 const NAV_ITEMS: NavItem[] = [
-    { path: '/admin', label: 'Dashboard', icon: 'dashboard', end: true, },
-    { path: '/admin/pages', label: 'Pages', icon: 'pages', },
-    { path: '/admin/posts', label: 'Posts', icon: 'posts', feature: 'posts', },
-    { path: '/admin/campaigns', label: 'Campaigns', icon: 'campaigns', feature: 'campaigns', },
-    { path: '/admin/forms', label: 'Forms', icon: 'forms', feature: 'forms', },
+    { id: 'dashboard', path: '/admin', label: 'Dashboard', icon: 'dashboard', end: true, },
+    { id: 'pages', path: '/admin/pages', label: 'Pages', icon: 'pages', },
+    { id: 'posts', path: '/admin/posts', label: 'Posts', icon: 'posts', feature: 'posts', permission: ['posts:read', 'posts:read_own',], badge: () => reviewCount(), },
+    { id: 'campaigns', path: '/admin/campaigns', label: 'Campaigns', icon: 'campaigns', feature: 'campaigns', },
+    { id: 'forms', path: '/admin/forms', label: 'Forms', icon: 'forms', feature: 'forms', },
     // Events sits with the other content-authoring areas, after Forms.
-    { path: '/admin/events', label: 'Events', icon: 'calendar', feature: 'events', },
+    { id: 'events', path: '/admin/events', label: 'Events', icon: 'calendar', feature: 'events', },
     // The forum's own section (Comments sits under Messages, below).
-    { path: '/admin/forum', label: 'Forum', icon: 'forum', feature: 'forum', },
-    { path: '/admin/mailing-lists', label: 'Mailing Lists', icon: 'mail', feature: 'mailing_lists', adminOnly: true, },
+    { id: 'forum', path: '/admin/forum', label: 'Forum', icon: 'forum', feature: 'forum', },
+    { id: 'mailing-lists', path: '/admin/mailing-lists', label: 'Mailing Lists', icon: 'mail', feature: 'mailing_lists', adminOnly: true, },
     // Published media (feature `gallery`), with the Media library right under it.
-    { path: '/admin/gallery', label: 'Gallery', icon: 'gallery', feature: 'gallery', },
-    { path: '/admin/media', label: 'Media', icon: 'media', },
+    { id: 'gallery', path: '/admin/gallery', label: 'Gallery', icon: 'gallery', feature: 'gallery', },
+    { id: 'media', path: '/admin/media', label: 'Media', icon: 'media', },
     // Wiki sits directly above Users, per the module's design.
-    { path: '/admin/wiki', label: 'Wiki', icon: 'wiki', feature: 'wiki', },
-    { path: '/admin/users', label: 'Users', icon: 'users', feature: 'users', adminOnly: true, },
+    { id: 'wiki', path: '/admin/wiki', label: 'Wiki', icon: 'wiki', feature: 'wiki', },
+    { id: 'users', path: '/admin/users', label: 'Users', icon: 'users', feature: 'users', adminOnly: true, },
     // Contacts (CRM) — aliases to the `contact` entity's Data table. Shown under
     // Users, only when the `contacts` feature is enabled.
-    { path: '/admin/entities/contact/data', label: 'Contacts', icon: 'users', feature: 'contacts', adminOnly: true, },
-    { path: '/admin/messages', label: 'Messages', icon: 'messages', feature: 'messages', },
+    { id: 'contacts', path: '/admin/entities/contact/data', label: 'Contacts', icon: 'users', feature: 'contacts', adminOnly: true, },
+    { id: 'messages', path: '/admin/messages', label: 'Messages', icon: 'messages', feature: 'messages', },
     // The moderation queue (comments AND forum replies), with the other inbound
     // items. Shown when either feature is on — with only the forum on it is
     // where forum replies are moderated, labelled "Moderation".
     {
-        path: '/admin/comments', label: 'Comments', icon: 'comments', anyFeature: ['comments', 'forum',],
+        id: 'comments', path: '/admin/comments', label: 'Comments', icon: 'comments', anyFeature: ['comments', 'forum',],
         labelFn: () => (commentsOnly() ? 'Comments' : 'Moderation'),
         hrefFn: () => (commentsOnly() ? '/admin/comments' : '/admin/comments?scope=forum'),
         badge: moderationCount,
     },
     // Entities + Components are tools rather than content areas, so they sit
     // below the day-to-day authoring items.
-    { path: '/admin/entities', label: 'Entities', icon: 'developer', adminOnly: true, },
+    { id: 'entities', path: '/admin/entities', label: 'Entities', icon: 'developer', adminOnly: true, },
     // Reusable block templates, referenced by `template` blocks. Sits beside
     // Entities because it is the same storage without the entity binding.
-    { path: '/admin/components', label: 'Components', icon: 'components', adminOnly: true, },
-    { path: '/admin/social', label: 'Social', icon: 'social', feature: 'social', adminOnly: true, },
-    { path: '/admin/shop', label: 'Shop', icon: 'shop', feature: 'shop', adminOnly: true, },
-    { path: '/admin/plugins', label: 'Plugins', icon: 'plugins', feature: 'plugins', adminOnly: true, },
-    { path: '/admin/settings', label: 'Settings', icon: 'settings', adminOnly: true, },
-    { path: '/admin/help', label: 'Help', icon: 'help', },
+    { id: 'components', path: '/admin/components', label: 'Components', icon: 'components', adminOnly: true, },
+    { id: 'social', path: '/admin/social', label: 'Social', icon: 'social', feature: 'social', adminOnly: true, },
+    { id: 'shop', path: '/admin/shop', label: 'Shop', icon: 'shop', feature: 'shop', adminOnly: true, },
+    { id: 'plugins', path: '/admin/plugins', label: 'Plugins', icon: 'plugins', feature: 'plugins', adminOnly: true, },
+    { id: 'settings', path: '/admin/settings', label: 'Settings', icon: 'settings', adminOnly: true, },
+    { id: 'help', path: '/admin/help', label: 'Help', icon: 'help', },
 ];
 
 const COLLAPSED_KEY = 'admin-sidebar-collapsed';
@@ -148,6 +164,29 @@ const AdminLayout: ParentComponent = (props,) => {
     const navigate = useNavigate();
     const location = useLocation();
     const [sidebarOpen, setSidebarOpen,] = createSignal(false,);
+    /** A non-staff role's reduced admin (`admin/shells`); null = the full staff admin. */
+    const shell = createMemo(() => adminShellFor(auth.user,),);
+    /** Their resolved permissions (role-shell users only — staff see every item). */
+    const [myPerms,] = createResource(() => (shell() ? auth.user?.id : null), () => cms.permissions.mine().catch(() => ({} as Record<string, boolean>)),);
+    const shellNavItems = () => NAV_ITEMS.filter((i,) => shell()!.nav.includes(i.id,),);
+    const shellAllows = (path: string,) => {
+        const sh = shell();
+        if (!sh || path === '/admin' || path === '/admin/') return true;
+        const allowed = sh.paths ?? shellNavItems().map((i,) => i.path,);
+        return allowed.some((p,) => path === p || path.startsWith(`${p}/`,),);
+    };
+    /** Is this nav item shown to the current user? */
+    const navVisible = (item: NavItem,) => {
+        const sh = shell();
+        if (sh) {
+            if (item.id !== 'dashboard' && !sh.nav.includes(item.id,)) return false;
+            if (item.permission && !item.permission.some((k,) => myPerms()?.[k],)) return false;
+        } else {
+            if (item.sysadminOnly && auth.user?.role !== 'sysadmin') return false;
+            if (item.adminOnly && !isAdminRole(auth.user?.role,)) return false;
+        }
+        return (!item.feature || isFeatureEnabled(item.feature,)) && (!item.anyFeature || item.anyFeature.some((f,) => isFeatureEnabled(f,)));
+    };
     const [collapsed, setCollapsed,] = createSignal(
         typeof localStorage !== 'undefined' && localStorage.getItem(COLLAPSED_KEY,) === '1',
     );
@@ -155,8 +194,11 @@ const AdminLayout: ParentComponent = (props,) => {
     createEffect(() => {
         if (!auth.isLoading && !auth.isAuthenticated) {
             navigate(`/login?return=${location.pathname}`,);
-        } else if (!auth.isLoading && !isStaffRole(auth.user?.role,)) {
+        } else if (!auth.isLoading && !canEnterAdmin(auth.user,)) {
             navigate('/',);
+        } else if (!auth.isLoading && shell() && !shellAllows(location.pathname,)) {
+            // A role-shell user (e.g. a contributor) reached another admin page by URL.
+            navigate('/admin',);
         } else if (
             !auth.isLoading
             && !isAdminRole(auth.user?.role,)
@@ -191,9 +233,12 @@ const AdminLayout: ParentComponent = (props,) => {
     createEffect(() => {
         if (auth.isLoading || !isStaffRole(auth.user?.role,)) return;
         void refreshModerationCount();
-        if (!moderationTimer) moderationTimer = setInterval(() => void refreshModerationCount(), 60_000,);
+        void refreshReviewCount();
+        if (!moderationTimer) moderationTimer = setInterval(() => { void refreshModerationCount(); void refreshReviewCount(); }, 60_000,);
     },);
     createEffect(() => {
+        // Reviewing posts changes the "waiting for review" count.
+        if (location.pathname.startsWith('/admin/posts',) && !auth.isLoading && isStaffRole(auth.user?.role,)) void refreshReviewCount();
         const inQueue = location.pathname.startsWith('/admin/comments',);
         location.search;
         if (inQueue && !auth.isLoading && isStaffRole(auth.user?.role,)) void refreshModerationCount();
@@ -304,7 +349,7 @@ const AdminLayout: ParentComponent = (props,) => {
     };
 
     return (
-        <Show when={!auth.isLoading && isStaffRole(auth.user?.role,)} fallback={<div>Loading...</div>}>
+        <Show when={!auth.isLoading && canEnterAdmin(auth.user,)} fallback={<div>Loading...</div>}>
             <div
                 ref={(el,) => { rootRef = el; }}
                 class={`admin-layout ${collapsed() ? 'admin-layout--collapsed' : ''}`}
@@ -354,14 +399,7 @@ const AdminLayout: ParentComponent = (props,) => {
                     <nav class="admin-layout__nav">
                         <For each={NAV_ITEMS}>
                             {(item,) => (
-                                <Show
-                                    when={
-                                        (!item.sysadminOnly || auth.user?.role === 'sysadmin')
-                                        && (!item.adminOnly || isAdminRole(auth.user?.role,))
-                                        && (!item.feature || isFeatureEnabled(item.feature,))
-                                        && (!item.anyFeature || item.anyFeature.some((f,) => isFeatureEnabled(f,)))
-                                    }
-                                >
+                                <Show when={navVisible(item,)}>
                                     <A
                                         href={item.hrefFn?.() ?? item.path}
                                         end={item.end}
@@ -382,7 +420,7 @@ const AdminLayout: ParentComponent = (props,) => {
                         </For>
                     </nav>
                     <div class="admin-layout__sidebar-footer">
-                        <AdminPresence />
+                        <Show when={!shell()}><AdminPresence /></Show>
                         <div class="admin-layout__user">
                             <Show
                                 when={!collapsed()}
@@ -429,9 +467,9 @@ const AdminLayout: ParentComponent = (props,) => {
                 <main class="admin-layout__main">
                     {props.children}
                 </main>
-                <GlobalSearch />
+                <Show when={!shell()}><GlobalSearch /></Show>
                 <SessionExpiredModal />
-                <SamePageWarning />
+                <Show when={!shell()}><SamePageWarning /></Show>
                 <MediaViewerHost />
                 <MediaDeleteConfirmHost />
                 <UploadTray />

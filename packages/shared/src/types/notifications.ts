@@ -73,6 +73,12 @@ export const NOTIFICATION_TYPES: NotificationTypeMeta[] = [
         feature: 'shop',
     },
     {
+        key: 'post_submitted',
+        label: 'Post submitted for review',
+        description: 'When a contributor submits a post for review.',
+        feature: 'posts',
+    },
+    {
         key: 'form_submission',
         label: 'Form submission',
         description: 'When a visitor submits a form.',

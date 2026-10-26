@@ -8,6 +8,8 @@ export const STATUS_BADGE_MAP: Record<string, string> = {
     active: 'badge--success',
     completed: 'badge--info',
     draft: 'badge--warning',
+    // A contributor's post waiting for review.
+    pending_review: 'badge--info',
     archived: 'badge--muted',
     closed: 'badge--muted',
     cancelled: 'badge--error',

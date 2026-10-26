@@ -6353,7 +6353,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             },
             {
                 "name": "setGrant",
-                "signature": "setGrant(key: string, body: { subjectType: 'role' | 'user'; subjectId: string; granted?: boolean; }): Promise<{ message: string; }>",
+                "signature": "setGrant(key: string, body: { subjectType: 'role' | 'user'; subjectId: string; granted?: boolean; /** For an allow: `approval` = may do it, but the result waits for review. */ mode?: 'allow' | 'approval'; }): Promise<{ message: string; }>",
                 "summary": "Grant or DENY (`granted: false`) to a role or a specific user.",
                 "params": [
                     {
@@ -6363,7 +6363,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                     },
                     {
                         "name": "body",
-                        "type": "{ subjectType: 'role' | 'user'; subjectId: string; granted?: boolean; }",
+                        "type": "{ subjectType: 'role' | 'user'; subjectId: string; granted?: boolean; /** For an allow: `approval` = may do it, but the result waits for review. */ mode?: 'allow' | 'approval'; }",
                         "optional": false
                     }
                 ],
@@ -7128,6 +7128,27 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "returns": "Promise<PostRevisionRestoreResponse>",
                 "routes": [
                     "POST /api/v1/posts/:id/revisions/:version/restore"
+                ]
+            },
+            {
+                "name": "review",
+                "signature": "review(id: string, body: { action: 'approve' | 'return'; note?: string; }): Promise<Post>",
+                "summary": "POST /posts/:id/review — approve (publish) or return (draft + note) a post waiting for review. Staff with `posts:publish`.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "body",
+                        "type": "{ action: 'approve' | 'return'; note?: string; }",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<Post>",
+                "routes": [
+                    "POST /api/v1/posts/:id/review"
                 ]
             },
             {
@@ -10269,4 +10290,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 51;
-export const SDK_METHOD_COUNT = 599;
+export const SDK_METHOD_COUNT = 600;

@@ -7,7 +7,7 @@ import type {
     PostBulkBody, PostBulkResponse, PostRevisionListResponse, PostRevisionResponse,
     PostRevisionRestoreResponse, PostReorderBlocksBody, PostReorderBlocksResponse, LiveBan, LiveChatMessage, LiveModerateBody, LiveModerationState, LiveViewer,
 } from '@sitesurge/types';
-import type { Paginated, } from '@sitesurge/types';
+import type { Paginated, Post, } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
 /** /posts namespace — blog posts with content blocks, revisions, reorder. */
@@ -169,6 +169,11 @@ export class PostsModule extends ModuleBase {
 
     getRevision(id: string, version: number,): Promise<PostRevisionResponse> {
         return this.get<PostRevisionResponse>('/posts/:id/revisions/:version', { params: { id, version, }, },);
+    }
+
+    /** POST /posts/:id/review — approve (publish) or return (draft + note) a post waiting for review. Staff with `posts:publish`. */
+    review(id: string, body: { action: 'approve' | 'return'; note?: string; },): Promise<Post> {
+        return this.mutate<Post>('POST', '/posts/:id/review', { params: { id, }, body, invalidates: ['posts',], },);
     }
 
     /** Snapshot the post as it is now — see the pages equivalent. */

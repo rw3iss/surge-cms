@@ -2,6 +2,8 @@ import { BANNER_HEIGHT_MAX, BANNER_POSITION_CUSTOM_MAX, isValidBannerHeight, isV
 import * as liveReplays from '../services/liveReplays';
 import * as postSettings from '../services/postSettings';
 import { requirePermission, } from '../services/permissions';
+import { postAccess, postStatus, shapeOwnPostWrite, } from '../services/postAccess';
+import * as postReview from '../services/postReview';
 import type { PostsSettingsBody, } from '@sitesurge/types';
 import { ALL_BLOCK_TYPES, isPostType, } from '@sitesurge/types';
 import { z, } from 'zod';
@@ -13,7 +15,7 @@ import type {
 } from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { isAdminRole, } from '../api/roles';
-import { NotFoundError, } from '../core/errors';
+import { ForbiddenError, NotFoundError, } from '../core/errors';
 import * as posts from '../services/posts';
 import * as postTypes from '../services/postTypes';
 import * as liveRooms from '../services/liveRooms';
@@ -44,7 +46,7 @@ const postSchema = z.object({
     // Post author (a staff user id) — null clears it, omitted defaults to
     // the creating user on create.
     authorId: z.string().uuid().nullish(),
-    status: z.enum(['draft', 'published', 'scheduled', 'archived', 'deleted',],).optional(),
+    status: z.enum(['draft', 'published', 'scheduled', 'archived', 'deleted', 'pending_review',],).optional(),
     publishAt: z.string().datetime().nullable().optional(),
     isPrivate: z.boolean().optional(),
     tags: z.array(z.string(),).optional(),
@@ -159,10 +161,14 @@ export const postsRoutes = [
             // Admin view is explicit: only when an admin sends status or
             // sort. An admin browsing the public site sends neither and
             // gets the public gate like everyone else.
-            if (isAdmin && (query.status !== undefined || query.sort !== undefined)) {
+            // The admin listing: admins, plus anyone with posts:read (editors)
+            // or posts:read_own (contributors — only the posts they wrote).
+            const adminView = query.status !== undefined || query.sort !== undefined;
+            const scope = adminView && !isAdmin && user ? await postAccess(user, 'read',).catch(() => null) : null;
+            if (adminView && (isAdmin || scope)) {
                 const status = query.status && query.status !== 'all' ? query.status : undefined;
                 const result = await posts.list(
-                    { status, search: query.search, sort: query.sort, postType: query.type, },
+                    { status, search: query.search, sort: query.sort, postType: query.type, authorId: scope === 'own' ? user!.id : undefined, },
                     { page: query.page, limit: query.limit, },
                 );
                 return reply(result.data, { meta: result.meta, },);
@@ -193,9 +199,12 @@ export const postsRoutes = [
     },),
 
     defineRoute({
-        method: 'get', path: '/settings', auth: 'staff',
-        summary: 'Posts settings (General, per type, Live Show provider — secrets masked) + the live provider catalogue.',
-        handler: () => postSettings.getForClient(),
+        method: 'get', path: '/settings', auth: 'userOrKey',
+        summary: 'Posts settings (General, per type, Live Show provider — secrets masked) + the live provider catalogue. Staff, or a user who may write posts.',
+        handler: async ({ user, apiKey, },) => {
+            await postAccess(user, 'read', undefined, apiKey,);
+            return postSettings.getForClient();
+        },
     },),
 
     defineRoute({
@@ -261,11 +270,23 @@ export const postsRoutes = [
         handler: ({ body, audit, },) => posts.bulk(body, audit(),),
     },),
 
+    // Review a contributor's submission (status pending_review).
     defineRoute({
-        method: 'get', path: '/:id', auth: 'staff',
-        summary: 'Fetch a post by id (any status).',
+        method: 'post', path: '/:id/review', auth: 'staff',
+        summary: 'Approve (publish) or return (to draft, with a note) a post waiting for review. Needs posts:publish (plain allow).',
+        input: { params: idParams, body: z.object({ action: z.enum(['approve', 'return',],), note: z.string().max(2000,).optional(), },), },
+        handler: async ({ params, body, user, audit, },) => {
+            await requirePermission({ id: user?.id, role: user?.role, }, 'posts:publish',);
+            return postReview.review(params.id, body.action, body.note, { id: user!.id, role: user!.role, }, audit(),);
+        },
+    },),
+
+    defineRoute({
+        method: 'get', path: '/:id', auth: 'userOrKey',
+        summary: 'Fetch a post by id (any status). Staff, or the author with posts:read_own.',
         input: { params: idParams, },
-        handler: async ({ params, },) => {
+        handler: async ({ params, user, apiKey, },) => {
+            await postAccess(user, 'read', params.id, apiKey,);
             const post = await posts.getById(params.id,);
             if (!post) throw new NotFoundError('Post',);
             return post;
@@ -273,51 +294,78 @@ export const postsRoutes = [
     },),
 
     defineRoute({
-        method: 'post', path: '/', auth: 'staff',
-        summary: 'Create a post.',
+        method: 'post', path: '/', auth: 'userOrKey',
+        summary: 'Create a post. Staff, or a contributor (posts:write_own — they are the author; "publish" with approval becomes pending_review).',
         input: { body: postSchema, },
-        handler: async ({ body, audit, },) => {
-            const post = await posts.create(body, audit(),);
+        handler: async ({ body, user, apiKey, audit, },) => {
+            const scope = await postAccess(user, 'write', undefined, apiKey,);
+            let data: Record<string, unknown> = body;
+            let submitted = false;
+            if (scope === 'own') ({ body: data, submitted, } = await shapeOwnPostWrite({ ...user!, id: user!.id!, }, body, null,));
+            const post = await posts.create(data, audit(),);
+            if (submitted) postReview.submitted(post.id, user!.id!,);
             return reply(post, { status: 201, },);
         },
     },),
 
     defineRoute({
-        method: 'put', path: '/:id', auth: 'staff',
-        summary: 'Update a post. Snapshots a revision first.',
+        method: 'put', path: '/:id', auth: 'userOrKey',
+        summary: 'Update a post. Snapshots a revision first. Staff, or its author with posts:write_own (see POST /posts).',
         input: { params: idParams, body: postSchema.partial(), },
-        handler: ({ params, body, audit, },) => posts.update(params.id, body, audit(),),
+        handler: async ({ params, body, user, apiKey, audit, },) => {
+            const scope = await postAccess(user, 'write', params.id, apiKey,);
+            if (scope !== 'own') return posts.update(params.id, body, audit(),);
+            const current = await postStatus(params.id,);
+            const shaped = await shapeOwnPostWrite({ ...user!, id: user!.id!, }, body, current,);
+            const post = await posts.update(params.id, shaped.body, audit(),);
+            if (shaped.submitted) postReview.submitted(params.id, user!.id!,);
+            return post;
+        },
     },),
 
     defineRoute({
-        method: 'delete', path: '/:id', auth: 'staff',
-        summary: 'Delete a post.',
+        method: 'delete', path: '/:id', auth: 'userOrKey',
+        summary: 'Delete a post. Staff, or its author (posts:delete_own) while it is not published.',
         input: { params: idParams, },
-        handler: async ({ params, audit, },) => {
+        handler: async ({ params, user, apiKey, audit, },) => {
+            const scope = await postAccess(user, 'delete', params.id, apiKey,);
+            if (scope === 'own') {
+                const cur = await postStatus(params.id,);
+                if (cur && cur.status !== 'draft' && cur.status !== 'pending_review') throw new ForbiddenError('Only drafts can be deleted — ask an editor.',);
+            }
             await posts.remove(params.id, audit(),);
             return { message: 'Post deleted', };
         },
     },),
 
     defineRoute({
-        method: 'get', path: '/:id/revisions', auth: 'staff',
-        summary: 'List a post\'s saved revisions.',
+        method: 'get', path: '/:id/revisions', auth: 'userOrKey',
+        summary: 'List a post\'s saved revisions (staff, or its author).',
         input: { params: idParams, },
-        handler: ({ params, },) => posts.listRevisions(params.id,),
+        handler: async ({ params, user, apiKey, },) => {
+            await postAccess(user, 'read', params.id, apiKey,);
+            return posts.listRevisions(params.id,);
+        },
     },),
 
     defineRoute({
-        method: 'post', path: '/:id/revisions', auth: 'staff',
-        summary: 'Snapshot the post\'s current state as a revision.',
+        method: 'post', path: '/:id/revisions', auth: 'userOrKey',
+        summary: 'Snapshot the post\'s current state as a revision (staff, or its author).',
         input: { params: idParams, },
-        handler: ({ params, audit, },) => posts.snapshotNow(params.id, audit(),),
+        handler: async ({ params, user, apiKey, audit, },) => {
+            await postAccess(user, 'write', params.id, apiKey,);
+            return posts.snapshotNow(params.id, audit(),);
+        },
     },),
 
     defineRoute({
-        method: 'get', path: '/:id/revisions/:version', auth: 'staff',
-        summary: 'Fetch one revision snapshot.',
+        method: 'get', path: '/:id/revisions/:version', auth: 'userOrKey',
+        summary: 'Fetch one revision snapshot (staff, or its author).',
         input: { params: z.object({ id: z.string(), version: z.coerce.number().int(), },), },
-        handler: ({ params, },) => posts.getRevision(params.id, params.version,),
+        handler: async ({ params, user, apiKey, },) => {
+            await postAccess(user, 'read', params.id, apiKey,);
+            return posts.getRevision(params.id, params.version,);
+        },
     },),
 
     defineRoute({
@@ -496,13 +544,14 @@ export const postsRoutes = [
     },),
 
     defineRoute({
-        method: 'put', path: '/:id/blocks/reorder', auth: 'staff',
-        summary: 'Reorder a post\'s content blocks.',
+        method: 'put', path: '/:id/blocks/reorder', auth: 'userOrKey',
+        summary: 'Reorder a post\'s content blocks (staff, or its author).',
         input: {
             params: idParams,
             body: reorderBlocksBody,
         },
-        handler: async ({ params, body, },) => {
+        handler: async ({ params, body, user, apiKey, },) => {
+            await postAccess(user, 'write', params.id, apiKey,);
             await posts.reorderContentBlocks(params.id, body.blockIds,);
             return { message: 'Blocks reordered', };
         },

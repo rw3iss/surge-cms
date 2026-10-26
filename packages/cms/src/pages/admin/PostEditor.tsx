@@ -29,12 +29,38 @@ import { useEntityEditor, type EntitySaveContext, } from '../../hooks/useEntityE
 import { invalidatePostsCache, } from '../../services/adminData';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
+import { useToast, } from '../../components/common/toast';
+import { adminShellFor, } from '../../admin/shells';
 import { BlockStyleService, } from '../../services/blockStyles';
 import { generateBlockId, } from '../../utils/blockId';
 import type { Post, } from '@sitesurge/types';
 
 const AdminPostEditor: Component = () => {
     const auth = useAuth();
+    /** A role-shell user (contributor): own posts, "Submit for review", no gating / author / comments settings. */
+    const contributor = () => !!adminShellFor(auth.user,);
+    const [reviewNote, setReviewNote,] = createSignal<string | null>(null,);
+    const [reviewing, setReviewing,] = createSignal(false,);
+    let reviewNoteEl: HTMLTextAreaElement | undefined;
+    const toast = useToast();
+    /** Reviewer: approve (publish) or return (draft + note) a contributor's post. */
+    const review = async (action: 'approve' | 'return',) => {
+        const id = editor.params.id;
+        if (!id) return;
+        setReviewing(true,);
+        try {
+            const note = reviewNoteEl?.value.trim() || undefined;
+            await cms.posts.review(id, { action, note, },);
+            setStatus(action === 'approve' ? 'published' : 'draft',);
+            setReviewNote(note ?? null,);
+            invalidatePostsCache();
+            toast.success(action === 'approve' ? 'Published — the author was emailed.' : 'Returned to the author as a draft — they were emailed.',);
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Could not review the post.',);
+        } finally {
+            setReviewing(false,);
+        }
+    };
     // ─── Post property signals ───
     const [title, setTitle,] = createSignal('',);
     const [slug, setSlug,] = createSignal('',);
@@ -325,6 +351,7 @@ const AdminPostEditor: Component = () => {
         setSlug(p.slug || '',);
         setExcerpt(p.excerpt || '',);
         setStatus(p.status || 'draft',);
+        setReviewNote((p as { reviewNote?: string | null; }).reviewNote ?? null,);
         setTags((p.tags || []).join(', ',),);
         setFeaturedImage(p.featuredImage || '',);
         setBannerLayout(((p as any).bannerLayout as 'hero' | 'hero-full' | 'standalone' | 'thumbnail') || 'standalone',);
@@ -699,16 +726,54 @@ const AdminPostEditor: Component = () => {
                     </div>
                 </div>
                 <div class="editor-properties__sidebar">
-                    <FormField label="Status">
-                        <select
-                            value={status()}
-                            onChange={(e,) => { setStatus(e.currentTarget.value,); editor.markDirty(); }}
+                    {/* Reviewer: a contributor's post waiting for review. */}
+                    <Show when={!contributor() && status() === 'pending_review' && !editor.isNew()}>
+                        <div class="post-review-box" role="status">
+                            <strong>Waiting for review</strong>
+                            <span class="form-help-muted">Submitted by its author. Publish it, or return it with a note (they are emailed either way).</span>
+                            <textarea ref={reviewNoteEl} rows={3} placeholder="Note to the author (optional; shown when returned)" />
+                            <div class="post-review-box__actions">
+                                <button type="button" class="ui-button ui-button--secondary ui-button--sm" disabled={reviewing()} onClick={() => void review('return',)}>Return to author</button>
+                                <button type="button" class="ui-button ui-button--primary ui-button--sm" disabled={reviewing()} onClick={() => void review('approve',)}>Approve &amp; publish</button>
+                            </div>
+                        </div>
+                    </Show>
+                    {/* Author: a returned post's note. */}
+                    <Show when={contributor() && status() === 'draft' && reviewNote()}>
+                        <div class="post-review-box post-review-box--returned" role="status">
+                            <strong>Returned by the editor</strong>
+                            <span>{reviewNote()}</span>
+                        </div>
+                    </Show>
+                    <FormField
+                        label="Status"
+                        hint={contributor() ? 'Choose "Submit for review" and save when it is ready — an editor publishes it.' : undefined}
+                    >
+                        <Show
+                            when={contributor()}
+                            fallback={
+                                <select
+                                    value={status()}
+                                    onChange={(e,) => { setStatus(e.currentTarget.value,); editor.markDirty(); }}
+                                >
+                                    <option value="draft">Draft</option>
+                                    <option value="pending_review">Waiting for review</option>
+                                    <option value="scheduled">Scheduled</option>
+                                    <option value="published">Published</option>
+                                    <option value="archived">Archived</option>
+                                </select>
+                            }
                         >
-                            <option value="draft">Draft</option>
-                            <option value="scheduled">Scheduled</option>
-                            <option value="published">Published</option>
-                            <option value="archived">Archived</option>
-                        </select>
+                            <select
+                                value={status()}
+                                disabled={status() === 'published'}
+                                onChange={(e,) => { setStatus(e.currentTarget.value,); editor.markDirty(); }}
+                            >
+                                <option value="draft">Draft</option>
+                                <option value="pending_review">Submit for review</option>
+                                <Show when={status() === 'published'}><option value="published">Published</option></Show>
+                            </select>
+                        </Show>
                     </FormField>
                     <Show when={status() === 'scheduled'}>
                         <FormField label="Publish At">
@@ -719,6 +784,7 @@ const AdminPostEditor: Component = () => {
                             />
                         </FormField>
                     </Show>
+                    <Show when={!contributor()}>
                     <FormField
                         label="Access"
                         tooltip="Public, or a subscription tier (Users → Settings → Subscriptions). A reader passes with that tier or any tier ranked above it; staff always see the full post."
@@ -768,7 +834,9 @@ const AdminPostEditor: Component = () => {
                             </Show>
                         </div>
                     </Show>
-                    <FormField label="Author" hint="Staff user credited as the post's author.">
+                    </Show>
+                    <Show when={!contributor()}>
+                    <FormField label="Author" hint="Who the post is credited to (staff, or a contributor).">
                         <select
                             ref={authorSelect}
                             value={authorId()}
@@ -781,6 +849,7 @@ const AdminPostEditor: Component = () => {
                         </select>
                     </FormField>
                     <CommentSwitchesFields ctl={commentSwitches} onChange={() => editor.markDirty()} />
+                    </Show>
                 </div>
             </div>
         </CollapsiblePanel>
