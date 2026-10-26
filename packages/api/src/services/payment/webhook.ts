@@ -37,6 +37,10 @@ export async function handleWebhook(
 ): Promise<{ status: number; body: Record<string, unknown>; }> {
     let event: Stripe.Event;
 
+    // The affiliate program's Connect endpoint signs with its own secret; load
+    // it (cached 30 s) so every worker can verify `account.updated`.
+    await import('../affiliates/settings.js').then((m,) => m.getAffiliateSettings(),).catch(() => undefined);
+
     try {
         if (allWebhookSecrets().length > 0) {
             // Production mode: verify webhook signature using raw body.

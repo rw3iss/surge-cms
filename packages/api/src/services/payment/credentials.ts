@@ -123,10 +123,18 @@ export function stripeCredentials(context: PaymentContext = 'default',): StripeC
     return cache?.[context] ?? envCreds();
 }
 
+/** Extra signing secrets (e.g. the affiliate program's CONNECT endpoint — events
+ *  on connected accounts are signed with that endpoint's own secret). */
+const extraSecrets = new Map<string, string>();
+export function setExtraWebhookSecret(name: string, secret: string,): void {
+    if (secret.trim()) extraSecrets.set(name, secret.trim(),);
+    else extraSecrets.delete(name,);
+}
+
 /** Distinct, non-empty webhook secrets across all contexts (for verifying an
  *  inbound webhook that may originate from any configured Stripe account). */
 export function allWebhookSecrets(): string[] {
-    const set = new Set<string>();
+    const set = new Set<string>(extraSecrets.values(),);
     for (const c of CONTEXTS) {
         const s = stripeCredentials(c,).webhookSecret;
         if (s) set.add(s,);

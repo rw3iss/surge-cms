@@ -8,6 +8,7 @@ import { query, } from '../../db';
 import { uuidOrNull, } from '../../utils/uuid';
 import { logAudit, } from '../audit';
 import type { AuditContext, } from '../types';
+import { setExtraWebhookSecret, } from '../payment/credentials';
 
 export const AFFILIATE_SETTINGS_KEY = 'affiliate_settings';
 export const SCHEDULES: AffiliatePayoutSchedule[] = ['off', 'weekly', 'biweekly', 'monthly',];
@@ -22,13 +23,23 @@ export const DEFAULT_AFFILIATE_SETTINGS: AffiliateSettings = {
 
 let cache: { at: number; value: AffiliateSettings; } | null = null;
 
+export const SECRET_MASK = '••••••••';
+
+/** The stored settings, secret included (server use). Also hands the Connect
+ *  webhook secret to the Stripe webhook verifier. */
 export async function getAffiliateSettings(): Promise<AffiliateSettings> {
     if (cache && Date.now() - cache.at < 30_000) return cache.value;
     const r = await query<{ value: Partial<AffiliateSettings>; }>(`SELECT value FROM site_settings WHERE key = $1`, [AFFILIATE_SETTINGS_KEY,],)
         .catch(() => ({ rows: [], }),);
     const value = { ...DEFAULT_AFFILIATE_SETTINGS, ...(r.rows[0]?.value ?? {}), };
     cache = { at: Date.now(), value, };
+    setExtraWebhookSecret('affiliates-connect', value.connectWebhookSecret ?? '',);
     return value;
+}
+
+/** For the admin: the secret masked. */
+export function maskSettings(s: AffiliateSettings,): AffiliateSettings {
+    return { ...s, connectWebhookSecret: s.connectWebhookSecret ? SECRET_MASK : '', };
 }
 
 async function write(value: AffiliateSettings, actor: string | null,): Promise<void> {
@@ -63,9 +74,15 @@ export async function updateAffiliateSettings(body: AffiliateSettingsBody, ctx: 
         if (!(body.defaultCommissionPercent >= 0 && body.defaultCommissionPercent <= 100)) throw new ValidationError('Commission is 0–100%.',);
         next.defaultCommissionPercent = body.defaultCommissionPercent;
     }
+    if (body.connectWebhookSecret !== undefined && body.connectWebhookSecret !== SECRET_MASK) {
+        const v = body.connectWebhookSecret.trim();
+        if (v && !v.startsWith('whsec_',)) throw new ValidationError('The signing secret starts with whsec_.',);
+        next.connectWebhookSecret = v;
+    }
     await write(next, ctx.userId ?? null,);
-    await logAudit({ userId: ctx.userId, action: 'update', entityType: 'affiliate_settings', entityId: AFFILIATE_SETTINGS_KEY, newValues: body as never, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
-    return next;
+    await logAudit({ userId: ctx.userId, action: 'update', entityType: 'affiliate_settings', entityId: AFFILIATE_SETTINGS_KEY, newValues: { ...body, connectWebhookSecret: body.connectWebhookSecret ? '(set)' : body.connectWebhookSecret, } as never, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
+    setExtraWebhookSecret('affiliates-connect', next.connectWebhookSecret ?? '',);
+    return maskSettings(next,);
 }
 
 /** Stamp an automatic payout run. */

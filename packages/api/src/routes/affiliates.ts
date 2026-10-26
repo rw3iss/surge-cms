@@ -61,7 +61,7 @@ export const affiliateRoutes = [
     defineRoute({
         method: 'get', path: '/settings', auth: 'admin',
         summary: 'Affiliate program settings (role, refund window, payout schedule, default commission).',
-        handler: async ({ user, },) => { await manage(user,); return affiliates.getAffiliateSettings(); },
+        handler: async ({ user, },) => { await manage(user,); return affiliates.maskSettings(await affiliates.getAffiliateSettings(),); },
     },),
     defineRoute({
         method: 'put', path: '/settings', auth: 'admin',
@@ -72,6 +72,7 @@ export const affiliateRoutes = [
                 refundWindowDays: z.number().int().min(0,).max(365,).optional(),
                 payoutSchedule: z.enum(['off', 'weekly', 'biweekly', 'monthly',],).optional(),
                 defaultCommissionPercent: z.number().min(0,).max(100,).optional(),
+                connectWebhookSecret: z.string().max(200,).optional(),
             },) satisfies z.ZodType<AffiliateSettingsBody>,
         },
         handler: async ({ body, user, audit, },) => { await manage(user,); return affiliates.updateAffiliateSettings(body, audit(),); },

@@ -57,6 +57,7 @@ const AffiliateProgramSettings: Component = () => {
                 refundWindowDays: draft.refundWindowDays,
                 payoutSchedule: draft.payoutSchedule,
                 defaultCommissionPercent: draft.defaultCommissionPercent,
+                connectWebhookSecret: draft.connectWebhookSecret ?? '',
             },);
             setDraft(s,);
             toast.success('Affiliate settings saved.',);
@@ -111,11 +112,24 @@ const AffiliateProgramSettings: Component = () => {
                     <Show when={draft.lastAutoPayoutAt}>
                         <p class="form-help-muted">Last automatic payout run: {new Date(draft.lastAutoPayoutAt!,).toLocaleString()}</p>
                     </Show>
-                    <p class="form-help-muted">
-                        Stripe setup: enable <strong>Connect</strong> on the shop's Stripe account, and add the{' '}
-                        <code>account.updated</code> event ("events on connected accounts") to the webhook endpoint. Payouts come out of
-                        the shop's Stripe balance. <A href="/admin/shop/affiliates">Manage affiliates →</A>
-                    </p>
+                    <div class="affiliate-stripe-setup">
+                        <h3>Stripe setup</h3>
+                        <ol class="form-help-muted">
+                            <li>In the shop's Stripe account, open <strong>Connect</strong> (dashboard.stripe.com/connect) and finish its setup (platform profile, Express accounts).</li>
+                            <li>
+                                In <strong>Developers → Webhooks</strong>, add an endpoint with URL <code>{`${location.origin}/api/v1/payments/webhook`}</code>,
+                                listening to <strong>Events on connected accounts</strong>, with the event <code>account.updated</code>.
+                            </li>
+                            <li>Copy that endpoint's <strong>signing secret</strong> (whsec_…) into the field below and save.</li>
+                        </ol>
+                        <FormField
+                            label="Connect webhook signing secret"
+                            hint="Of the connected-accounts endpoint (not the shop's own endpoint). Keeps each affiliate's payout status current; without it the status refreshes when they return from Stripe."
+                        >
+                            <CommitInput type="text" value={draft.connectWebhookSecret ?? ''} placeholder="whsec_…" onCommit={(v,) => setDraft('connectWebhookSecret', String(v,).trim(),)} />
+                        </FormField>
+                        <p class="form-help-muted">Payouts come out of the shop's Stripe balance. <A href="/admin/shop/affiliates">Manage affiliates →</A></p>
+                    </div>
                     <div>
                         <button type="button" class="ui-button ui-button--primary" onClick={() => void save()} disabled={saving()}>
                             {saving() ? 'Saving…' : 'Save affiliate settings'}

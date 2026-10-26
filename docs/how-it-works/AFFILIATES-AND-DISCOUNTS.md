@@ -82,8 +82,14 @@ adds a negative `reversal` row that nets against the next payout.
 Shop → Payment credentials; enable **Connect** in Stripe). "Connect with Stripe"
 creates an Express account (`transfers` capability) and opens Stripe's onboarding;
 returning re-reads the account (`/me/stripe/refresh`), and the `account.updated`
-webhook keeps it current (add it to the webhook endpoint as an event on connected
-accounts). Payouts are `stripe.transfers.create` from the shop's balance to the
+webhook keeps it current.
+
+**Stripe setup (once):**
+1. Shop's Stripe account → **Connect** (dashboard.stripe.com/connect): finish the platform setup (Express accounts). Until then "Connect with Stripe" answers 503 `CONNECT_NOT_ENABLED` ("Payouts are not set up yet…").
+2. **Developers → Webhooks → Add endpoint**: URL `https://<site>/api/v1/payments/webhook`, **Listen to: Events on connected accounts**, event `account.updated`. This is a SECOND endpoint beside the shop's own (same URL is fine) and has its OWN signing secret.
+3. Paste that endpoint's signing secret (`whsec_…`) into Shop Settings → Affiliate program → **Connect webhook signing secret** (`affiliate_settings.connectWebhookSecret`, masked when read). The Stripe webhook verifier tries it alongside the shop/donations/default secrets (`setExtraWebhookSecret`).
+
+Account creation uses a 10-minute idempotency key, so a failed first try (Connect not enabled yet) is not replayed by Stripe after it is fixed. Payouts are `stripe.transfers.create` from the shop's balance to the
 connected account — idempotent per payout row. The earnings are CLAIMED (payout id
 set in a transaction) before the transfer, so two runs can never pay the same
 commission; a failed transfer releases them and records the error.

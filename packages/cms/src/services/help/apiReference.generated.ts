@@ -173,6 +173,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "name": "defaultCommissionPercent",
                             "type": "number",
                             "required": false
+                        },
+                        {
+                            "name": "connectWebhookSecret",
+                            "type": "string",
+                            "required": false
                         }
                     ]
                 },

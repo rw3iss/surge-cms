@@ -19,6 +19,13 @@ export interface AffiliateSettings {
     defaultCommissionPercent: number;
     /** Last automatic payout run (ISO), for the schedule. */
     lastAutoPayoutAt?: string | null;
+    /**
+     * Signing secret (`whsec_…`) of the Stripe webhook endpoint that listens to
+     * events on CONNECTED accounts (`account.updated`) — a different secret than
+     * the shop's own endpoint. Masked (`••••••••`) when read; send the mask back
+     * = unchanged, '' = clear.
+     */
+    connectWebhookSecret?: string;
 }
 export type AffiliateSettingsBody = Partial<Omit<AffiliateSettings, 'lastAutoPayoutAt'>>;
 

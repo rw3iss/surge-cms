@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T21:36:34.081Z",
+  "generatedAt": "2026-10-26T22:12:22.726Z",
   "totalModules": 57,
   "totalRoutes": 625,
   "modules": [
@@ -112,6 +112,11 @@
               {
                 "name": "defaultCommissionPercent",
                 "type": "number",
+                "required": false
+              },
+              {
+                "name": "connectWebhookSecret",
+                "type": "string",
                 "required": false
               }
             ]

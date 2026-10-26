@@ -8,7 +8,7 @@
 import type { AffiliateStripeStatus, } from '@sitesurge/types';
 import type Stripe from 'stripe';
 import { config, } from '../../config';
-import { ValidationError, } from '../../core/errors';
+import { AppError, ValidationError, } from '../../core/errors';
 import { query, } from '../../db';
 import { logger, } from '../../utils/logger';
 import { getStripeClient, } from '../payment/stripe';
@@ -54,12 +54,22 @@ export async function onboardingLink(userId: string, email: string | null,): Pro
     const stripe = stripeForAffiliates();
     let row = await accountRow(userId,);
     if (!row?.stripe_account_id) {
+        // Idempotency per 10-minute window: a double click cannot make two
+        // accounts, but a failed first try (e.g. Connect not enabled yet) is not
+        // replayed by Stripe for 24 h once the operator has fixed it.
+        const window = Math.floor(Date.now() / 600_000,);
         const account = await stripe.accounts.create({
             type: 'express',
             email: email ?? undefined,
             capabilities: { transfers: { requested: true, }, },
             metadata: { userId, purpose: 'affiliate', },
-        }, { idempotencyKey: `affiliate-account:${userId}`, },);
+        }, { idempotencyKey: `affiliate-account:${userId}:${window}`, },).catch((e: unknown,) => {
+            const msg = (e as Error).message ?? '';
+            if (/signed up for Connect/i.test(msg,)) {
+                throw new AppError(503, 'CONNECT_NOT_ENABLED', 'Payouts are not set up yet — the shop has not enabled Stripe Connect. Please try again later.',);
+            }
+            throw e;
+        },);
         await save(userId, account,);
         row = await accountRow(userId,);
     }
