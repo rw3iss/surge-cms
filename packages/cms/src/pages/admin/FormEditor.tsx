@@ -195,6 +195,7 @@ const FormEditor: Component = () => {
             ...perField,
             { token: 'form_title', label: "This form's title", },
             { token: 'submitted_at', label: 'Submission date/time', },
+            { token: 'answersHtml', label: 'Every answer, laid out like the form (sections, field widths)', },
         ];
     },);
 
@@ -1399,7 +1400,10 @@ const FormEditor: Component = () => {
                                         placeholder="New submission for {{form_title}}"
                                     />
                                 </FormField>
-                                <FormField label="Email body">
+                                <FormField
+                                    label="Email body"
+                                    hint="Leave empty to send every answer, laid out like the form. Either way the email uses the site's standard branded layout (logo header + footer)."
+                                >
                                     <RichTextEditor
                                         value={emailBody()}
                                         onChange={(html,) => {

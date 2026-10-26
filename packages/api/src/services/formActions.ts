@@ -26,10 +26,12 @@ import {
 import * as mailingListsRepo from '../repositories/mailingLists.repo';
 import { sendEmail, } from './email';
 import * as mailingLists from './mailingLists';
-import { isFeatureEnabledServer, } from './settings';
+import { getPublicSettings, isFeatureEnabledServer, } from './settings';
 import { escapeHtml, } from './ssr/blocks/_util';
 import { logger, } from '../utils/logger';
 import { captureAudience, } from './audienceIntake';
+import { formAnswersEmailHtml, formAnswersText, } from './formAnswersEmail';
+import { brandedMessage, brandLayout, isFullHtmlDocument, } from './mail/branded';
 
 interface SubmittedAnswer {
     questionId: string;
@@ -185,14 +187,41 @@ async function runSubscribe(
     );
 }
 
+/**
+ * The built-in body: the form title, who sent it and when, then every answer
+ * laid out like the form (sections + field widths — `formAnswersEmail.ts`).
+ */
+function submittedAt(timeZone: string | undefined,): string {
+    const opts: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short', };
+    try {
+        return new Date().toLocaleString('en-US', { ...opts, timeZone, timeZoneName: 'short', } as Intl.DateTimeFormatOptions,);
+    } catch {
+        return new Date().toLocaleString('en-US', opts,);
+    }
+}
+
+function defaultEmailBody(form: Form, questions: FormQuestion[], answers: SubmittedAnswer[], actor: FormActor, timeZone?: string,): string {
+    const who = submitterContact(questions, answers,);
+    const email = who.email || actor.userEmail || '';
+    const from = [who.name ? escapeHtml(who.name,) : '', email ? `&lt;${escapeHtml(email,)}&gt;` : '',].filter(Boolean,).join(' ',);
+    const when = submittedAt(timeZone,);
+    return `<h1 style="margin:0 0 6px;font-size:22px;line-height:1.3;color:#111827">${escapeHtml(form.title,)}</h1>`
+        + `<p style="margin:0 0 18px;font-size:14px;color:#6b7280">New submission${from ? ` from <strong style="color:#374151">${from}</strong>` : ''} · ${escapeHtml(when,)}</p>`
+        + formAnswersEmailHtml(form, questions, answers,);
+}
+
 async function runEmail(
     form: Form,
     cfg: FormActionConfig,
     questions: FormQuestion[],
     answers: SubmittedAnswer[],
+    actor: FormActor = {},
 ): Promise<void> {
     const rawCtx = buildContext(form, questions, answers, false,);
     const htmlCtx = buildContext(form, questions, answers, true,);
+    // `{{answersHtml}}` — every answer laid out like the form, for a custom body
+    // (an `…Html` key, so the engine inserts it unescaped; built from escaped values).
+    htmlCtx.answersHtml = formAnswersEmailHtml(form, questions, answers,);
 
     // "Send to" accepts a comma- (or semicolon-) separated list. Parsed with the
     // SAME shared helper the form editor validates with, so what the admin was
@@ -218,8 +247,18 @@ async function runEmail(
 
     const subject = (await renderTpl(cfg.emailSubject || '', rawCtx, { raw: true, },)).trim()
         || `New submission: ${form.title}`;
-    const body = (await renderTpl(cfg.emailBody || '', htmlCtx,)).trim()
-        || '<p>A form was submitted.</p>';
+    // Custom body → in the standard branded layout (unless it is a whole
+    // document already); none → the built-in summary of every answer.
+    const custom = (await renderTpl(cfg.emailBody || '', htmlCtx,)).trim();
+    const layout = await brandLayout();
+    const body = custom && isFullHtmlDocument(custom,)
+        ? custom
+        : brandedMessage(
+            custom || defaultEmailBody(form, questions, answers, actor, (await getPublicSettings().catch(() => null,))?.defaults?.timezone,),
+            layout,
+            { title: subject, },
+        );
+    const text = custom ? undefined : `${form.title}\n\n${formAnswersText(form, questions, answers,)}`;
 
     // One message PER recipient rather than a single multi-recipient message:
     // recipients never see each other's addresses, and one rejected address
@@ -227,7 +266,7 @@ async function runEmail(
     const failed: string[] = [];
     for (const to of recipients) {
         try {
-            await sendEmail({ to, subject, html: body, },);
+            await sendEmail({ to, subject, html: body, text, },);
         } catch (e) {
             failed.push(to,);
             logger.warn('form email action: send failed for recipient', {
@@ -280,7 +319,7 @@ export async function dispatchFormAction(
         if (action === 'subscribe') {
             await runSubscribe(form, cfg, questions, answers, actor,);
         } else if (action === 'email') {
-            await runEmail(form, cfg, questions, answers,);
+            await runEmail(form, cfg, questions, answers, actor,);
         }
     } catch (e) {
         logger.warn('form action dispatch failed', {

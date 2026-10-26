@@ -12,7 +12,7 @@
  * caller-supplied value still resolves.
  */
 import { escapeHtml, } from './blocks/_util';
-import { wrapEmailShell, } from './shell';
+import { brandedEmail, brandLayoutFrom, type BrandLayout, } from './branded';
 import { resolveMailTemplate, } from './templateRuntime';
 import type { MailRenderContext, } from './siteContext';
 
@@ -25,17 +25,9 @@ function pick(ctx: Record<string, unknown>, path: string,): string {
     return v == null ? '' : String(v,);
 }
 
-const SHELL = {
-    bg: '#f4f4f5',
-    font: 'system-ui,-apple-system,BlinkMacSystemFont,sans-serif',
-    color: '#333',
-    outerPadding: '32px 12px',
-    innerBorder: '1px solid #e5e7eb',
-    innerRadius: '8px',
-};
-
-function card(inner: string,): string {
-    return wrapEmailShell({ bodyHtml: `<tr><td style="padding:32px">${inner}</td></tr>`, ...SHELL, },);
+/** The standard branded layout (logo header + footer) around the body. */
+function card(inner: string, layout: BrandLayout,): string {
+    return brandedEmail(`<tr><td style="padding:16px 32px 28px">${inner}</td></tr>`, layout,);
 }
 
 const H = (t: string,) => `<h1 style="margin:0 0 16px;font-size:22px;color:#111">${escapeHtml(t,)}</h1>`;
@@ -285,5 +277,5 @@ export async function defaultPurposeHtml(
             break;
     }
 
-    return resolveMailTemplate(card(body,), ctx, { html: true, },);
+    return resolveMailTemplate(card(body, brandLayoutFrom(site,),), ctx, { html: true, },);
 }

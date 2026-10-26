@@ -414,7 +414,7 @@ export const MAIL_PURPOSES: MailPurposeMeta[] = [
         variables: [
             { name: 'form.title', description: 'The form’s title.', },
             { name: 'form.slug', description: 'The form’s slug.', },
-            { name: 'submission.answersHtml', description: 'A rendered table of the submitted answers.', },
+            { name: 'submission.answersHtml', description: 'Every answer, laid out like the form (sections, half/full field widths).', example: '{{submission.answersHtml}}', },
             { name: 'submission.url', description: 'Link to the submission in the admin.', },
         ],
     },

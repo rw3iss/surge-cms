@@ -13,6 +13,7 @@ import { query, } from '../../db';
 import { escapeHtml, } from '../../utils/html';
 import { logger, } from '../../utils/logger';
 import type { NotificationMessage, } from './channels';
+import { brandedEmail, brandLayout, type BrandLayout, } from '../mail/branded';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,9 @@ export interface NotificationSpec {
     footer?: string;
     /** Public base URL for relative links (default: the configured site URL). */
     baseUrl?: string;
+    /** The standard branded layout (logo header + footer). `buildNotification`
+     *  fills it; without it the card has no branding (pure / tests). */
+    layout?: BrandLayout | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -293,10 +297,13 @@ export function renderNotification(spec: NotificationSpec,): Required<Pick<Notif
     if (spec.footer) {
         parts.push(`<tr><td style="padding:16px 24px 0;${FONT}font-size:12px;color:#6b7280;">${escapeHtml(spec.footer,)}</td></tr>`,);
     }
-    const html = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f9fafb;"><tr><td align="center" style="padding:16px;">`
-        + `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:600px;background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;border-collapse:separate;">`
-        + parts.filter(Boolean,).join('',)
-        + `<tr><td style="padding:0 0 24px;"></td></tr></table></td></tr></table>`;
+    const rows = parts.filter(Boolean,).join('',) + `<tr><td style="padding:0 0 24px;"></td></tr>`;
+    const html = spec.layout
+        ? brandedEmail(rows, spec.layout, { title: spec.subject ?? spec.title, },)
+        : `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f9fafb;"><tr><td align="center" style="padding:16px;">`
+            + `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:600px;background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;border-collapse:separate;">`
+            + rows
+            + `</table></td></tr></table>`;
 
     // ── Text
     const t: string[] = [spec.title,];
@@ -322,5 +329,6 @@ export function renderNotification(spec: NotificationSpec,): Required<Pick<Notif
 
 /** `renderNotification` with the site's configured public URL resolved. */
 export async function buildNotification(spec: NotificationSpec,): Promise<Required<Pick<NotificationMessage, 'subject' | 'html' | 'text'>>> {
-    return renderNotification({ ...spec, baseUrl: spec.baseUrl ?? await siteBaseUrl(), },);
+    const layout = spec.layout !== undefined ? spec.layout : await brandLayout().catch(() => null);
+    return renderNotification({ ...spec, baseUrl: spec.baseUrl ?? await siteBaseUrl(), layout, },);
 }
