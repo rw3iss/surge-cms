@@ -112,6 +112,7 @@ export async function tierOptions(currentTierId: string | null, pendingTierId: s
             id: t.id,
             slug: t.slug,
             name: t.name,
+            role: t.role ?? null,
             description: t.description || p?.productDescription || null,
             isFree: t.isFree,
             priceCents: t.isFree ? 0 : p?.amount ?? t.priceCents,
@@ -125,6 +126,7 @@ export async function tierOptions(currentTierId: string | null, pendingTierId: s
             requiresApproval: !t.isFree && t.requiresApproval,
             hiddenFromTiers: t.hiddenFromTiers === true,
             devOnly: t.hiddenFromTiers === true,
+            roleOnly: t.roleOnly === true,
             applicationFormSlug: t.requiresApproval && t.applicationFormId ? formSlugs.get(t.applicationFormId,) ?? null : null,
             isPending: !!pendingTierId && t.id === pendingTierId,
             isCurrent: t.id === currentTierId,
@@ -163,6 +165,20 @@ export async function publicTiers(userId: string | null, levels?: string[],): Pr
     const tiers = levels?.length
         ? levels.map((slug,) => all.find((t,) => t.slug === slug,),).filter((t,): t is MembershipTierOption => !!t,)
         : offered(all, policy,);
+    // A program ("Add its role only") is "current" when the viewer HAS its role,
+    // and "pending" per level (its applications don't count as THE membership one).
+    if (userId && tiers.some((t,) => t.roleOnly,)) {
+        const held = await heldRoles(userId,);
+        const pend = await query<{ plan_id: string; }>(
+            `SELECT plan_id FROM membership_applications WHERE user_id = $1 AND status = 'pending'`, [userId,],
+        );
+        const pendingIds = new Set(pend.rows.map((r,) => r.plan_id,),);
+        for (const t of tiers) {
+            if (!t.roleOnly) continue;
+            t.isCurrent = !!t.role && held.has(t.role,);
+            t.isPending = pendingIds.has(t.id,);
+        }
+    }
     return {
         tiers, paidAvailable: tiers.some((t,) => !t.isFree), signedIn: !!userId, subscriptionRequired: policy.required,
         pendingApplication: pending, approvedOffer: approved,
@@ -174,10 +190,19 @@ export async function publicTiers(userId: string | null, levels?: string[],): Pr
  * still usable to cancel) and paid tiers below the minimum — except the
  * member's current tier, so they can still see what they have.
  */
+/** The user's main role + additional roles. */
+export async function heldRoles(userId: string,): Promise<Set<string>> {
+    const r = await query<{ role: string; extra_roles: string[] | null; }>(`SELECT role, extra_roles FROM users WHERE id = $1`, [userId,],);
+    const u = r.rows[0];
+    return new Set(u ? [u.role, ...(u.extra_roles ?? []),] : [],);
+}
+
 export function offered(tiers: MembershipTierOption[], policy: SubscriptionPolicy,): MembershipTierOption[] {
     // "Hide from subscription tiers": not offered to anyone — except a member
     // already on it, or approved for it (their application's offer).
-    tiers = tiers.filter((t,) => !t.hiddenFromTiers || t.isCurrent || t.isApproved,);
+    // Programs ("Add its role only") are not memberships: never offered as one
+    // (a page lists them by name — `membershipLevels(levels=…)`).
+    tiers = tiers.filter((t,) => !t.roleOnly && (!t.hiddenFromTiers || t.isCurrent || t.isApproved),);
     if (!policy.required) return tiers;
     // A hidden level (e.g. a test level at a token price) is exempt from the minimum.
     return tiers.filter((t,) => t.isCurrent ? !t.isFree : !t.isFree && (t.hiddenFromTiers || (t.rank ?? 0) >= policy.minimumRank));

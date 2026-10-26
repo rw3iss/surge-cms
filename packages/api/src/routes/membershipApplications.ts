@@ -71,6 +71,15 @@ export const membershipApplicationsRoutes = [
         },
     },),
     defineRoute({
+        method: 'post', path: '/:id/link', auth: 'admin',
+        summary: 'Link an account-less application to the account that uses its email (an approved program adds its role at once).',
+        input: { params: idParams, body: z.object({ userId: z.string().uuid(), },), },
+        handler: async ({ params, body, user, audit, },) => {
+            await review(user,);
+            return applications.linkToAccount(params.id, body.userId, audit(),);
+        },
+    },),
+    defineRoute({
         method: 'post', path: '/:id/withdraw-offer', auth: 'admin',
         summary: 'Withdraw an approved offer (hide-price level) that the member has not started yet.',
         input: { params: idParams, },

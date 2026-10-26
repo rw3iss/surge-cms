@@ -45,11 +45,11 @@ function answerText(v: unknown,): string {
     return String(v,).trim();
 }
 
-interface TierRow { id: string; name: string; is_free: boolean; requires_approval: boolean; application_form_id: string | null; stripe_price_id: string | null; hide_price: boolean; }
+interface TierRow { id: string; name: string; is_free: boolean; requires_approval: boolean; application_form_id: string | null; stripe_price_id: string | null; hide_price: boolean; role_only: boolean; role: string | null; }
 
 async function loadTier(tierId: string,): Promise<TierRow> {
     const r = await query<TierRow>(
-        `SELECT id, name, is_free, requires_approval, application_form_id, stripe_price_id, COALESCE(hide_price, false) AS hide_price FROM subscription_plans WHERE id = $1 AND is_active IS NOT FALSE`,
+        `SELECT id, name, is_free, requires_approval, application_form_id, stripe_price_id, COALESCE(hide_price, false) AS hide_price, role_only, role FROM subscription_plans WHERE id = $1 AND is_active IS NOT FALSE`,
         [tierId,],
     );
     const t = r.rows[0];
@@ -158,6 +158,15 @@ async function verifyCard(userId: string, paymentMethodId: string,): Promise<{ p
 }
 
 async function assertCanApply(userId: string, tier: TierRow,): Promise<void> {
+    if (tier.role_only) {
+        // A program: one pending application per program, and not when the role is already held.
+        const dup = await query(`SELECT 1 FROM membership_applications WHERE user_id = $1 AND plan_id = $2 AND status = 'pending' LIMIT 1`, [userId, tier.id,],);
+        if (dup.rows.length) throw new ConflictError('You already have an application for this program waiting for review.',);
+        const u = await query<{ role: string; extra_roles: string[] | null; }>(`SELECT role, extra_roles FROM users WHERE id = $1`, [userId,],);
+        const held = u.rows[0] ? [u.rows[0].role, ...(u.rows[0].extra_roles ?? []),] : [];
+        if (tier.role && held.includes(tier.role,)) throw new ValidationError(`You are already part of ${tier.name}.`,);
+        return;
+    }
     if (await pendingApplicationFor(userId,)) throw new ConflictError('You already have an application waiting for review.',);
     const active = await query(
         `SELECT 1 FROM subscriptions WHERE user_id = $1 AND plan_id = $2 AND status IN ('active', 'trialing', 'past_due') LIMIT 1`,
@@ -335,22 +344,24 @@ export async function submit(body: MembershipApplySubmitBody, ctx: ApplyContext,
 export async function claimByVerifiedEmail(userId: string, email: string,): Promise<number> {
     let n = 0;
     try {
-        const rows = await query<{ id: string; status: string; }>(
-            `SELECT id, status FROM membership_applications
-              WHERE user_id IS NULL AND lower(contact_email) = lower($1) AND status IN ('pending', 'approved')
-              ORDER BY created_at DESC`,
+        const rows = await query<{ id: string; status: string; role_only: boolean; }>(
+            `SELECT a.id, a.status, p.role_only FROM membership_applications a JOIN subscription_plans p ON p.id = a.plan_id
+              WHERE a.user_id IS NULL AND lower(a.contact_email) = lower($1) AND a.status IN ('pending', 'approved')
+              ORDER BY a.created_at DESC`,
             [email,],
         );
         let pendingTaken = !!(await pendingApplicationFor(userId,));
         for (const r of rows.rows) {
-            if (r.status === 'pending') {
+            // Programs don't count against the one pending MEMBERSHIP application.
+            if (r.status === 'pending' && !r.role_only) {
                 if (pendingTaken) continue;
                 pendingTaken = true;
             }
             const u = await query(`UPDATE membership_applications SET user_id = $2, updated_at = NOW() WHERE id = $1 AND user_id IS NULL`, [r.id, userId,],);
             if (u.rowCount) {
                 n++;
-                await setUserApproval(userId, r.status as MembershipApplicationStatus,);
+                if (r.role_only) await activateProgram(r.id, userId,);
+                else await setUserApproval(userId, r.status as MembershipApplicationStatus,);
             }
         }
     } catch (e) {
@@ -400,7 +411,8 @@ export async function claim(userId: string, body: { applicationId: string; token
         if (!body.token || verifyApplicationToken(body.token,) !== a.id) throw new NotFoundError('Application',);
         await query(`UPDATE membership_applications SET user_id = $2, updated_at = NOW() WHERE id = $1`, [a.id, userId,],);
     }
-    await setUserApproval(userId, a.status === 'approved' ? 'approved' : 'pending',);
+    if (await isProgramApplication(a.id,)) await activateProgram(a.id, userId,);
+    else await setUserApproval(userId, a.status === 'approved' ? 'approved' : 'pending',);
     return { application: { id: a.id, tierId: a.plan_id, tierName: a.name, status: a.status as MembershipApplicationStatus, createdAt: new Date(a.created_at,).toISOString(), }, };
 }
 
@@ -413,10 +425,113 @@ export async function apply(body: MembershipApplyBody, ctx: ApplyContext & { use
     return attachCard(ctx.userId, { applicationId: s.application.id, paymentMethodId: body.paymentMethodId, },);
 }
 
+// ─── Programs ("Add its role only") ─────────────────────────────────────
+//
+// Approving a program application adds the level's role to the member's
+// ADDITIONAL roles; their membership and billing are untouched. Without a
+// linked account: a VERIFIED account using the application's email is linked
+// at once; with no account at all an invite is sent (it carries the role, so
+// the role is there when they sign up); an unverified account waits until the
+// address is verified (claimByVerifiedEmail grants it then).
+
+async function isProgramApplication(applicationId: string,): Promise<boolean> {
+    const r = await query<{ role_only: boolean; }>(
+        `SELECT p.role_only FROM membership_applications a JOIN subscription_plans p ON p.id = a.plan_id WHERE a.id = $1`, [applicationId,],
+    );
+    return r.rows[0]?.role_only === true;
+}
+
+/** An APPROVED program application on this account: add the role, mark it started. Idempotent. */
+async function activateProgram(applicationId: string, userId: string,): Promise<void> {
+    const r = await query<{ status: string; activated_at: Date | null; role: string | null; }>(
+        `SELECT a.status, a.activated_at, p.role FROM membership_applications a JOIN subscription_plans p ON p.id = a.plan_id WHERE a.id = $1`,
+        [applicationId,],
+    );
+    const a = r.rows[0];
+    if (!a || a.status !== 'approved' || a.activated_at || !a.role) return;
+    const { addExtraRoles, } = await import('./users.js');
+    await addExtraRoles(userId, [a.role,],);
+    await query(`UPDATE membership_applications SET activated_at = NOW(), updated_at = NOW() WHERE id = $1`, [applicationId,],);
+}
+
+/** The account that already uses an application's email (account-less applications). */
+async function accountForEmail(email: string | null,): Promise<{ id: string; email: string; displayName: string; emailVerified: boolean; } | null> {
+    if (!email) return null;
+    const r = await query<{ id: string; email: string; display_name: string | null; email_verified: boolean; }>(
+        `SELECT id, email, display_name, email_verified FROM users WHERE lower(email) = lower($1) LIMIT 1`, [email,],
+    );
+    const u = r.rows[0];
+    return u ? { id: u.id, email: u.email, displayName: u.display_name ?? '', emailVerified: u.email_verified === true, } : null;
+}
+
+async function approveProgram(
+    a: Awaited<ReturnType<typeof loadPending>>, id: string, tier: { name: string; role: string | null; }, note: string | undefined, ctx: AuditContext,
+): Promise<MembershipApplication> {
+    if (!tier.role) throw new ValidationError(`${tier.name} has no role to add — set its Role first.`,);
+    let userId = a.user_id;
+    const app0 = await get(id,);
+    let invited = false;
+    if (!userId) {
+        const acct = await accountForEmail(app0.contactEmail,);
+        if (acct?.emailVerified) {
+            await query(`UPDATE membership_applications SET user_id = $2, updated_at = NOW() WHERE id = $1 AND user_id IS NULL`, [id, acct.id,],);
+            userId = acct.id;
+        } else if (acct) {
+            throw new ValidationError(`${app0.contactEmail} belongs to an account that has not verified its email yet. Link it below once you are sure it is theirs, or ask them to verify their email first.`,);
+        } else if (app0.contactEmail) {
+            // No account: an invite that carries the role (added when they sign up).
+            const { invite, } = await import('./userInvites.js');
+            const name = app0.answers.find((x,) => /^(full )?name$/i.test(x.label.trim(),),)?.value || undefined;
+            await invite({ email: app0.contactEmail, name, roles: [tier.role,], }, ctx,);
+            invited = true;
+        } else {
+            throw new ValidationError('This application has no email address to invite.',);
+        }
+    }
+    await query(
+        `UPDATE membership_applications SET status = 'approved', note = $2, error = NULL, decided_by = $3, decided_at = NOW(), updated_at = NOW(), offer_expires_at = NULL WHERE id = $1`,
+        [id, note?.trim() || null, ctx.userId || null,],
+    );
+    if (userId) await activateProgram(id, userId,);
+    await logAudit({ userId: ctx.userId, action: 'approve', entityType: 'membership_application', entityId: id, newValues: { tierId: a.plan_id, program: true, role: tier.role, invited, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
+    const app = await get(id,);
+    if (app.contactEmail) {
+        void sendPurposeMail('membership_application_approved', {
+            to: app.contactEmail,
+            context: {
+                user: { name: app.user?.displayName ?? '', email: app.contactEmail, },
+                tier: { name: tier.name, },
+                application: { program: 'yes', invited: invited ? 'yes' : '', },
+                note: note?.trim() ?? '',
+            },
+        },).catch(() => {},);
+    }
+    return app;
+}
+
+/**
+ * Admin: link an account-less application to the account that uses its email
+ * (the review panel's "Link to this account"). Only that account — the email
+ * must match, so a slip cannot attach someone else's application. An approved
+ * program's role is added at once.
+ */
+export async function linkToAccount(id: string, userId: string, ctx: AuditContext,): Promise<MembershipApplication> {
+    const app = await get(id,);
+    if (app.userId) throw new ConflictError('This application is already linked to an account.',);
+    if (!['pending', 'approved',].includes(app.status,)) throw new ValidationError('Only a pending or approved application can be linked.',);
+    const acct = await accountForEmail(app.contactEmail,);
+    if (!acct || acct.id !== userId) throw new ValidationError('That account does not use this application\'s email address.',);
+    await query(`UPDATE membership_applications SET user_id = $2, updated_at = NOW() WHERE id = $1 AND user_id IS NULL`, [id, userId,],);
+    if (await isProgramApplication(id,)) await activateProgram(id, userId,);
+    else await setUserApproval(userId, app.status === 'approved' ? 'approved' : 'pending',);
+    await logAudit({ userId: ctx.userId, action: 'link_account', entityType: 'membership_application', entityId: id, newValues: { userId, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
+    return get(id,);
+}
+
 // ─── Admin ───────────────────────────────────────────────────────────────
 
 const SELECT = `
-    SELECT a.*, p.name AS tier_name, p.hide_price AS tier_hide_price, p.stripe_price_id AS tier_price_id, f.title AS form_title,
+    SELECT a.*, p.name AS tier_name, p.hide_price AS tier_hide_price, p.stripe_price_id AS tier_price_id, p.role_only AS tier_role_only, p.role AS tier_role, f.title AS form_title,
            u.email AS user_email, u.display_name AS user_name, u.handle AS user_handle,
            d.display_name AS decided_by_name
       FROM membership_applications a
@@ -434,6 +549,8 @@ function mapApp(r: Record<string, unknown>, card: MembershipApplication['card'] 
         tierId: String(r.plan_id,),
         tierName: String(r.tier_name ?? '',),
         tierHidePrice: r.tier_hide_price === true,
+        tierRoleOnly: r.tier_role_only === true,
+        tierRole: (r.tier_role as string | null) ?? null,
         activatedAt: r.activated_at ? new Date(r.activated_at as string,).toISOString() : null,
         status: r.status as MembershipApplicationStatus,
         formId: (r.form_id as string | null) ?? null,
@@ -504,7 +621,10 @@ export async function get(id: string,): Promise<MembershipApplication> {
         cardOf((row.payment_method_id as string | null) ?? null,),
         priceOf((row.price_id as string | null) ?? (row.tier_price_id as string | null) ?? null,),
     ],);
-    return { ...mapApp(row, card,), price, };
+    const app = mapApp(row, card,);
+    // Account-less: the account that already uses its email, for "Link to this account".
+    const matchedAccount = app.userId ? null : await accountForEmail(app.contactEmail,);
+    return { ...app, price, matchedAccount, };
 }
 
 async function loadPending(id: string,) {
@@ -557,7 +677,8 @@ export async function approve(id: string, note: string | undefined, ctx: AuditCo
 }
 
 async function approveClaimed(a: Awaited<ReturnType<typeof loadPending>>, id: string, note: string | undefined, ctx: AuditContext, claimedAt: Date,): Promise<MembershipApplication> {
-    const tier = (await query<{ hide_price: boolean; name: string; }>(`SELECT hide_price, name FROM subscription_plans WHERE id = $1`, [a.plan_id,],)).rows[0];
+    const tier = (await query<{ hide_price: boolean; name: string; role_only: boolean; role: string | null; }>(`SELECT hide_price, name, role_only, role FROM subscription_plans WHERE id = $1`, [a.plan_id,],)).rows[0];
+    if (tier?.role_only) return approveProgram(a, id, tier, note, ctx,);
     if (tier?.hide_price && !a.payment_method_id) {
         await query(
             `UPDATE membership_applications SET status = 'approved', note = $2, error = NULL, decided_by = $3, decided_at = NOW(), updated_at = NOW(),

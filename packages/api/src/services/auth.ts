@@ -324,6 +324,14 @@ export async function authenticateWithEmail(
     // Update last login
     await query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [dbUser.id,],);
 
+    // A VERIFIED account signing in picks up applications sent from its email
+    // while signed out (the address was proven at verification — the same rule
+    // as sign-up). Approved programs add their role here. Never fails the login.
+    if (dbUser.email_verified !== false) {
+        const { claimByVerifiedEmail, } = await import('./membershipApplications.js');
+        await claimByVerifiedEmail(String(dbUser.id,), String(dbUser.email,),);
+    }
+
     const user = mapRow<User>(dbUser,);
 
     const { accessToken, refreshToken, expiresAt, } = generateTokens(user.id, user.role, rememberMe,);

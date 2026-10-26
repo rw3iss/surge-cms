@@ -8568,6 +8568,33 @@ export const API_MODULES: ApiModuleDoc[] = [
             },
             {
                 "method": "POST",
+                "path": "/:id/link",
+                "absolutePath": "/api/v1/membership-applications/:id/link",
+                "auth": "admin",
+                "summary": "Link an account-less application to the account that uses its email (an approved program adds its role at once).",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ],
+                    "body": [
+                        {
+                            "name": "userId",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.membershipApplications.link"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
                 "path": "/:id/withdraw-offer",
                 "absolutePath": "/api/v1/membership-applications/:id/withdraw-offer",
                 "auth": "admin",
@@ -15689,6 +15716,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "required": false
                         },
                         {
+                            "name": "roleOnly",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
                             "name": "devOnly",
                             "type": "boolean",
                             "required": false
@@ -15777,6 +15809,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                         },
                         {
                             "name": "hiddenFromTiers",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
+                            "name": "roleOnly",
                             "type": "boolean",
                             "required": false
                         },
@@ -17409,4 +17446,4 @@ export const API_MODULES: ApiModuleDoc[] = [
 ];
 
 export const API_MODULE_COUNT = 55;
-export const API_ROUTE_COUNT = 600;
+export const API_ROUTE_COUNT = 601;

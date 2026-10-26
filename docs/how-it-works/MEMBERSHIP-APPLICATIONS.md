@@ -110,6 +110,31 @@ A level that requires approval may also **hide its price** (TierModal → *Hide 
 While an application is pending, the SPA re-reads `/auth/me` every 60 s, so a signed-in
 member sees the approval without reloading.
 
+## Programs ("Add its role only")
+
+A level with **Add its role only (a program)** on (TierModal; `subscription_plans.role_only`,
+migration 186) is for programs like Affiliate or Contributor, not memberships. It always requires
+approval, has no price and takes no card.
+
+| Question | Answer |
+|---|---|
+| What approval does | Adds the level's **role** to the member's **additional roles** (`users.extra_roles`). Their membership level, main role and billing are unchanged — a paying member stays a member AND becomes a contributor. |
+| Applicant has no linked account | A **verified** account using the application's email is linked and gets the role at once. **No account** → an invitation (`user_invites`, carries the role) — the role is there when they sign up. An **unverified** account → approval is refused with a message: link it in the review panel, or the role is added when that address is verified. |
+| Where it shows | Not on /subscribe or profile Membership (not a membership). List it with `{{ membershipLevels(levels='slug,…') }}`, e.g. /partner-program. A viewer who already has the role sees "You're in". |
+| Pending | One pending application per program, and it does not count as THE pending membership application (a member can apply to a membership and a program at once). |
+| Buying it | Refused — a program is joined by applying. |
+| Removing it | Remove the role from the user's additional roles (user page). |
+
+## Linking applications to accounts
+
+An application sent while signed out is linked to an account when:
+- the applicant opens the claim link from their email while signed in, or
+- an account with the same email is **verified** (sign-up verification, an admin marking it verified, an invite), or
+- a **verified** account with that email **signs in** (`authenticateWithEmail` → `claimByVerifiedEmail`), or
+- an admin clicks **Link to this account** in the review panel, which shows the account already using the application's email (`matchedAccount`; `POST /membership-applications/:id/link`, only that account).
+
+An approved program's role is added the moment it is linked.
+
 ## Data
 
 | Table / column | Purpose |

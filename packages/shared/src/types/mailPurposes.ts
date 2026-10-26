@@ -226,6 +226,8 @@ export const MAIL_PURPOSES: MailPurposeMeta[] = [
             { name: 'application.claimUrl', description: 'Link to start the membership (offers only).', example: 'https://example.com/profile?tab=membership&…', },
             { name: 'application.offer', description: '"yes" when approval is an offer (nothing charged yet), else empty.', example: 'yes', },
             { name: 'application.offerExpires', description: 'When the offer ends (offers only).', example: 'November 17, 2026', },
+            { name: 'application.program', description: '"yes" for a program ("Add its role only"): the role was added, no membership change.', example: 'yes', },
+            { name: 'application.invited', description: '"yes" when the applicant had no account and was sent an invitation to create one (programs).', example: 'yes', },
             { name: 'note', description: "The reviewer's note (may be empty).", example: 'Welcome aboard!', },
         ],
     },

@@ -36,7 +36,7 @@ const MembershipLevels: Component<{ levels: string[]; }> = (props,) => {
             <Show when={tiers().length}>
                 <MembershipTierCards
                     tiers={tiers()}
-                    current={tiers().find((t,) => t.isCurrent,)}
+                    current={tiers().find((t,) => t.isCurrent && !t.roleOnly,)}
                     signedIn={!!auth.user}
                     required={Boolean(data()?.subscriptionRequired,)}
                     pending={pending()}

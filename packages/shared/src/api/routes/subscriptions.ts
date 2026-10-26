@@ -68,6 +68,10 @@ export interface SubscriptionTier {
     hiddenFromTiers: boolean;
     /** @deprecated Same value as `hiddenFromTiers` (the old "Dev only" name). */
     devOnly: boolean;
+    /** "Add its role only" (a program, e.g. Contributor): approving an application
+     *  adds this level's `role` to the member's ADDITIONAL roles; their membership
+     *  and billing are unchanged. Always requires approval; no price or card. */
+    roleOnly: boolean;
     /** Pending applications for this tier. */
     pendingApplications: number;
     stripePriceId: string | null;
@@ -95,6 +99,7 @@ export interface SubscriptionTierBody {
     hiddenFromTiers?: boolean;
     /** @deprecated Use `hiddenFromTiers` (same setting). */
     devOnly?: boolean;
+    roleOnly?: boolean;
     sortOrder?: number;
     /** Replaces the tier's extra permission grants. */
     permissions?: string[];

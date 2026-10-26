@@ -43,7 +43,11 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                 toast.success('Offer withdrawn. The applicant can no longer start this membership.',);
             } else if (action === 'approve') {
                 const done = await cms.membershipApplications.approve(props.applicationId, body,);
-                toast.success(done.tierHidePrice
+                toast.success(done.tierRoleOnly
+                    ? (done.userId
+                        ? `Approved — the ${done.tierRole} role was added to their account.`
+                        : 'Approved — they were sent an invitation to create an account; the role is added when they sign up.')
+                    : done.tierHidePrice
                     ? 'Approved. The applicant was emailed a link to choose their billing and start the membership.'
                     : 'Approved — the membership is active and billing has started.',);
             } else {
@@ -60,6 +64,29 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
         } finally {
             setBusy(false,);
         }
+    };
+
+    /** A program ("Add its role only"): approval adds the level's role; no membership, no card. */
+    const program = () => Boolean(app()?.tierRoleOnly,);
+    const [linking, setLinking,] = createSignal(false,);
+    const linkAccount = async (userId: string,) => {
+        setLinking(true,);
+        try {
+            await cms.membershipApplications.link(props.applicationId, userId,);
+            toast.success('Linked to the account.',);
+            void refetch();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Could not link the account.',);
+        } finally {
+            setLinking(false,);
+        }
+    };
+    /** What approving a program does, for the confirm. */
+    const programMessage = (a: MembershipApplication,): string => {
+        const who = a.user?.displayName || a.user?.email || a.contactEmail || 'the applicant';
+        if (a.userId) return `This adds the ${a.tierRole} role to ${who}'s account. Their membership and billing are unchanged.`;
+        if (a.matchedAccount?.emailVerified) return `${a.contactEmail} belongs to ${a.matchedAccount.displayName || 'an existing account'} — approving links it and adds the ${a.tierRole} role.`;
+        return `No account uses ${a.contactEmail}: they are sent an invitation to create one, and the ${a.tierRole} role is added when they sign up.`;
     };
 
     /** A "hide price" application approved without a card = an offer (no charge now). */
@@ -81,7 +108,28 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                                     <dd>
                                         <Show
                                             when={a().userId}
-                                            fallback={<span>No account yet <div class="form-help-muted">{a().contactEmail ?? 'No email given'} — applied before signing up</div></span>}
+                                            fallback={
+                                                <span>
+                                                    No account linked <div class="form-help-muted">{a().contactEmail ?? 'No email given'} — applied while signed out</div>
+                                                    {/* An account already uses that email: link it here. */}
+                                                    <Show
+                                                        when={a().matchedAccount}
+                                                        fallback={<div class="form-help-muted">No account uses this email{program() ? ' — approving sends an invitation.' : '.'}</div>}
+                                                    >
+                                                        {(m,) => (
+                                                            <div class="review-application__match">
+                                                                <span>
+                                                                    Account found: <A href={`/admin/users/${m().id}`}>{m().displayName || m().email}</A>
+                                                                    {' '}<span class={m().emailVerified ? 'badge badge--success' : 'badge badge--muted'}>{m().emailVerified ? 'Verified' : 'Email not verified'}</span>
+                                                                </span>
+                                                                <button type="button" class="ui-button ui-button--secondary ui-button--sm" disabled={linking() || busy()} onClick={() => void linkAccount(m().id,)}>
+                                                                    {linking() ? 'Linking…' : 'Link to this account'}
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </Show>
+                                                </span>
+                                            }
                                         >
                                             <A href={`/admin/users/${a().userId}`}>{a().user?.displayName || a().user?.email || 'Unknown user'}</A>
                                             <Show when={a().user?.email}><div class="form-help-muted">{a().user!.email}</div></Show>
@@ -92,6 +140,7 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                                     <dt>Membership level</dt>
                                     <dd>
                                         <strong>{a().tierName}</strong>
+                                        <Show when={program()}><div class="form-help-muted">Program — approval adds the {a().tierRole} role; membership unchanged.</div></Show>
                                         <Show when={!offer() && charge(a(),)}>{(c,) => <div class="form-help-muted">Charges {c()}</div>}</Show>
                                     </dd>
                                 </div>
@@ -106,7 +155,7 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                                 <div>
                                     <dt>Saved card</dt>
                                     <dd>
-                                        <Show when={!a().tierHidePrice || a().card} fallback="Not needed — price hidden until approved">
+                                        <Show when={!a().tierHidePrice || a().card} fallback={program() ? 'Not needed — a program has no price' : 'Not needed — price hidden until approved'}>
                                             {card(a(),)}<div class="form-help-muted">Charged only on approval.</div>
                                         </Show>
                                     </dd>
@@ -147,7 +196,7 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                             </Show>
 
                             {/* An approved, unstarted offer (hide-price level) can be withdrawn. */}
-                            <Show when={a().status === 'approved' && a().tierHidePrice && !a().activatedAt}>
+                            <Show when={a().status === 'approved' && a().tierHidePrice && !a().tierRoleOnly && !a().activatedAt}>
                                 <Show when={a().offerExpiresAt}>
                                     <p class="form-help-muted">The offer is open until {formatDateTime(a().offerExpiresAt!,)}.</p>
                                 </Show>
@@ -179,7 +228,9 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                             <ConfirmModal
                                 open={confirm() === 'approve'}
                                 title={`Approve ${a().user?.displayName || 'this applicant'} for ${a().tierName}?`}
-                                message={offer()
+                                message={program()
+                                    ? programMessage(a(),)
+                                    : offer()
                                     ? 'Nothing is charged now. They get an email to choose their billing and start the membership.'
                                     : `This charges the saved card (${card(a(),)}) ${charge(a(),) ? `${charge(a(),)}, starting now,` : 'now'} and starts the ${a().tierName} membership.`}
                                 confirmLabel={offer() ? 'Approve' : 'Approve & charge'}

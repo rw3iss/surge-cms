@@ -81,6 +81,9 @@ const SubscriptionTiersPanel: Component = () => {
                                     <td>
                                         <strong>{t.name}</strong> <code class="subscriptions-panel__slug">{t.slug}</code>
                                         <Show when={t.description}><div class="form-help-muted">{t.description}</div></Show>
+                                        <Show when={t.roleOnly}>
+                                            <div class="subscriptions-panel__approval"><span class="badge badge--info">Program — approval adds the {t.role} role</span></div>
+                                        </Show>
                                         <Show when={t.hiddenFromTiers}>
                                             <div class="subscriptions-panel__approval"><span class="badge badge--muted">Hidden from subscription tiers</span></div>
                                         </Show>

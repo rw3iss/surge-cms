@@ -59,6 +59,10 @@ export interface MembershipTierOption {
     requiresApproval?: boolean;
     /** Hidden from the choosable levels (shown only to a member on it / approved for it). */
     hiddenFromTiers?: boolean;
+    /** A program ("Add its role only"): approval adds its role; `isCurrent` = the viewer has that role. */
+    roleOnly?: boolean;
+    /** The role this level gives (a program adds it as an additional role). */
+    role?: string | null;
     /** @deprecated Same value as `hiddenFromTiers`. */
     devOnly?: boolean;
     /** Slug of the tier's application form (a published Forms entity); null = the built-in form. */

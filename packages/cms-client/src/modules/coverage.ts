@@ -370,6 +370,7 @@ export const ROUTE_COVERAGE: string[] = [
     'POST /api/v1/users/:id/verification/resend',
     'POST /api/v1/users/:id/verification/verify',
     'POST /api/v1/membership-applications/:id/withdraw-offer',
+    'POST /api/v1/membership-applications/:id/link',
     // ── roles + subscription tiers ──
     'GET /api/v1/roles',
     'POST /api/v1/roles',

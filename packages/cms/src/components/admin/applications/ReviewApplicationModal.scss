@@ -59,3 +59,12 @@
     gap: $spacing-sm;
   }
 }
+
+// Account-less application: the account already using its email + "Link".
+.review-application__match {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $spacing-sm;
+  margin-top: $spacing-xs;
+}

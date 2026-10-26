@@ -172,6 +172,7 @@ function mapTier(r: Record<string, unknown>,): SubscriptionTier {
         hidePrice: r.hide_price === true,
         hiddenFromTiers: r.dev_only === true,
         devOnly: r.dev_only === true,
+        roleOnly: r.role_only === true,
         pendingApplications: Number(r.pending_applications ?? 0,),
         stripePriceId: (r.stripe_price_id as string | null) ?? null,
         stripeProductId: (r.stripe_product_id as string | null) ?? null,
@@ -271,6 +272,8 @@ async function invalidateGate(): Promise<void> {
 }
 
 export async function saveTier(id: string | null, body: SubscriptionTierBody, ctx: AuditContext,): Promise<SubscriptionTier> {
+    // "Add its role only" (a program): always by approval, never priced or carded.
+    if (body.roleOnly === true) body = { ...body, requiresApproval: true, hidePrice: true, };
     if (body.role) await assertRoleExists(body.role,);
     if (body.role && isStaffRole(body.role,)) throw new ValidationError('A membership level cannot give a staff role.',);
     const slug = body.slug?.trim().toLowerCase();
@@ -299,13 +302,14 @@ export async function saveTier(id: string | null, body: SubscriptionTierBody, ct
             const r = await c.query(
                 `INSERT INTO subscription_plans (slug, name, description, role, is_active, price_cents, interval, stripe_price_id, stripe_product_id, sort_order,
                                                  interval_count, display_price_cents, display_interval, display_interval_count,
-                                                 requires_approval, application_form_id, hide_price, dev_only)
+                                                 requires_approval, application_form_id, hide_price, dev_only, role_only)
                  VALUES ($1, $2, $3, $4, COALESCE($5, true), COALESCE($6, 0), COALESCE($7, 'month'), $8, $9, COALESCE($10, 50),
-                         COALESCE($11, 1), $12, $13, $14, COALESCE($15, false), $16::uuid, COALESCE($17, false), COALESCE($18, false)) RETURNING id`,
+                         COALESCE($11, 1), $12, $13, $14, COALESCE($15, false), $16::uuid, COALESCE($17, false), COALESCE($18, false), COALESCE($19, false)) RETURNING id`,
                 [slug, body.name.trim(), body.description ?? null, body.role ?? 'subscriber', body.isActive ?? null,
                     stripe?.amount ?? null, stripe?.interval ?? null, body.stripePriceId || null, stripe?.productId ?? null, body.sortOrder ?? null,
                     stripe?.intervalCount ?? null, display?.priceCents ?? null, display?.interval ?? null, display ? Math.max(1, display.intervalCount || 1,) : null,
-                    body.requiresApproval ?? null, body.applicationFormId || null, body.hidePrice ?? null, body.hiddenFromTiers ?? body.devOnly ?? null,],
+                    body.requiresApproval ?? null, body.applicationFormId || null, body.hidePrice ?? null, body.hiddenFromTiers ?? body.devOnly ?? null,
+                    body.roleOnly ?? null,],
             );
             tid = String(r.rows[0].id,);
         } else {
@@ -330,6 +334,7 @@ export async function saveTier(id: string | null, body: SubscriptionTierBody, ct
                     application_form_id = CASE WHEN $21 THEN $22::uuid ELSE application_form_id END,
                     hide_price = COALESCE($23, hide_price),
                     dev_only = COALESCE($24, dev_only),
+                    role_only = COALESCE($25, role_only),
                     sort_order = COALESCE($14, sort_order),
                     updated_at = NOW()
                   WHERE id = $1`,
@@ -339,7 +344,7 @@ export async function saveTier(id: string | null, body: SubscriptionTierBody, ct
                     body.sortOrder ?? null, stripe?.intervalCount ?? null,
                     display !== undefined, display?.priceCents ?? null, display?.interval ?? null, display ? Math.max(1, display.intervalCount || 1,) : null,
                     body.requiresApproval ?? null, body.applicationFormId !== undefined, body.applicationFormId || null,
-                    body.hidePrice ?? null, body.hiddenFromTiers ?? body.devOnly ?? null,],
+                    body.hidePrice ?? null, body.hiddenFromTiers ?? body.devOnly ?? null, body.roleOnly ?? null,],
             );
         }
         if (body.permissions) await setTierPermissions(c as never, tid, body.permissions, ctx.userId || null,);

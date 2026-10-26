@@ -43,6 +43,12 @@ export interface MembershipApplication {
     tierName: string;
     /** The level hides its price: no card is taken; approval makes an offer the member pays for later. */
     tierHidePrice?: boolean;
+    /** The level is a program ("Add its role only"): approval adds its role, no membership change. */
+    tierRoleOnly?: boolean;
+    /** The role a program approval adds. */
+    tierRole?: string | null;
+    /** Account-less application: the account that already uses its email, if any (admin can link it). */
+    matchedAccount?: { id: string; email: string; displayName: string; emailVerified: boolean; } | null;
     /** When the approved member started (paid for) the level. */
     activatedAt?: string | null;
     status: MembershipApplicationStatus;

@@ -166,11 +166,17 @@ export async function defaultPurposeHtml(
             const offer = pick(ctx, 'application.offer',) === 'yes';
             const note = pick(ctx, 'note',);
             const expires = pick(ctx, 'application.offerExpires',);
+            const program = pick(ctx, 'application.program',) === 'yes';
+            const invited = pick(ctx, 'application.invited',) === 'yes';
             body = H(`You're approved for ${tier}`,)
                 + greeting(name,)
                 + P(`Good news — your application for <strong>${escapeHtml(tier,)}</strong> was approved.`,)
                 + (note ? P(escapeHtml(note,),) : '')
-                + (offer
+                + (program
+                    ? (invited
+                        ? P('We have sent you a separate email with an invitation to create your account — your access is added when you sign up.',)
+                        : P(`You now have ${escapeHtml(tier,)} access on your account.`,) + button(`${site.siteUrl}/login`, 'Sign in',))
+                    : offer
                     ? P('Choose your billing and start your membership:',)
                         + button(pick(ctx, 'application.claimUrl',) || `${site.siteUrl}/profile?tab=membership`, 'Start my membership',)
                         + MUTED(`${expires ? `This offer is open until ${escapeHtml(expires,)}. ` : ''}Nothing has been charged yet.`,)

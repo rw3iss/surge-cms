@@ -31,6 +31,11 @@ export class MembershipApplicationsModule extends ModuleBase {
         return this.mutate<MembershipApplication>('POST', '/membership-applications/:id/approve', { params: { id, }, body, invalidates: ['membershipApplications', 'users',], },);
     }
 
+    /** POST /membership-applications/:id/link — link an account-less application to the account that uses its email. */
+    link(id: string, userId: string,): Promise<MembershipApplication> {
+        return this.mutate<MembershipApplication>('POST', '/membership-applications/:id/link', { params: { id, }, body: { userId, }, invalidates: ['membershipApplications', 'users',], },);
+    }
+
     /** POST /membership-applications/:id/withdraw-offer — withdraw an approved, unstarted offer (hide-price levels). */
     withdrawOffer(id: string,): Promise<MembershipApplication> {
         return this.mutate<MembershipApplication>('POST', '/membership-applications/:id/withdraw-offer', { params: { id, }, invalidates: ['membershipApplications', 'users',], },);

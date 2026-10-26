@@ -52,9 +52,10 @@ const TierModal: Component<TierModalProps> = (props,) => {
         requiresApproval: t?.requiresApproval ?? false,
         // No prices shown and no card taken until approval (approval = an offer).
         hidePrice: t?.hidePrice ?? false,
+        roleOnly: t?.roleOnly ?? false,
         applicationFormId: t?.applicationFormId ?? '',
     },);
-    const hidePrice = () => form.requiresApproval && form.hidePrice;
+    const hidePrice = () => form.roleOnly || (form.requiresApproval && form.hidePrice);
     const [extra, setExtra,] = createSignal<string[]>(t?.permissions ?? [],);
     const [search, setSearch,] = createSignal('',);
     const [saving, setSaving,] = createSignal(false,);
@@ -137,7 +138,8 @@ const TierModal: Component<TierModalProps> = (props,) => {
                 isActive: form.isActive,
                 hiddenFromTiers: form.hiddenFromTiers,
                 ...(t?.isFree ? {} : {
-                    stripePriceId: form.stripePriceId || null,
+                    stripePriceId: form.roleOnly ? null : form.stripePriceId || null,
+                    roleOnly: form.roleOnly,
                     // Hidden price: leave the stored custom display untouched.
                     ...(hidePrice() ? {} : {
                         displayPrice: form.displayOn && form.displayPrice.trim() !== ''
@@ -148,9 +150,9 @@ const TierModal: Component<TierModalProps> = (props,) => {
                             }
                             : null,
                     }),
-                    requiresApproval: form.requiresApproval,
+                    requiresApproval: form.requiresApproval || form.roleOnly,
                     hidePrice: hidePrice(),
-                    applicationFormId: form.requiresApproval ? form.applicationFormId || null : null,
+                    applicationFormId: form.requiresApproval || form.roleOnly ? form.applicationFormId || null : null,
                 }),
                 permissions: extra(),
             };
@@ -224,18 +226,28 @@ const TierModal: Component<TierModalProps> = (props,) => {
 
                 <Show when={!t?.isFree}>
                     <Toggle
-                        checked={form.requiresApproval}
-                        onChange={(v,) => setForm('requiresApproval', v,)}
-                        label="Require approval"
-                        hint="Members apply instead of joining. Their card is saved and charged only when an admin approves. Review applications in Users."
+                        checked={form.roleOnly}
+                        onChange={(v,) => setForm('roleOnly', v,)}
+                        label="Add its role only (a program)"
+                        hint="For programs like Affiliate or Contributor. People apply; approving ADDS this level's role to their additional roles and leaves their membership and billing alone. No price and no card. Someone without an account is sent an invitation that carries the role."
                     />
-                    <Show when={form.requiresApproval}>
+                    <Show when={!form.roleOnly}>
                         <Toggle
-                            checked={form.hidePrice}
-                            onChange={(v,) => setForm('hidePrice', v,)}
-                            label="Hide price"
-                            hint="No prices are shown and no card is taken until you approve. Approval sends them a link to choose their billing and pay."
+                            checked={form.requiresApproval}
+                            onChange={(v,) => setForm('requiresApproval', v,)}
+                            label="Require approval"
+                            hint="Members apply instead of joining. Their card is saved and charged only when an admin approves. Review applications in Users."
                         />
+                    </Show>
+                    <Show when={form.requiresApproval || form.roleOnly}>
+                        <Show when={!form.roleOnly}>
+                            <Toggle
+                                checked={form.hidePrice}
+                                onChange={(v,) => setForm('hidePrice', v,)}
+                                label="Hide price"
+                                hint="No prices are shown and no card is taken until you approve. Approval sends them a link to choose their billing and pay."
+                            />
+                        </Show>
                         <FormField
                             label="Application form"
                             hint="Shown when a member applies. The form's own settings (email notification, add as contact) apply to each application."
@@ -253,6 +265,8 @@ const TierModal: Component<TierModalProps> = (props,) => {
                         </FormField>
                     </Show>
 
+                    {/* A program has no price: no Stripe product and no custom display. */}
+                    <Show when={!form.roleOnly}>
                     <FormField label="Stripe membership product">
                         <Show when={!stripe.loading || stripe()} fallback={<p class="form-help-muted">Loading Stripe prices…</p>}>
                             <div class="tier-modal__price-row">
@@ -345,6 +359,7 @@ const TierModal: Component<TierModalProps> = (props,) => {
                                 </FormField>
                             </div>
                         </Show>
+                    </Show>
                     </Show>
                 </Show>
 

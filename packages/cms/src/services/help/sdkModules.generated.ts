@@ -5181,6 +5181,27 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 ]
             },
             {
+                "name": "link",
+                "signature": "link(id: string, userId: string): Promise<MembershipApplication>",
+                "summary": "POST /membership-applications/:id/link — link an account-less application to the account that uses its email.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "userId",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<MembershipApplication>",
+                "routes": [
+                    "POST /api/v1/membership-applications/:id/link"
+                ]
+            },
+            {
                 "name": "list",
                 "signature": "list(query: MembershipApplicationsListQuery = {}): Promise<Paginated<MembershipApplication>>",
                 "summary": "GET /membership-applications (?status=pending, ?userId=)",
@@ -10200,4 +10221,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 51;
-export const SDK_METHOD_COUNT = 595;
+export const SDK_METHOD_COUNT = 596;

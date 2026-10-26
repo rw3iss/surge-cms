@@ -38,6 +38,8 @@ export async function targetTier(userId: string, tierId: string, opts: { approve
     if (!found) throw new NotFoundError('Membership',);
     // An APPROVED application (hide-price levels) is the approval: buying it is allowed.
     if (offer?.tierId === tierId) opts = { ...opts, approved: true, };
+    // A program ("Add its role only") is joined by APPLYING; approval adds its role — never a membership.
+    if (found.roleOnly) throw new ValidationError(`${found.name} is a program — apply to join it.`,);
     // Hidden from the tiers: not for self-service (an admin assigns it, or it is approved).
     if (found.hiddenFromTiers && !found.isCurrent && !opts.approved) throw new NotFoundError('Membership',);
     // The chosen price (default when omitted). Same level at ANOTHER price is a

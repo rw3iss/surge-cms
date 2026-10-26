@@ -31,6 +31,7 @@ const tierBody = z.object({
     applicationFormId: z.string().uuid().nullable().optional(),
     hidePrice: z.boolean().optional(),
     hiddenFromTiers: z.boolean().optional(),
+    roleOnly: z.boolean().optional(),
     devOnly: z.boolean().optional(),
     sortOrder: z.number().int().optional(),
     permissions: z.array(z.string().max(120,),).max(500,).optional(),

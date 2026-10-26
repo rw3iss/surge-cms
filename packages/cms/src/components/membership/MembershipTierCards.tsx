@@ -79,7 +79,10 @@ const MembershipTierCards: Component<MembershipTierCardsProps> = (props,) => {
         navigate(`${membershipUrl(t.id,)}${priceParam(t,)}`,);
     };
 
+    /** Held: a program (`roleOnly`) by its own flag (several can be held), a membership by `current`. */
+    const held = (t: MembershipTierOption,) => (t.roleOnly ? !!t.isCurrent : props.current?.id === t.id);
     const ctaLabel = (t: MembershipTierOption,) => {
+        if (t.roleOnly && t.isCurrent) return "You're in";
         if (props.current?.id === t.id) return 'Your current plan';
         if (t.isPending) return 'Application pending';
         if (t.isApproved) return 'Start membership';
@@ -95,12 +98,12 @@ const MembershipTierCards: Component<MembershipTierCardsProps> = (props,) => {
                     {(t,) => (
                         <article
                             class="subscribe-card"
-                            classList={{ 'subscribe-card--current': props.current?.id === t.id, 'subscribe-card--paid': !t.isFree, }}
+                            classList={{ 'subscribe-card--current': held(t,), 'subscribe-card--paid': !t.isFree, }}
                         >
                             <header class="subscribe-card__head">
                                 <h2 class="subscribe-card__name">{t.name}</h2>
-                                <Show when={props.current?.id === t.id}>
-                                    <span class="subscribe-card__badge">Current</span>
+                                <Show when={held(t,)}>
+                                    <span class="subscribe-card__badge">{t.roleOnly ? 'Joined' : 'Current'}</span>
                                 </Show>
                             </header>
                             <div class="subscribe-card__price">
@@ -118,7 +121,8 @@ const MembershipTierCards: Component<MembershipTierCardsProps> = (props,) => {
                             <button
                                 type="button"
                                 class={`btn subscribe-card__cta ${t.isFree ? 'btn--outline' : 'btn--primary'}`}
-                                disabled={props.current?.id === t.id || !!t.isPending || (!!props.pending && !!t.requiresApproval && !t.isApproved)}
+                                // A pending MEMBERSHIP application blocks other membership applications, not programs.
+                                disabled={held(t,) || !!t.isPending || (!t.roleOnly && !!props.pending && !!t.requiresApproval && !t.isApproved)}
                                 onClick={() => choose(t,)}
                             >
                                 {ctaLabel(t,)}

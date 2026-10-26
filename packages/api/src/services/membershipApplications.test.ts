@@ -10,6 +10,10 @@ const purposeMail = vi.fn(async () => true,);
 vi.mock('./mail/purposes', () => ({ sendPurposeMail: (...a: unknown[]) => purposeMail(...a), }),);
 vi.mock('./notifications', () => ({ notify: vi.fn(), notifyWith: vi.fn(), }),);
 vi.mock('./forms', () => ({ getById: vi.fn(), submit: vi.fn(), }),);
+const addRoles = vi.fn(async () => [],);
+vi.mock('./users', () => ({ addExtraRoles: (...a: unknown[]) => addRoles(...a), }),);
+const inviteFn = vi.fn(async () => ({ result: 'invited', userId: null, invite: null, }),);
+vi.mock('./userInvites', () => ({ invite: (...a: unknown[]) => inviteFn(...a), }),);
 const startApproved = vi.fn();
 vi.mock('./membership', () => ({
     pendingApplicationFor: vi.fn(async () => null,),
@@ -145,7 +149,7 @@ describe('approve — "hide price" level (no card)', () => {
         db([
             CLAIM,
             ['FROM membership_applications WHERE id', [{ id: 'app1', user_id: USER, plan_id: TIER, status: 'pending', payment_method_id: null, price_id: null, },],],
-            ['SELECT hide_price, name FROM subscription_plans', [{ hide_price: true, name: "Founder's Club", },],],
+            ['SELECT hide_price, name, role_only, role FROM subscription_plans', [{ hide_price: true, name: "Founder's Club", role_only: false, role: 'subscriber', },],],
             ['FROM membership_applications a', [{ id: 'app1', user_id: USER, plan_id: TIER, status: 'approved', tier_name: "Founder's Club", tier_hide_price: true, answers: [], created_at: new Date(), contact_email: 'a@b.co', user_email: 'a@b.co', },],],
         ],);
         const app = await approve('app1', undefined, { userId: 'admin', } as never,);
@@ -210,7 +214,7 @@ describe('submit — anonymous abuse guards', () => {
 describe('claimByVerifiedEmail', () => {
     it('attaches one pending + approved account-less rows to the proven user', async () => {
         db([
-            ['lower(contact_email) = lower($1) AND status IN', [{ id: 'p1', status: 'pending', }, { id: 'p2', status: 'pending', }, { id: 'o1', status: 'approved', },],],
+            ['lower(a.contact_email) = lower($1) AND a.status IN', [{ id: 'p1', status: 'pending', role_only: false, }, { id: 'p2', status: 'pending', role_only: false, }, { id: 'o1', status: 'approved', role_only: false, },],],
             ['SET user_id = $2', [{},],],
         ],);
         const n = await claimByVerifiedEmail(USER, 'x@y.co',);
@@ -238,3 +242,47 @@ describe('applicant receipt (C3 / U8)', () => {
         expect(input.context.application.next,).toMatch(/Create your account/,);
     },);
 },);
+
+describe('programs ("Add its role only")', () => {
+    it('approval adds the role to a linked account — no membership, no charge', async () => {
+        db([
+            CLAIM,
+            ['FROM membership_applications WHERE id', [{ id: 'app1', user_id: USER, plan_id: TIER, status: 'pending', payment_method_id: null, price_id: null, },],],
+            ['SELECT hide_price, name, role_only, role FROM subscription_plans', [{ hide_price: true, name: 'Contributor', role_only: true, role: 'contributor', },],],
+            ['SELECT a.status, a.activated_at, p.role', [{ status: 'approved', activated_at: null, role: 'contributor', },],],
+            ['FROM membership_applications a', [{ id: 'app1', user_id: USER, plan_id: TIER, status: 'approved', tier_name: 'Contributor', tier_hide_price: true, tier_role_only: true, tier_role: 'contributor', answers: [], created_at: new Date(), contact_email: 'a@b.co', user_email: 'a@b.co', },],],
+        ],);
+        const app = await approve('app1', undefined, { userId: 'admin', } as never,);
+        expect(startApproved,).not.toHaveBeenCalled();
+        expect(app.tierRoleOnly,).toBe(true,);
+        expect(addRoles,).toHaveBeenCalledWith(USER, ['contributor',],);
+        expect(q.mock.calls.some(([sql,],) => String(sql,).includes('SET activated_at = NOW()',),),).toBe(true,);
+    },);
+
+    it('an approved program found by a verified email is activated (role added) when attached', async () => {
+        db([
+            ['lower(a.contact_email) = lower($1) AND a.status IN', [{ id: 'g1', status: 'approved', role_only: true, },],],
+            ['SET user_id = $2', [{},],],
+            ['SELECT a.status, a.activated_at, p.role', [{ status: 'approved', activated_at: null, role: 'contributor', },],],
+        ],);
+        addRoles.mockClear();
+        expect(await claimByVerifiedEmail(USER, 'x@y.co',),).toBe(1,);
+        expect(addRoles,).toHaveBeenCalledWith(USER, ['contributor',],);
+    },);
+});
+
+describe('programs — no account', () => {
+    it('approving an account-less program application with no account for its email sends an invite carrying the role', async () => {
+        inviteFn.mockClear();
+        db([
+            CLAIM,
+            ['FROM membership_applications WHERE id', [{ id: 'app2', user_id: null, plan_id: TIER, status: 'pending', payment_method_id: null, price_id: null, },],],
+            ['SELECT hide_price, name, role_only, role FROM subscription_plans', [{ hide_price: true, name: 'Contributor', role_only: true, role: 'contributor', },],],
+            ['FROM users WHERE lower(email)', [],],
+            ['FROM membership_applications a', [{ id: 'app2', user_id: null, plan_id: TIER, status: 'pending', tier_name: 'Contributor', tier_hide_price: true, tier_role_only: true, tier_role: 'contributor', answers: [{ label: 'Name', value: 'Jane', },], created_at: new Date(), contact_email: 'jane@x.co', },],],
+        ],);
+        await approve('app2', undefined, { userId: 'admin', } as never,);
+        expect(inviteFn,).toHaveBeenCalledWith(expect.objectContaining({ email: 'jane@x.co', roles: ['contributor',], name: 'Jane', },), expect.anything(),);
+        expect(startApproved,).not.toHaveBeenCalled();
+    },);
+});
