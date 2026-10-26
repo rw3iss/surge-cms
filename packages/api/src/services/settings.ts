@@ -222,6 +222,7 @@ export async function computePublicFeatures(
         comments: { enabled: featureOn('comments',), },
         forum: { enabled: featureOn('forum',), },
         gallery: { enabled: featureOn('gallery',), },
+        affiliates: { enabled: featureOn('affiliates',), },
     };
 }
 

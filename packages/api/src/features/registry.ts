@@ -12,7 +12,7 @@
 export type FeatureKey =
     | 'patreon' | 'posts' | 'campaigns' | 'forms' | 'messages' | 'users'
     | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts' | 'events'
-    | 'wiki' | 'video' | 'discussions' | 'comments' | 'forum' | 'gallery';
+    | 'wiki' | 'video' | 'discussions' | 'comments' | 'forum' | 'gallery' | 'affiliates';
 
 export interface FeatureConfig {
     key: FeatureKey;
@@ -210,6 +210,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
             '157_shop_fulfillment_tracking.sql',
             '158_shop_order_tracking_manual.sql',
             '171_shop_order_email_lower_access_key.sql',
+            '192_shop_discount_codes.sql',
         ],
         // Creation order — uninstall drops in reverse. CASCADE FKs make the
         // exact order safe regardless (child/m2m tables drop with their parent).
@@ -231,6 +232,8 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
             'shop_review_helpful',
             'shop_orders',
             'shop_order_items',
+            'shop_discount_codes',
+            'shop_discount_redemptions',
         ],
         settingsKeys: ['shop_settings', 'shop_appearance'],
         // Seed default settings rows inside the enable txn. Idempotent.
@@ -306,6 +309,18 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
         // deleted by an uninstall — delete video media first.
         tables: ['media_upload_sessions', 'video_keys', 'media_videos', 'video_jobs', 'video_renditions',],
         settingsKeys: ['video_settings',],
+    },
+    affiliates: {
+        key: 'affiliates',
+        label: 'Affiliate program',
+        description:
+            'Members with the affiliate role get shop codes from an admin, earn a commission on paid orders that use them and are paid out through Stripe Connect Express.',
+        defaultEnabled: false,
+        requires: ['shop',],
+        migrations: ['193_affiliates.sql',],
+        // Reverse-dropped on uninstall, so parents first.
+        tables: ['affiliate_accounts', 'affiliate_payouts', 'affiliate_earnings',],
+        settingsKeys: ['affiliate_settings',],
     },
     events: {
         key: 'events',

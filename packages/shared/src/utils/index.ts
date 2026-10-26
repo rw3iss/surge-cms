@@ -15,6 +15,7 @@ export * from './formFields';
 export * from './formSections';
 export * from './systemPages';
 export * from './loginRoute';
+export * from './discountMath';
 export * from './markdown';
 export * from './pageTitle';
 export * from './recurrence';

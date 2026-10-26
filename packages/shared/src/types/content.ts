@@ -608,6 +608,8 @@ export interface SiteFeatures {
     /** A members' forum (/forum + admin Forum section). Requires `users`. */
     forum: { enabled: boolean; };
     gallery: { enabled: boolean; };
+    /** Affiliate program (Shop Settings → Affiliate program). Requires `shop`. */
+    affiliates: { enabled: boolean; };
 }
 
 /** The keys that correspond to a `<x>_enabled` row in `site_settings`. */

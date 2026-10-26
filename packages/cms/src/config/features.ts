@@ -9,7 +9,7 @@
 export type FeatureKey =
     | 'patreon' | 'posts' | 'campaigns' | 'forms' | 'messages' | 'users'
     | 'mailing_lists' | 'shop' | 'plugins' | 'social' | 'contacts' | 'events'
-    | 'wiki' | 'video' | 'discussions' | 'comments' | 'forum' | 'gallery';
+    | 'wiki' | 'video' | 'discussions' | 'comments' | 'forum' | 'gallery' | 'affiliates';
 
 export interface FeatureConfig {
     key: FeatureKey;
@@ -43,6 +43,7 @@ export const FEATURES: FeatureConfig[] = [
     { key: 'comments',      label: 'Comments',      description: 'Comments on posts and events: replies, reactions, editing, moderation; optional anonymous comments.', requires: ['discussions',], },
     { key: 'forum',         label: 'Forum',         description: 'A members\' forum: categories, threads and replies, with its own admin section and settings.', requires: ['discussions',], },
     { key: 'gallery',       label: 'Gallery',       description: 'Publish media from the library to a public gallery page, with comments, a Gallery content block and {{gallery()}}.', },
+    { key: 'affiliates',    label: 'Affiliate program', description: 'Members with the affiliate role get shop codes, earn a commission on sales and are paid out through Stripe Connect. Also in Shop → Settings.', requires: ['shop',], },
     { key: 'video',         label: 'Video hosting', description: 'Large video uploads to object storage, adaptive HLS encoding, teasers, private (encrypted) playback.', },
 ];
 

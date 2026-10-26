@@ -27,6 +27,8 @@ import { buildGroups, groupKeyForLine, NATIVE_GROUP, } from './groups';
 import { buildGroupShipping, } from './groupShipping';
 import { generateOrderAccessKey, generateOrderNumber, } from './orderNumber';
 import { getShopSettings, } from './settings';
+import { applyDiscount, type AppliedDiscount, } from './discounts';
+import type { DiscountLine, } from '@sitesurge/types';
 
 const paymentProvider = getPaymentProvider();
 
@@ -58,6 +60,8 @@ export interface CheckoutPreviewInput {
      *  a bare string applies to every group (what the pre-multi-cart
      *  storefront sends). */
     shippingMethod?: string | Record<string, string>;
+    /** A discount code (services/shop/discounts). */
+    discountCode?: string | null;
 }
 
 export interface CheckoutInput extends CheckoutPreviewInput {
@@ -85,6 +89,11 @@ export interface CheckoutTotals {
     /** Per-fulfilment-group breakdown. Always present; the storefront shows it
      *  as sections or collapses it to one list depending on `cartDisplay`. */
     groups?: CheckoutTotalsGroup[];
+    discountCents?: number;
+    discountCode?: string;
+    discountSummary?: string;
+    /** Why the entered code was not applied (preview only). */
+    discountError?: string;
 }
 
 export interface CheckoutTotalsGroup {
@@ -364,6 +373,8 @@ async function computeTax(
     currency: string,
     settings: ShopSettings,
     shippingAddress?: ShopAddress | null,
+    /** Discount per line (index → cents): tax is on the discounted amounts. */
+    lineDiscounts?: Map<string, number>,
 ): Promise<number> {
     if (!settings.taxEnabled || !settings.stripeTaxEnabled || !shippingAddress) return 0;
     // The shop's own Stripe account (Settings → Shop → Payment credentials).
@@ -374,7 +385,7 @@ async function computeTax(
         const calculation = await stripe.tax.calculations.create({
             currency,
             line_items: lines.map((l, i,) => ({
-                amount: l.subtotalCents,
+                amount: Math.max(0, l.subtotalCents - (lineDiscounts?.get(String(i,),) ?? 0),),
                 reference: `line-${i}`,
                 quantity: l.qty,
             })),
@@ -466,10 +477,15 @@ function buildShipping(
     };
 }
 
+/** Cart lines as the discount engine sees them (key = line index). */
+function discountLinesOf(lines: ResolvedLine[],): DiscountLine[] {
+    return lines.map((l, i,) => ({ key: String(i,), subtotalCents: l.subtotalCents, ticket: l.kind === 'event_ticket', }));
+}
+
 async function computeTotals(
     input: CheckoutPreviewInput,
     opts: { lenient?: boolean; viewer?: LevelViewer; } = {},
-): Promise<{ lines: ResolvedLine[]; totals: CheckoutTotals; }> {
+): Promise<{ lines: ResolvedLine[]; totals: CheckoutTotals; discount?: AppliedDiscount; }> {
     const settings = await getShopSettings();
     const currency = settings.currency ?? 'usd';
     const { lines, unavailable, } = await resolveLines(input.items, {
@@ -496,9 +512,21 @@ async function computeTotals(
         nativeShippingCents,
     },);
 
+    // A discount code: merchandise always, tickets when the code says so.
+    let discount: AppliedDiscount | undefined;
+    let discountError: string | undefined;
+    if (input.discountCode?.trim()) {
+        const res = await applyDiscount(input.discountCode, discountLinesOf(lines,), opts.viewer ?? null, {
+            email: (input as { customerEmail?: string | null; }).customerEmail ?? null, currency,
+        },);
+        discount = res.applied;
+        discountError = res.error;
+    }
+    const discountCents = discount?.discountCents ?? 0;
+
     const shippingCents = shipped.totalShippingCents;
-    const taxCents = await computeTax(lines, shippingCents, currency, settings, input.shippingAddress,);
-    const totalCents = subtotalCents + shippingCents + taxCents;
+    const taxCents = await computeTax(lines, shippingCents, currency, settings, input.shippingAddress, discount?.perLine,);
+    const totalCents = subtotalCents - discountCents + shippingCents + taxCents;
 
     // The single-group case keeps the exact pre-multi-cart shape, so a
     // storefront that has not been updated yet behaves identically.
@@ -506,8 +534,13 @@ async function computeTotals(
 
     return {
         lines,
+        discount,
         totals: {
             subtotalCents,
+            discountCents: discountCents || undefined,
+            discountCode: discount?.code,
+            discountSummary: discount?.summary,
+            discountError,
             shippingCents,
             taxCents,
             totalCents,
@@ -558,7 +591,10 @@ export async function createCheckout(input: CheckoutInput, ctx: AuditContext, vi
         throw new ValidationError('customerEmail is required',);
     }
 
-    const { lines, totals, } = await computeTotals(input, { viewer, },);
+    const { lines, totals, discount, } = await computeTotals(input, { viewer, },);
+    if (input.discountCode?.trim() && !discount) {
+        throw new ValidationError(totals.discountError || 'That discount code cannot be used.',);
+    }
     const orderNumber = generateOrderNumber();
     const accessKey = generateOrderAccessKey();
 
@@ -566,6 +602,14 @@ export async function createCheckout(input: CheckoutInput, ctx: AuditContext, vi
     // PaymentIntent, then persist the intent id — all inside one txn so a
     // Stripe failure rolls the pending order back.
     const order = await transaction(async (client,) => {
+        // Re-check a limited code with its row LOCKED, so two buyers cannot
+        // both take its last use.
+        if (discount && input.discountCode) {
+            const again = await applyDiscount(input.discountCode, discountLinesOf(lines,), viewer, {
+                client, email: input.customerEmail, currency: totals.currency,
+            },);
+            if (!again.applied) throw new ValidationError(again.error || 'That discount code cannot be used.',);
+        }
         const created = await ordersRepo.createOrder(client, {
             orderNumber,
             accessKey,
@@ -577,7 +621,7 @@ export async function createCheckout(input: CheckoutInput, ctx: AuditContext, vi
             taxCents: totals.taxCents,
             shippingCents: totals.shippingCents,
             shippingMethod: totals.shippingMethodLabel ?? null,
-            discountCents: 0,
+            discountCents: totals.discountCents ?? 0,
             totalCents: totals.totalCents,
             currency: totals.currency,
             shippingAddress: input.shippingAddress ?? null,
@@ -606,6 +650,13 @@ export async function createCheckout(input: CheckoutInput, ctx: AuditContext, vi
                 externalVariantId: l.externalVariantId,
             })),
         );
+
+        if (discount) {
+            await client.query(
+                `UPDATE shop_orders SET discount_code_id = $2, discount_code = $3 WHERE id = $1`,
+                [created.id, discount.codeId, discount.code,],
+            );
+        }
 
         const paymentIntent = await paymentProvider.createPaymentIntent({
             amountCents: totals.totalCents,

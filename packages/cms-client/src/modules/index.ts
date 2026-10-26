@@ -35,6 +35,7 @@ import { MailArchiveModule, } from './mailArchive';
 import { ExportsModule, } from './exports';
 import { RolesModule, SubscriptionTiersModule, } from './subscriptions';
 import { MembershipApplicationsModule, } from './membershipApplications';
+import { AffiliatesModule, } from './affiliates';
 import { MailSendModule, } from './mailSend';
 import { PaymentsModule, } from './payments';
 import { SettingsModule, } from './settings';
@@ -90,6 +91,7 @@ export interface CmsModules {
     roles: RolesModule;
     subscriptionTiers: SubscriptionTiersModule;
     membershipApplications: MembershipApplicationsModule;
+    affiliates: AffiliatesModule;
     mailSend: MailSendModule;
     payments: PaymentsModule;
     settings: SettingsModule;
@@ -151,6 +153,7 @@ export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModule
     c.roles = new RolesModule(core,);
     c.subscriptionTiers = new SubscriptionTiersModule(core,);
     c.membershipApplications = new MembershipApplicationsModule(core,);
+    c.affiliates = new AffiliatesModule(core,);
     c.mailSend = new MailSendModule(core,);
     c.payments = new PaymentsModule(core,);
     c.settings = new SettingsModule(core,);
@@ -176,7 +179,7 @@ export {
     UsersModule, MessagesModule, SocialModule, SearchModule, UtilsModule, AuditModule, DashboardModule,
     AuthModule, ApiKeysModule, ConnectionsModule, BlockStylesModule, FontsModule,
     DevModule, HealthModule, SetupModule,
-    MailingListsModule, MailTemplatesModule, RepliesModule, MailArchiveModule, ExportsModule, RolesModule, SubscriptionTiersModule, MembershipApplicationsModule, MailSendModule, PaymentsModule,
+    MailingListsModule, MailTemplatesModule, RepliesModule, MailArchiveModule, ExportsModule, RolesModule, SubscriptionTiersModule, MembershipApplicationsModule, AffiliatesModule, MailSendModule, PaymentsModule,
     SettingsModule, ShopModule, PluginsModule, FeedModule, SitemapModule,
     ComponentsModule,
     EntitiesModule, EntityTypesModule, ContentBlockTemplatesModule,
