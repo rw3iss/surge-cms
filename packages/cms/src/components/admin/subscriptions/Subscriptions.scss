@@ -122,17 +122,64 @@
     margin-bottom: 0;
   }
 
-  &__form {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr auto;
-    gap: $spacing-sm;
-    // Top: labels + inputs line up; the Key hint hangs below its input.
-    align-items: start;
-    margin-top: $spacing-md;
-
-    @media (max-width: 900px) { grid-template-columns: 1fr 1fr; }
+  // The role editor: its own card under the table — Key / Label / Based on,
+  // then Description, then Page after sign-in + Priority, then the buttons.
+  &__editor {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    margin-top: $spacing-lg;
+    padding: $spacing-lg;
+    border: 1px solid $border-color;
+    border-radius: 10px;
+    scroll-margin-top: 80px; // clear the sticky admin header when scrolled to
   }
-}
+  &__editor-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: $spacing-sm $spacing-md;
+
+    h3 { margin: 0; font-size: 1.05rem; }
+    .form-help-muted { margin: 0; }
+  }
+  &__grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: $spacing-md;
+    align-items: start;
+
+    &--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    &--route { grid-template-columns: minmax(0, 3fr) minmax(120px, 1fr); }
+
+    @media (max-width: 760px) {
+      &--3, &--route { grid-template-columns: 1fr; }
+    }
+
+    // FormField brings its own top margin; the grid gap does the spacing here.
+    > * { margin: 0; min-width: 0; }
+    input, select { width: 100%; }
+  }
+  &__actions-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: $spacing-sm;
+    padding-top: $spacing-sm;
+    border-top: 1px solid $border-color;
+  }
+  &__permissions-link { margin-top: $spacing-md; }
+  &__link {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-weight: 600;
+    color: $primary-color;
+    cursor: pointer;
+
+    &:hover { text-decoration: underline; }
+  }
+}}
 
 // Description: full modal width, only grows downward (dragging it wider used
 // to push it off the modal).

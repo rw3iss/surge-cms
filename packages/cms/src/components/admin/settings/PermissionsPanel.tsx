@@ -12,7 +12,9 @@
 import { Component, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
 import type { PermissionWithGrants, } from '@sitesurge/types';
 import { PERMISSION_PRECEDENCE, } from '@sitesurge/types';
+import { useSearchParams, } from '@solidjs/router';
 import { cms, } from '../../../services/cmsClient';
+import { Tabs, } from '../../ui/Tabs';
 import { useToast, } from '../../common/toast';
 import { FormField, } from '../forms';
 import CollapsiblePanel from '../common/CollapsiblePanel';
@@ -30,8 +32,13 @@ const ACCESS_LABELS: Record<string, string> = {
     nobody: 'Nobody by default',
 };
 
+type PermTab = 'roles' | 'permissions';
+
 const PermissionsPanel: Component = () => {
     const toast = useToast();
+    // Roles | Permissions (`?ptab=`; Roles is the default).
+    const [params, setParams,] = useSearchParams<{ ptab?: string; }>();
+    const ptab = (): PermTab => (params.ptab === 'permissions' ? 'permissions' : 'roles');
     const [search, setSearch,] = createSignal('',);
     const [pendingDelete, setPendingDelete,] = createSignal<string | null>(null,);
     const [creating, setCreating,] = createSignal(false,);
@@ -129,7 +136,15 @@ const PermissionsPanel: Component = () => {
 
     return (
         <div class="permissions-panel">
-            <RoleManager onChanged={() => { void refetchRoles(); void refetch(); }} />
+            <Tabs<PermTab>
+                items={[{ value: 'roles', label: 'Roles', }, { value: 'permissions', label: 'Permissions', },]}
+                value={ptab()}
+                onChange={(v,) => setParams({ ptab: v === 'roles' ? undefined : v, },)}
+            />
+            <Show when={ptab() === 'roles'}>
+                <RoleManager onChanged={() => { void refetchRoles(); void refetch(); }} onOpenPermissions={() => setParams({ ptab: 'permissions', },)} />
+            </Show>
+            <Show when={ptab() === 'permissions'}>
             <div class="permissions-panel__intro">
                 <p class="form-help-muted">
                     Permissions sit on top of roles. A route still requires its normal
@@ -299,6 +314,8 @@ const PermissionsPanel: Component = () => {
                     onClose={() => setCreating(false,)}
                     onCreated={async () => { setCreating(false,); await refetch(); }}
                 />
+            </Show>
+
             </Show>
 
             <ConfirmModal

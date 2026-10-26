@@ -11,7 +11,7 @@ import { isStaffRole, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
 import { useToast, } from '../../common/toast';
 import ConfirmModal from '../common/ConfirmModal';
-import { FormField, FormRowAction, } from '../forms';
+import { FormField, } from '../forms';
 import '../subscriptions/Subscriptions.scss';
 
 /** "Page after sign-in" as typed → stored: no leading slash. */
@@ -19,7 +19,8 @@ const cleanRoute = (v: string,) => v.trim().replace(/^\/+/, '',);
 /** How a role's landing page reads in the table. */
 const routeLabel = (r: RoleDef,) => (r.loginRoute == null ? 'inherits' : r.loginRoute === '' ? 'Homepage' : `/${r.loginRoute}`);
 
-const RoleManager: Component<{ onChanged?: () => void; }> = (props,) => {
+const RoleManager: Component<{ onChanged?: () => void; onOpenPermissions?: () => void; }> = (props,) => {
+    let formEl: HTMLElement | undefined;
     const toast = useToast();
     const [roles, { refetch, },] = createResource(() => cms.roles.list().catch(() => [] as RoleDef[]),);
     const [draft, setDraft,] = createStore({ key: '', label: '', description: '', baseRole: 'member', loginRoute: '', loginPriority: 0, },);
@@ -80,11 +81,14 @@ const RoleManager: Component<{ onChanged?: () => void; }> = (props,) => {
 
     return (
         <section class="admin-section role-manager">
-            <header class="admin-section__header"><h2>Roles</h2></header>
-            <p class="form-help-muted">
-                Built-in roles are fixed. A custom role has everything its <strong>base role</strong> has, plus whatever you grant it below.
-                Custom roles build on member-level roles only — they never get staff (admin/editor) access.
-            </p>
+            <header class="admin-section__header">
+                <h2>Roles</h2>
+                <p class="form-help-muted">
+                    Built-in roles are fixed (only their page after sign-in can change). A custom role has everything its <strong>base role</strong> has,
+                    plus whatever you grant it in the <strong>Permissions</strong> tab. Custom roles build on member-level roles only — they never get
+                    staff (admin/editor) access.
+                </p>
+            </header>
             <div class="admin-table-container">
                 <table class="admin-table">
                     <thead><tr><th>Role</th><th>Based on</th><th>Users</th><th>After sign-in</th><th>Description</th><th /></tr></thead>
@@ -104,6 +108,7 @@ const RoleManager: Component<{ onChanged?: () => void; }> = (props,) => {
                                             onClick={() => {
                                                 setEditingKey(r.key,);
                                                 setEditingSystem(r.isSystem,);
+                                                queueMicrotask(() => formEl?.scrollIntoView({ behavior: 'smooth', block: 'start', },),);
                                                 setDraft({
                                                     key: r.key, label: r.label, description: r.description ?? '', baseRole: r.baseRole ?? '',
                                                     loginRoute: r.loginRoute ?? '', loginPriority: r.loginPriority ?? 0,
@@ -123,49 +128,70 @@ const RoleManager: Component<{ onChanged?: () => void; }> = (props,) => {
                 </table>
             </div>
 
-            <div class="role-manager__form">
-                <FormField label="Key" hint={editingKey() ? 'Fixed once created.' : 'e.g. premium_member'}>
-                    <input type="text" value={draft.key} disabled={Boolean(editingKey(),)} onBlur={(e,) => setDraft('key', e.currentTarget.value.trim().toLowerCase(),)} />
-                </FormField>
-                <FormField label="Label">
-                    <input type="text" value={draft.label} disabled={editingSystem()} onBlur={(e,) => setDraft('label', e.currentTarget.value,)} />
-                </FormField>
-                <FormField label="Based on">
-                    {/* `selected` per option, not just the select's value: clicking Edit
-                        re-renders the options (the edited role drops out) AFTER the value
-                        was set, and the browser then fell back to the first option. */}
-                    <select value={draft.baseRole ?? ''} disabled={editingSystem()} onChange={(e,) => setDraft('baseRole', e.currentTarget.value,)}>
-                        <option value="" selected={!draft.baseRole}>— none —</option>
-                        <For each={baseOptions()}>{(r,) => <option value={r.key} selected={r.key === draft.baseRole}>{r.label}</option>}</For>
-                    </select>
-                </FormField>
-                <FormField label="Description">
-                    <input type="text" value={draft.description} disabled={editingSystem()} onBlur={(e,) => setDraft('description', e.currentTarget.value,)} />
-                </FormField>
-                <FormField
-                    label="Page after sign-in"
-                    tooltip="Where users with this role land after signing in. Among a user's roles (main and additional), the one with the highest priority decides."
-                    hint="A site path without the leading slash — e.g. admin, profile?tab=membership. Empty = the homepage."
-                >
-                    <input
-                        type="text"
-                        value={draft.loginRoute}
-                        placeholder="(homepage)"
-                        onBlur={(e,) => { const v = cleanRoute(e.currentTarget.value,); e.currentTarget.value = v; setDraft('loginRoute', v,); }}
-                    />
-                </FormField>
-                <FormField label="Priority" hint="Higher wins.">
-                    <input type="number" step="1" value={draft.loginPriority} onBlur={(e,) => setDraft('loginPriority', Number(e.currentTarget.value,) || 0,)} />
-                </FormField>
-                <FormRowAction>
-                    <button type="button" class="ui-button ui-button--primary ui-button--sm" onClick={submit} disabled={busy()}>
-                        {editingKey() ? 'Save role' : '+ Add role'}
-                    </button>
+            <section class="role-manager__editor" ref={(el,) => (formEl = el)}>
+                <header class="role-manager__editor-head">
+                    <h3>{editingKey() ? `Edit role: ${draft.label || editingKey()}` : 'New role'}</h3>
+                    <Show when={editingSystem()}>
+                        <span class="form-help-muted">Built-in role — only its page after sign-in can change.</span>
+                    </Show>
+                </header>
+
+                <div class="role-manager__grid role-manager__grid--3">
+                    <FormField label="Key" hint={editingKey() ? 'Fixed once created.' : 'Lowercase, e.g. premium_member.'}>
+                        <input type="text" value={draft.key} disabled={Boolean(editingKey(),)} onBlur={(e,) => setDraft('key', e.currentTarget.value.trim().toLowerCase(),)} />
+                    </FormField>
+                    <FormField label="Label" hint="Shown in the admin.">
+                        <input type="text" value={draft.label} disabled={editingSystem()} onBlur={(e,) => setDraft('label', e.currentTarget.value,)} />
+                    </FormField>
+                    <FormField label="Based on" hint="Inherits everything this role can do.">
+                        {/* `selected` per option, not just the select's value: clicking Edit
+                            re-renders the options (the edited role drops out) AFTER the value
+                            was set, and the browser then fell back to the first option. */}
+                        <select value={draft.baseRole ?? ''} disabled={editingSystem()} onChange={(e,) => setDraft('baseRole', e.currentTarget.value,)}>
+                            <option value="" selected={!draft.baseRole}>— none —</option>
+                            <For each={baseOptions()}>{(r,) => <option value={r.key} selected={r.key === draft.baseRole}>{r.label}</option>}</For>
+                        </select>
+                    </FormField>
+                </div>
+
+                <div class="role-manager__grid">
+                    <FormField label="Description">
+                        <input type="text" value={draft.description} disabled={editingSystem()} onBlur={(e,) => setDraft('description', e.currentTarget.value,)} />
+                    </FormField>
+                </div>
+
+                <div class="role-manager__grid role-manager__grid--route">
+                    <FormField
+                        label="Page after sign-in"
+                        tooltip="Where users with this role land after signing in. Among a user's roles (main and additional), the one with the highest priority decides."
+                        hint="A site path without the leading slash — e.g. admin, profile?tab=membership. Empty = the homepage."
+                    >
+                        <input
+                            type="text"
+                            value={draft.loginRoute}
+                            placeholder="(homepage)"
+                            onBlur={(e,) => { const v = cleanRoute(e.currentTarget.value,); e.currentTarget.value = v; setDraft('loginRoute', v,); }}
+                        />
+                    </FormField>
+                    <FormField label="Priority" hint="Higher wins.">
+                        <input type="number" step="1" value={draft.loginPriority} onBlur={(e,) => setDraft('loginPriority', Number(e.currentTarget.value,) || 0,)} />
+                    </FormField>
+                </div>
+
+                <div class="role-manager__actions-row">
                     <Show when={editingKey()}>
                         <button type="button" class="ui-button ui-button--ghost ui-button--sm" onClick={reset}>Cancel</button>
                     </Show>
-                </FormRowAction>
-            </div>
+                    <button type="button" class="ui-button ui-button--primary ui-button--sm" onClick={submit} disabled={busy()}>
+                        {editingKey() ? 'Save role' : '+ Add role'}
+                    </button>
+                </div>
+            </section>
+
+            <p class="role-manager__permissions-link form-help-muted">
+                What each role may do is set in the{' '}
+                <button type="button" class="role-manager__link" onClick={() => props.onOpenPermissions?.()}>Permissions tab →</button>
+            </p>
 
             <ConfirmModal
                 open={deleting() !== null}
