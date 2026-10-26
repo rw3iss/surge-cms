@@ -106,6 +106,8 @@ const MembershipTierCards: Component<MembershipTierCardsProps> = (props,) => {
                                     <span class="subscribe-card__badge">{t.roleOnly ? 'Joined' : 'Current'}</span>
                                 </Show>
                             </header>
+                            {/* A "Hide price" level shows no price line at all (no "shared after approval" note). */}
+                            <Show when={!t.priceHidden}>
                             <div class="subscribe-card__price">
                                 {/* Default price large; other billing periods as small chips beside it (pick one, then Join). */}
                                 <PriceChoice
@@ -116,7 +118,8 @@ const MembershipTierCards: Component<MembershipTierCardsProps> = (props,) => {
                                     perClass="subscribe-card__per"
                                 />
                             </div>
-                            <Show when={!t.priceHidden}><span class="subscribe-card__freq">{freq(tierAtPrice(t, chosen(t,),),)}</span></Show>
+                            <span class="subscribe-card__freq">{freq(tierAtPrice(t, chosen(t,),),)}</span>
+                            </Show>
                             <Markdown class="subscribe-card__desc" text={t.description} />
                             <button
                                 type="button"
