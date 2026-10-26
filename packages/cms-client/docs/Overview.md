@@ -377,6 +377,7 @@ const post = await cms.posts.getBySlug('hello-world');
 |--------|-----------|------|------|-------|
 | `navigation` | `() → PageNavigationResponse` | `GET /pages/navigation` | public | cached GET |
 | `homepage` | `() → PageHomepageResponse` | `GET /pages/homepage` | public | cached GET |
+| `system` | `(key) → PageSystemResponse \| null` | `GET /pages/system/:key` | public | cached GET; null = none assigned (use the built-in page) |
 | `getBySlug` | `(slug: string, query?: PageBySlugQuery) → PageBySlugResponse` | `GET /pages/slug/:slug` | optional | cached GET (throws `ContentLockedError`) |
 | `list` | `(query?: PageListQuery) → Paginated<Page>` | `GET /pages` | admin | cached GET (paginated) |
 | `getById` | `(id: string) → PageByIdResponse` | `GET /pages/:id` | admin | cached GET |

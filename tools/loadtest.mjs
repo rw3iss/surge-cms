@@ -75,7 +75,7 @@ const BOOT = [
 /** Pages a browsing visitor moves between, with the calls each one triggers. */
 const PAGES = [
     { html: '/', calls: [
-        '/api/v1/pages/homepage',
+        '/api/v1/pages/system/home',
         '/api/v1/components/templates/72d2a452-c497-4ad3-8d7f-47a28753f513',
         '/api/v1/components/templates/507f69e8-c5f3-419e-8b49-50484edb1686',
         '/api/v1/components/templates/8989a813-dc94-4893-9666-a5e49327142b',

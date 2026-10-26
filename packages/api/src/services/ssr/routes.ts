@@ -319,14 +319,14 @@ async function loadPostBlocks(
 
 /**
  * The home page's indexable body. Renders the CMS homepage's blocks when one is
- * configured (`pages.is_homepage`), so the words on the page are actually in the
+ * assigned ("Use as page: Homepage", `pages.system_page = 'home'`), so the words on the page are actually in the
  * HTML; falls back to the site name + tagline when there is no homepage row.
  */
 async function buildHomeBody(siteName: string, siteDescription: string,): Promise<string> {
     try {
         const res = await query(
             `SELECT id, title, description, show_title
-             FROM pages WHERE is_homepage = true AND status = 'published' LIMIT 1`,
+             FROM pages WHERE system_page = 'home' AND status = 'published' LIMIT 1`,
         );
         const row = res.rows[0];
         if (!row) return buildGenericBody(siteName, siteDescription,);

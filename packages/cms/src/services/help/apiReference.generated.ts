@@ -8845,9 +8845,29 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "path": "/homepage",
                 "absolutePath": "/api/v1/pages/homepage",
                 "auth": "public",
-                "summary": "The page flagged as homepage (with blocks).",
+                "summary": "The homepage: the page assigned to the 'home' system page (with blocks). Same as /system/home.",
                 "sdk": [
                     "cms.pages.homepage"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/system/:key",
+                "absolutePath": "/api/v1/pages/system/:key",
+                "auth": "public",
+                "summary": "The published page assigned to a system page (SYSTEM_PAGES key, e.g. home, shop), with blocks. 404 = none — use the built-in page.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "key",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.pages.system"
                 ],
                 "sdkStatus": "method"
             },
@@ -17456,4 +17476,4 @@ export const API_MODULES: ApiModuleDoc[] = [
 ];
 
 export const API_MODULE_COUNT = 55;
-export const API_ROUTE_COUNT = 601;
+export const API_ROUTE_COUNT = 602;

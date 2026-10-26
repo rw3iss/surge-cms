@@ -56,7 +56,6 @@ const pageCreateShape = {
     ogImage: z.string().optional().describe('Open Graph image URL.',),
     status: z.enum(['draft', 'published', 'scheduled', 'archived', 'deleted',],).optional().describe('Publication status (default draft).',),
     publishAt: z.string().nullable().optional().describe('ISO date-time to publish (for status="scheduled").',),
-    isHomepage: z.boolean().optional().describe('Legacy: same as systemPage "home".',),
     systemPage: z.enum(SYSTEM_PAGE_KEYS as [string, ...string[]],).nullable().optional().describe(
         '"Use as page": show this page in place of a built-in page (home = the site root, shop = /shop, subscribe, posts, …). null = none. Takes it over from any other page.',
     ),
@@ -110,6 +109,18 @@ const tools = [
             }
             if (hasId) return ctx.cms.pages.getById(args.id as string,);
             return ctx.cms.pages.getBySlug(args.slug as string, args.preview ? { preview: args.preview, } : undefined,);
+        },
+    },),
+    defineTool({
+        name: 'get_system_page',
+        description:
+            'Fetch the published page assigned to a built-in page ("Use as page") — e.g. key "home" = the homepage, "shop" = /shop — WITH its block tree. Returns { assigned: false } when none is assigned (the site then shows its built-in page). Assign one with update_page { systemPage }.',
+        inputSchema: {
+            key: z.enum(SYSTEM_PAGE_KEYS as [string, ...string[]],).describe('System page key (home, posts, search, subscribe, shop, events, gallery, forum, wiki, mail).',),
+        },
+        handler: async (args, ctx: ToolContext,) => {
+            const page = await ctx.cms.pages.system(args.key,);
+            return page ? { assigned: true, page, } : { assigned: false, key: args.key, };
         },
     },),
     defineTool({

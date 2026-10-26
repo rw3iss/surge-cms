@@ -5558,7 +5558,7 @@ export const SDK_MODULES: SdkModuleDoc[] = [
             {
                 "name": "homepage",
                 "signature": "homepage(): Promise<PageHomepageResponse>",
-                "summary": "GET /pages/homepage — the page flagged as homepage.",
+                "summary": "GET /pages/homepage — the page assigned to the `home` system page (throws NotFoundError when none). Prefer `system('home')`, which returns null instead.",
                 "params": [],
                 "returns": "Promise<PageHomepageResponse>",
                 "routes": [
@@ -5679,6 +5679,22 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "returns": "Promise<RevisionSnapshotResponse>",
                 "routes": [
                     "POST /api/v1/pages/:id/revisions"
+                ]
+            },
+            {
+                "name": "system",
+                "signature": "system(key: string): Promise<PageSystemResponse | null>",
+                "summary": "GET /pages/system/:key — the published page assigned to a system page (\"Use as page\": `home`, `shop`, `subscribe`, … — `SYSTEM_PAGES` in `@sitesurge/types`), with blocks; `null` when none is assigned, so the caller falls back to its built-in page.",
+                "params": [
+                    {
+                        "name": "key",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<PageSystemResponse | null>",
+                "routes": [
+                    "GET /api/v1/pages/system/:key"
                 ]
             },
             {
@@ -10221,4 +10237,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 51;
-export const SDK_METHOD_COUNT = 596;
+export const SDK_METHOD_COUNT = 597;

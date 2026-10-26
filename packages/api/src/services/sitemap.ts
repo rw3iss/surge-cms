@@ -10,6 +10,7 @@
  * `services/cache.ts` invalidates that key whenever a page, post,
  * campaign, or form is mutated, so the next request rebuilds.
  */
+import { pagePublicPath, } from '@sitesurge/types';
 import { config, } from '../config';
 import { query, } from '../db';
 import { cache, } from './cache';
@@ -19,6 +20,7 @@ const CACHE_TTL = 3600; // 1 hour
 interface SitemapRow {
     slug: string;
     updated_at: string;
+    system_page?: string | null;
 }
 
 const SITE_URL = config.frontendUrl.replace(/\/$/, '',);
@@ -97,10 +99,10 @@ async function gallerySitemapRows(): Promise<{ base: string; items: Array<{ url:
 export async function buildSitemap(): Promise<string> {
     const [pagesResult, postsResult, campaignsResult, formsResult,] = await Promise.all([
         query<SitemapRow>(
-            `SELECT slug, updated_at FROM pages
-             WHERE status = 'published' AND is_private = false AND is_homepage = false
-               -- A "Use as page" page is listed at its system route (static list), not its slug.
-               AND system_page IS NULL
+            // A "Use as page" page (the homepage included) is listed at its
+            // system route (`pagePublicPath`), not its slug.
+            `SELECT slug, system_page, updated_at FROM pages
+             WHERE status = 'published' AND is_private = false
              ORDER BY updated_at DESC`,
         ),
         query<SitemapRow>(
@@ -149,7 +151,8 @@ export async function buildSitemap(): Promise<string> {
     addUrl(`${SITE_URL}/posts`, undefined, 'daily', 0.8,);
 
     for (const page of pagesResult.rows) {
-        addUrl(`${SITE_URL}/${page.slug}`, page.updated_at, 'weekly', 0.8,);
+        const path = pagePublicPath({ slug: page.slug, systemPage: page.system_page, },);
+        addUrl(path === '/' ? `${SITE_URL}/` : `${SITE_URL}${path}`, page.updated_at, 'weekly', 0.8,);
     }
     for (const post of postsResult.rows) {
         addUrl(`${SITE_URL}/posts/${post.slug}`, post.updated_at, 'weekly', 0.7,);

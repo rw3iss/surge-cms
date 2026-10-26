@@ -10,13 +10,12 @@ import './Home.scss';
 
 const Home: Component = () => {
     const canonicalUrl = window.location.origin;
-    // The homepage is whichever page has `is_homepage=true`. Slugs are
-    // free to be anything ("home", "welcome", etc.) — we don't query by
-    // a fixed slug, so renaming the slug of the page-flagged-as-homepage
-    // doesn't break the public root.
+    // The homepage is whichever page is set to "Use as page: Homepage" (the
+    // `home` system page) — found by assignment, not by slug, so renaming that
+    // page's slug doesn't break the public root. null = none assigned.
     const [page,] = createResource(async () => {
         try {
-            return await cms.pages.homepage() as Page;
+            return await cms.pages.system('home',) as Page | null;
         } catch {
             return null;
         }

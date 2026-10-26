@@ -132,7 +132,7 @@ const GalleryPage = lazy(() => import('./pages/gallery/GalleryPage'));
  * A built-in route a CMS page may replace ("Use as page"; registry SYSTEM_PAGES
  * in @sitesurge/types). Built once per key so the router keeps one component.
  * /shop does this inside ShopIndex (its store guard depends on the choice) and
- * the homepage through Home (`cms.pages.homepage()`).
+ * the homepage through Home (`cms.pages.system('home')`).
  */
 const systemRoute = (key: string, Builtin: Component<any>,): Component<any> =>
 	(props,) => <SystemPageRoute pageKey={key}><Builtin {...props} /></SystemPageRoute>;

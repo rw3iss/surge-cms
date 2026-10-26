@@ -289,7 +289,8 @@ with `meta = { page, limit, total, totalPages }`.
 | `get_page` | R | `id` **xor** `slug`, `preview?` | One page **with** its full hydrated block tree (stable block ids). `preview="admin"` reveals unpublished (slug fetch). |
 | `list_page_revisions` | R | `id` | Saved page revisions (newest first); each has a `version`. |
 | `create_page` | W | `slug`, `title`, SEO/status/nav/access fields | Create a page (no blocks yet). |
-| `update_page` | W | `id`, any create field | Partial page update; manages nav via `showInNav`/`navOrder`/`isHomepage`. |
+| `update_page` | W | `id`, any create field | Partial page update; manages nav via `showInNav`/`navOrder`; `systemPage` ("Use as page": `home`, `shop`, …) makes it stand in for a built-in page. |
+| `get_system_page` | R | `key` | The page assigned to a built-in page (`home` = homepage), or `{ assigned: false }` — the site then shows its built-in page. |
 | `delete_page` | **W** (destructive) | `id` | Delete a page and its blocks. |
 | `bulk_pages` | **W** (destructive) | `ids`, `action` (`delete`/`status`), `value?` | Bulk delete or set status over page ids. |
 | `add_page_block` | W | `pageId`, `type`, `content?`, `settings?`, `style?`, `parentBlockId?`, `isVisible?`, `order?`, `id?` | Add a block; `settings` merged over defaults. `type:"group"` auto-creates slots → `{ group, slots }`. `parentBlockId` places in a slot. |
@@ -390,7 +391,7 @@ Footer items do not support `children` (footer links are flat).
 
 | Tool | R/W | Key params | Does |
 |------|-----|-----------|------|
-| `get_navigation` | R | — | Computed main nav (`NavigationItem[]`). Nav is **derived** — change it via page `showInNav`/`navOrder`/`isHomepage` (`update_page`); external links via `update_site_header`. |
+| `get_navigation` | R | — | Computed main nav (`NavigationItem[]`). Nav is **derived** — change it via page `showInNav`/`navOrder`/`systemPage` (`update_page`); external links via `update_site_header`. |
 
 ### Reference (5)
 

@@ -11,7 +11,8 @@
  *      it's correct even when a table has a unique column the schema doesn't
  *      model (e.g. `users.email`, `campaigns.slug`). String values get an
  *      incrementing `-N` suffix probed until free; a boolean singleton flag
- *      (e.g. the partial-unique `pages.is_homepage`) resets to `false`.
+ *      (e.g. the `pages.is_homepage` mirror) resets to `false`; a singleton
+ *      assignment (`pages.system_page`) is cleared.
  *   3. RELATED child rows are cloned for the handful of types that own a child
  *      block table (`page` → `blocks`, `post` → `post_content_blocks`),
  *      re-pointed at the new parent and, when the child table self-nests

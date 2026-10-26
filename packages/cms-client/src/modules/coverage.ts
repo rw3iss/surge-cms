@@ -75,6 +75,7 @@ export const ROUTE_COVERAGE: string[] = [
     // ── pages ──
     'GET /api/v1/pages/navigation',
     'GET /api/v1/pages/homepage',
+    'GET /api/v1/pages/system/:key',
     'GET /api/v1/pages/slug/:slug',
     'GET /api/v1/pages',
     'GET /api/v1/pages/:id',

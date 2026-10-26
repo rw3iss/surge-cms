@@ -8,7 +8,7 @@
  * logging on writes. The `sdk/pages.ts` shim re-exports it so
  * `cms.pages` keeps working for scripts and plugins.
  *
- * Caching note: `getNavigationCached` and `getHomepageCached` are
+ * Caching note: `getNavigationCached` and `getSystemPageCached` are
  * public-shaped — navigation surfaces only nav-visible pages and the
  * homepage query returns the published homepage. `getPublicBySlug`
  * caches ONLY non-private, public-access pages (same gate as posts'
@@ -80,8 +80,14 @@ export async function getBySlugAnyStatus(slug: string,): Promise<Page | null> {
     return repo.findPageBySlugAnyStatus(slug,);
 }
 
+/** The page assigned to a system page ("Use as page"), else null = use the built-in screen. */
+export async function getSystemPage(key: string, includeDrafts = false,): Promise<Page | null> {
+    return repo.findSystemPage(key, includeDrafts,);
+}
+
+/** The homepage = the page assigned to the `home` system page. */
 export async function getHomepage(includeDrafts = false,): Promise<Page | null> {
-    return repo.findHomepage(includeDrafts,);
+    return getSystemPage('home', includeDrafts,);
 }
 
 export async function getNavigation(): Promise<NavigationItem[]> {
@@ -101,19 +107,22 @@ export async function getNavigationCached(): Promise<NavigationItem[]> {
     return navigation;
 }
 
-/** The page flagged as homepage (with blocks), cached 300s. Returns
- *  null when none is configured. */
-export async function getHomepageCached(): Promise<Page | null> {
-    const cacheKey = 'page:homepage';
+/** The published page assigned to a system page (with blocks), cached 300s.
+ *  null = none assigned → the caller shows the built-in screen. */
+export async function getSystemPageCached(key: string,): Promise<Page | null> {
+    const cacheKey = cache.CACHE_KEYS.pageSystem(key,);
     const cached = await cache.get<Page>(cacheKey,);
     if (cached) return cached;
 
-    const page = await repo.findHomepage();
+    const page = await repo.findSystemPage(key,);
     if (!page) return null;
     page.blocks = await repo.findBlocksByPageIdWithStyles(page.id, true,);
     await cache.set(cacheKey, page, 300,);
     return page;
 }
+
+/** The homepage (with blocks), cached — `getSystemPageCached('home')`. */
+export const getHomepageCached = (): Promise<Page | null> => getSystemPageCached('home',);
 
 /**
  * Public-side slug fetch (with blocks). Enforces privacy + membership

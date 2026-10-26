@@ -104,10 +104,25 @@ export const pagesRoutes = [
         method: 'get',
         path: '/homepage',
         auth: 'public',
-        summary: 'The page flagged as homepage (with blocks).',
+        summary: "The homepage: the page assigned to the 'home' system page (with blocks). Same as /system/home.",
         handler: async () => {
-            const page = await pages.getHomepageCached();
+            const page = await pages.getSystemPageCached('home',);
             if (!page) throw new NotFoundError('No homepage configured',);
+            return page;
+        },
+    },),
+
+    // "Use as page" lookup (public, cached): the published page standing in for
+    // a built-in page. 404 = none assigned → show the built-in page.
+    defineRoute({
+        method: 'get',
+        path: '/system/:key',
+        auth: 'public',
+        summary: 'The published page assigned to a system page (SYSTEM_PAGES key, e.g. home, shop), with blocks. 404 = none — use the built-in page.',
+        input: { params: z.object({ key: z.string().refine(isSystemPageKey, 'Unknown system page',), },), },
+        handler: async ({ params, },) => {
+            const page = await pages.getSystemPageCached(params.key,);
+            if (!page) throw new NotFoundError('No page assigned',);
             return page;
         },
     },),

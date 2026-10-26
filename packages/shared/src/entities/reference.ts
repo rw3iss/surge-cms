@@ -137,7 +137,7 @@ export const ENTITIES: EntityDoc[] = [
         name: 'Page', kind: 'page', desc: 'A CMS page (fetched with `page(slug)`).',
         fields: [
             { name: 'id', type: 'string', }, { name: 'slug', type: 'string', }, { name: 'title', type: 'string', },
-            { name: 'description', type: 'string?', }, { name: 'status', type: 'PageStatus', }, { name: 'isHomepage', type: 'boolean', },
+            { name: 'description', type: 'string?', }, { name: 'status', type: 'PageStatus', }, { name: 'systemPage', type: 'string?', }, { name: 'isHomepage', type: 'boolean', },
             { name: 'showInNav', type: 'boolean', }, { name: 'createdAt', type: 'date', }, { name: 'updatedAt', type: 'date', },
         ],
     },

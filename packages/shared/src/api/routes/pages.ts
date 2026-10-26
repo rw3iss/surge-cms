@@ -24,8 +24,14 @@ export type PageNavigationResponse = NavigationItem[];
 
 // ─── GET /pages/homepage ──────────────────────────────────────────
 
-/** GET /pages/homepage — the page flagged as homepage, with blocks. */
+/** GET /pages/homepage — the page assigned to the `home` system page, with blocks (= /pages/system/home). */
 export type PageHomepageResponse = PageWithBlocks;
+
+// ─── GET /pages/system/:key ───────────────────────────────────────
+
+/** GET /pages/system/:key — the published page assigned to a system page
+ *  ("Use as page", a `SYSTEM_PAGES` key), with blocks. 404 = none assigned. */
+export type PageSystemResponse = PageWithBlocks;
 
 // ─── GET /pages/slug/:slug ────────────────────────────────────────
 

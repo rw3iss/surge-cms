@@ -77,7 +77,8 @@ Every capability follows the same shape: `list`, `getById`, `create(input, ctx)`
 | `list(filters?, pagination?)` | Admin listing — every status, paginated. |
 | `getById(id)` / `getBySlug(slug)` | Single-page lookups (published only). |
 | `getBySlugAnyStatus(slug)` | Editor / preview lookup; ignores status. |
-| `getHomepage(includeDrafts?)` | The page flagged `is_homepage`. |
+| `getSystemPage(key, includeDrafts?)` | The page assigned to a system page ("Use as page": `home`, `shop`, …), or null → use the built-in page. |
+| `getHomepage(includeDrafts?)` | `getSystemPage('home')`. |
 | `getNavigation()` | Items marked `show_in_nav`. |
 | `create(data, ctx)` / `update(id, patch, ctx)` / `remove(id, ctx)` | Standard writes. |
 | `listBlocks(pageId, visibleOnly?)` | Page's structured blocks (with style hydration). |

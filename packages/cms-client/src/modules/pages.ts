@@ -1,6 +1,6 @@
 import type {
     RevisionSnapshotResponse,
-    PageNavigationResponse, PageHomepageResponse, PageBySlugQuery, PageBySlugResponse,
+    PageNavigationResponse, PageHomepageResponse, PageSystemResponse, PageBySlugQuery, PageBySlugResponse,
     PageListQuery, PageListResponse, PageByIdResponse, PageCreateBody, PageCreateResponse,
     PageUpdateBody, PageUpdateResponse, PageDeleteResponse, PageBulkBody, PageBulkResponse,
     PageRevisionListResponse, PageRevisionResponse, PageRevisionRestoreResponse,
@@ -8,6 +8,7 @@ import type {
     PageBlockDeleteResponse, PageReorderBlocksBody, PageReorderBlocksResponse,
 } from '@sitesurge/types';
 import type { Paginated, } from '@sitesurge/types';
+import { NotFoundError, } from '../core/errors';
 import { ModuleBase, } from './base';
 
 /** /pages namespace — CMS pages with embedded blocks, revisions, block CRUD. */
@@ -19,9 +20,25 @@ export class PagesModule extends ModuleBase {
         return this.get<PageNavigationResponse>('/pages/navigation',);
     }
 
-    /** GET /pages/homepage — the page flagged as homepage. */
+    /** GET /pages/homepage — the page assigned to the `home` system page (throws NotFoundError when none).
+     *  Prefer `system('home')`, which returns null instead. */
     homepage(): Promise<PageHomepageResponse> {
         return this.get<PageHomepageResponse>('/pages/homepage',);
+    }
+
+    /**
+     * GET /pages/system/:key — the published page assigned to a system page
+     * ("Use as page": `home`, `shop`, `subscribe`, … — `SYSTEM_PAGES` in
+     * `@sitesurge/types`), with blocks; `null` when none is assigned, so the
+     * caller falls back to its built-in page.
+     */
+    async system(key: string,): Promise<PageSystemResponse | null> {
+        try {
+            return await this.get<PageSystemResponse>('/pages/system/:key', { params: { key, }, },);
+        } catch (e) {
+            if (e instanceof NotFoundError) return null;
+            throw e;
+        }
     }
 
     /** GET /pages/slug/:slug — throws ContentLockedError on gated content. */

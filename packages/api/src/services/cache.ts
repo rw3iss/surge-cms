@@ -28,6 +28,11 @@ export const CACHE_KEYS = {
     socialLiveFeed: (platform: string, limit: number,) => `social:feed:${platform}:${limit}`,
     socialEmbed: (id: string,) => `social:embed:${id}`,
 
+    // ── Pages ──
+    /** The page assigned to a system page ("Use as page"), e.g. `page:system:home`. */
+    pageSystem: (key: string,) => `page:system:${key}`,
+    pageSystemAll: 'page:system:*',
+
     // ── Block styles ──
     blockStylesAll: 'block_styles:all',
 
@@ -232,10 +237,9 @@ export async function invalidatePageCache(pageId?: string,): Promise<void> {
         // /:slug route serves a 5-minute-stale copy after every save.
         await delPattern('page:slug:*',);
     }
-    // The homepage flag is a page-level mutation, so any save could
-    // change which page is "the homepage" — clear it on every page
-    // invalidation rather than only when we know it changed.
-    await del('page:homepage',);
+    // "Use as page" is a page-level mutation, so any save could change which
+    // page stands in for a system page — clear them on every page invalidation.
+    await delPattern(CACHE_KEYS.pageSystemAll,);
     await delPattern('pages:*',);
     await delPattern('navigation:*',);
     await invalidateMirroredEntityCache('page',);
