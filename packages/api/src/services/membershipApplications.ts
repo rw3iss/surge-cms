@@ -60,8 +60,19 @@ async function loadTier(tierId: string,): Promise<TierRow> {
     return t;
 }
 
+/**
+ * Mirror onto `users.approval_status` (the Users "Approval" filter). A member
+ * may have several applications at once (one per program + one membership), so
+ * it stays `pending` while ANY of them is still waiting; otherwise the latest outcome.
+ */
 async function setUserApproval(userId: string, status: MembershipApplicationStatus | null,): Promise<void> {
-    await query(`UPDATE users SET approval_status = $2, updated_at = NOW() WHERE id = $1`, [userId, status === 'withdrawn' ? null : status,],);
+    await query(
+        `UPDATE users SET updated_at = NOW(), approval_status = CASE
+            WHEN EXISTS (SELECT 1 FROM membership_applications WHERE user_id = $1 AND status = 'pending') THEN 'pending'
+            ELSE $2 END
+          WHERE id = $1`,
+        [userId, status === 'withdrawn' ? null : status,],
+    );
 }
 
 // ─── Apply ───────────────────────────────────────────────────────────────
@@ -296,11 +307,15 @@ export async function submit(body: MembershipApplySubmitBody, ctx: ApplyContext,
         }
     }
     const ins = await query<{ id: string; created_at: Date; }>(
-        `INSERT INTO membership_applications (user_id, plan_id, form_id, submission_id, answers, contact_email, price_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, created_at`,
-        [ctx.userId, tier.id, c.formId, c.submissionId, JSON.stringify(c.answers,), c.email, body.priceId ?? null,],
+        `INSERT INTO membership_applications (user_id, plan_id, form_id, submission_id, answers, contact_email, price_id, program)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, created_at`,
+        [ctx.userId, tier.id, c.formId, c.submissionId, JSON.stringify(c.answers,), c.email, body.priceId ?? null, tier.role_only,],
     ).catch((e,) => {
-        if ((e as { code?: string; }).code === '23505') throw new ConflictError('You already have an application waiting for review.',);
+        if ((e as { code?: string; }).code === '23505') {
+            throw new ConflictError(tier.role_only
+                ? 'You already have an application for this program waiting for review.'
+                : 'You already have an application waiting for review.',);
+        }
         throw e;
     },);
     const id = ins.rows[0].id;

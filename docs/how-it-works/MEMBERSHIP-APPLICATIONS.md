@@ -121,7 +121,7 @@ approval, has no price and takes no card.
 | What approval does | Adds the level's **role** to the member's **additional roles** (`users.extra_roles`). Their membership level, main role and billing are unchanged — a paying member stays a member AND becomes a contributor. |
 | Applicant has no linked account | A **verified** account using the application's email is linked and gets the role at once. **No account** → an invitation (`user_invites`, carries the role) — the role is there when they sign up. An **unverified** account → approval is refused with a message: link it in the review panel, or the role is added when that address is verified. |
 | Where it shows | Not on /subscribe or profile Membership (not a membership). List it with `{{ membershipLevels(levels='slug,…') }}`, e.g. /partner-program. A viewer who already has the role sees "You're in". |
-| Pending | One pending application per program, and it does not count as THE pending membership application (a member can apply to a membership and a program at once). |
+| Pending | One pending application per program — a member can apply to SEVERAL programs at once, and to a membership too (still one pending membership application). Enforced by two partial unique indexes on `membership_applications` (`program`, migration 188). The member's Approval status stays Pending while any application waits. Each approval adds that program's role. |
 | Buying it | Refused — a program is joined by applying. |
 | Removing it | Remove the role from the user's additional roles (user page). |
 
