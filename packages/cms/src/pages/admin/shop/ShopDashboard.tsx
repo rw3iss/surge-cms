@@ -41,6 +41,9 @@ const ShopDashboardInner: Component = () => {
         0,
     );
 
+    // Site-wide codes — what the Discount codes page lists (affiliate codes live under Affiliates).
+    const [discountsCount,] = createSafeResource(async () => (await cms.shop.discounts.list({ type: 'site', },)).length, 0,);
+
     const [reviewsCount,] = createSafeResource(
         async () => {
             const res = await cms.shop.reviews.adminList({ limit: 1, },);
@@ -84,8 +87,8 @@ const ShopDashboardInner: Component = () => {
         { href: '/admin/shop/categories', label: 'Categories', count: categoriesCount() ?? 0, },
         { href: '/admin/shop/collections', label: 'Collections', count: collectionsCount() ?? 0, },
         { href: '/admin/shop/reviews', label: 'Reviews', count: reviewsCount() ?? 0, },
-        { href: '/admin/shop/discounts', label: 'Discount codes', count: null, },
-        ...(isFeatureEnabled('affiliates',) ? [{ href: '/admin/shop/affiliates', label: 'Affiliates', count: null, },] : []),
+        { href: '/admin/shop/discounts', label: 'Discount codes', count: discountsCount() ?? 0, },
+        ...(isFeatureEnabled('affiliates',) ? [{ href: '/admin/shop/affiliates', label: 'Affiliates', count: affiliateStats()?.members ?? 0, },] : []),
         // Settings is deliberately NOT here — it's a header action, like
         // /admin/users. The left nav lists things you have a countable number
         // of; configuration isn't one of them.
