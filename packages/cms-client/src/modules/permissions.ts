@@ -63,6 +63,8 @@ export class PermissionsModule extends ModuleBase {
     /** Grant or DENY (`granted: false`) to a role or a specific user. */
     setGrant(key: string, body: {
         subjectType: 'role' | 'user'; subjectId: string; granted?: boolean;
+        /** For an allow: `approval` = may do it, but the result waits for review. */
+        mode?: 'allow' | 'approval';
     },): Promise<{ message: string; }> {
         return this.mutate('POST', '/permissions/:key/grants', {
             params: { key, }, body, invalidates: ['permissions',],

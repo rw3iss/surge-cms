@@ -309,6 +309,18 @@ export const PERMISSIONS_DOC: SdkDoc = {
         + 'dropping it in favour of a permission would remove the authentication requirement.',
     sections: [
         {
+            heading: 'Requires approval + own records',
+            blocks: [
+                {
+                    p:
+                        'An allowing grant has a mode: allow, or approval (may do it, but the result waits for review). '
+                        + 'check() returns approval: true; checkMode(subject, key) returns allow | approval | deny. '
+                        + 'Settings → Permissions → + Role exception → "Allow — requires approval". '
+                        + 'Pair <base>:<action> with <base>:<action>_own for "own records only" — scopeFor(subject, base, action) → any | own | null.',
+                },
+            ],
+        },
+        {
             heading: 'The rule',
             blocks: [
                 { code: `sysadmin  →  user grant  →  subscription-tier grant  →  role grant (role, then its base roles)  →  the permission's own default`, },

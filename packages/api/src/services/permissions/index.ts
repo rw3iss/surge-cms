@@ -11,6 +11,7 @@ import type {
     PermissionCheck,
     PermissionDefinition,
     PermissionGrant,
+    PermissionGrantMode,
     PermissionKey,
     PermissionWithGrants,
 } from '@sitesurge/types';
@@ -64,7 +65,7 @@ export async function getPermission(key: PermissionKey,): Promise<PermissionDefi
 export async function grantsForKeys(keys: PermissionKey[],): Promise<PermissionGrant[]> {
     if (keys.length === 0) return [];
     const res = await query(
-        `SELECT id, permission_key, subject_type, subject_id, granted, created_at
+        `SELECT id, permission_key, subject_type, subject_id, granted, mode, created_at
            FROM permission_grants WHERE permission_key = ANY($1)`,
         [keys,],
     );
@@ -79,7 +80,7 @@ export async function grantsForKeys(keys: PermissionKey[],): Promise<PermissionG
 async function grantsForSubject(subject: PermissionSubject,): Promise<PermissionGrant[]> {
     const chain = subject.roleChain?.length ? subject.roleChain : subject.role ? [subject.role,] : [];
     const res = await query(
-        `SELECT id, permission_key, subject_type, subject_id, granted, created_at
+        `SELECT id, permission_key, subject_type, subject_id, granted, mode, created_at
            FROM permission_grants
           WHERE (subject_type = 'user' AND subject_id = $1)
              OR (subject_type = 'role' AND subject_id = ANY($2))
@@ -137,6 +138,27 @@ export async function permissionsFor(
         grantsForSubject(subject,),
     ],);
     return resolveMany(permissions, subject, grants,);
+}
+
+/**
+ * How the subject may do `key`: `allow`, `approval` (allowed, but the result
+ * waits for review — see `PermissionGrant.mode`) or `deny`.
+ */
+export async function checkMode(subject: PermissionSubject, key: PermissionKey,): Promise<'allow' | 'approval' | 'deny'> {
+    const c = await check(subject, key,);
+    return !c.allowed ? 'deny' : c.approval ? 'approval' : 'allow';
+}
+
+/**
+ * Ownership scope for a content type with `<base>:<action>` + `<base>:<action>_own`
+ * keys (e.g. `posts:write` / `posts:write_own`): `any` (all records), `own`
+ * (only the subject's own — the caller adds `author = subject` in SQL), or
+ * null (neither).
+ */
+export async function scopeFor(subject: PermissionSubject, base: string, action: string,): Promise<'any' | 'own' | null> {
+    if (await can(subject, `${base}:${action}`,)) return 'any';
+    if (await can(subject, `${base}:${action}_own`,)) return 'own';
+    return null;
 }
 
 /** Route-guard flavour: throws 403 instead of returning false. */
@@ -233,12 +255,13 @@ export async function listWithGrants(): Promise<PermissionWithGrants[]> {
         ...p,
         roleGrants: grants
             .filter((g,) => g.permissionKey === p.key && g.subjectType === 'role')
-            .map((g,) => ({ role: g.subjectId, granted: g.granted, })),
+            .map((g,) => ({ role: g.subjectId, granted: g.granted, mode: g.mode ?? 'allow', })),
         userGrants: grants
             .filter((g,) => g.permissionKey === p.key && g.subjectType === 'user')
             .map((g,) => ({
                 userId: g.subjectId,
                 granted: g.granted,
+                mode: g.mode ?? 'allow',
                 email: userById.get(g.subjectId,)?.email ?? null,
                 displayName: userById.get(g.subjectId,)?.displayName ?? null,
             })),
@@ -353,21 +376,22 @@ export async function setGrant(
     subjectId: string,
     granted: boolean,
     ctx: AuditContext,
+    mode: PermissionGrantMode = 'allow',
 ): Promise<void> {
     const permission = await getPermission(key,);
     if (!permission) throw new NotFoundError('Permission',);
     if (!subjectId.trim()) throw new ValidationError('A role or user is required.',);
 
     await query(
-        `INSERT INTO permission_grants (permission_key, subject_type, subject_id, granted, created_by)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO permission_grants (permission_key, subject_type, subject_id, granted, created_by, mode)
+         VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT (permission_key, subject_type, subject_id)
-         DO UPDATE SET granted = EXCLUDED.granted`,
-        [key, subjectType, subjectId.trim(), granted, uuidOrNull(ctx.userId,),],
+         DO UPDATE SET granted = EXCLUDED.granted, mode = EXCLUDED.mode`,
+        [key, subjectType, subjectId.trim(), granted, uuidOrNull(ctx.userId,), granted ? mode : 'allow',],
     );
     await logAudit({
         userId: ctx.userId, action: 'update', entityType: 'permission',
-        entityId: key, newValues: { subjectType, subjectId, granted, },
+        entityId: key, newValues: { subjectType, subjectId, granted, mode, },
         ipAddress: ctx.ipAddress, userAgent: ctx.userAgent,
     },);
 }
@@ -411,7 +435,7 @@ export async function permissionsForUserId(
 /** Everything granted to (or denied) one user, for the per-user modal. */
 export async function grantsForUser(userId: string,): Promise<PermissionGrant[]> {
     const res = await query(
-        `SELECT id, permission_key, subject_type, subject_id, granted, created_at
+        `SELECT id, permission_key, subject_type, subject_id, granted, mode, created_at
            FROM permission_grants
           WHERE subject_type = 'user' AND subject_id = $1
           ORDER BY permission_key`,

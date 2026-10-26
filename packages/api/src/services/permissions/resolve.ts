@@ -21,6 +21,11 @@ export interface PermissionSubject {
     planId?: string | null;
 }
 
+/** An allowing grant in `approval` mode → `{ approval: true }`. */
+function approvalOf(g: PermissionGrant,): { approval?: true; } {
+    return g.granted && g.mode === 'approval' ? { approval: true, } : {};
+}
+
 /**
  * Decide one permission for one subject.
  *
@@ -57,6 +62,7 @@ export function resolvePermission(
                 key,
                 allowed: userGrant.granted,
                 reason: userGrant.granted ? 'user-grant' : 'user-deny',
+                ...approvalOf(userGrant,),
             };
         }
     }
@@ -71,6 +77,7 @@ export function resolvePermission(
                 key,
                 allowed: planGrant.granted,
                 reason: planGrant.granted ? 'plan-grant' : 'plan-deny',
+                ...approvalOf(planGrant,),
             };
         }
     }
@@ -86,6 +93,7 @@ export function resolvePermission(
                 key,
                 allowed: roleGrant.granted,
                 reason: roleGrant.granted ? 'role-grant' : 'role-deny',
+                ...approvalOf(roleGrant,),
             };
         }
     }

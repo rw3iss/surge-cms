@@ -35,6 +35,8 @@ const grantBody = z.object({
     subjectType: z.enum(['role', 'user',],),
     subjectId: z.string().min(1,).max(64,),
     granted: z.boolean().default(true,),
+    /** For an allow: `approval` = may do it, but the result waits for review. */
+    mode: z.enum(['allow', 'approval',],).default('allow',),
 },);
 
 const grantQuery = z.object({
@@ -124,7 +126,7 @@ export const permissionsRoutes = [
         handler: async ({ params, body, user, audit, },) => {
             await permissions.requirePermission({ id: user?.id, role: user?.role, }, MANAGE,);
             await permissions.setGrant(
-                params.key, body.subjectType, body.subjectId, body.granted, audit(),
+                params.key, body.subjectType, body.subjectId, body.granted, audit(), body.mode,
             );
             return { message: 'Grant saved', };
         },

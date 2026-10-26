@@ -77,6 +77,24 @@ const PermissionsPanel: Component = () => {
         }
     };
 
+    /** The "+ Role exception" controls, per permission row. */
+    const addRole: Record<string, HTMLSelectElement> = {};
+    const addMode: Record<string, HTMLSelectElement> = {};
+    const addRoleGrant = async (key: string,) => {
+        const role = addRole[key]?.value;
+        const outcome = addMode[key]?.value ?? 'allow';
+        if (!role) return;
+        try {
+            await cms.permissions.setGrant(key, {
+                subjectType: 'role', subjectId: role, granted: outcome !== 'deny', mode: outcome === 'approval' ? 'approval' : 'allow',
+            },);
+            await refetch();
+            toast.success(`Exception saved for ${role}.`,);
+        } catch (e: any) {
+            toast.error(e?.message || 'Could not save the exception.',);
+        }
+    };
+
     /** Toggle a role in the default list. */
     const toggleRole = async (p: PermissionWithGrants, role: string,) => {
         const next = p.defaultRoles.includes(role,)
@@ -216,6 +234,21 @@ const PermissionsPanel: Component = () => {
                                                 </Show>
                                             </div>
 
+                                            {/* Add a ROLE exception: allow, allow-with-approval, or deny. */}
+                                            <div class="permission-row__add-grant">
+                                                <select aria-label="Role" ref={(el,) => (addRole[p.key] = el)}>
+                                                    <For each={roleKeys().filter((r,) => r !== 'sysadmin',)}>{(r,) => <option value={r}>{r}</option>}</For>
+                                                </select>
+                                                <select aria-label="Outcome" ref={(el,) => (addMode[p.key] = el)}>
+                                                    <option value="allow">Allow</option>
+                                                    <option value="approval">Allow — requires approval</option>
+                                                    <option value="deny">Deny</option>
+                                                </select>
+                                                <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={() => void addRoleGrant(p.key,)}>
+                                                    + Role exception
+                                                </button>
+                                            </div>
+
                                             {/* Exceptions, so it is obvious at a glance that a
                                                 permission has per-user overrides at all. */}
                                             <Show when={p.userGrants.length > 0 || p.roleGrants.length > 0}>
@@ -224,7 +257,7 @@ const PermissionsPanel: Component = () => {
                                                     <For each={p.roleGrants}>
                                                         {(g,) => (
                                                             <span class={`permission-chip permission-chip--${g.granted ? 'allow' : 'deny'}`}>
-                                                                {g.granted ? '✓' : '✕'} role: {g.role}
+                                                                {g.granted ? '✓' : '✕'} role: {g.role}{g.granted && g.mode === 'approval' ? ' · needs approval' : ''}
                                                                 <button
                                                                     type="button"
                                                                     class="permission-chip__x"
@@ -240,7 +273,7 @@ const PermissionsPanel: Component = () => {
                                                     <For each={p.userGrants}>
                                                         {(g,) => (
                                                             <span class={`permission-chip permission-chip--${g.granted ? 'allow' : 'deny'}`}>
-                                                                {g.granted ? '✓' : '✕'} {g.displayName || g.email || g.userId.slice(0, 8,)}
+                                                                {g.granted ? '✓' : '✕'} {g.displayName || g.email || g.userId.slice(0, 8,)}{g.granted && g.mode === 'approval' ? ' · needs approval' : ''}
                                                                 <button
                                                                     type="button"
                                                                     class="permission-chip__x"

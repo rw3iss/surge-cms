@@ -259,6 +259,21 @@ export const FEATURE_PERMISSIONS: Record<string, PermissionRegistration[]> = {
             defaultRoles: STAFF,
         },
         { key: 'posts:delete', feature: 'posts', label: 'Delete posts', action: 'delete', defaultRoles: ADMIN, },
+        // ── Own posts (contributors): the `_own` variants cover only posts the
+        // user authored; `posts:read`/`posts:write`/`posts:delete` cover all.
+        // `scopeFor(subject, 'posts', action)` decides any / own.
+        {
+            key: 'posts:read_own', feature: 'posts', label: 'View own posts',
+            description: 'See the posts they wrote in the admin (all statuses).', action: 'read', defaultRoles: ['contributor',],
+        },
+        {
+            key: 'posts:write_own', feature: 'posts', label: 'Create and edit own posts',
+            description: 'Write new posts and edit the ones they wrote (not once published, unless they may publish).', action: 'write', defaultRoles: ['contributor',],
+        },
+        {
+            key: 'posts:delete_own', feature: 'posts', label: 'Delete own drafts',
+            description: 'Delete their own posts that are not published.', action: 'delete', defaultRoles: ['contributor',],
+        },
         {
             key: 'posts.settings:write',
             feature: 'posts',

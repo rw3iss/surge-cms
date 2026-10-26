@@ -62,15 +62,24 @@ export interface PermissionGrant {
      * a real requirement, and it needs to be representable.
      */
     granted: boolean;
+    /**
+     * For an ALLOWING grant: `allow` (do it) or `approval` (may do it, but the
+     * result waits for someone with a plain allow — e.g. a contributor's
+     * `posts:publish` means "Submit for review"). Ignored on a deny.
+     */
+    mode?: PermissionGrantMode;
     createdAt?: string;
 }
 
+export type PermissionGrantMode = 'allow' | 'approval';
+
 /** A permission plus its grants, as the admin screen needs it. */
 export interface PermissionWithGrants extends PermissionDefinition {
-    roleGrants: Array<{ role: string; granted: boolean; }>;
+    roleGrants: Array<{ role: string; granted: boolean; mode?: PermissionGrantMode; }>;
     userGrants: Array<{
         userId: string;
         granted: boolean;
+        mode?: PermissionGrantMode;
         email?: string | null;
         displayName?: string | null;
     }>;
@@ -80,6 +89,8 @@ export interface PermissionWithGrants extends PermissionDefinition {
 export interface PermissionCheck {
     key: PermissionKey;
     allowed: boolean;
+    /** Allowed, but only "with approval" (the deciding grant's mode). */
+    approval?: boolean;
     /**
      * Which rule decided it. Ordered most-specific first in
      * `resolvePermission`, so this doubles as a trace of the decision path.

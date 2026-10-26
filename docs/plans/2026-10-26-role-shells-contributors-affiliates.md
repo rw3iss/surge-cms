@@ -45,6 +45,8 @@
 
 **Admin UI:** the Permissions grid gets a mode selector on a role grant (Allow / Requires approval). Help doc `docs/sdk/permissions.md` + `/admin/help/sdk/permissions`.
 
+> **STATUS 2026-10-26 — DONE.** Migration 190 (`permission_grants.mode`), `approval` on `PermissionCheck`, `checkMode`, `scopeFor`, `posts:read_own|write_own|delete_own` (default role `contributor`), grant route + SDK `mode`, Permissions panel "+ Role exception" (Allow / Requires approval / Deny), tests, docs/sdk/permissions.md + in-admin help.
+
 ## Phase 3 — Role admin shells (config) + per-role dashboards
 
 **Config (code-first, not DB):** `packages/cms/src/admin/shells/` — a registry:

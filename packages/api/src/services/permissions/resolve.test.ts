@@ -222,3 +222,24 @@ describe('subscription tier + role inheritance', () => {
         expect(r.allowed,).toBe(false,);
     },);
 },);
+
+describe('grant modes (requires approval)', () => {
+    it('an allowing role grant in approval mode reports approval', () => {
+        const r = resolvePermission(perm({ defaultAccess: 'nobody', },), { role: 'contributor', }, [grant({ subjectType: 'role', subjectId: 'contributor', granted: true, mode: 'approval', },),],);
+        expect(r.allowed,).toBe(true,);
+        expect(r.approval,).toBe(true,);
+    },);
+    it('a plain allow and a deny carry no approval', () => {
+        expect(resolvePermission(perm(), { role: 'contributor', }, [grant({ subjectType: 'role', subjectId: 'contributor', granted: true, },),],).approval,).toBeUndefined();
+        const d = resolvePermission(perm(), { role: 'contributor', }, [grant({ subjectType: 'role', subjectId: 'contributor', granted: false, mode: 'approval', },),],);
+        expect(d.allowed,).toBe(false,);
+        expect(d.approval,).toBeUndefined();
+    },);
+    it('a user allow overrides a role approval', () => {
+        const r = resolvePermission(perm(), { id: 'u1', role: 'contributor', }, [
+            grant({ subjectType: 'role', subjectId: 'contributor', granted: true, mode: 'approval', },),
+            grant({ subjectType: 'user', subjectId: 'u1', granted: true, mode: 'allow', },),
+        ],);
+        expect(r.approval,).toBeUndefined();
+    },);
+},);

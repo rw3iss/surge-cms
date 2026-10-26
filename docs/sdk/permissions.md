@@ -75,6 +75,25 @@ Other helpers:
   when you need to explain a decision, not just enforce it.
 - `permissionsFor(subject)` → every key's answer, for a UI that hides controls.
 
+## Requires approval (grant modes)
+
+An ALLOWING grant has a **mode**: `allow` (do it) or `approval` (may do it, but
+the result waits for someone with a plain allow). Set it in Settings →
+Permissions → **+ Role exception** → "Allow — requires approval", or
+`POST /permissions/:key/grants { subjectType, subjectId, granted: true, mode: 'approval' }`.
+`check()` returns `approval: true` for it; `checkMode(subject, key)` returns
+`'allow' | 'approval' | 'deny'`. The SERVICE decides what "waits" means — for
+posts, `posts:publish` in approval mode turns Publish into "Submit for review"
+(status `pending_review`). A deny ignores the mode; a more specific grant (user)
+overrides a role's approval as usual.
+
+## Own records (`_own` keys)
+
+A content type can pair `<base>:<action>` with `<base>:<action>_own` (e.g.
+`posts:write` / `posts:write_own`). `scopeFor(subject, 'posts', 'write')`
+returns `'any'`, `'own'` (add `author = subject` to the SQL) or `null`.
+Contributors get the `_own` keys by default.
+
 Never hand-roll `role === 'admin'` next to a permission — two sources of truth
 for one question is how a policy starts disagreeing with itself.
 
