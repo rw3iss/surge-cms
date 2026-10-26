@@ -53,7 +53,8 @@ function mapRole(r: Record<string, unknown>,): RoleDef {
 
 export async function listRoles(): Promise<RoleDef[]> {
     const r = await query(
-        `SELECT r.*, (SELECT COUNT(*) FROM users u WHERE u.role = r.key) AS user_count
+        // Main OR additional role — the same rule as the Users list's Role filter.
+        `SELECT r.*, (SELECT COUNT(*) FROM users u WHERE u.role = r.key OR r.key = ANY(u.extra_roles)) AS user_count
            FROM roles r ORDER BY r.sort_order, r.label`,
     );
     return r.rows.map(mapRole,);
@@ -132,7 +133,7 @@ export async function deleteRole(key: string, ctx: AuditContext,): Promise<void>
     const existing = (await roleMap()).get(key,);
     if (!existing) throw new NotFoundError('Role',);
     if (existing.isSystem) throw new ValidationError('Built-in roles cannot be deleted.',);
-    if ((existing.userCount ?? 0) > 0) throw new ConflictError(`${existing.userCount} user(s) have this role — move them to another role first.`,);
+    if ((existing.userCount ?? 0) > 0) throw new ConflictError(`${existing.userCount} user(s) have this role (main or additional) — move them to another role first.`,);
     const used = await query(`SELECT name FROM subscription_plans WHERE role = $1`, [key,],);
     if (used.rows.length) throw new ConflictError(`The "${used.rows[0].name}" membership level gives this role — change it first.`,);
     await transaction(async (c,) => {

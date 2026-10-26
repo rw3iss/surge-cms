@@ -4,6 +4,7 @@
  * their own grants in the permission list below. Subscriptions give roles
  * (Users → Settings → Subscriptions).
  */
+import { A, } from '@solidjs/router';
 import { createResource, createSignal, For, Show, type Component, } from 'solid-js';
 import { createStore, } from 'solid-js/store';
 import type { RoleDef, } from '@sitesurge/types';
@@ -98,7 +99,11 @@ const RoleManager: Component<{ onChanged?: () => void; onOpenPermissions?: () =>
                                 <tr>
                                     <td><strong>{r.label}</strong> <code>{r.key}</code>{r.isSystem ? ' · built-in' : ''}</td>
                                     <td>{r.baseRole ?? '—'}</td>
-                                    <td>{r.userCount ?? 0}</td>
+                                    <td>
+                                        <A href={`/admin/users?role=${encodeURIComponent(r.key,)}`} class="table-link" title={`Users with the ${r.label} role (main or additional)`}>
+                                            {r.userCount ?? 0}
+                                        </A>
+                                    </td>
                                     <td><code>{routeLabel(r,)}</code>{r.loginPriority ? <span class="form-help-muted"> · priority {r.loginPriority}</span> : ''}</td>
                                     <td class="form-help-muted">{r.description}</td>
                                     <td class="role-manager__actions">
