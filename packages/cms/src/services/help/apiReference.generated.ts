@@ -49,6 +49,305 @@ export const API_MODULES: ApiModuleDoc[] = [
         ]
     },
     {
+        "module": "affiliates",
+        "mountPath": "/api/v1/affiliates",
+        "feature": "affiliates",
+        "routes": [
+            {
+                "method": "GET",
+                "path": "/me/status",
+                "absolutePath": "/api/v1/affiliates/me/status",
+                "auth": "user",
+                "summary": "Is the caller an affiliate (shows the Profile → Affiliate program tab)?",
+                "sdk": [
+                    "cms.affiliates.status"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/me",
+                "absolutePath": "/api/v1/affiliates/me",
+                "auth": "user",
+                "summary": "The affiliate page: Stripe status, balance, codes, commissions (no buyer details), payouts.",
+                "sdk": [
+                    "cms.affiliates.me"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "PUT",
+                "path": "/me/codes/:id",
+                "absolutePath": "/api/v1/affiliates/me/codes/:id",
+                "auth": "user",
+                "summary": "Set how much of your commission on a code buyers get as a discount.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ],
+                    "body": [
+                        {
+                            "name": "buyerDiscountPercent",
+                            "type": "number",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.affiliates.setCodeSplit"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/me/stripe/onboard",
+                "absolutePath": "/api/v1/affiliates/me/stripe/onboard",
+                "auth": "user",
+                "summary": "Connect (or finish connecting) your Stripe Express account — returns the Stripe onboarding link.",
+                "sdk": [
+                    "cms.affiliates.stripeOnboard"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/me/stripe/dashboard",
+                "absolutePath": "/api/v1/affiliates/me/stripe/dashboard",
+                "auth": "user",
+                "summary": "A one-time link into your Stripe Express dashboard (payouts, bank details).",
+                "sdk": [
+                    "cms.affiliates.stripeDashboard"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/me/stripe/refresh",
+                "absolutePath": "/api/v1/affiliates/me/stripe/refresh",
+                "auth": "user",
+                "summary": "Re-read your Stripe account status (after onboarding).",
+                "sdk": [
+                    "cms.affiliates.stripeRefresh"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/settings",
+                "absolutePath": "/api/v1/affiliates/settings",
+                "auth": "admin",
+                "summary": "Affiliate program settings (role, refund window, payout schedule, default commission).",
+                "sdk": [
+                    "cms.affiliates.settings"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "PUT",
+                "path": "/settings",
+                "absolutePath": "/api/v1/affiliates/settings",
+                "auth": "admin",
+                "summary": "Update the affiliate program settings.",
+                "input": {
+                    "body": [
+                        {
+                            "name": "role",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "refundWindowDays",
+                            "type": "integer",
+                            "required": false
+                        },
+                        {
+                            "name": "payoutSchedule",
+                            "type": "'off' | 'weekly' | 'biweekly' | 'monthly'",
+                            "required": false
+                        },
+                        {
+                            "name": "defaultCommissionPercent",
+                            "type": "number",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.affiliates.updateSettings"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/admin/stats",
+                "absolutePath": "/api/v1/affiliates/admin/stats",
+                "auth": "admin",
+                "summary": "Program numbers: members, sales + commission (30 days), owed, payable now.",
+                "sdk": [
+                    "cms.affiliates.adminStats"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/admin/members",
+                "absolutePath": "/api/v1/affiliates/admin/members",
+                "auth": "admin",
+                "summary": "Every affiliate (users with the affiliate role, or holding a code) with codes, balance and sales.",
+                "sdk": [
+                    "cms.affiliates.adminMembers"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/admin/members/:userId",
+                "absolutePath": "/api/v1/affiliates/admin/members/:userId",
+                "auth": "admin",
+                "summary": "One affiliate with their commissions and payouts.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "userId",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.affiliates.adminMember"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/admin/members/:userId/codes",
+                "absolutePath": "/api/v1/affiliates/admin/members/:userId/codes",
+                "auth": "admin",
+                "summary": "Give an affiliate a code (commission defaults to the program setting).",
+                "input": {
+                    "params": [
+                        {
+                            "name": "userId",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ],
+                    "body": [
+                        {
+                            "name": "code",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "kind",
+                            "type": "'percent' | 'fixed'",
+                            "required": false
+                        },
+                        {
+                            "name": "percent",
+                            "type": "number",
+                            "required": false
+                        },
+                        {
+                            "name": "amountCents",
+                            "type": "integer",
+                            "required": false
+                        },
+                        {
+                            "name": "active",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
+                            "name": "startsAt",
+                            "type": "string | null",
+                            "required": false
+                        },
+                        {
+                            "name": "endsAt",
+                            "type": "string | null",
+                            "required": false
+                        },
+                        {
+                            "name": "maxUses",
+                            "type": "integer | null",
+                            "required": false
+                        },
+                        {
+                            "name": "maxUsesPerUser",
+                            "type": "integer | null",
+                            "required": false
+                        },
+                        {
+                            "name": "minSubtotalCents",
+                            "type": "integer | null",
+                            "required": false
+                        },
+                        {
+                            "name": "allowedTierIds",
+                            "type": "string<uuid>[]",
+                            "required": false
+                        },
+                        {
+                            "name": "allowedRoles",
+                            "type": "string[]",
+                            "required": false
+                        },
+                        {
+                            "name": "appliesToTickets",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
+                            "name": "affiliateUserId",
+                            "type": "string<uuid> | null",
+                            "required": false
+                        },
+                        {
+                            "name": "commissionPercent",
+                            "type": "number | null",
+                            "required": false
+                        },
+                        {
+                            "name": "note",
+                            "type": "string | null",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.affiliates.adminCreateCode"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/admin/members/:userId/payout",
+                "absolutePath": "/api/v1/affiliates/admin/members/:userId/payout",
+                "auth": "admin",
+                "summary": "Pay out an affiliate's payable commission now (a Stripe transfer to their Express account).",
+                "input": {
+                    "params": [
+                        {
+                            "name": "userId",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.affiliates.adminPayout"
+                ],
+                "sdkStatus": "method"
+            }
+        ]
+    },
+    {
         "module": "api-keys",
         "mountPath": "/api/v1/api-keys",
         "routes": [
@@ -14436,6 +14735,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "name": "shippingMethod",
                             "type": "string | object",
                             "required": false
+                        },
+                        {
+                            "name": "discountCode",
+                            "type": "string | null",
+                            "required": false
                         }
                     ]
                 },
@@ -14480,6 +14784,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                         {
                             "name": "shippingMethod",
                             "type": "string | object",
+                            "required": false
+                        },
+                        {
+                            "name": "discountCode",
+                            "type": "string | null",
                             "required": false
                         }
                     ]
@@ -15127,6 +15436,320 @@ export const API_MODULES: ApiModuleDoc[] = [
                 },
                 "sdk": [
                     "cms.shop.printify.syncOne"
+                ],
+                "sdkStatus": "method"
+            }
+        ]
+    },
+    {
+        "module": "shop-discounts",
+        "mountPath": "/api/v1/shop/discounts",
+        "feature": "shop",
+        "routes": [
+            {
+                "method": "POST",
+                "path": "/check",
+                "absolutePath": "/api/v1/shop/discounts/check",
+                "auth": "optional",
+                "summary": "Check a discount code for the caller (valid + a summary, or why not). Totals come from the checkout preview.",
+                "input": {
+                    "body": [
+                        {
+                            "name": "code",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.shop.discounts.check"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/",
+                "absolutePath": "/api/v1/shop/discounts",
+                "auth": "admin",
+                "summary": "List discount codes (site-wide and/or affiliate), with their paid-use counts.",
+                "input": {
+                    "query": [
+                        {
+                            "name": "type",
+                            "type": "'site' | 'affiliate'",
+                            "required": false
+                        },
+                        {
+                            "name": "affiliateUserId",
+                            "type": "string<uuid>",
+                            "required": false
+                        },
+                        {
+                            "name": "search",
+                            "type": "string",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.shop.discounts.list"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/",
+                "absolutePath": "/api/v1/shop/discounts",
+                "auth": "admin",
+                "summary": "Create a discount code.",
+                "input": {
+                    "body": [
+                        {
+                            "name": "code",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "kind",
+                            "type": "'percent' | 'fixed'",
+                            "required": false
+                        },
+                        {
+                            "name": "percent",
+                            "type": "number",
+                            "required": false
+                        },
+                        {
+                            "name": "amountCents",
+                            "type": "integer",
+                            "required": false
+                        },
+                        {
+                            "name": "active",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
+                            "name": "startsAt",
+                            "type": "string | null",
+                            "required": false
+                        },
+                        {
+                            "name": "endsAt",
+                            "type": "string | null",
+                            "required": false
+                        },
+                        {
+                            "name": "maxUses",
+                            "type": "integer | null",
+                            "required": false
+                        },
+                        {
+                            "name": "maxUsesPerUser",
+                            "type": "integer | null",
+                            "required": false
+                        },
+                        {
+                            "name": "minSubtotalCents",
+                            "type": "integer | null",
+                            "required": false
+                        },
+                        {
+                            "name": "allowedTierIds",
+                            "type": "string<uuid>[]",
+                            "required": false
+                        },
+                        {
+                            "name": "allowedRoles",
+                            "type": "string[]",
+                            "required": false
+                        },
+                        {
+                            "name": "appliesToTickets",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
+                            "name": "affiliateUserId",
+                            "type": "string<uuid> | null",
+                            "required": false
+                        },
+                        {
+                            "name": "commissionPercent",
+                            "type": "number | null",
+                            "required": false
+                        },
+                        {
+                            "name": "note",
+                            "type": "string | null",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.shop.discounts.create"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/:id",
+                "absolutePath": "/api/v1/shop/discounts/:id",
+                "auth": "admin",
+                "summary": "One discount code.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.shop.discounts.get"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/:id/redemptions",
+                "absolutePath": "/api/v1/shop/discounts/:id/redemptions",
+                "auth": "admin",
+                "summary": "Paid orders that used a code (newest first).",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.shop.discounts.redemptions"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "PUT",
+                "path": "/:id",
+                "absolutePath": "/api/v1/shop/discounts/:id",
+                "auth": "admin",
+                "summary": "Update a discount code (partial).",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ],
+                    "body": [
+                        {
+                            "name": "code",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "kind",
+                            "type": "'percent' | 'fixed'",
+                            "required": false
+                        },
+                        {
+                            "name": "percent",
+                            "type": "number",
+                            "required": false
+                        },
+                        {
+                            "name": "amountCents",
+                            "type": "integer",
+                            "required": false
+                        },
+                        {
+                            "name": "active",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
+                            "name": "startsAt",
+                            "type": "string | null",
+                            "required": false
+                        },
+                        {
+                            "name": "endsAt",
+                            "type": "string | null",
+                            "required": false
+                        },
+                        {
+                            "name": "maxUses",
+                            "type": "integer | null",
+                            "required": false
+                        },
+                        {
+                            "name": "maxUsesPerUser",
+                            "type": "integer | null",
+                            "required": false
+                        },
+                        {
+                            "name": "minSubtotalCents",
+                            "type": "integer | null",
+                            "required": false
+                        },
+                        {
+                            "name": "allowedTierIds",
+                            "type": "string<uuid>[]",
+                            "required": false
+                        },
+                        {
+                            "name": "allowedRoles",
+                            "type": "string[]",
+                            "required": false
+                        },
+                        {
+                            "name": "appliesToTickets",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
+                            "name": "affiliateUserId",
+                            "type": "string<uuid> | null",
+                            "required": false
+                        },
+                        {
+                            "name": "commissionPercent",
+                            "type": "number | null",
+                            "required": false
+                        },
+                        {
+                            "name": "note",
+                            "type": "string | null",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.shop.discounts.update"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "DELETE",
+                "path": "/:id",
+                "absolutePath": "/api/v1/shop/discounts/:id",
+                "auth": "admin",
+                "summary": "Delete a discount code (soft — orders keep their history).",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.shop.discounts.remove"
                 ],
                 "sdkStatus": "method"
             }
@@ -17535,5 +18158,5 @@ export const API_MODULES: ApiModuleDoc[] = [
     }
 ];
 
-export const API_MODULE_COUNT = 55;
-export const API_ROUTE_COUNT = 604;
+export const API_MODULE_COUNT = 57;
+export const API_ROUTE_COUNT = 624;

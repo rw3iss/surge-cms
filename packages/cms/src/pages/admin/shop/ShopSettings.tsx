@@ -1,4 +1,5 @@
-import { A, } from '@solidjs/router';
+import { A, useSearchParams, } from '@solidjs/router';
+import AffiliateProgramSettings from './AffiliateProgramSettings';
 import { Component, createSignal, For, Show, } from 'solid-js';
 import LoadingState from '../../../components/admin/common/LoadingState';
 import { createSafeResource, } from '../../../hooks/createSafeResource';
@@ -19,7 +20,7 @@ import { centsToDollars, dollarsToCents, } from './shopUtils';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
 import OrderTrackingSettings from './OrderTrackingSettings';
 
-type Tab = 'general' | 'payments' | 'shipping' | 'appearance' | 'emails' | 'providers';
+type Tab = 'general' | 'payments' | 'shipping' | 'appearance' | 'emails' | 'providers' | 'affiliates';
 const TABS: { key: Tab; label: string; }[] = [
     { key: 'general', label: 'General', },
     { key: 'payments', label: 'Payments', },
@@ -27,6 +28,7 @@ const TABS: { key: Tab; label: string; }[] = [
     { key: 'appearance', label: 'Appearance', },
     { key: 'emails', label: 'Emails', },
     { key: 'providers', label: 'Providers', },
+    { key: 'affiliates', label: 'Affiliate program', },
 ];
 
 /**
@@ -35,12 +37,14 @@ const TABS: { key: Tab; label: string; }[] = [
  * it in another left an empty bordered box above the list, because every
  * `Show` inside the shared card is false on that tab.
  */
-const SELF_CARDED_TABS: Tab[] = ['providers', 'emails',];
+const SELF_CARDED_TABS: Tab[] = ['providers', 'emails', 'affiliates',];
 const usesSharedCard = (t: Tab,): boolean => !SELF_CARDED_TABS.includes(t,);
 
 const ShopSettingsInner: Component = () => {
     const toast = useToast();
-    const [tab, setTab,] = createSignal<Tab>('general',);
+    // `?tab=affiliates` (links from Shop → Affiliates) opens that tab.
+    const [params,] = useSearchParams();
+    const [tab, setTab,] = createSignal<Tab>(TABS.some((t,) => t.key === params.tab,) ? params.tab as Tab : 'general',);
     const [saving, setSaving,] = createSignal(false,);
 
     const [settings, setSettings,] = createStore<ShopSettingsModel>({
@@ -406,6 +410,10 @@ const ShopSettingsInner: Component = () => {
 
             <Show when={tab() === 'providers'}>
                 <ProvidersPanel />
+            </Show>
+
+            <Show when={tab() === 'affiliates'}>
+                <AffiliateProgramSettings />
             </Show>
         </div>
     );

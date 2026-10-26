@@ -204,6 +204,8 @@ export interface ShopOrder {
     /** Human label of the shipping method applied (e.g. 'Standard', 'Express'). */
     shippingMethod?: string | null;
     discountCents: number;
+    /** The discount code used (as stored), shown as "Discount (CODE)". */
+    discountCode?: string | null;
     totalCents: number;
     currency: string;
     stripePaymentIntentId?: string | null;

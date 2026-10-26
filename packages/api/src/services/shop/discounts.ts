@@ -24,6 +24,7 @@ import { logger, } from '../../utils/logger';
 import type { LevelViewer, } from '../access/level';
 import { viewerGrants, } from '../access/grants';
 import { logAudit, } from '../audit';
+import { can, } from '../permissions';
 import { isFeatureEnabledServer, } from '../settings';
 import type { AuditContext, } from '../types';
 
@@ -292,6 +293,10 @@ export async function applyDiscount(
 ): Promise<{ applied?: AppliedDiscount; error?: string; }> {
     const code = codeInput.trim();
     if (!code) return {};
+    // `shop.discounts:use` (everyone by default) — an operator can withhold codes from a role.
+    if (!await can({ id: viewer?.id ?? null, role: viewer?.role ?? 'anonymous', }, 'shop.discounts:use',).catch(() => true,)) {
+        return { error: 'Discount codes are not available for your account.', };
+    }
     const row = await findRow(code, opts.client,);
     if (!row) return { error: 'That code is not valid.', };
     const rule = ruleOf(row,);

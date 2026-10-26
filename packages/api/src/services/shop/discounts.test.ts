@@ -3,6 +3,7 @@ import { describe, expect, it, vi, } from 'vitest';
 vi.mock('../../db', () => ({ query: vi.fn(async () => ({ rows: [], rowCount: 0, })), }),);
 vi.mock('../audit', () => ({ logAudit: vi.fn(), }),);
 vi.mock('../settings', () => ({ isFeatureEnabledServer: vi.fn(async () => false), }),);
+vi.mock('../permissions', () => ({ can: vi.fn(async () => true), }),);
 
 const { codeProblem, normalizeBody, } = await import('./discounts');
 

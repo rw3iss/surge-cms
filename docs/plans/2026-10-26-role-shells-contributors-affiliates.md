@@ -91,6 +91,8 @@ Resolution: the user's highest-priority role that HAS a shell (same priority as 
 
 **Permissions:** `shop.discounts:manage` (admin), `shop.discounts:use` (everyone — narrowed by each code's tier/role rules).
 
+> **STATUS 2026-10-26 — DONE.** Migration 192; `services/shop/discounts.ts` (CRUD, `applyDiscount` checkout hook with a locked re-check, `recordRedemption` on payment, `markOrderRefunded`), `@sitesurge/types` `utils/discountMath.ts` (+ tests); `previewCheckout`/`createCheckout` `discountCode` (tax on discounted lines; order stores `discount_code_id`/`discount_code`; `orderTotalsLines` prints "Discount (CODE)"); `/api/v1/shop/discounts` + `cms.shop.discounts`; admin **Shop → Discount codes** with the shared `DiscountCodeModal`/`DiscountCodeTable`; checkout code field + `?code=` capture (30 days). Unpaid orders from the last 30 minutes holding a limited code count as uses at checkout (prevents overselling). Per the decisions, each code has **Also applies to event tickets** (offered when Events is on). Guide: docs/how-it-works/AFFILIATES-AND-DISCOUNTS.md.
+
 ## Phase 6 — Affiliates (feature module `affiliates`, requires `shop`)
 
 **Enable:** Shop Settings → **Affiliate program**: switch "Enable affiliate program" (hint: "Lets users with the chosen role get affiliate codes, see their sales and get paid out") + **Affiliate role** select (default `ambassador`). Registered as feature `affiliates` (`requires: ['shop']`) so its routes 404 and its tables are owned/uninstallable like any module.
@@ -101,7 +103,7 @@ Resolution: the user's highest-priority role that HAS a shell (same priority as 
 - `affiliate_earnings`: one row per paid redemption: `code_id, order_id, user_id, commission_cents, status ('pending'|'available'|'paid'|'reversed'), available_at (order paid + refund window, e.g. 30 days), payout_id`.
 - `affiliate_payouts`: `id, user_id, amount_cents, stripe_transfer_id, status, created_at`.
 
-**Commission maths:** commission is `commission_percent` × the order's merchandise subtotal **after** discount, excluding shipping/tax. A refund reverses the earning (`reversed`, or a negative adjustment if already paid).
+**Commission maths (corrected while building):** the affiliate's share is `(commission_percent − buyer_discount_percent)` × the merchandise subtotal **before** the code's discount, excluding shipping/tax/tickets (`affiliateShareCents`). The original "× subtotal after discount" would take the buyer discount out twice, since the buyer discount is already paid out of the commission. A refund reverses the earning (`reversed`, or a negative `reversal` row if already paid).
 
 **Affiliate-chosen discount ("keep 100% or share"):** per code the affiliate may set `buyer_discount_percent` ≤ their `commission_percent`; the buyer discount comes out of the commission (`commission = (commission_percent − buyer_discount_percent) × subtotal`). The admin sets the ceiling; the affiliate chooses the split on their page.
 
@@ -114,6 +116,8 @@ Resolution: the user's highest-priority role that HAS a shell (same priority as 
 **Attribution:** `?code=` on any shop URL stores the code in the client cart (and a 30-day cookie); checkout pre-fills it. One code per order.
 
 **Permissions:** `affiliates:manage` (admin), `affiliates:self` (the affiliate role, default) for the `/affiliates/me/*` routes.
+
+> **STATUS 2026-10-26 — DONE.** Migration 193; feature `affiliates` (registry, requires `shop`); `services/affiliates/` (settings with role / default commission / refund window / payout schedule, earnings + reversals, Stripe Connect Express onboarding + dashboard link + status refresh + `account.updated` webhook, claimed manual + scheduled payouts via `transfers.create`, daily `affiliate-payouts` cron with `isPayoutDue` + tests); `/api/v1/affiliates` + `cms.affiliates`; Shop Settings → **Affiliate program** tab (enable switch installs the feature); admin **Shop → Affiliates** (stats, members, per-member codes / commissions / payouts / Pay out) + Shop dashboard card; Profile → **Affiliate program** tab (`AffiliatePanel`: Stripe, balance, codes with share link + buyer-discount split, sales without buyer details, payouts). The buyer discount is stored as the code's `percent`, so no separate `buyer_discount_percent` column was needed.
 
 ## Phase order + rough size
 

@@ -1,0 +1,86 @@
+// Profile → Affiliate program. Site tokens throughout.
+.affiliate-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+
+  &__section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+
+    h3 { margin: 0; font-size: 1.1rem; }
+    p { margin: 0; }
+    .btn { align-self: flex-start; }
+  }
+
+  &__error { color: var(--site-danger-fg, #b91c1c); }
+
+  &__balance {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+
+    > div {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      padding: 0.8rem 1rem;
+      border: 1px solid var(--site-border, #e5e7eb);
+      border-radius: var(--site-radius, 10px);
+    }
+    span { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--site-text-muted, #6b7280); }
+    strong { font-size: 1.25rem; }
+  }
+  &__note { margin: -0.5rem 0 0; font-size: 0.88rem; }
+
+  &__code {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--site-border, #e5e7eb);
+    border-radius: var(--site-radius, 10px);
+
+    &--off { opacity: 0.65; }
+  }
+  &__code-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+  &__code-name { font-size: 1.05rem; font-weight: 700; letter-spacing: 0.04em; }
+
+  &__share {
+    display: flex;
+    gap: 0.5rem;
+
+    input {
+      flex: 1 1 auto;
+      min-width: 0;
+      padding: 0.45rem 0.6rem;
+      border: 1px solid var(--site-border, #e5e7eb);
+      border-radius: var(--site-radius, 6px);
+      font: inherit;
+      font-size: 0.9rem;
+      background: var(--site-bg, #fff);
+      color: inherit;
+    }
+  }
+
+  &__split {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.92rem;
+
+    input[type='range'] { width: 100%; accent-color: var(--site-primary, #e63946); }
+  }
+  &__split-actions { display: flex; align-items: center; gap: 0.75rem; }
+
+  &__table-wrap { overflow-x: auto; }
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+
+    th, td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--site-border, #e5e7eb); text-align: left; white-space: nowrap; }
+    th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--site-text-muted, #6b7280); }
+  }
+}

@@ -103,6 +103,8 @@ const AdminShopOrders = lazy(() => import('./pages/admin/shop/ShopOrders'));
 const AdminShopOrderDetail = lazy(() => import('./pages/admin/shop/ShopOrderDetail'));
 const AdminShopReviews = lazy(() => import('./pages/admin/shop/ShopReviews'));
 const AdminShopSettings = lazy(() => import('./pages/admin/shop/ShopSettings'));
+const AdminShopDiscounts = lazy(() => import('./pages/admin/shop/ShopDiscounts'));
+const AdminShopAffiliates = lazy(() => import('./pages/admin/shop/ShopAffiliates'));
 const AdminPlugins = lazy(() => import('./pages/admin/Plugins'));
 const AdminPluginConfig = lazy(() => import('./pages/admin/PluginConfig'));
 const AdminPagePreview = lazy(() => import('./pages/admin/PagePreview'));
@@ -305,6 +307,8 @@ const App: Component = () => {
 										<Route path="/shop/orders/:id" component={AdminShopOrderDetail} />
 										<Route path="/shop/reviews" component={AdminShopReviews} />
 										<Route path="/shop/settings" component={AdminShopSettings} />
+										<Route path="/shop/discounts" component={AdminShopDiscounts} />
+										<Route path="/shop/affiliates" component={AdminShopAffiliates} />
 										<Route path="/plugins" component={AdminPlugins} />
 										<Route path="/plugins/:name" component={AdminPluginConfig} />
 										<Route path="/settings" component={AdminSettings} />
