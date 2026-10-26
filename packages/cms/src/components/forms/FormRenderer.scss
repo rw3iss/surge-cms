@@ -96,6 +96,40 @@
         color: var(--site-heading, inherit);
     }
 
+    // Collapsible section: the heading is a button (looks like the title), an
+    // arrow before the title shows open / closed.
+    &__section-toggle {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+        width: 100%;
+        padding: 0;
+        border: 0;
+        background: none;
+        color: inherit;
+        font: inherit;
+        text-align: inherit;
+        cursor: pointer;
+
+        &:focus-visible { outline: 2px solid var(--site-primary, #{$primary-color}); outline-offset: 3px; border-radius: 2px; }
+    }
+
+    &__section-arrow {
+        flex: none;
+        width: 0;
+        height: 0;
+        border-style: solid;
+        border-width: 0.4em 0 0.4em 0.6em;
+        border-color: transparent transparent transparent currentColor;
+        transform: rotate(90deg);
+        transition: transform 0.15s ease;
+    }
+
+    &__section.is-collapsed &__section-arrow { transform: rotate(0deg); }
+
+    // A collapsed section's fields stay mounted (answers kept) but are hidden.
+    &__field--collapsed { display: none; }
+
     &__section-description {
         margin: $spacing-xs 0 0;
         color: var(--site-text-muted, #{$text-light});

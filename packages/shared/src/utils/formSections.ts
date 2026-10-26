@@ -24,6 +24,10 @@ export interface FormSection {
     description?: string | null;
     /** Title + description alignment (default left). */
     align?: FormSectionAlign | null;
+    /** The visitor can collapse / expand the section (an arrow before its title). */
+    collapsible?: boolean;
+    /** With `collapsible`: starts collapsed. */
+    collapsed?: boolean;
     /** Number of questions (in the overall order) before this section. */
     position: number;
 }
@@ -72,6 +76,8 @@ export interface FormSectionRow {
     title: string;
     description: string;
     align: FormSectionAlign;
+    collapsible?: boolean;
+    collapsed?: boolean;
 }
 
 export const isFormSectionRow = (r: unknown,): r is FormSectionRow =>
@@ -85,7 +91,10 @@ export function formRowsFromLayout<Q extends SectionedQuestion,>(questions: Q[],
             rows.push({ ...item.question, sectionId: null, },);
         } else {
             const s = item.section;
-            rows.push({ kind: 'section', id: s.id, title: s.title ?? '', description: s.description ?? '', align: s.align ?? 'left', },);
+            rows.push({
+                kind: 'section', id: s.id, title: s.title ?? '', description: s.description ?? '', align: s.align ?? 'left',
+                collapsible: s.collapsible === true, collapsed: s.collapsible === true && s.collapsed === true,
+            },);
             for (const q of item.questions) rows.push({ ...q, sectionId: s.id, },);
         }
     }
@@ -102,7 +111,10 @@ export function formLayoutFromRows<Q extends SectionedQuestion,>(rows: Array<Q |
     const sections: FormSection[] = [];
     for (const r of normalizeFormRows(rows,)) {
         if (isFormSectionRow(r,)) {
-            sections.push({ id: r.id, title: r.title, description: r.description.trim() || null, align: r.align, position: questions.length, },);
+            sections.push({
+                id: r.id, title: r.title, description: r.description.trim() || null, align: r.align, position: questions.length,
+                collapsible: r.collapsible === true, collapsed: r.collapsible === true && r.collapsed === true,
+            },);
         } else {
             questions.push(r,);
         }
@@ -255,6 +267,9 @@ export function cleanFormSections(v: unknown,): FormSection[] {
             description: description.trim() ? description : null,
             align,
             position: Math.max(0, Math.trunc(Number(s.position,) || 0,),),
+            collapsible: s.collapsible === true,
+            // "Collapsed by default" only means something on a collapsible section.
+            collapsed: s.collapsible === true && s.collapsed === true,
         },);
     }
     return out;

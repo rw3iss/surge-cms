@@ -69,6 +69,8 @@ const formSchema = z.object({
         title: z.string().max(300,),
         description: z.string().max(2000,).nullish(),
         align: z.enum(['left', 'center', 'right',],).nullish(),
+        collapsible: z.boolean().optional(),
+        collapsed: z.boolean().optional(),
         position: z.number().int().min(0,),
     },),).max(200,).optional(),
 },) satisfies z.ZodType<FormCreateBody>;

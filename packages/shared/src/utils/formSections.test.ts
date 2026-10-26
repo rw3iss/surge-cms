@@ -83,7 +83,10 @@ describe('removeFormSection', () => {
 describe('cleanFormSections', () => {
     it('known keys, unique ids, bounded', () => {
         expect(cleanFormSections([{ id: 'x', title: 'T', align: 'bogus', position: -3, extra: 1, }, { id: 'x', }, { title: 'no id', },],),)
-            .toEqual([{ id: 'x', title: 'T', description: null, align: 'left', position: 0, },],);
+            .toEqual([{ id: 'x', title: 'T', description: null, align: 'left', position: 0, collapsible: false, collapsed: false, },],);
+        // Collapsed by default needs Collapsable.
+        expect(cleanFormSections([{ id: 'a', title: '', position: 0, collapsed: true, },],)[0]!.collapsed,).toBe(false,);
+        expect(cleanFormSections([{ id: 'a', title: '', position: 0, collapsible: true, collapsed: true, },],)[0]!.collapsed,).toBe(true,);
         expect(cleanFormSections('nope',),).toEqual([],);
     },);
 });

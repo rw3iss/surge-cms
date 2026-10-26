@@ -697,6 +697,31 @@
   flex-direction: column;
   gap: $spacing-md;
 
+  // Settings: the text fields, then (to their right) the collapse switches.
+  &__settings {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(200px, 260px);
+    gap: $spacing-lg;
+    align-items: start;
+
+    @media (max-width: $breakpoint-md) { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  &__fields {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    min-width: 0;
+  }
+
+  &__switches {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    // Line up with the first field's input row, below its label.
+    padding-top: 1.4rem;
+  }
+
   &__toolbar {
     display: flex;
     justify-content: flex-end;

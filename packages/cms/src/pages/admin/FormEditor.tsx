@@ -963,17 +963,37 @@ const FormEditor: Component = () => {
                                 + Add Question
                             </button>
                         </div>
-                        <div class="admin-form-row">
-                            <FormField label="Section title">
-                                <CommitInput value={sec.title} placeholder="e.g. About you" onCommit={(v,) => updateSection(sec.id, { title: v, },)} />
-                            </FormField>
-                            <FormField label="Alignment" tooltip="Alignment of the section title and description on the form.">
-                                <AlignButtons label="Section alignment" value={sec.align} onChange={(v,) => updateSection(sec.id, { align: v, },)} />
-                            </FormField>
+                        {/* Section settings: text + alignment on the left, the collapse switches on the right. */}
+                        <div class="section-body__settings">
+                            <div class="section-body__fields">
+                                <div class="admin-form-row">
+                                    <FormField label="Section title">
+                                        <CommitInput value={sec.title} placeholder="e.g. About you" onCommit={(v,) => updateSection(sec.id, { title: v, },)} />
+                                    </FormField>
+                                    <FormField label="Alignment" tooltip="Alignment of the section title and description on the form.">
+                                        <AlignButtons label="Section alignment" value={sec.align} onChange={(v,) => updateSection(sec.id, { align: v, },)} />
+                                    </FormField>
+                                </div>
+                                <FormField label="Description (optional)" hint="Shown under the title. Leave empty to show none.">
+                                    <CommitInput multiline value={sec.description} onCommit={(v,) => updateSection(sec.id, { description: v, },)} />
+                                </FormField>
+                            </div>
+                            <div class="section-body__switches">
+                                <Toggle
+                                    checked={!!sec.collapsible}
+                                    onChange={(v,) => updateSection(sec.id, { collapsible: v, collapsed: v ? sec.collapsed : false, },)}
+                                    label="Collapsable"
+                                    hint="Visitors can collapse and expand this section (an arrow before its title)."
+                                />
+                                <Toggle
+                                    checked={!!sec.collapsible && !!sec.collapsed}
+                                    disabled={!sec.collapsible}
+                                    onChange={(v,) => updateSection(sec.id, { collapsed: v, },)}
+                                    label="Collapsed by default"
+                                    hint="Starts closed; the visitor opens it."
+                                />
+                            </div>
                         </div>
-                        <FormField label="Description (optional)" hint="Shown under the title. Leave empty to show none.">
-                            <CommitInput multiline value={sec.description} onCommit={(v,) => updateSection(sec.id, { description: v, },)} />
-                        </FormField>
                         <div class="section-body__questions">
                             <For each={kids()} fallback={<p class="form-help-muted section-body__empty">No questions in this section yet — add one, or drag questions onto this section.</p>}>
                                 {(q,) => questionCard(q,)}

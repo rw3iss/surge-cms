@@ -14,6 +14,8 @@ import { type FormSection, formLayoutItems, } from '@sitesurge/types';
 import './FormRenderer.scss';
 
 type SectionItem = { kind: 'section'; section: FormSection; };
+/** A question to render; `section` = the section it is in (for collapsing). */
+type QuestionItem = { kind: 'question'; question: FormQuestion; section?: FormSection; };
 
 interface FormRendererProps {
     form: Form;
@@ -69,21 +71,61 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
      * Questions in order with their SECTION headings (`utils/formSections`):
      * a heading is its own full-width row, followed by its questions.
      */
-    const renderItems = (): Array<{ kind: 'question'; question: FormQuestion; } | SectionItem> => {
+    const renderItems = (): Array<QuestionItem | SectionItem> => {
         const sorted = props.form.questions.slice().sort((a, b,) => (a.order ?? 0) - (b.order ?? 0));
-        const out: Array<{ kind: 'question'; question: FormQuestion; } | SectionItem> = [];
+        const out: Array<QuestionItem | SectionItem> = [];
         for (const it of formLayoutItems(sorted, props.form.sections,)) {
             if (it.kind === 'question') out.push(it,);
-            else { out.push({ kind: 'section', section: it.section, },); for (const q of it.questions) out.push({ kind: 'question', question: q, },); }
+            else {
+                out.push({ kind: 'section', section: it.section, },);
+                for (const q of it.questions) out.push({ kind: 'question', question: q, section: it.section, },);
+            }
         }
         return out;
     };
-    const sectionHeading = (item: SectionItem,) => (
-        <div class="form-renderer__section" style={{ 'text-align': item.section.align || 'left', }}>
-            <Show when={item.section.title}><h3 class="form-renderer__section-title">{item.section.title}</h3></Show>
-            <Show when={item.section.description}><p class="form-renderer__section-description">{item.section.description}</p></Show>
-        </div>
-    );
+
+    // Collapsible sections: open/closed per section — the visitor's toggle,
+    // else the section's own default (`collapsed`). A collapsed section HIDES
+    // its fields (they stay mounted, so typed answers are kept).
+    const [toggled, setToggled,] = createSignal<Record<string, boolean>>({},);
+    const sectionOpen = (sec: FormSection | undefined,): boolean => {
+        if (!sec || !sec.collapsible) return true;
+        return toggled()[sec.id] ?? !sec.collapsed;
+    };
+    const toggleSection = (sec: FormSection,) => setToggled({ ...toggled(), [sec.id]: !sectionOpen(sec,), },);
+
+    const sectionHeading = (item: SectionItem,) => {
+        const sec = item.section;
+        const text = () => (
+            <>
+                <Show when={sec.title}><h3 class="form-renderer__section-title">{sec.title}</h3></Show>
+            </>
+        );
+        return (
+            <div
+                class="form-renderer__section"
+                classList={{ 'form-renderer__section--collapsible': !!sec.collapsible, 'is-collapsed': !sectionOpen(sec,), }}
+                style={{ 'text-align': sec.align || 'left', }}
+            >
+                <Show when={sec.collapsible} fallback={text()}>
+                    {/* The whole heading toggles; the arrow shows the state. */}
+                    <button
+                        type="button"
+                        class="form-renderer__section-toggle"
+                        style={{ 'justify-content': sec.align === 'center' ? 'center' : sec.align === 'right' ? 'flex-end' : 'flex-start', }}
+                        aria-expanded={sectionOpen(sec,)}
+                        onClick={() => toggleSection(sec,)}
+                    >
+                        <span class="form-renderer__section-arrow" aria-hidden="true" />
+                        <span class="form-renderer__section-title">{sec.title || 'Section'}</span>
+                    </button>
+                </Show>
+                <Show when={sec.description && sectionOpen(sec,)}>
+                    <p class="form-renderer__section-description">{sec.description}</p>
+                </Show>
+            </div>
+        );
+    };
     /** Column count for the fields grid (1–8). */
     const cols = (): number => Math.max(1, Math.min(8, Math.trunc(Number(props.columns,) || 1,),),);
     const [answers, setAnswers,] = createSignal<Record<string, unknown>>({ ...(props.initialAnswers ?? {}), },);
@@ -149,7 +191,15 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
 
         const errs = validateAll();
         setFieldErrors(errs,);
-        if (Object.keys(errs,).length > 0) return;
+        if (Object.keys(errs,).length > 0) {
+            // Open any collapsed section holding an error, so the visitor can see it.
+            const open: Record<string, boolean> = {};
+            for (const it of renderItems()) {
+                if (it.kind === 'question' && it.section && errs[it.question.id] && !sectionOpen(it.section,)) open[it.section.id] = true;
+            }
+            if (Object.keys(open,).length) setToggled({ ...toggled(), ...open, },);
+            return;
+        }
 
         setSubmitting(true,);
 
@@ -210,12 +260,14 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                                 <Show when={item.kind === 'question' ? item.question : null} fallback={sectionHeading(item as SectionItem,)}>
                                     {(qq,) => {
                                         const q: FormQuestion = qq();
+                                        const inSection = (item as QuestionItem).section;
                                         return (
                                 <div
                                     class="form-renderer__field"
                                     classList={{
                                         'form-renderer__field--invalid': !!fieldErrors()[q.id],
                                         'form-renderer__field--half': q.width === 'half',
+                                        'form-renderer__field--collapsed': !sectionOpen(inSection,),
                                     }}
                                 >
                                     <Show when={!q.questionAsPlaceholder}>
