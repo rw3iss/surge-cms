@@ -308,7 +308,7 @@ Root-mounted raw modules (outside `/api/v1`, registered in `app.ts`): `feed` (`/
 | /posts/:slug | Post | Single post view |
 | /donate | Donate | Campaign listing |
 | /donate/:slug | Campaign | Single campaign + donation form |
-| /partner-program | DynamicPage | CMS page: copy + `{{ membershipLevels(levels='affiliate-test,contributor-test') }}` |
+| /partner-program | DynamicPage | CMS page: copy + `{{ membershipLevels(levels='affiliate,contributor') }}` |
 | /subscribe | Subscribe | Membership plans page: every tier (Free included) as a card with price + Markdown description (`GET /payments/membership/tiers`, public); signed-in → current-plan tout, signed-out → log in / create account; a site with only free tiers says so. Choosing goes to /profile?tab=membership&tier=<id> (through login when signed out) — paid there |
 | /forms/:slug | Form | Dynamic form rendering |
 | /search | Search | Full-text search |

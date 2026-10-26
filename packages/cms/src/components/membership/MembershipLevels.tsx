@@ -1,5 +1,5 @@
 /**
- * `{{ membershipLevels(levels='affiliate-test,contributor-test') }}` — the
+ * `{{ membershipLevels(levels='affiliate,contributor') }}` — the
  * named membership levels as /subscribe-style cards, in that order, hidden
  * levels included (a "partner program" page features levels kept off
  * /subscribe). Same cards + apply flow as /subscribe (`MembershipTierCards`);
