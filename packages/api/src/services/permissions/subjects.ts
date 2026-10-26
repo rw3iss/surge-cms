@@ -21,13 +21,17 @@ export interface EnrichedSubject {
 }
 
 let roleBase: Map<string, string | null> | null = null;
+let roleBaseAt = 0;
+/** Per-process cache: expires so a role saved on another worker reaches this one. */
+const ROLE_TTL_MS = 30_000;
 
 export function invalidateRoles(): void {
     roleBase = null;
 }
 
 async function bases(): Promise<Map<string, string | null>> {
-    if (roleBase) return roleBase;
+    if (roleBase && Date.now() - roleBaseAt < ROLE_TTL_MS) return roleBase;
+    roleBaseAt = Date.now();
     try {
         const r = await query<{ key: string; base_role: string | null; }>(`SELECT key, base_role FROM roles`,);
         roleBase = new Map(r.rows.map((x,) => [x.key, x.base_role,]),);

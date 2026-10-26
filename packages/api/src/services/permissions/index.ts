@@ -38,6 +38,16 @@ export type { PermissionSubject, } from './resolve';
  * check would be pure overhead. Invalidated on every write below.
  */
 let catalogCache: PermissionDefinition[] | null = null;
+let catalogLoadedAt = 0;
+/**
+ * The cache is per PROCESS: with CLUSTER_WORKERS > 1 a write invalidates only
+ * the worker that handled it. So entries also expire after a short TTL, and an
+ * UNKNOWN key reloads once (≤ every 5 s) before denying — otherwise a feature
+ * enabled on one worker kept 403-ing on the other until a restart, and a
+ * changed default stayed stale there indefinitely.
+ */
+const CATALOG_TTL_MS = 30_000;
+const MISS_RELOAD_MS = 5_000;
 
 export function invalidatePermissionCache(): void {
     catalogCache = null;
@@ -46,7 +56,8 @@ export function invalidatePermissionCache(): void {
 // ─── Catalog ───────────────────────────────────────────────────────
 
 export async function listPermissions(): Promise<PermissionDefinition[]> {
-    if (catalogCache) return catalogCache;
+    if (catalogCache && Date.now() - catalogLoadedAt < CATALOG_TTL_MS) return catalogCache;
+    catalogLoadedAt = Date.now();
     const res = await query(
         `SELECT key, feature, label, description, action, default_access,
                 default_roles, is_system, created_at, updated_at
@@ -58,6 +69,10 @@ export async function listPermissions(): Promise<PermissionDefinition[]> {
 }
 
 export async function getPermission(key: PermissionKey,): Promise<PermissionDefinition | undefined> {
+    const found = (await listPermissions()).find((p,) => p.key === key);
+    if (found || Date.now() - catalogLoadedAt < MISS_RELOAD_MS) return found;
+    // Registered on another worker since this one loaded the catalog?
+    catalogCache = null;
     return (await listPermissions()).find((p,) => p.key === key);
 }
 
