@@ -17,7 +17,7 @@
  */
 import type { CalendarEvent, CalendarEventInput, EventAccessOverride, EventsSettings, EventTicketTier, SubscriptionTierOption, } from '@sitesurge/types';
 import { EVENT_REGISTRATION_FIELDS, generateSlug, isKnownTimeZone, TIMEZONES, } from '@sitesurge/types';
-import { Component, createEffect, createMemo, createResource, createSignal, For, Index, Show, } from 'solid-js';
+import { Component, createEffect, createMemo, createResource, createSignal, For, Index, on, Show, } from 'solid-js';
 import { AccessRuleField, describeAccessRule, } from '../../../components/admin/access/AccessRuleField';
 import ModalShell from '../../../components/admin/common/ModalShell';
 import Toggle from '../../../components/admin/common/Toggle';
@@ -152,8 +152,10 @@ const EventModal: Component<EventModalProps> = (props,) => {
     const ticketsDirty = createMemo(() => baseTickets() !== null && !same(baseTickets(), ticketsState(),),);
 
     // Seed from the event being edited, or from the day the user clicked.
-    createEffect(() => {
-        const e = props.event;
+    // Keyed on the EVENT only (`on`): the dirty snapshots below read every
+    // field, and a plain effect then re-ran on each edit — re-seeding the form
+    // from the saved event, so nothing on the General tab could be changed.
+    createEffect(on(() => props.event, (e,) => {
         setBaseGeneral(null,);
         setBaseTickets(null,);
         if (e) {
@@ -193,7 +195,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
             setBaseGeneral(generalState(),);
             setBaseTickets(ticketsState(),);
         }
-    },);
+    },),);
 
     const loadTiers = async (eventId: string,) => {
         try {
