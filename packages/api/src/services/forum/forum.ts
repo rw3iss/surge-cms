@@ -485,6 +485,10 @@ export async function actOnThread(id: string, action: ForumThreadAction, viewer:
             )).rows[0];
             return opening ? (await setStatus(opening.id, next, client,)).after : null;
         },);
+        // The opening post's counter moved above; the thread's REPLIES did not
+        // (they keep their own status), so recount the category from the rows —
+        // else a deleted thread with replies leaves "1 posts" and a stale latest thread.
+        await reconcileCategories([r.category_id,],);
         if (after) {
             emitDiscussionEvent({
                 type: next === 'visible' ? (action === 'approve' ? 'approved' : 'restored') : next === 'hidden' ? 'hidden' : 'deleted',
@@ -589,5 +593,9 @@ export async function reconcile(): Promise<void> {
 
 /** Keep a thread's status in step when its opening post is moderated from the shared queue. */
 export async function syncThreadStatus(threadId: string, status: ForumThreadStatus,): Promise<void> {
-    await query(`UPDATE forum_threads SET status = $2, updated_at = NOW() WHERE id = $1 AND status <> $2`, [threadId, status,],);
+    const r = await query<{ category_id: string; }>(
+        `UPDATE forum_threads SET status = $2, updated_at = NOW() WHERE id = $1 AND status <> $2 RETURNING category_id`, [threadId, status,],
+    );
+    // The thread's replies leave / rejoin the category counts with it.
+    if (r.rows[0]) await reconcileCategories([r.rows[0].category_id,],);
 }
