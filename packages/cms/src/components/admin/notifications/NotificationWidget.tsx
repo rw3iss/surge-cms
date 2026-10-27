@@ -16,7 +16,7 @@ import './NotificationWidget.scss';
 
 const BELL = '<path d="M8 2.2a3.6 3.6 0 00-3.6 3.6v2.3L3.2 10.4v.8h9.6v-.8l-1.2-2.3V5.8A3.6 3.6 0 008 2.2z" stroke="currentColor" fill="none" stroke-width="1.2" stroke-linejoin="round"/><path d="M6.6 12.6a1.5 1.5 0 002.8 0" stroke="currentColor" fill="none" stroke-width="1.2" stroke-linecap="round"/>';
 
-const NotificationWidget: Component<{ collapsed?: boolean; }> = (props,) => {
+const NotificationWidget: Component<{ collapsed?: boolean; /** Expands the collapsed sidebar (the bell then opens the panel). */ onExpand?: () => void; }> = (props,) => {
     const navigate = useNavigate();
     const [open, setOpen,] = createSignal(false,);
     const [items, setItems,] = createSignal<UserNotification[]>([],);
@@ -60,7 +60,8 @@ const NotificationWidget: Component<{ collapsed?: boolean; }> = (props,) => {
 
     return (
         <div class={`notification-widget ${open() ? 'notification-widget--open' : ''}`}>
-            <Show when={open()}>
+            {/* Collapsed sidebar: the panel stays shut — only the bell + count show. */}
+            <Show when={open() && !props.collapsed}>
                 <div class="notification-widget__panel" role="dialog" aria-label="Notifications">
                     <div class="notification-widget__head">
                         <div class="notification-widget__head-row">
@@ -104,9 +105,13 @@ const NotificationWidget: Component<{ collapsed?: boolean; }> = (props,) => {
             <button
                 type="button"
                 class="notification-widget__header"
-                aria-expanded={open()}
+                aria-expanded={open() && !props.collapsed}
                 title={props.collapsed ? `Notifications${unreadNotifications() ? ` (${unreadNotifications()} unread)` : ''}` : undefined}
-                onClick={() => setOpen(!open(),)}
+                onClick={() => {
+                    // Collapsed: expand the sidebar and open the panel in one click.
+                    if (props.collapsed) { props.onExpand?.(); setOpen(true,); return; }
+                    setOpen(!open(),);
+                }}
             >
                 <svg class="notification-widget__bell" viewBox="0 0 16 16" width="18" height="18" innerHTML={BELL} aria-hidden="true" />
                 <span class="notification-widget__label">Notifications</span>

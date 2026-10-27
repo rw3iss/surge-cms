@@ -431,7 +431,7 @@ const AdminLayout: ParentComponent = (props,) => {
                         </For>
                     </nav>
                     <div class="admin-layout__sidebar-footer">
-                        <Show when={notificationsEnabled()}><NotificationWidget collapsed={collapsed()} /></Show>
+                        <Show when={notificationsEnabled()}><NotificationWidget collapsed={collapsed()} onExpand={() => { if (collapsed()) toggleCollapsed(); }} /></Show>
                         <Show when={!shell()}><AdminPresence /></Show>
                         <div class="admin-layout__user">
                             <Show
