@@ -1,8 +1,10 @@
 /**
- * Profile → Affiliate program (feature `affiliates`; members with the
- * affiliate role): connect a Stripe Express account to be paid, share codes
- * (`/shop?code=…`), choose how much of each code's commission buyers get as a
- * discount, and see sales (no buyer details), balance and payouts.
+ * Profile → Partner Program → Affiliate sales (feature `affiliates`; members
+ * with the affiliate role): share codes (`/shop?code=…`), choose how much of
+ * each code's commission buyers get as a discount, and see sales (no buyer
+ * details) and payouts. `embedded` (inside PartnerProgramPanel) hides the
+ * Stripe connection + balance header — the Partner Program page shows those
+ * once for every program.
  */
 import type { AffiliateCode, AffiliateMeResponse, } from '@sitesurge/types';
 import { formatCurrency, formatPercent, } from '@sitesurge/types';
@@ -82,7 +84,7 @@ const CodeRow: Component<{ code: AffiliateCode; onSaved: () => void; }> = (props
     );
 };
 
-const AffiliatePanel: Component = () => {
+const AffiliatePanel: Component<{ embedded?: boolean; }> = (props,) => {
     const [params, setParams,] = useSearchParams();
     const [data, { refetch, mutate, },] = createResource<AffiliateMeResponse>(() => cms.affiliates.me(),);
     const [linking, setLinking,] = createSignal(false,);
@@ -90,6 +92,7 @@ const AffiliatePanel: Component = () => {
 
     // Back from Stripe onboarding: re-read the account status once.
     onMount(() => {
+        if (props.embedded) return; // the Partner Program page handles the Stripe return
         if (params.stripe === 'return' || params.stripe === 'refresh') {
             void cms.affiliates.stripeRefresh().then((stripe,) => {
                 const d = data();
@@ -113,11 +116,12 @@ const AffiliatePanel: Component = () => {
     };
 
     return (
-        <div class="profile__card affiliate-panel">
+        <div class="affiliate-panel" classList={{ profile__card: !props.embedded, 'affiliate-panel--embedded': !!props.embedded, }}>
             <Show when={!data.loading || data()} fallback={<p class="profile__muted">Loading your affiliate account…</p>}>
                 <Show when={data()} fallback={<p class="profile__muted">Your affiliate details could not be loaded.</p>}>
                     {(d,) => (
                         <>
+                            <Show when={!props.embedded}>
                             <section class="affiliate-panel__section">
                                 <h3>Getting paid</h3>
                                 <Show
@@ -148,9 +152,17 @@ const AffiliatePanel: Component = () => {
                                 <div><span>Pending</span><strong>{money(d().balance.pendingCents, d().balance.currency,)}</strong></div>
                                 <div><span>Paid to you</span><strong>{money(d().balance.paidCents, d().balance.currency,)}</strong></div>
                             </div>
+                            </Show>
                             <p class="profile__muted affiliate-panel__note">
                                 Pending commissions become payable {d().refundWindowDays} days after the order is paid (a refund before then cancels it).
                             </p>
+                            <Show when={props.embedded}>
+                                <div class="affiliate-panel__balance affiliate-panel__balance--sub">
+                                    <div><span>Affiliate payable</span><strong>{money(d().balance.availableCents, d().balance.currency,)}</strong></div>
+                                    <div><span>Affiliate pending</span><strong>{money(d().balance.pendingCents, d().balance.currency,)}</strong></div>
+                                    <div><span>Affiliate paid</span><strong>{money(d().balance.paidCents, d().balance.currency,)}</strong></div>
+                                </div>
+                            </Show>
 
                             <section class="affiliate-panel__section">
                                 <h3>Your codes</h3>

@@ -3,8 +3,8 @@ import {
     BANNER_HEIGHT_MAX, BANNER_POSITION_CUSTOM_MAX, type BannerImagePosition, isValidBannerHeight,
     isValidBannerPositionCustom, resolveBannerHeight, resolveBannerPosition,
 } from '@sitesurge/types';
-import { useSearchParams, } from '@solidjs/router';
-import { Component, createEffect, createSignal, For, Match, Show, Suspense, Switch, untrack, } from 'solid-js';
+import { A, useSearchParams, } from '@solidjs/router';
+import { Component, createEffect, createResource, createSignal, For, Match, Show, Suspense, Switch, untrack, } from 'solid-js';
 import { Dynamic, } from 'solid-js/web';
 import { DEFAULT_POST_TYPE, getPostType, type PostTypeDefinition, } from '@sitesurge/types';
 import { getEditorFor, } from '../../components/admin/posts/types/registry';
@@ -13,10 +13,11 @@ import { PostTypeIcon, usePostTypes, } from '../../components/admin/posts/usePos
 import { contentPaddingStyle, } from '../../utils/appearanceStyle';
 import CollapsiblePanel from '../../components/admin/common/CollapsiblePanel';
 import Toggle from '../../components/admin/common/Toggle';
+import ConfirmModal from '../../components/admin/common/ConfirmModal';
 import Tooltip from '../../components/admin/common/Tooltip';
 import { Slider, } from '../../components/ui/Slider';
 import { BlockData, } from '../../components/admin/blocks/ContentBlock';
-import { FormField, } from '../../components/admin/forms';
+import { CommitInput, FormField, } from '../../components/admin/forms';
 import EntityEditorShell from '../../components/admin/editors/EntityEditorShell';
 import { deriveStyleRefFromStyle, resolveActiveStyleRef, styleRefToPersistedStyle, } from '../../services/blockStyleRef';
 import MediaSelectModal from '../../components/admin/media/MediaSelectModal';
@@ -33,7 +34,10 @@ import { useToast, } from '../../components/common/toast';
 import { adminShellFor, } from '../../admin/shells';
 import { BlockStyleService, } from '../../services/blockStyles';
 import { generateBlockId, } from '../../utils/blockId';
-import type { Post, } from '@sitesurge/types';
+import type { Contribution, Post, } from '@sitesurge/types';
+import ChangePayoutModal from '../../components/admin/contributions/ChangePayoutModal';
+import { centsToDollarsInput, formatMoney, parseDollars, } from '../../components/admin/contributions/money';
+import '../../components/admin/contributions/contributions.scss';
 
 const AdminPostEditor: Component = () => {
     const auth = useAuth();
@@ -50,11 +54,16 @@ const AdminPostEditor: Component = () => {
         setReviewing(true,);
         try {
             const note = reviewNoteEl?.value.trim() || undefined;
-            await cms.posts.review(id, { action, note, },);
+            // Contributor payouts on: the payout for this post (default or the reviewer's amount).
+            const payoutCents = action === 'approve' && payoutsOn() ? parseDollars(payoutDraft(),) ?? undefined : undefined;
+            await cms.posts.review(id, { action, note, ...(payoutCents !== undefined ? { payoutCents, } : {}), },);
             setStatus(action === 'approve' ? 'published' : 'draft',);
+            void refetchContribution();
             setReviewNote(note ?? null,);
             invalidatePostsCache();
-            toast.success(action === 'approve' ? 'Published — the author was emailed.' : 'Returned to the author as a draft — they were emailed.',);
+            toast.success(action === 'approve'
+                ? (payoutCents !== undefined ? `Published and ${formatMoney(payoutCents, contribSettings()?.currency,)} credited — the author was emailed.` : 'Published — the author was emailed.')
+                : 'Returned to the author as a draft — they were emailed.',);
         } catch (e) {
             toast.error(e instanceof Error ? e.message : 'Could not review the post.',);
         } finally {
@@ -235,6 +244,38 @@ const AdminPostEditor: Component = () => {
             restoreError: 'Failed to restore post',
         },
     },);
+
+    // ── Contributor payouts (staff reviewers) ──
+    // Settings (any staff may read them) → the default payout; the post's
+    // contribution earning (needs contributions:manage — 403/404 → none).
+    const [contribSettings,] = createResource(
+        () => (contributor() ? null : 'staff'),
+        () => cms.contributions.settings().catch(() => null,),
+    );
+    const payoutsOn = () => contribSettings()?.enabled === true;
+    const [payoutDraft, setPayoutDraft,] = createSignal('',);
+    createEffect(() => { const s = contribSettings(); if (s && !payoutDraft()) setPayoutDraft(centsToDollarsInput(s.defaultPayoutCents,),); },);
+    const [contribution, { refetch: refetchContribution, mutate: setContribution, },] = createResource(
+        () => (contributor() || editor.isNew() ? null : editor.params.id),
+        (id,) => cms.contributions.byPost(id,).catch(() => null,),
+    );
+    const earning = () => contribution()?.earning ?? null;
+    const [editingPayout, setEditingPayout,] = createSignal(false,);
+    const [confirmRevoke, setConfirmRevoke,] = createSignal(false,);
+    const [payoutBusy, setPayoutBusy,] = createSignal(false,);
+    const payoutAction = async (fn: () => Promise<Contribution>, ok: string,) => {
+        setPayoutBusy(true,);
+        try {
+            setContribution(await fn(),);
+            toast.success(ok,);
+            return true;
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'That did not work.',);
+            return false;
+        } finally {
+            setPayoutBusy(false,);
+        }
+    };
 
     // Enable commenting / anonymous / lock (Comments feature).
     const commentSwitches = useCommentSwitches('post', () => (editor.isNew() ? null : editor.params.id),);
@@ -732,11 +773,74 @@ const AdminPostEditor: Component = () => {
                             <strong>Waiting for review</strong>
                             <span class="form-help-muted">Submitted by its author. Publish it, or return it with a note (they are emailed either way).</span>
                             <textarea ref={reviewNoteEl} rows={3} placeholder="Note to the author (optional; shown when returned)" />
+                            <Show when={payoutsOn()}>
+                                <FormField label={`Payout (${(contribSettings()?.currency ?? 'usd').toUpperCase()})`} hint="Credited to the contributor when you approve. Default from Posts → Settings → Contributions.">
+                                    <CommitInput
+                                        value={payoutDraft()}
+                                        onDraft={setPayoutDraft}
+                                        onCommit={setPayoutDraft}
+                                        validate={(v,) => (parseDollars(v,) === null ? 'Enter an amount, e.g. 40.00.' : null)}
+                                        placeholder="40.00"
+                                    />
+                                </FormField>
+                            </Show>
                             <div class="post-review-box__actions">
                                 <button type="button" class="ui-button ui-button--secondary ui-button--sm" disabled={reviewing()} onClick={() => void review('return',)}>Return to author</button>
-                                <button type="button" class="ui-button ui-button--primary ui-button--sm" disabled={reviewing()} onClick={() => void review('approve',)}>Approve &amp; publish</button>
+                                <button
+                                    type="button"
+                                    class="ui-button ui-button--primary ui-button--sm"
+                                    disabled={reviewing() || (payoutsOn() && parseDollars(payoutDraft(),) === null)}
+                                    onClick={() => void review('approve',)}
+                                >
+                                    {payoutsOn() && parseDollars(payoutDraft(),) !== null
+                                        ? `Approve, publish & pay ${formatMoney(parseDollars(payoutDraft(),), contribSettings()?.currency,)}`
+                                        : 'Approve & publish'}
+                                </button>
                             </div>
                         </div>
+                    </Show>
+                    {/* Staff: this post's contribution payout (change / revoke until paid). */}
+                    <Show when={!contributor() && earning()}>
+                        <div class="post-contribution-box">
+                            <strong>Contribution payout</strong>
+                            <div class="post-contribution-box__row">
+                                <span class="post-contribution-box__amount">{formatMoney(earning()!.amountCents, earning()!.currency,)}</span>
+                                <span class={`badge ${earning()!.status === 'paid' ? 'badge--success' : earning()!.status === 'revoked' ? 'badge--muted' : 'badge--info'}`}>
+                                    {earning()!.status === 'pending' ? 'holding' : earning()!.status === 'available' ? 'payable' : earning()!.status}
+                                </span>
+                            </div>
+                            <Show when={earning()!.status !== 'paid'}>
+                                <div class="post-contribution-box__row">
+                                    <button type="button" class="ui-button ui-button--secondary ui-button--sm" disabled={payoutBusy()} onClick={() => setEditingPayout(true,)}>
+                                        {earning()!.status === 'revoked' ? 'Credit again' : 'Change'}
+                                    </button>
+                                    <Show when={earning()!.status !== 'revoked'}>
+                                        <button type="button" class="ui-button ui-button--ghost ui-button--sm" disabled={payoutBusy()} onClick={() => setConfirmRevoke(true,)}>Revoke</button>
+                                    </Show>
+                                </div>
+                            </Show>
+                            <A href="/admin/posts?view=contributions" class="form-help-muted">All contributions →</A>
+                        </div>
+                        <ChangePayoutModal
+                            open={editingPayout()}
+                            title={title() || 'this post'}
+                            amountCents={earning()?.amountCents ?? 0}
+                            currency={earning()?.currency ?? 'usd'}
+                            busy={payoutBusy()}
+                            onSave={(c,) => void payoutAction(() => cms.contributions.setPayout(editor.params.id!, c,), `Payout set to ${formatMoney(c, earning()?.currency,)}.`,).then((ok,) => ok && setEditingPayout(false,),)}
+                            onClose={() => setEditingPayout(false,)}
+                        />
+                        <ConfirmModal
+                            open={confirmRevoke()}
+                            title="Revoke this payout?"
+                            message={`${formatMoney(earning()?.amountCents, earning()?.currency,)} will not be paid to the contributor. You can credit it again later.`}
+                            confirmLabel="Revoke payout"
+                            busyLabel="Revoking…"
+                            loading={payoutBusy()}
+                            danger
+                            onConfirm={() => void payoutAction(() => cms.contributions.revoke(editor.params.id!,), 'Payout revoked.',).then((ok,) => ok && setConfirmRevoke(false,),)}
+                            onCancel={() => setConfirmRevoke(false,)}
+                        />
                     </Show>
                     {/* Author: a returned post's note. */}
                     <Show when={contributor() && status() === 'draft' && reviewNote()}>

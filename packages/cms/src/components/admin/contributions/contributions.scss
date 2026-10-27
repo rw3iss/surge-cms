@@ -1,0 +1,157 @@
+// No @use: the build's additionalData prelude supplies sass:color + the variables.
+// Posts → Contributions view, its payouts section, the change-payout modal and the
+// contributor settings panel.
+
+.contributions {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+
+  &__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: $spacing-sm;
+  }
+  &__card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: $spacing-md;
+    border: 1px solid var(--admin-border, #{$border-color});
+    border-radius: 10px;
+    background: var(--admin-bg-subtle, #{$bg-muted});
+
+    span { font-size: $font-size-xs; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--admin-text-muted, #{$text-light}); }
+    strong { font-size: 1.35rem; }
+  }
+  &__off { margin: 0; }
+
+  &__states {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+  }
+  &__state {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--admin-border, #{$border-color});
+    border-radius: 999px;
+    background: transparent;
+    font: inherit;
+    font-size: $font-size-sm;
+    cursor: pointer;
+
+    &:hover { border-color: $primary-color; }
+    &.is-active { border-color: $primary-color; background: $primary-color; color: #{$background}; }
+  }
+  &__state-count {
+    min-width: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--admin-bg-subtle, #{$bg-muted});
+    color: var(--admin-text, #{$text-color});
+    font-size: $font-size-xs;
+    text-align: center;
+  }
+
+  &__filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-sm;
+  }
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px 4px 12px;
+    border-radius: 999px;
+    background: $info-bg;
+    color: $info-fg;
+    font-size: $font-size-sm;
+
+    button {
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      color: inherit;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+
+      &:hover { background: color.adjust($info-bg, $lightness: -8%); }
+    }
+  }
+
+  &__author-link {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: $primary-color;
+    cursor: pointer;
+    text-align: left;
+
+    &:hover { text-decoration: underline; }
+  }
+  &__sub { font-size: $font-size-xs; }
+  &__revoked { text-decoration: line-through; color: var(--admin-text-muted, #{$text-light}); }
+  &__actions { display: flex; flex-wrap: wrap; gap: 4px; }
+}
+
+.contribution-payouts {
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: $spacing-sm;
+    margin-top: $spacing-sm;
+  }
+  &__results {
+    margin: $spacing-md 0 0;
+    padding: $spacing-sm $spacing-md;
+    list-style: none;
+    border: 1px solid var(--admin-border, #{$border-color});
+    border-radius: 8px;
+    font-size: $font-size-sm;
+
+    li { padding: 3px 0; }
+    li.is-paid { color: $success-fg; }
+    li.is-skipped { color: $warning-fg; }
+  }
+}
+
+.contribution-payout-modal {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+  padding: $spacing-lg;
+
+  h3 { margin: 0; font-size: 1.05rem; }
+  &__actions { display: flex; justify-content: flex-end; gap: $spacing-sm; }
+}
+
+.contributor-settings__stripe {
+  h3 { margin: $spacing-md 0 $spacing-xs; font-size: 1rem; }
+  ol { margin: 0 0 $spacing-sm; padding-left: $spacing-lg; }
+}
+
+// The payout box in the post editor (reviewer + approved contribution).
+.post-contribution-box {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-md;
+  padding: $spacing-md;
+  border: 1px solid var(--admin-border, #{$border-color});
+  border-radius: 8px;
+
+  &__row { display: flex; flex-wrap: wrap; align-items: center; gap: $spacing-sm; }
+  &__amount { font-size: 1.1rem; font-weight: 700; }
+}

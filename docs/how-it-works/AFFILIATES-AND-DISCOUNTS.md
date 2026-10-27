@@ -84,10 +84,12 @@ creates an Express account (`transfers` capability) and opens Stripe's onboardin
 returning re-reads the account (`/me/stripe/refresh`), and the `account.updated`
 webhook keeps it current.
 
+**Shared with contributors:** the Stripe account, payouts and Connect webhook secret are the shared PARTNER layer (`services/partners/`, see CONTRIBUTOR-PAYOUTS.md). Affiliate payouts pay only affiliate commissions (`affiliate_payouts.source = 'affiliate'`); the affiliate page is Profile → **Partner Program → Affiliate sales**.
+
 **Stripe setup (once):**
 1. Shop's Stripe account → **Connect** (dashboard.stripe.com/connect): finish the platform setup (Express accounts). Until then "Connect with Stripe" answers 503 `CONNECT_NOT_ENABLED` ("Payouts are not set up yet…").
 2. **Developers → Webhooks → Add endpoint**: URL `https://<site>/api/v1/payments/webhook`, **Listen to: Events on connected accounts**, event `account.updated`. This is a SECOND endpoint beside the shop's own (same URL is fine) and has its OWN signing secret.
-3. Paste that endpoint's signing secret (`whsec_…`) into Shop Settings → Affiliate program → **Connect webhook signing secret** (`affiliate_settings.connectWebhookSecret`, masked when read). The Stripe webhook verifier tries it alongside the shop/donations/default secrets (`setExtraWebhookSecret`).
+3. Paste that endpoint's signing secret (`whsec_…`) into Shop Settings → Affiliate program (or Posts → Settings → Contributions) → **Connect webhook signing secret** (`partner_settings.connectWebhookSecret`, shared, masked when read). The Stripe webhook verifier tries it alongside the shop/donations/default secrets (`setExtraWebhookSecret`).
 
 Account creation uses a 10-minute idempotency key, so a failed first try (Connect not enabled yet) is not replayed by Stripe after it is fixed. Payouts are `stripe.transfers.create` from the shop's balance to the
 connected account — idempotent per payout row. The earnings are CLAIMED (payout id

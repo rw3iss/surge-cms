@@ -1,5 +1,7 @@
 import { A, useNavigate, } from '@solidjs/router';
-import { Component, createEffect, createSignal, For, Show, } from 'solid-js';
+import { Component, createEffect, createResource, createSignal, For, Show, } from 'solid-js';
+import ContributionsView from '../../components/admin/contributions/ContributionsView';
+import { Tabs, } from '../../components/ui/Tabs';
 import { adminShellFor, } from '../../admin/shells';
 import { useAuth, } from '../../stores/auth';
 import { formatDateShort as formatDate, getPostType, } from '@sitesurge/types';
@@ -58,6 +60,28 @@ const AdminPosts: Component = () => {
         setSearchParams({ sort, },);
     };
 
+    // ── Contributions view (`?view=contributions`) ──
+    // Offered when contributor payouts are on OR contributions exist, and only
+    // to staff with `contributions:manage` (the summary 403s otherwise → no view).
+    const [contrib,] = createResource(
+        () => (shell() ? null : 'staff'),
+        async () => {
+            try {
+                const [settings, summary,] = await Promise.all([cms.contributions.settings(), cms.contributions.summary(),],);
+                const total = Object.values(summary.counts,).reduce((a, b,) => a + b, 0,);
+                return { available: settings.enabled || total > 0, pending: summary.counts.pending_review, };
+            } catch {
+                return { available: false, pending: 0, };
+            }
+        },
+    );
+    const contributionsView = () => searchParams.view === 'contributions' && contrib()?.available === true;
+    const switchView = (v: 'posts' | 'contributions',) => setSearchParams({
+        view: v === 'contributions' ? 'contributions' : undefined,
+        // Each view has its own filters / sort.
+        sort: undefined, status: undefined, search: undefined, state: undefined, author: undefined, q: undefined, page: undefined,
+    } as Record<string, string | undefined>,);
+
     return (
         <div>
             <AdminTitle>Posts</AdminTitle>
@@ -89,6 +113,17 @@ const AdminPosts: Component = () => {
                     </div>
                 </div>
             </ModalShell>
+            <Show when={contrib()?.available}>
+                <Tabs<'posts' | 'contributions'>
+                    items={[
+                        { value: 'posts', label: 'All posts', },
+                        { value: 'contributions', label: contrib()!.pending ? `Contributions (${contrib()!.pending} waiting)` : 'Contributions', },
+                    ]}
+                    value={contributionsView() ? 'contributions' : 'posts'}
+                    onChange={switchView}
+                />
+            </Show>
+            <Show when={!contributionsView()} fallback={<ContributionsView />}>
             <div class="admin-filter-bar">
                 <input
                     class="admin-filter-bar__search"
@@ -172,6 +207,7 @@ const AdminPosts: Component = () => {
                     },
                 ]}
             />
+            </Show>
         </div>
     );
 };

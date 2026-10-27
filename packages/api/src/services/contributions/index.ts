@@ -50,6 +50,7 @@ const SORTS: Record<string, string> = {
     amount_desc: 'e.amount_cents DESC NULLS LAST',
     amount_asc: 'e.amount_cents ASC NULLS LAST',
     author_asc: 'u.display_name ASC NULLS LAST',
+    author_desc: 'u.display_name DESC NULLS LAST',
     updated_desc: 'p.updated_at DESC',
 };
 

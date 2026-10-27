@@ -4,7 +4,8 @@
  * Tabs: **General**, then one per post type that HAS options — a type gets a
  * tab by adding a panel to `TYPE_PANELS` (today only Live Show: the live
  * stream provider). Article and Video have none yet, so they are not shown.
- * Deep-linkable: `?tab=live`.
+ * Deep-linkable: `?tab=live`. **Contributions** (`?tab=contributions`) holds the
+ * contributor payout settings (own Save); **Email templates** the post emails.
  */
 import { A, useSearchParams, } from '@solidjs/router';
 import type { LiveProviderDescriptor, PostsSettings, } from '@sitesurge/types';
@@ -17,6 +18,7 @@ import LiveProviderSettings from '../../components/admin/posts/settings/LiveProv
 import { useToast, } from '../../components/common/toast';
 import { cms, } from '../../services/cmsClient';
 import EmailTemplatesPanel, { type PurposeConfig, } from '../../components/admin/mail/EmailTemplatesPanel';
+import ContributorSettingsPanel from '../../components/admin/contributions/ContributorSettingsPanel';
 
 interface PanelCtx {
     providers: () => LiveProviderDescriptor[];
@@ -54,6 +56,7 @@ const AdminPostsSettings: Component = () => {
     const tabs = () => [
         { key: 'general', label: 'General', },
         ...Object.keys(TYPE_PANELS,).map((k,) => ({ key: k, label: getPostType(k,).label, })),
+        { key: 'contributions', label: 'Contributions', },
         { key: 'emails', label: 'Email templates', },
     ];
     const tab = () => (tabs().some((t,) => t.key === params.tab,) ? params.tab! : 'general');
@@ -138,6 +141,11 @@ const AdminPostsSettings: Component = () => {
                             </FormField>
                         </div>
                     </section>
+                </Show>
+
+                {/* Contributor payouts: its own Save (separate settings row). */}
+                <Show when={tab() === 'contributions'}>
+                    <ContributorSettingsPanel />
                 </Show>
 
                 <Show when={tab() === 'emails'}>

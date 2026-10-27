@@ -1,0 +1,93 @@
+@use '../membership/status' as *;
+
+// Profile → Partner Program (Stripe + totals on top, a tab per program). Site tokens throughout.
+.partner-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+
+  &__steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.2rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.9rem;
+    color: var(--site-text-muted, #6b7280);
+
+    li::before { content: '○'; margin-right: 0.35rem; }
+    li.is-done { color: var(--site-text, #1f2937); }
+    li.is-done::before { content: '✓'; color: var(--site-primary, #e63946); font-weight: 700; }
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  &__programs {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--site-border, #e5e7eb);
+  }
+
+  // The embedded affiliate page sits inside this card — no second card.
+  .affiliate-panel--embedded { padding: 0; border: 0; background: none; box-shadow: none; }
+}
+
+.affiliate-panel__balance--sub strong { font-size: 1.05rem; }
+
+.partner-contributions {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+
+  &__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+
+    p { margin: 0; }
+  }
+
+  &__counts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 0.75rem;
+  }
+  &__count {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.8rem 1rem;
+    border: 1px solid var(--site-border, #e5e7eb);
+    border-radius: var(--site-radius, 10px);
+
+    strong { font-size: 1.4rem; }
+    span { font-size: 0.8rem; color: var(--site-text-muted, #6b7280); }
+  }
+
+  &__state {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    white-space: nowrap;
+    background: var(--site-border, #e5e7eb);
+    color: var(--site-text, #1f2937);
+
+    &--pending_review { @include status-fill(info); }
+    &--returned { @include status-fill(warning); }
+    &--approved { @include status-fill(success); }
+    &--paid { @include status-fill(success); font-weight: 600; }
+  }
+
+  &__note { margin-top: 0.25rem; font-size: 0.82rem; color: var(--site-text-muted, #6b7280); }
+}

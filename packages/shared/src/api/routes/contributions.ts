@@ -57,7 +57,7 @@ export interface ContributionListQuery {
     state?: ContributionState | 'all';
     authorId?: string;
     search?: string;
-    /** `submitted_desc` (default) | `submitted_asc` | `title_asc` | `title_desc` | `amount_desc` | `amount_asc` | `author_asc`. */
+    /** `submitted_desc` (default) | `submitted_asc` | `title_asc` | `title_desc` | `amount_desc` | `amount_asc` | `author_asc` | `author_desc`. */
     sort?: string;
     page?: number;
     limit?: number;
