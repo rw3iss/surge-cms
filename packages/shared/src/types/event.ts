@@ -39,6 +39,9 @@ export interface CalendarEvent {
     endsAt: string | null;
     allDay: boolean;
     location: string | null;
+    /** Text shown INSTEAD of `location` on the site (the event editor's "Set text");
+     *  null = show `location`. Maps and "View map" still use `location` + the point. */
+    locationLabel: string | null;
     /** The location's exact point (picked on the map in the event editor); null = none. */
     locationLat: number | null;
     locationLng: number | null;
@@ -85,6 +88,7 @@ export interface CalendarEventInput {
     endsAt?: string | null;
     allDay?: boolean;
     location?: string | null;
+    locationLabel?: string | null;
     locationLat?: number | null;
     locationLng?: number | null;
     showMap?: boolean;

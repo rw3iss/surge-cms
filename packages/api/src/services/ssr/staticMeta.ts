@@ -156,11 +156,11 @@ async function shopGroup(c: StaticMetaCtx, kind: 'collections' | 'categories', s
 
 async function event(c: StaticMetaCtx, slug: string,): Promise<MetaTags | null> {
     const row = await safe(async () => (await query<{
-        title: string; description: string | null; starts_at: string | null; ends_at: string | null; location: string | null;
+        title: string; description: string | null; starts_at: string | null; ends_at: string | null; location: string | null; location_label: string | null;
         featured_image: string | null; url: string | null;
         view_access: string; view_min_tier_id: string | null; register_access: string; register_min_tier_id: string | null;
     }>(
-        `SELECT title, description, starts_at, ends_at, location, featured_image, url,
+        `SELECT title, description, starts_at, ends_at, location, location_label, featured_image, url,
                 view_access, view_min_tier_id, register_access, register_min_tier_id
            FROM events WHERE slug = $1 AND status = 'published'`, [slug,],
     )).rows[0] ?? null,);
@@ -187,7 +187,7 @@ async function event(c: StaticMetaCtx, slug: string,): Promise<MetaTags | null> 
                 ...(row.ends_at ? { endDate: new Date(row.ends_at,).toISOString(), } : {}),
                 ...(row.featured_image ? { image: row.featured_image, } : {}),
                 ...(row.location
-                    ? { location: { '@type': 'Place', name: row.location, }, eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode', }
+                    ? { location: { '@type': 'Place', name: row.location_label?.trim() || row.location, ...(row.location_label?.trim() ? { address: row.location, } : {}), }, eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode', }
                     : row.url ? { location: { '@type': 'VirtualLocation', url: row.url, }, eventAttendanceMode: 'https://schema.org/OnlineEventAttendanceMode', } : {}),
                 organizer: { '@type': 'Organization', name: c.siteName, url: c.siteUrl, },
             },

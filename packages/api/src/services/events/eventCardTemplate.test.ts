@@ -19,7 +19,7 @@ const base = {
     id: 'e1', title: 'Gala <b>', url: 'https://site.test/events/gala', featuredImage: 'https://cdn.test/g.jpg',
     featuredMedia: { path: 'https://cdn.test/g.jpg', alt: 'Dancers', },
     nextOccurrence: '2026-10-25T23:00:00.000Z', dateLabel: 'Sun, Oct 25, 2026', timeLabel: '7:00 PM EDT', recurrenceLabel: '',
-    location: 'Town Hall', descriptionText: 'Music & food.', isPublic: true, requiresSignIn: true, registrationOpen: true,
+    location: 'Town Hall', locationText: 'Town Hall', descriptionText: 'Music & food.', isPublic: true, requiresSignIn: true, registrationOpen: true,
     access: { badgeLabel: 'Public', },
     tiers: [
         { name: 'General', isFree: false, price: 25, remaining: 3, soldOut: false, },

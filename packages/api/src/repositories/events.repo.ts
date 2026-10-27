@@ -23,7 +23,7 @@ function toIsoFields(row: CalendarEvent,): CalendarEvent {
     return out as unknown as CalendarEvent;
 }
 
-const SELECT = `id, title, slug, description, starts_at, ends_at, all_day, location, location_lat, location_lng, show_map,
+const SELECT = `id, title, slug, description, starts_at, ends_at, all_day, location, location_label, location_lat, location_lng, show_map,
     url, featured_image, status, timezone, recurrence_rule, recurrence_until,
     registration_enabled, registration_fields, show_registrant_count,
     ticketing_enabled, view_access, view_min_tier_id, register_access, register_min_tier_id,
@@ -139,8 +139,8 @@ export async function createEvent(
                              registration_fields, show_registrant_count,
                              ticketing_enabled, metadata, created_by,
                              view_access, view_min_tier_id, register_access, register_min_tier_id,
-                             location_lat, location_lng, show_map)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
+                             location_lat, location_lng, show_map, location_label)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
          RETURNING ${SELECT}`,
         [
             input.title,
@@ -169,6 +169,7 @@ export async function createEvent(
             input.locationLat ?? null,
             input.locationLng ?? null,
             input.showMap ?? false,
+            input.locationLabel?.trim() || null,
         ],
     );
     return toIsoFields(mapRow<CalendarEvent>(res.rows[0],),);

@@ -21,6 +21,7 @@ import { getByIdOrSlug, } from './crud';
 import { sendPurposeMail, } from '../mail/purposes';
 import { describeWhen, escapeHtml, eventLink, } from './format';
 import { eventSender, } from './settings';
+import { eventLocationText, } from '@sitesurge/types';
 
 export interface RegistrationViewer {
     id: string;
@@ -169,7 +170,7 @@ async function sendUnregisteredMail(event: CalendarEvent, date: string, email: s
                 <p>${escapeHtml(when,)}</p>
                 <p>Changed your mind? <a href="${escapeHtml(url,)}">Register again</a> while places remain.</p>`,
             context: {
-                event: { title: event.title, location: event.location ?? '', url, },
+                event: { title: event.title, location: eventLocationText(event,) ?? '', url, },
                 occurrence: { date, when, },
                 registration: { name: name ?? '', email, },
             },

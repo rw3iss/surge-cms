@@ -18,6 +18,7 @@ import type { LevelViewer, } from '../access/level';
 import { getByIdOrSlug, } from './crud';
 import { describeWhen, escapeHtml, eventLink, } from './format';
 import { eventSender, getSettings, } from './settings';
+import { eventLocationText, } from '@sitesurge/types';
 
 /**
  * The occurrence a registration lands on when the caller didn't name one.
@@ -98,10 +99,10 @@ export async function register(input: {
             defaultHtml: `<h2>You're registered</h2>
                 <p><strong>${escapeHtml(event.title,)}</strong></p>
                 <p>${escapeHtml(when,)}</p>
-                ${event.location ? `<p>${escapeHtml(event.location,)}</p>` : ''}
+                ${eventLocationText(event,) ? `<p>${escapeHtml(eventLocationText(event,)!,)}</p>` : ''}
                 <p><a href="${escapeHtml(url,)}">View the event</a></p>`,
             context: {
-                event: { title: event.title, location: event.location ?? '', url, },
+                event: { title: event.title, location: eventLocationText(event,) ?? '', url, },
                 occurrence: { date: occurrenceDate, when, },
                 registration: { name: input.name ?? '', email, },
             },

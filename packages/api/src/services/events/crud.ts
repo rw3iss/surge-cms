@@ -239,7 +239,7 @@ export async function update(
     const map: Record<string, string> = {
         title: 'title', description: 'description', startsAt: 'startsAt',
         endsAt: 'endsAt', allDay: 'allDay', location: 'location', url: 'url',
-        locationLat: 'locationLat', locationLng: 'locationLng', showMap: 'showMap',
+        locationLat: 'locationLat', locationLng: 'locationLng', showMap: 'showMap', locationLabel: 'locationLabel',
         featuredImage: 'featuredImage', status: 'status', timezone: 'timezone',
         recurrenceRule: 'recurrenceRule', recurrenceUntil: 'recurrenceUntil',
         registrationEnabled: 'registrationEnabled',

@@ -83,6 +83,7 @@ const eventBody = z.object({
     endsAt: isoDate.nullish(),
     allDay: z.boolean().optional(),
     location: z.string().max(255,).nullish(),
+    locationLabel: z.string().max(255,).nullish(),
     locationLat: z.number().min(-90,).max(90,).nullish(),
     locationLng: z.number().min(-180,).max(180,).nullish(),
     showMap: z.boolean().optional(),

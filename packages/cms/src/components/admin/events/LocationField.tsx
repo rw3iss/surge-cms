@@ -8,13 +8,16 @@
  *     the address found at that point (else its coordinates).
  *   - The point is stored with the text (lat / lng); "Show map on the event
  *     page" puts a small map there.
+ *   - "Set text": a Location label shown on the site INSTEAD of the location
+ *     text (e.g. "Main Hall" for a pin's street address). Maps and "View map"
+ *     still use the location + its point.
  *
  * Lookups go through `cms.geo` (OpenStreetMap, proxied + cached server-side).
  * The map itself is `components/map/LocationMap` — the provider seam.
  */
 import type { GeoPlace, } from '@sitesurge/types';
 import { formatLatLng, } from '@sitesurge/types';
-import { type Component, createSignal, For, lazy, Show, } from 'solid-js';
+import { type Component, createEffect, createSignal, For, lazy, on, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import Toggle from '../common/Toggle';
 import { FormField, } from '../forms';
@@ -28,6 +31,9 @@ export interface LocationFieldProps {
     lat: number | null;
     lng: number | null;
     showMap: boolean;
+    /** Text shown instead of the location on the site; null = none. */
+    label: string | null;
+    onLabel: (label: string | null,) => void;
     onLocation: (text: string,) => void;
     onPoint: (lat: number | null, lng: number | null,) => void;
     onShowMap: (on: boolean,) => void;
@@ -35,6 +41,9 @@ export interface LocationFieldProps {
 
 const LocationField: Component<LocationFieldProps> = (props,) => {
     const [open, setOpen,] = createSignal(false,);
+    // "Set text" — on while a label exists; switching it off drops the label.
+    const [labelOn, setLabelOn,] = createSignal(Boolean(props.label?.trim(),),);
+    createEffect(on(() => props.label, (l,) => { if (l?.trim()) setLabelOn(true,); },),);
     const [busy, setBusy,] = createSignal(false,);
     const [matches, setMatches,] = createSignal<GeoPlace[]>([],);
     const [error, setError,] = createSignal('',);
@@ -112,11 +121,31 @@ const LocationField: Component<LocationFieldProps> = (props,) => {
                             if (!v.trim()) setUnlocated(false,);
                         }}
                     />
+                    <Toggle
+                        class="location-field__label-switch"
+                        size="sm"
+                        checked={labelOn()}
+                        onChange={(v,) => { setLabelOn(v,); if (!v) props.onLabel(null,); }}
+                        label="Set text"
+                    />
                     <button type="button" class="ui-button ui-button--sm ui-button--secondary" aria-expanded={open()} onClick={toggle}>
                         {open() ? 'Hide map' : hasPoint() ? 'Edit on map' : 'Pick on map'}
                     </button>
                 </div>
             </FormField>
+
+            <Show when={labelOn()}>
+                <FormField
+                    label="Location label"
+                    tooltip="Shown on the event page, event cards and emails instead of the location above (e.g. “Main Hall” or “The usual spot”). The map and View map still go to the location."
+                >
+                    <CommitInput
+                        value={props.label ?? ''}
+                        placeholder="e.g. Main Hall, Philadelphia City Hall"
+                        onCommit={(v,) => props.onLabel(v.trim() || null,)}
+                    />
+                </FormField>
+            </Show>
 
             <Show when={open()}>
                 <div class="location-field__panel">

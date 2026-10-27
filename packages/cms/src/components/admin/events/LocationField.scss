@@ -13,6 +13,8 @@
     > button { flex: 0 0 auto; white-space: nowrap; }
   }
 
+  &__label-switch { flex: 0 0 auto; white-space: nowrap; font-size: $font-size-sm; }
+
   &__panel {
     display: flex;
     flex-direction: column;

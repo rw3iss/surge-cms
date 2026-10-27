@@ -25,7 +25,7 @@
  * only exists while the events feature is on.
  */
 import {
-    describeRecurrence, mapLinkFor, parseRecurrenceRule, renderMarkdown, stripMarkdown, toOccurrenceDate, truncateEventText,
+    describeRecurrence, eventLocationText, mapLinkFor, parseRecurrenceRule, renderMarkdown, stripMarkdown, toOccurrenceDate, truncateEventText,
     type CalendarEvent, type EntityQuery, type EntityRecord, type EventAccess, type EventOccurrenceOverride,
     type EventRecord, type EventRecordAccess, type EventRecordTier, type EventsSettings, type EventTicketTier,
 } from '@sitesurge/types';
@@ -302,6 +302,8 @@ export function buildEventRecord(input: {
         recurrenceLabel: recurrenceLabelOf(e.recurrenceRule, e.recurrenceUntil,),
         isRecurring: Boolean(parseRecurrenceRule(e.recurrenceRule,),),
         location: e.location ?? null,
+        locationLabel: e.locationLabel?.trim() || null,
+        locationText: eventLocationText(e,),
         locationLat: e.locationLat ?? null,
         locationLng: e.locationLng ?? null,
         showMap: Boolean(e.showMap,) && e.locationLat != null && e.locationLng != null,

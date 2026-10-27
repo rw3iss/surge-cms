@@ -174,7 +174,7 @@ export const EVENT_CARD_TEMPLATE_HTML = `<style>
             <time datetime="{{ event.nextOccurrence }}">{{ event.dateLabel }} · {{ event.timeLabel }}</time>
             {{ if event.recurrenceLabel }}<br>{{ event.recurrenceLabel }}{{ endif }}
         </p>
-        {{ if event.location }}<p class="ss-event-card__meta">{{ event.location }}</p>{{ endif }}
+        {{ if event.locationText }}<p class="ss-event-card__meta">{{ event.locationText }}</p>{{ endif }}
 
         {{ if event.descriptionText }}<p class="ss-event-card__desc">{{ truncate(event.descriptionText, 180) }}</p>{{ endif }}
 

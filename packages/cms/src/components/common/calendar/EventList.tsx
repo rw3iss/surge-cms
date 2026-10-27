@@ -6,6 +6,7 @@ import { Component, For, Show, } from 'solid-js';
 import type { EventOccurrence, } from '@sitesurge/types';
 import { stripMarkdown, } from '@sitesurge/types';
 import './EventList.scss';
+import { eventLocationText, } from '@sitesurge/types';
 
 export interface EventListProps {
     occurrences: EventOccurrence[];
@@ -84,8 +85,8 @@ const EventList: Component<EventListProps> = (props,) => {
                                             </span>
                                         </Show>
                                     </span>
-                                    <Show when={occ.event.location}>
-                                        <span class="event-list__meta">{occ.event.location}</span>
+                                    <Show when={eventLocationText(occ.event,)}>
+                                        <span class="event-list__meta">{eventLocationText(occ.event,)}</span>
                                     </Show>
                                     {/* The brief view is a <button>, so it cannot hold
                                         rendered block HTML — Markdown is reduced to a

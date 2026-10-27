@@ -17,3 +17,8 @@ export function mapLinkFor(p: { location?: string | null; lat?: number | null; l
 export function formatLatLng(lat: number, lng: number,): string {
     return `${lat.toFixed(6,)}, ${lng.toFixed(6,)}`;
 }
+
+/** What to SHOW for an event's location: its label ("Set text") when set, else the address. */
+export function eventLocationText(e: { location?: string | null; locationLabel?: string | null; },): string | null {
+    return e.locationLabel?.trim() || e.location?.trim() || null;
+}

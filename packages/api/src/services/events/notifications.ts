@@ -19,6 +19,7 @@ import { logger, } from '../../utils/logger';
 import { sendEmail, } from '../email';
 import { describeWhen, escapeHtml, eventLink, } from './format';
 import { getSettings, eventSender, } from './settings';
+import { eventLocationText, } from '@sitesurge/types';
 
 export type NotifyKind = 'published' | 'reminder';
 
@@ -32,7 +33,7 @@ async function buildEmail(event: CalendarEvent, kind: NotifyKind,): Promise<{ su
     const html = `
         <h2 style="margin:0 0 8px">${lead}: ${escapeHtml(event.title,)}</h2>
         <p style="margin:0 0 4px"><strong>When:</strong> ${escapeHtml(when,)}</p>
-        ${event.location ? `<p style="margin:0 0 4px"><strong>Where:</strong> ${escapeHtml(event.location,)}</p>` : ''}
+        ${eventLocationText(event,) ? `<p style="margin:0 0 4px"><strong>Where:</strong> ${escapeHtml(eventLocationText(event,)!,)}</p>` : ''}
         ${event.description ? `<p style="margin:12px 0">${escapeHtml(event.description,)}</p>` : ''}
         <p style="margin:16px 0"><a href="${escapeHtml(url,)}">View the event</a></p>
     `.trim();

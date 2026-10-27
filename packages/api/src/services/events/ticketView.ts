@@ -14,6 +14,7 @@ import { NotFoundError, ValidationError, } from '../../core/errors';
 import { query, } from '../../db';
 import * as repo from '../../repositories/events.repo';
 import { logger, } from '../../utils/logger';
+import { eventLocationText, } from '@sitesurge/types';
 
 /** `jane.doe@example.com` → `j•••@example.com`. */
 export function maskEmail(email: string,): string {
@@ -120,7 +121,7 @@ export async function getTicketView(
             startsAt: event.startsAt,
             endsAt: event.endsAt,
             allDay: event.allDay,
-            location: event.location,
+            location: eventLocationText(event,),
             timezone: event.timezone,
             featuredImage: event.featuredImage ?? null,
         },

@@ -102,6 +102,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
     const [slugTouched, setSlugTouched,] = createSignal(false,);
     const [description, setDescription,] = createSignal('',);
     const [location, setLocation,] = createSignal('',);
+    const [locationLabel, setLocationLabel,] = createSignal<string | null>(null,);
     const [locationLat, setLocationLat,] = createSignal<number | null>(null,);
     const [locationLng, setLocationLng,] = createSignal<number | null>(null,);
     const [showMap, setShowMap,] = createSignal(false,);
@@ -141,7 +142,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
     // ─── Dirty tracking per tab (snapshot vs what was loaded) ───
     const generalState = () => ({
         title: title(), slug: slug(), description: description(), location: location(),
-        locationLat: locationLat(), locationLng: locationLng(), showMap: showMap(),
+        locationLabel: locationLabel(), locationLat: locationLat(), locationLng: locationLng(), showMap: showMap(),
         startDate: startDate(), startTime: startTime(), endDate: endDate(), endTime: endTime(),
         allDay: allDay(), multiDay: multiDay(), timezone: timezone(), recurrence: recurrence(), recurrenceUntil: recurrenceUntil(),
         status: status(), viewAccess: viewAccess(), viewTier: viewTier(), registerAccess: registerAccess(), registerTier: registerTier(),
@@ -169,6 +170,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
             setSlugTouched(true,);
             setDescription(e.description ?? '',);
             setLocation(e.location ?? '',);
+            setLocationLabel(e.locationLabel ?? null,);
             setLocationLat(e.locationLat ?? null,);
             setLocationLng(e.locationLng ?? null,);
             setShowMap(Boolean(e.showMap,),);
@@ -276,6 +278,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
                 slug: slug().trim() || undefined,
                 description: description().trim() || null,
                 location: location().trim() || null,
+                locationLabel: locationLabel()?.trim() || null,
                 locationLat: locationLat(),
                 locationLng: locationLng(),
                 showMap: showMap(),
@@ -420,6 +423,8 @@ const EventModal: Component<EventModalProps> = (props,) => {
                             lat={locationLat()}
                             lng={locationLng()}
                             showMap={showMap()}
+                            label={locationLabel()}
+                            onLabel={setLocationLabel}
                             onLocation={setLocation}
                             onPoint={(lat, lng,) => { setLocationLat(lat,); setLocationLng(lng,); }}
                             onShowMap={setShowMap}

@@ -73,7 +73,7 @@ function ssrCard(e: EventRecord, o: EventCardDisplay,): string {
         + (o.showImage && e.featuredImage ? `<a href="${url}"><img src="${esc(e.featuredImage,)}" alt="${esc(e.title,)}" loading="lazy" /></a>` : '')
         + `<h3 class="ssr-event-card__title"><a href="${url}">${esc(e.title,)}</a></h3>`
         + (when ? `<p class="ssr-event-card__when"><time datetime="${esc(e.nextOccurrence,)}">${esc(when,)}</time></p>` : '')
-        + (o.showLocation && e.location ? `<p class="ssr-event-card__where">${esc(e.location,)}</p>` : '')
+        + (o.showLocation && (e.locationText ?? e.location) ? `<p class="ssr-event-card__where">${esc(e.locationText ?? e.location,)}</p>` : '')
         + (desc ? `<p class="ssr-event-card__desc">${esc(desc,)}</p>` : '')
         + (o.showTickets && e.tiers?.length ? `<ul class="ssr-event-card__tiers">${e.tiers.map((t,) => `<li>${esc(tierLine(t,),)}</li>`).join('',)}</ul>` : '')
         + (signIn ? `<p class="ssr-event-card__signin">${esc(signIn,)}</p>` : '')
@@ -122,7 +122,7 @@ function emailCard(e: EventRecord, o: EventCardDisplay, cellWidth: number, env: 
     }
     body.push(`<p style="margin:0 0 6px;font-size:18px;line-height:1.3;font-weight:700"><a href="${url}" style="color:${esc(env.textColor,)};text-decoration:none">${esc(e.title,)}</a></p>`,);
     if (when) body.push(`<p style="margin:0 0 4px;font-size:14px;${muted}">${esc(when,)}</p>`,);
-    if (o.showLocation && e.location) body.push(`<p style="margin:0 0 4px;font-size:14px;${muted}">${esc(e.location,)}</p>`,);
+    if (o.showLocation && (e.locationText ?? e.location)) body.push(`<p style="margin:0 0 4px;font-size:14px;${muted}">${esc(e.locationText ?? e.location,)}</p>`,);
     if (desc) body.push(`<p style="margin:8px 0 0;font-size:14px;line-height:1.5">${esc(desc,)}</p>`,);
     if (o.showTickets && e.tiers?.length) {
         body.push(`<p style="margin:8px 0 0;font-size:13px;line-height:1.6">${e.tiers.map((t,) => esc(tierLine(t,),)).join('<br>',)}</p>`,);

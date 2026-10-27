@@ -93,8 +93,8 @@ const EventCard: Component<EventCardProps> = (props,) => {
                 <Show when={d().showDate && props.event.recurrenceLabel}>
                     <p class="event-card__meta">{props.event.recurrenceLabel}</p>
                 </Show>
-                <Show when={d().showLocation && props.event.location}>
-                    <p class="event-card__meta event-card__location">{props.event.location}</p>
+                <Show when={d().showLocation && (props.event.locationText ?? props.event.location)}>
+                    <p class="event-card__meta event-card__location">{props.event.locationText ?? props.event.location}</p>
                 </Show>
                 <Show when={excerpt()}>
                     <p class="event-card__excerpt">{excerpt()}</p>

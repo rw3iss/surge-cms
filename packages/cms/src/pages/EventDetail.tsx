@@ -22,7 +22,7 @@ import { isFeatureEnabled, } from '../stores/siteSettings';
 import { cms, } from '../services/cmsClient';
 import { formatEventWhen, } from '../utils/eventFormat';
 import './EventDetail.scss';
-import { mapLinkFor, } from '@sitesurge/types';
+import { eventLocationText, mapLinkFor, } from '@sitesurge/types';
 const LocationMap = lazy(() => import('../components/map/LocationMap'),);
 
 const EventDetailPage: Component = () => {
@@ -175,9 +175,10 @@ const EventDetailPage: Component = () => {
                                 <header class="event-detail__head">
                                     <h1>{ev().title}</h1>
                                     <p class="event-detail__when">{when()}</p>
-                                    <Show when={ev().location}>
+                                    <Show when={eventLocationText(ev(),)}>
                                         <p class="event-detail__where">
-                                            <span>{ev().location}</span>
+                                            {/* The label ("Set text") when set; the link still goes to the location. */}
+                                            <span>{eventLocationText(ev(),)}</span>
                                             <Show when={mapLinkFor({ location: ev().location, lat: ev().locationLat, lng: ev().locationLng, },)}>
                                                 {(href,) => (
                                                     <a class="event-detail__map-link" href={href()} target="_blank" rel="noopener noreferrer">View map →</a>
@@ -231,7 +232,7 @@ const EventDetailPage: Component = () => {
                                         lat={ev().locationLat}
                                         lng={ev().locationLng}
                                         height="200px"
-                                        label={`Map: ${ev().location ?? ev().title}`}
+                                        label={`Map: ${eventLocationText(ev(),) ?? ev().title}`}
                                         onClick={() => {
                                             const href = mapLinkFor({ location: ev().location, lat: ev().locationLat, lng: ev().locationLng, },);
                                             if (href) window.open(href, '_blank', 'noopener',);

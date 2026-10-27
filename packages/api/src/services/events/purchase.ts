@@ -19,6 +19,7 @@ import { register, } from './registration';
 import { eventSender, getSettings, } from './settings';
 import { issueTickets, resolveTicketLines, } from './tickets';
 import type { LevelViewer, } from '../access/level';
+import { eventLocationText, } from '@sitesurge/types';
 
 export interface PurchaseResult {
     status: 'confirmed' | 'payment_required';
@@ -124,7 +125,7 @@ export async function sendTicketConfirmation(
             defaultSubject: `Your tickets: ${event.title}`,
             defaultHtml: `<h2>You're going to ${escapeHtml(event.title,)}</h2>
                 <p>${escapeHtml(when,)}</p>
-                ${event.location ? `<p>${escapeHtml(event.location,)}</p>` : ''}
+                ${eventLocationText(event,) ? `<p>${escapeHtml(eventLocationText(event,)!,)}</p>` : ''}
                 <h3 style="margin-top:18px">Your tickets</h3>
                 ${ticketsHtml}
                 <p style="margin-top:16px">
@@ -132,7 +133,7 @@ export async function sendTicketConfirmation(
                 </p>
                 <p style="color:#6b7280;font-size:12px">Bring these codes with you.</p>`,
             context: {
-                event: { title: event.title, location: event.location ?? '', url, },
+                event: { title: event.title, location: eventLocationText(event,) ?? '', url, },
                 occurrence: { date: occurrenceDate ?? '', when, },
                 tickets: tickets.map((t,) => ({ code: t.code, tier: t.tierName, url: ticketUrl(t.code,), })),
                 ticketsHtml,

@@ -112,7 +112,12 @@ export interface EventRecord {
     /** "Every week" · "Every month on the 15th" … ('' for a one-off). */
     recurrenceLabel: string;
     isRecurring: boolean;
+    /** The location as stored (the address the map and links use). */
     location: string | null;
+    /** The editor's "Set text" label, else null. */
+    locationLabel: string | null;
+    /** What to SHOW for the location: the label when set, else `location`. */
+    locationText: string | null;
     /** The location's exact point, when picked on the map. */
     locationLat: number | null;
     locationLng: number | null;
