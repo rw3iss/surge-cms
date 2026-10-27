@@ -36,6 +36,8 @@ export interface FormQuestionInput {
     width?: QuestionWidth;
     placeholder?: string;
     questionAsPlaceholder?: boolean;
+    /** Contact field this question fills (email / name / first_name / last_name / phone); null = guess. */
+    contactField?: import('../../utils/formContact').FormContactField | null;
     rows?: number;
     allowResize?: boolean;
     maxHeight?: string;

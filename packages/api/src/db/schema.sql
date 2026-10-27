@@ -405,6 +405,7 @@ CREATE TABLE form_questions (
     width VARCHAR(8) NOT NULL DEFAULT 'full',
     placeholder VARCHAR(255),
     question_as_placeholder BOOLEAN NOT NULL DEFAULT false,
+    contact_field TEXT CHECK (contact_field IS NULL OR contact_field IN ('email', 'name', 'first_name', 'last_name', 'phone')),
     "rows" INTEGER,
     allow_resize BOOLEAN NOT NULL DEFAULT true,
     max_height VARCHAR(20),

@@ -13,6 +13,7 @@ export * from './featuredMedia';
 export * from './donationIntervals';
 export * from './formFields';
 export * from './formSections';
+export * from './formContact';
 export * from './systemPages';
 export * from './loginRoute';
 export * from './discountMath';

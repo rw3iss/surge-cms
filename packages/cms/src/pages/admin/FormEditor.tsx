@@ -13,6 +13,9 @@ import {
     type FormActionType,
     type FormCreateBody,
     parseEmailList,
+    FORM_CONTACT_FIELDS,
+    type FormContactField,
+    guessContactField,
 } from '@sitesurge/types';
 import { A, useNavigate, useParams, } from '@solidjs/router';
 import { Component, createEffect, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
@@ -56,6 +59,8 @@ interface FormQuestion {
     rows?: number;
     allowResize?: boolean;
     maxHeight?: string;
+    /** Contact field the answer fills ('' / undefined = guess from type + label). */
+    contactField?: FormContactField | '';
 }
 
 /** Free-text inputs that support a placeholder (and, for textarea, sizing). */
@@ -137,6 +142,7 @@ const FormEditor: Component = () => {
                 rows: q.rows ?? 4,
                 allowResize: q.allowResize ?? true,
                 maxHeight: q.maxHeight || '',
+                contactField: q.contactField ?? '',
             })), data.sections,),);
     };
 
@@ -545,6 +551,7 @@ const FormEditor: Component = () => {
                     rows: q.type === 'textarea' ? (q.rows ?? 4) : undefined,
                     allowResize: q.type === 'textarea' ? (q.allowResize ?? true) : undefined,
                     maxHeight: q.type === 'textarea' && q.allowResize ? (q.maxHeight || undefined) : undefined,
+                    contactField: isTextInputType(q.type,) && q.contactField ? q.contactField : null,
                 })),
             };
 
@@ -736,6 +743,27 @@ const FormEditor: Component = () => {
                                 <option value="full">Full width</option>
                                 <option value="half">Half width</option>
                             </select>
+
+                            <Show when={isTextInputType(question.type,)}>
+                                <label style={{ 'margin-top': '0.5rem', display: 'inline-flex', 'align-items': 'center', gap: '4px', }}>
+                                    Contact field
+                                    <Tooltip
+                                        header="Contact field"
+                                        content="What this answer is, when the site needs the submitter's details: email, name or phone. Used by Subscribe / Add as contact, replies, and to pre-fill the sign-up form after a membership application. Auto guesses from the type and the question text."
+                                    />
+                                </label>
+                                <select
+                                    value={question.contactField ?? ''}
+                                    onChange={(e,) => updateQuestion(index(), { contactField: e.currentTarget.value as FormContactField | '', },)}
+                                >
+                                    <option value="">
+                                        Auto{guessContactField(question.question, question.type,)
+                                            ? ` (${FORM_CONTACT_FIELDS.find((f,) => f.value === guessContactField(question.question, question.type,))?.label})`
+                                            : ' (none)'}
+                                    </option>
+                                    <For each={FORM_CONTACT_FIELDS}>{(f,) => <option value={f.value}>{f.label}</option>}</For>
+                                </select>
+                            </Show>
                         </div>
                     </div>
 

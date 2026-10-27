@@ -5911,6 +5911,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "required": false
                         },
                         {
+                            "name": "contactField",
+                            "type": "'email' | 'name' | 'first_name' | 'last_name' | 'phone' | null",
+                            "required": false
+                        },
+                        {
                             "name": "rows",
                             "type": "integer",
                             "required": false
@@ -6010,6 +6015,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                         {
                             "name": "questionAsPlaceholder",
                             "type": "boolean",
+                            "required": false
+                        },
+                        {
+                            "name": "contactField",
+                            "type": "'email' | 'name' | 'first_name' | 'last_name' | 'phone' | null",
                             "required": false
                         },
                         {

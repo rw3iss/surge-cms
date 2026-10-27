@@ -7,6 +7,7 @@ import { isFeatureEnabled, isPatreonEnabled, siteName, siteSettings, } from '../
 import SubscriptionSignup from '../components/membership/SubscriptionSignup';
 import { shownPrice, tierAtPrice, } from '../utils/membershipFormat';
 import { loginUrlFor, rememberChoice, type MembershipChoice, } from '../utils/membershipChoice';
+import { takeJoinPrefill, } from '../utils/joinPrefill';
 import './Join.scss';
 
 const Join: Component = () => {
@@ -26,6 +27,16 @@ const Join: Component = () => {
     const choice = (): MembershipChoice | null =>
         params.tier ? { tier: params.tier, price: params.price ?? null, apply: params.apply === '1', } : null;
     onMount(() => { const c = choice(); if (c && !siteSettings()?.membership?.required) rememberChoice(c,); },);
+    // Details typed into a membership application just before "Create my account".
+    // (Subscription-required sites render SubscriptionSignup instead, which takes them itself.)
+    onMount(() => {
+        if (siteSettings()?.membership?.required) return;
+        const p = takeJoinPrefill();
+        if (!p) return;
+        if (p.name && !name()) setName(p.name,);
+        if (p.email && !email()) setEmail(p.email,);
+        if (p.phone && !phone()) setPhone(p.phone,);
+    },);
     const [chosenTier,] = createResource(
         () => params.tier,
         (id,) => cms.payments.membershipTiers().then((r,) => r.tiers.find((t,) => t.id === id,) ?? null,).catch(() => null,),

@@ -1,5 +1,5 @@
 import type { Form, FormQuestion, FormSubmission, } from '@sitesurge/types';
-import { cleanFormSections, } from '@sitesurge/types';
+import { cleanFormSections, isFormContactField, } from '@sitesurge/types';
 import { query, transaction, } from '../db';
 import { NotFoundError, ValidationError, } from '../middleware/error';
 import { mapRow, mapRows, } from '../utils/mapRow';
@@ -7,6 +7,10 @@ import { uuidOrNull, } from '../utils/uuid';
 import { deleteById, findByIdOrThrow, paginatedQuery, PaginatedResult, PaginationOptions, } from './base.repo';
 
 // ─── Forms ───
+
+
+/** A question's contact field as stored: a known key, else NULL ("guess"). */
+const contactFieldOf = (v: unknown,): string | null => (isFormContactField(v,) ? v : null);
 
 export interface FormFilters {
     status?: string;
@@ -196,8 +200,8 @@ export async function createQuestion(formId: string, data: Record<string, unknow
     const result = await query(
         `INSERT INTO form_questions (form_id, type, question, description, options,
                                  is_required, "order", validation, width,
-                                 placeholder, question_as_placeholder, "rows", allow_resize, max_height, section_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                                 placeholder, question_as_placeholder, "rows", allow_resize, max_height, section_id, contact_field)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
      RETURNING *`,
         [
             formId,
@@ -215,6 +219,7 @@ export async function createQuestion(formId: string, data: Record<string, unknow
             data.allowResize ?? true,
             (data.maxHeight as string | undefined) || null,
             (data.sectionId as string | null | undefined) || null,
+            contactFieldOf(data.contactField,),
         ],
     );
 
@@ -243,6 +248,7 @@ export async function updateQuestion(
         allowResize: 'allow_resize',
         maxHeight: 'max_height',
         sectionId: 'section_id',
+        contactField: 'contact_field',
     };
 
     for (const [key, dbCol,] of Object.entries(fieldMap,)) {
@@ -319,6 +325,7 @@ export async function syncQuestions(
             const allowResize = (raw.allowResize as boolean | undefined) ?? true;
             const maxHeight = (raw.maxHeight as string | undefined) || null;
             const sectionId = (raw.sectionId as string | null | undefined) || null;
+            const contactField = contactFieldOf(raw.contactField,);
 
             if (qid && existingIds.has(qid,)) {
                 await client.query(
@@ -326,23 +333,23 @@ export async function syncQuestions(
                      SET type = $1, question = $2, description = $3, options = $4,
                          is_required = $5, "order" = $6, validation = $7, width = $8,
                          placeholder = $9, question_as_placeholder = $10, "rows" = $11,
-                         allow_resize = $12, max_height = $13, section_id = $16, updated_at = NOW()
+                         allow_resize = $12, max_height = $13, section_id = $16, contact_field = $17, updated_at = NOW()
                      WHERE id = $14 AND form_id = $15`,
                     [raw.type, raw.question, raw.description ?? null, options,
                         raw.isRequired ?? false, order, validation, width,
-                        placeholder, questionAsPlaceholder, rows, allowResize, maxHeight, qid, formId, sectionId,],
+                        placeholder, questionAsPlaceholder, rows, allowResize, maxHeight, qid, formId, sectionId, contactField,],
                 );
                 kept.push(qid,);
             } else {
                 const ins = await client.query<{ id: string; }>(
                     `INSERT INTO form_questions (form_id, type, question, description, options,
                                                  is_required, "order", validation, width,
-                                                 placeholder, question_as_placeholder, "rows", allow_resize, max_height, section_id)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                                                 placeholder, question_as_placeholder, "rows", allow_resize, max_height, section_id, contact_field)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
                      RETURNING id`,
                     [formId, raw.type, raw.question, raw.description ?? null, options,
                         raw.isRequired ?? false, order, validation, width,
-                        placeholder, questionAsPlaceholder, rows, allowResize, maxHeight, sectionId,],
+                        placeholder, questionAsPlaceholder, rows, allowResize, maxHeight, sectionId, contactField,],
                 );
                 kept.push(ins.rows[0].id,);
             }

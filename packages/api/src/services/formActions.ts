@@ -18,6 +18,7 @@ import type { Form, FormActionConfig, FormQuestion, TemplateRuntime, } from '@si
 import {
     deriveFieldKeys,
     formatAnswerValue,
+    formContactValues,
     parseEmailList,
     renderTemplateToString,
     resolveValueFunction,
@@ -119,15 +120,18 @@ function extractEmail(questions: FormQuestion[], answers: SubmittedAnswer[],): s
 }
 
 /** The submitter's email / name / phone as the form actions read them — shared
- *  with the reply flow so "who sent this" is decided in one place. */
+ *  with the reply flow so "who sent this" is decided in one place. The shared
+ *  rule (`formContactValues`: a question's Contact field → its type → its label)
+ *  decides first; the derived-key lookup below remains the fallback. */
 export function submitterContact(
     questions: FormQuestion[],
     answers: SubmittedAnswer[],
 ): { email: string | null; name: string | null; phone: string | null; } {
+    const c = formContactValues(questions, answers,);
     return {
-        email: extractEmail(questions, answers,),
-        name: valueByAnyKey(questions, answers, NAME_KEYS,),
-        phone: valueByAnyKey(questions, answers, PHONE_KEYS,),
+        email: c.email ?? extractEmail(questions, answers,),
+        name: c.name ?? valueByAnyKey(questions, answers, NAME_KEYS,),
+        phone: c.phone ?? valueByAnyKey(questions, answers, PHONE_KEYS,),
     };
 }
 
@@ -168,7 +172,7 @@ async function runSubscribe(
         logger.warn('form subscribe action: no mailingListId configured', { form: form.id, },);
         return;
     }
-    const email = extractEmail(questions, answers,);
+    const email = submitterContact(questions, answers,).email;
     if (!email) {
         logger.warn('form subscribe action: no email field value', { form: form.id, },);
         return;
@@ -178,8 +182,9 @@ async function runSubscribe(
         logger.warn('form subscribe action: mailing list not found', { listId: cfg.mailingListId, },);
         return;
     }
-    const name = valueByAnyKey(questions, answers, NAME_KEYS,) ?? undefined;
-    const phone = valueByAnyKey(questions, answers, PHONE_KEYS,) ?? undefined;
+    const who = submitterContact(questions, answers,);
+    const name = who.name ?? undefined;
+    const phone = who.phone ?? undefined;
     await mailingLists.publicSubscribe(
         list.slug,
         { email, name, phone, },
@@ -300,12 +305,13 @@ export async function dispatchFormAction(
     // the form does with the submission, and gating it on subscribe/email would
     // make a save-only form unable to feed the CRM.
     if (cfg.addContact) {
-        const email = extractEmail(questions, answers,);
+        const who = submitterContact(questions, answers,);
+        const email = who.email;
         if (email) {
             await captureAudience({
                 email,
-                name: valueByAnyKey(questions, answers, NAME_KEYS,),
-                phone: valueByAnyKey(questions, answers, PHONE_KEYS,),
+                name: who.name,
+                phone: who.phone,
                 userId: actor.userId ?? null,
                 source: `form:${form.slug}`,
             }, { addContact: true, },);

@@ -20,7 +20,7 @@
  * The sign-up flow (SubscriptionSignup) uses the two parts as its own steps.
  */
 import type { Form, FormAnswer, MembershipApplyResponse, MembershipApplySubmitResponse, MembershipTierOption, } from '@sitesurge/types';
-import { DEFAULT_APPLICATION_FIELDS, } from '@sitesurge/types';
+import { contactQuestions, DEFAULT_APPLICATION_FIELDS, formContactValues, } from '@sitesurge/types';
 import { Component, createResource, createSignal, onCleanup, onMount, Show, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
@@ -31,6 +31,7 @@ import { mountStripeCard, saveCardForLater, type MountedCard, } from '../../util
 import FormRenderer from '../forms/FormRenderer';
 import { Portal, } from 'solid-js/web';
 import { A, } from '@solidjs/router';
+import { saveJoinPrefill, } from '../../utils/joinPrefill';
 import './MembershipApplication.scss';
 
 /** The built-in application form, as a Form FormRenderer can draw. */
@@ -42,33 +43,27 @@ function builtInForm(): Form {
         questions: DEFAULT_APPLICATION_FIELDS.map((f, i,) => ({
             id: f.id, formId: 'membership-application', type: f.type === 'email' ? 'email' : 'text', question: f.label,
             isRequired: f.required, order: i, createdAt: now, updatedAt: now,
+            contactField: f.id === 'name' || f.id === 'email' || f.id === 'phone' ? f.id : null,
         }),),
         createdAt: now, updatedAt: now,
     } as unknown as Form;
 }
 
 /** Pre-fill the applicant's name + email where the form asks for them. */
+/** Pre-fill an application with what we already know (signed in). Which
+ *  question is the email / name is decided by the shared contact rule. */
 function prefillFor(form: Form, who: { name?: string | null; email?: string | null; },): Record<string, string> {
+    const by = contactQuestions(form.questions,);
     const out: Record<string, string> = {};
-    for (const q of form.questions) {
-        const label = q.question.toLowerCase();
-        if (who.email && q.type === 'email') out[q.id] = who.email;
-        else if (who.name && q.type === 'text' && /^(full\s+)?name\b|your name/.test(label,)) out[q.id] = who.name;
-    }
+    if (who.email && by.email) out[by.email.id] = who.email;
+    if (who.name && by.name) out[by.name.id] = who.name;
     return out;
 }
 
-/** Name + email typed into an application (to pre-fill the account step). */
-export function applicantFrom(form: Form | undefined, answers: FormAnswer[],): { name: string; email: string; } {
-    const by = new Map(answers.map((a,) => [a.questionId, String(a.value ?? '',).trim(),]),);
-    let name = '';
-    let email = '';
-    for (const q of form?.questions ?? []) {
-        const v = by.get(q.id,) ?? '';
-        if (!email && q.type === 'email') email = v;
-        if (!name && q.type === 'text' && /name/i.test(q.question,)) name = v;
-    }
-    return { name, email, };
+/** Name + email (+ phone) typed into an application — the shared contact rule. */
+export function applicantFrom(form: Form | undefined, answers: FormAnswer[],): { name: string; email: string; phone: string; } {
+    const c = formContactValues(form?.questions ?? [], answers,);
+    return { name: c.name ?? '', email: c.email ?? '', phone: c.phone ?? '', };
 }
 
 export const ApplicationQuestions: Component<{
@@ -308,8 +303,10 @@ export const ApplyModal: Component<{
                     <ApplicationQuestions
                         tier={props.tier}
                         prefill={{ name: auth.user?.displayName, email: auth.user?.email, }}
-                        onCollected={async (a,) => {
+                        onCollected={async (a, f,) => {
                             setSubmitted(await submitApplication(props.tier, a, noCard() ? null : price(),),);
+                            // Signed out: "Create my account" opens /join — hand it what was typed.
+                            if (!auth.user) saveJoinPrefill(applicantFrom(f, a,),);
                             void auth.refreshUser();
                             props.onApplied();
                             // No card to add (programs, "Hide price" levels): complete it now

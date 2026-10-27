@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T06:50:52.673Z",
+  "generatedAt": "2026-10-27T17:22:52.661Z",
   "totalModules": 60,
   "totalRoutes": 654,
   "modules": [
@@ -5156,6 +5156,11 @@
                 "required": false
               },
               {
+                "name": "contactField",
+                "type": "'email' | 'name' | 'first_name' | 'last_name' | 'phone' | null",
+                "required": false
+              },
+              {
                 "name": "rows",
                 "type": "integer",
                 "required": false
@@ -5251,6 +5256,11 @@
               {
                 "name": "questionAsPlaceholder",
                 "type": "boolean",
+                "required": false
+              },
+              {
+                "name": "contactField",
+                "type": "'email' | 'name' | 'first_name' | 'last_name' | 'phone' | null",
                 "required": false
               },
               {

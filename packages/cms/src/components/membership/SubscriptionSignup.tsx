@@ -30,6 +30,7 @@ import { billedNote, defaultPriceId, leadPriceId, freq, money, per, shownPrice, 
 import PriceChoice from './PriceChoice';
 import '../../pages/Subscribe.scss';
 import './SubscriptionSignup.scss';
+import { takeJoinPrefill, } from '../../utils/joinPrefill';
 
 type Step = 'plan' | 'application' | 'submitted' | 'account' | 'payment' | 'done';
 
@@ -113,8 +114,10 @@ const SubscriptionSignup: Component = () => {
     },);
 
     // ─── Account ───
-    const [name, setName,] = createSignal('',);
-    const [email, setEmail,] = createSignal('',);
+    // Pre-filled from a membership application typed just before (utils/joinPrefill).
+    const handed = takeJoinPrefill();
+    const [name, setName,] = createSignal(handed?.name ?? '',);
+    const [email, setEmail,] = createSignal(handed?.email ?? '',);
     const [password, setPassword,] = createSignal('',);
     const [confirmPassword, setConfirmPassword,] = createSignal('',);
 

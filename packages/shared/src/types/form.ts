@@ -39,6 +39,9 @@ export interface FormQuestion {
     allowResize?: boolean;
     /** Textarea max resize height (any CSS length; empty = unbounded). */
     maxHeight?: string;
+    /** What this answer IS for contact purposes (email / name / phone …) —
+     *  read by `formContactValues`; null = guess from the type + label. */
+    contactField?: import('../utils/formContact').FormContactField | null;
     createdAt: Date;
     updatedAt: Date;
 }
