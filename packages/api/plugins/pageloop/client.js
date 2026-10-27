@@ -54,9 +54,15 @@ export default {
         // The PageLoop instance has stop() (async; unmounts its toolbar/sidebar),
         // not destroy() — calling only destroy() left the widget on screen.
         const stopInstance = (inst) => {
+            // PageLoop also leaves state classes on <body> (pl-widget-mode-*, pl-widget-corner-*).
+            const stripBodyClasses = () => {
+                for (const n of [document.body, document.documentElement]) {
+                    for (const c of [...n.classList]) if (c.startsWith('pl-')) n.classList.remove(c);
+                }
+            };
             try {
-                if (inst && typeof inst.stop === 'function') void inst.stop();
-                else if (inst && typeof inst.destroy === 'function') inst.destroy();
+                if (inst && typeof inst.stop === 'function') Promise.resolve(inst.stop()).finally(stripBodyClasses);
+                else if (inst && typeof inst.destroy === 'function') { inst.destroy(); stripBodyClasses(); }
             } catch (_) { /* noop */ }
             if (activeInstance === inst) activeInstance = null;
         };
