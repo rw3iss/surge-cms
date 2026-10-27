@@ -4077,6 +4077,55 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         ]
     },
     {
+        "namespace": "geo",
+        "className": "GeoModule",
+        "summary": "/geo — address search + reverse lookup for map pickers (staff; proxied to OpenStreetMap by the server, cached + throttled).",
+        "methods": [
+            {
+                "name": "reverse",
+                "signature": "reverse(lat: number, lng: number): Promise<GeoPlace | null>",
+                "summary": "The address at a point, or null.",
+                "params": [
+                    {
+                        "name": "lat",
+                        "type": "number",
+                        "optional": false
+                    },
+                    {
+                        "name": "lng",
+                        "type": "number",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<GeoPlace | null>",
+                "routes": [
+                    "GET /api/v1/geo/reverse"
+                ]
+            },
+            {
+                "name": "search",
+                "signature": "search(q: string, limit?: number): Promise<GeoPlace[]>",
+                "summary": "Places matching an address or venue (≤ 5).",
+                "params": [
+                    {
+                        "name": "q",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "limit",
+                        "type": "number",
+                        "optional": true
+                    }
+                ],
+                "returns": "Promise<GeoPlace[]>",
+                "routes": [
+                    "GET /api/v1/geo/search"
+                ]
+            }
+        ]
+    },
+    {
         "namespace": "health",
         "className": "HealthModule",
         "summary": "/health namespace (public) — liveness/readiness probes. All probes pass `cache: false` so they always reflect the live process state. `detailed` and `ready` answer 503 when degraded; read the HTTP status for liveness.",
@@ -11011,5 +11060,5 @@ export const SDK_MODULES: SdkModuleDoc[] = [
     }
 ];
 
-export const SDK_MODULE_COUNT = 55;
-export const SDK_METHOD_COUNT = 649;
+export const SDK_MODULE_COUNT = 56;
+export const SDK_METHOD_COUNT = 651;

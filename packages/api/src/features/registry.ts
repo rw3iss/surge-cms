@@ -340,6 +340,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
             '141_event_access.sql',
             '172_event_subscriber_confirm_ticket_caps.sql',
             '180_event_tier_description.sql',
+            '199_event_location_map.sql',
         ],
         // Reverse-dropped on uninstall, so children first.
         // Reverse-dropped on uninstall, so parents last.

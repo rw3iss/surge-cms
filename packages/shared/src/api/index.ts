@@ -74,6 +74,7 @@ export * from './routes/contributions';
 export * from './routes/utils';
 export * from './routes/plugins';
 export * from './routes/contacts';
+export * from './routes/geo';
 export * from './routes/events';
 export * from './routes/discussions';
 export * from './routes/comments';

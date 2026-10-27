@@ -203,6 +203,14 @@ export const CORE_PERMISSIONS: PermissionRegistration[] = [
         defaultRoles: ADMIN,
     },
     {
+        key: 'geo:lookup',
+        feature: 'core',
+        label: 'Search addresses on the map',
+        description: 'Map pickers (the event Location field): address search and the address at a dropped pin, via OpenStreetMap.',
+        action: 'read',
+        defaultRoles: STAFF,
+    },
+    {
         key: 'media:read',
         feature: 'core',
         label: 'View media',

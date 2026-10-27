@@ -75,6 +75,11 @@ function assertValid(input: Partial<CalendarEventInput>,): void {
             throw new ValidationError('endsAt cannot be before startsAt',);
         }
     }
+    // The map point is a pair: both or neither.
+    if ((input.locationLat === null) !== (input.locationLng === null)
+        || (input.locationLat === undefined) !== (input.locationLng === undefined)) {
+        throw new ValidationError('The map point needs both a latitude and a longitude.',);
+    }
 }
 
 /**
@@ -206,6 +211,7 @@ export async function update(
     const map: Record<string, string> = {
         title: 'title', description: 'description', startsAt: 'startsAt',
         endsAt: 'endsAt', allDay: 'allDay', location: 'location', url: 'url',
+        locationLat: 'locationLat', locationLng: 'locationLng', showMap: 'showMap',
         featuredImage: 'featuredImage', status: 'status', timezone: 'timezone',
         recurrenceRule: 'recurrenceRule', recurrenceUntil: 'recurrenceUntil',
         registrationEnabled: 'registrationEnabled',

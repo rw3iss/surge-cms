@@ -11,7 +11,7 @@ import type { CalendarEvent, EventTicketTier, } from '@sitesurge/types';
 import { describeRecurrence, parseRecurrenceRule, renderMarkdown, stripMarkdown, } from '@sitesurge/types';
 import { Title, } from '@solidjs/meta';
 import { A, useParams, useSearchParams, } from '@solidjs/router';
-import { Component, createMemo, createResource, Show, } from 'solid-js';
+import { Component, createMemo, createResource, lazy, Show, } from 'solid-js';
 import UpgradeTout from '../components/content/UpgradeTout';
 import { useAuth, } from '../stores/auth';
 import { accessErrorOf, tierRequirement, upgradeHref, type AccessRequired, } from '../utils/accessRequired';
@@ -22,6 +22,8 @@ import { isFeatureEnabled, } from '../stores/siteSettings';
 import { cms, } from '../services/cmsClient';
 import { formatEventWhen, } from '../utils/eventFormat';
 import './EventDetail.scss';
+import { mapLinkFor, } from '@sitesurge/types';
+const LocationMap = lazy(() => import('../components/map/LocationMap'),);
 
 const EventDetailPage: Component = () => {
     const params = useParams<{ slug: string; }>();
@@ -174,7 +176,14 @@ const EventDetailPage: Component = () => {
                                     <h1>{ev().title}</h1>
                                     <p class="event-detail__when">{when()}</p>
                                     <Show when={ev().location}>
-                                        <p class="event-detail__where">{ev().location}</p>
+                                        <p class="event-detail__where">
+                                            <span>{ev().location}</span>
+                                            <Show when={mapLinkFor({ location: ev().location, lat: ev().locationLat, lng: ev().locationLng, },)}>
+                                                {(href,) => (
+                                                    <a class="event-detail__map-link" href={href()} target="_blank" rel="noopener noreferrer">View map →</a>
+                                                )}
+                                            </Show>
+                                        </p>
                                     </Show>
                                     <Show when={ev().recurrenceRule}>
                                         <p class="event-detail__repeat">
@@ -215,6 +224,20 @@ const EventDetailPage: Component = () => {
                             </article>
 
                             <aside class="event-detail__aside">
+                                {/* The location map (when the event shows one): one link to Google Maps. */}
+                                <Show when={ev().showMap && ev().locationLat != null && ev().locationLng != null}>
+                                    <LocationMap
+                                        class="event-detail__map"
+                                        lat={ev().locationLat}
+                                        lng={ev().locationLng}
+                                        height="200px"
+                                        label={`Map: ${ev().location ?? ev().title}`}
+                                        onClick={() => {
+                                            const href = mapLinkFor({ location: ev().location, lat: ev().locationLat, lng: ev().locationLng, },);
+                                            if (href) window.open(href, '_blank', 'noopener',);
+                                        }}
+                                    />
+                                </Show>
                                 {/* Tickets OR registration — see EventSignup. */}
                                 <EventSignup
                                     event={ev()}

@@ -39,6 +39,11 @@ export interface CalendarEvent {
     endsAt: string | null;
     allDay: boolean;
     location: string | null;
+    /** The location's exact point (picked on the map in the event editor); null = none. */
+    locationLat: number | null;
+    locationLng: number | null;
+    /** Show a map of the location on the event page (needs lat/lng). */
+    showMap: boolean;
     /** External link (tickets, venue page, …). */
     url: string | null;
     featuredImage: string | null;
@@ -80,6 +85,9 @@ export interface CalendarEventInput {
     endsAt?: string | null;
     allDay?: boolean;
     location?: string | null;
+    locationLat?: number | null;
+    locationLng?: number | null;
+    showMap?: boolean;
     url?: string | null;
     featuredImage?: string | null;
     status?: EventStatus;

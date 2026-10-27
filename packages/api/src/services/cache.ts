@@ -111,6 +111,9 @@ export const CACHE_KEYS = {
 
     // Video: built master playlists (full + teaser), invalidated when a
     // rendition becomes ready or the video is re-packaged/deleted.
+    /** Map picker lookups (services/geo.ts) — 7 days, never invalidated (addresses don't move). */
+    geoSearch: (q: string,) => `geo:search:${q}`,
+    geoReverse: (lat: number, lng: number,) => `geo:reverse:${lat}:${lng}`,
     videoMaster: (mediaId: string, variant: 'full' | 'teaser',) => `video:master:${mediaId}:${variant}`,
     videoMasterPrefix: (mediaId: string,) => `video:master:${mediaId}:*`,
 

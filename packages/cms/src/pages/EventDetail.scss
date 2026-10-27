@@ -25,6 +25,21 @@
         color: var(--site-text-muted, #6b7280);
         font-size: 0.9rem;
     }
+    &__where {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0 0.6rem;
+    }
+    // "View map →" right after the location text.
+    &__map-link {
+        font-weight: 600;
+        color: var(--site-primary, #e63946);
+        text-decoration: none;
+        white-space: nowrap;
+
+        &:hover { text-decoration: underline; }
+    }
 
     &__image {
         width: 100%;

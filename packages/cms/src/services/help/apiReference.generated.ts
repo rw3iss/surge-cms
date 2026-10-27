@@ -4853,6 +4853,21 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "required": false
                         },
                         {
+                            "name": "locationLat",
+                            "type": "number | null",
+                            "required": false
+                        },
+                        {
+                            "name": "locationLng",
+                            "type": "number | null",
+                            "required": false
+                        },
+                        {
+                            "name": "showMap",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
                             "name": "url",
                             "type": "string | null",
                             "required": false
@@ -4982,6 +4997,21 @@ export const API_MODULES: ApiModuleDoc[] = [
                         {
                             "name": "location",
                             "type": "string | null",
+                            "required": false
+                        },
+                        {
+                            "name": "locationLat",
+                            "type": "number | null",
+                            "required": false
+                        },
+                        {
+                            "name": "locationLng",
+                            "type": "number | null",
+                            "required": false
+                        },
+                        {
+                            "name": "showMap",
+                            "type": "boolean",
                             "required": false
                         },
                         {
@@ -7220,6 +7250,62 @@ export const API_MODULES: ApiModuleDoc[] = [
                 },
                 "sdk": [
                     "cms.gallery.updateSettings"
+                ],
+                "sdkStatus": "method"
+            }
+        ]
+    },
+    {
+        "module": "geo",
+        "mountPath": "/api/v1/geo",
+        "routes": [
+            {
+                "method": "GET",
+                "path": "/search",
+                "absolutePath": "/api/v1/geo/search",
+                "auth": "staff",
+                "summary": "Places matching an address or venue (≤ 5), for map pickers.",
+                "input": {
+                    "query": [
+                        {
+                            "name": "q",
+                            "type": "string",
+                            "required": true
+                        },
+                        {
+                            "name": "limit",
+                            "type": "integer",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.geo.search"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/reverse",
+                "absolutePath": "/api/v1/geo/reverse",
+                "auth": "staff",
+                "summary": "The address at a point (null when nothing is there).",
+                "input": {
+                    "query": [
+                        {
+                            "name": "lat",
+                            "type": "number",
+                            "required": true
+                        },
+                        {
+                            "name": "lng",
+                            "type": "number",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.geo.reverse"
                 ],
                 "sdkStatus": "method"
             }
@@ -18887,5 +18973,5 @@ export const API_MODULES: ApiModuleDoc[] = [
     }
 ];
 
-export const API_MODULE_COUNT = 60;
-export const API_ROUTE_COUNT = 654;
+export const API_MODULE_COUNT = 61;
+export const API_ROUTE_COUNT = 656;

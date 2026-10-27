@@ -29,6 +29,7 @@ import { isFeatureEnabled, } from '../../../stores/siteSettings';
 import RegistrantsTable from './RegistrantsTable';
 import { registrantDateChoices, } from './registrantDates';
 import './EventModal.scss';
+import LocationField from '../../../components/admin/events/LocationField';
 
 export interface EventModalProps {
     /** Existing event to edit, or null for a new one. */
@@ -101,6 +102,9 @@ const EventModal: Component<EventModalProps> = (props,) => {
     const [slugTouched, setSlugTouched,] = createSignal(false,);
     const [description, setDescription,] = createSignal('',);
     const [location, setLocation,] = createSignal('',);
+    const [locationLat, setLocationLat,] = createSignal<number | null>(null,);
+    const [locationLng, setLocationLng,] = createSignal<number | null>(null,);
+    const [showMap, setShowMap,] = createSignal(false,);
     const [startDate, setStartDate,] = createSignal('',);
     const [startTime, setStartTime,] = createSignal('09:00',);
     const [endDate, setEndDate,] = createSignal('',);
@@ -137,6 +141,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
     // ─── Dirty tracking per tab (snapshot vs what was loaded) ───
     const generalState = () => ({
         title: title(), slug: slug(), description: description(), location: location(),
+        locationLat: locationLat(), locationLng: locationLng(), showMap: showMap(),
         startDate: startDate(), startTime: startTime(), endDate: endDate(), endTime: endTime(),
         allDay: allDay(), multiDay: multiDay(), timezone: timezone(), recurrence: recurrence(), recurrenceUntil: recurrenceUntil(),
         status: status(), viewAccess: viewAccess(), viewTier: viewTier(), registerAccess: registerAccess(), registerTier: registerTier(),
@@ -164,6 +169,9 @@ const EventModal: Component<EventModalProps> = (props,) => {
             setSlugTouched(true,);
             setDescription(e.description ?? '',);
             setLocation(e.location ?? '',);
+            setLocationLat(e.locationLat ?? null,);
+            setLocationLng(e.locationLng ?? null,);
+            setShowMap(Boolean(e.showMap,),);
             const s = splitIso(e.startsAt,);
             setStartDate(s.date,);
             setStartTime(s.time,);
@@ -268,6 +276,9 @@ const EventModal: Component<EventModalProps> = (props,) => {
                 slug: slug().trim() || undefined,
                 description: description().trim() || null,
                 location: location().trim() || null,
+                locationLat: locationLat(),
+                locationLng: locationLng(),
+                showMap: showMap() && locationLat() !== null,
                 startsAt,
                 endsAt,
                 allDay: allDay(),
@@ -403,10 +414,16 @@ const EventModal: Component<EventModalProps> = (props,) => {
                                     </Show>
                                 </div>
                             </FormField>
-                            <FormField label="Location">
-                                <input type="text" value={location()} maxLength={255} onInput={(e,) => setLocation(e.currentTarget.value,)} placeholder="Philadelphia, PA" />
-                            </FormField>
                         </div>
+                        <LocationField
+                            location={location()}
+                            lat={locationLat()}
+                            lng={locationLng()}
+                            showMap={showMap()}
+                            onLocation={setLocation}
+                            onPoint={(lat, lng,) => { setLocationLat(lat,); setLocationLng(lng,); }}
+                            onShowMap={setShowMap}
+                        />
                         <FormField label="Description" hint="Markdown: **bold**, *italic*, [links](/x), lists, > quotes, `code`.">
                             <textarea rows={4} value={description()} onInput={(e,) => setDescription(e.currentTarget.value,)} />
                         </FormField>

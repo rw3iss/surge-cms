@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-27T17:22:52.661Z",
-  "totalModules": 60,
-  "totalRoutes": 654,
+  "generatedAt": "2026-10-27T18:27:44.523Z",
+  "totalModules": 61,
+  "totalRoutes": 656,
   "modules": [
     {
       "module": "admin-channel",
@@ -4195,6 +4195,21 @@
                 "required": false
               },
               {
+                "name": "locationLat",
+                "type": "number | null",
+                "required": false
+              },
+              {
+                "name": "locationLng",
+                "type": "number | null",
+                "required": false
+              },
+              {
+                "name": "showMap",
+                "type": "boolean",
+                "required": false
+              },
+              {
                 "name": "url",
                 "type": "string | null",
                 "required": false
@@ -4320,6 +4335,21 @@
               {
                 "name": "location",
                 "type": "string | null",
+                "required": false
+              },
+              {
+                "name": "locationLat",
+                "type": "number | null",
+                "required": false
+              },
+              {
+                "name": "locationLng",
+                "type": "number | null",
+                "required": false
+              },
+              {
+                "name": "showMap",
+                "type": "boolean",
                 "required": false
               },
               {
@@ -6320,6 +6350,54 @@
                 "name": "appearance",
                 "type": "object",
                 "required": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "module": "geo",
+      "mountPath": "/api/v1/geo",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/search",
+          "absolutePath": "/api/v1/geo/search",
+          "auth": "staff",
+          "summary": "Places matching an address or venue (≤ 5), for map pickers.",
+          "input": {
+            "query": [
+              {
+                "name": "q",
+                "type": "string",
+                "required": true
+              },
+              {
+                "name": "limit",
+                "type": "integer",
+                "required": false
+              }
+            ]
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/reverse",
+          "absolutePath": "/api/v1/geo/reverse",
+          "auth": "staff",
+          "summary": "The address at a point (null when nothing is there).",
+          "input": {
+            "query": [
+              {
+                "name": "lat",
+                "type": "number",
+                "required": true
+              },
+              {
+                "name": "lng",
+                "type": "number",
+                "required": true
               }
             ]
           }

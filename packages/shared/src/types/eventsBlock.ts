@@ -113,6 +113,13 @@ export interface EventRecord {
     recurrenceLabel: string;
     isRecurring: boolean;
     location: string | null;
+    /** The location's exact point, when picked on the map. */
+    locationLat: number | null;
+    locationLng: number | null;
+    /** The event page shows a map. */
+    showMap: boolean;
+    /** Google Maps link for the location (the point, else the text); null without a location. */
+    mapUrl: string | null;
     /** Ticketing on (event + Settings → Events) with at least one ticket type. */
     ticketsEnabled: boolean;
     /** Registration or ticketing is on and the event has not ended / been cancelled. */

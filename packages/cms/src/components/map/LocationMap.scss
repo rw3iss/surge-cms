@@ -1,0 +1,31 @@
+// LocationMap (Leaflet). Site tokens: it renders in the admin and on the site.
+.location-map {
+  position: relative;
+  z-index: 0; // Leaflet panes use z-index up to 1000: keep them under modals and menus
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--site-border, #e5e7eb);
+  border-radius: var(--site-radius, 10px);
+  background: #e5e7eb;
+
+  &--link { cursor: pointer; }
+  .leaflet-control-attribution { font-size: 10px; }
+}
+
+// The pin: a teardrop in the brand color, anchored at its tip.
+.location-map__pin {
+  background: none;
+  border: 0;
+
+  span {
+    display: block;
+    width: 28px;
+    height: 28px;
+    border-radius: 50% 50% 50% 0;
+    background: var(--site-primary, #e63946);
+    border: 3px solid #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    transform: rotate(-45deg);
+    transform-origin: center;
+  }
+}

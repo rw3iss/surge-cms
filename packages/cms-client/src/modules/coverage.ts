@@ -165,6 +165,8 @@ export const ROUTE_COVERAGE: string[] = [
     'GET /api/v1/gallery/settings',
     'PUT /api/v1/gallery/settings',
     'GET /api/v1/forum/feed',
+    'GET /api/v1/geo/search',
+    'GET /api/v1/geo/reverse',
     'GET /api/v1/forum/settings',
     'PUT /api/v1/forum/settings',
     'GET /api/v1/forum/categories',
