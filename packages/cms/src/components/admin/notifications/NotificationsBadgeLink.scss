@@ -1,0 +1,42 @@
+// "N notifications" pill beside a dashboard title. Tokens are auto-injected.
+.notifications-badge-link {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: 4px 14px 4px 4px;
+    border-radius: 999px;
+    background: color-mix(in srgb, #{$error-color} 10%, white);
+    border: 1px solid color-mix(in srgb, #{$error-color} 35%, white);
+    color: $error-color;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.15s, box-shadow 0.15s;
+
+    &:hover, &:focus-visible {
+        background: color-mix(in srgb, #{$error-color} 18%, white);
+        box-shadow: 0 1px 4px color-mix(in srgb, #{$error-color} 25%, transparent);
+        text-decoration: none;
+    }
+    &__count {
+        min-width: 24px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: $error-color;
+        color: white;
+        font-size: 12px;
+        font-weight: 700;
+        text-align: center;
+    }
+}
+
+// Title + badge on one line inside an .admin-header.
+.admin-header__title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-md;
+
+    h1 { margin: 0; }
+}

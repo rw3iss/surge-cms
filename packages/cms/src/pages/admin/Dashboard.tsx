@@ -4,6 +4,7 @@ import { cms, } from '../../services/cmsClient';
 import { FEATURES, } from '../../config/features';
 import { isFeatureEnabled, loadSiteSettings, siteSettings, } from '../../stores/siteSettings';
 import AdminTitle from '../../components/admin/common/AdminTitle';
+import NotificationsBadgeLink from '../../components/admin/notifications/NotificationsBadgeLink';
 
 /**
  * Site features rendered in the dashboard panel. Order matches the
@@ -59,7 +60,10 @@ const AdminDashboard: Component = () => {
             <AdminTitle>Dashboard</AdminTitle>
 
             <div class="admin-header">
-                <h1>Dashboard</h1>
+                <div class="admin-header__title-row">
+                    <h1>Dashboard</h1>
+                    <NotificationsBadgeLink />
+                </div>
                 <p class="admin-header__subtitle">Welcome back. Here's what's happening with your site.</p>
             </div>
 

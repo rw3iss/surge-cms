@@ -7,6 +7,7 @@
 import { A, } from '@solidjs/router';
 import type { Post, } from '@sitesurge/types';
 import { createResource, For, Show, type Component, } from 'solid-js';
+import NotificationsBadgeLink from '../../components/admin/notifications/NotificationsBadgeLink';
 import AdminTitle from '../../components/admin/common/AdminTitle';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
@@ -33,7 +34,10 @@ const ContributorDashboard: Component = () => {
         <div class="contributor-dashboard">
             <AdminTitle>Dashboard</AdminTitle>
             <div class="admin-header">
-                <h1>Welcome, {auth.user?.displayName || 'contributor'}</h1>
+                <div class="admin-header__title-row">
+                    <h1>Welcome, {auth.user?.displayName || 'contributor'}</h1>
+                    <NotificationsBadgeLink />
+                </div>
                 <div class="admin-header__actions">
                     <A href="/admin/posts/new" class="ui-button ui-button--primary">Write a new post</A>
                 </div>
