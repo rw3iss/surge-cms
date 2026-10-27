@@ -22,6 +22,7 @@ import { adminShellFor, canEnterAdmin, } from '../../admin/shells';
 import { isFeatureEnabled, loadSiteSettings, siteLogo, siteName, } from '../../stores/siteSettings';
 import { ensureFontFaces, } from '../../services/fonts';
 import { appearanceCssVars, richTextTypographyCss, } from '../../utils/appearanceStyle';
+import StableSuspense from '../../components/common/StableSuspense';
 import './AdminLayout.scss';
 
 /** Minimal outline SVG icons for sidebar nav items (16x16 viewBox) */
@@ -323,6 +324,7 @@ const AdminLayout: ParentComponent = (props,) => {
     // the runtime value debuggable by inspecting the .admin-layout
     // node in DevTools.
     let rootRef: HTMLDivElement | undefined;
+    let mainEl: HTMLElement | undefined;
     createEffect(() => {
         if (!rootRef) return;
         const style = layoutStyle();
@@ -476,8 +478,10 @@ const AdminLayout: ParentComponent = (props,) => {
                         </button>
                     </div>
                 </aside>
-                <main class="admin-layout__main">
-                    {props.children}
+                <main ref={mainEl} class="admin-layout__main">
+                    {/* Admin pages suspend HERE, not at the app boundary (which blanked the
+                        whole admin and threw the scroll to the top), at the page's last height. */}
+                    <StableSuspense measure={() => mainEl}>{props.children}</StableSuspense>
                 </main>
                 <Show when={!shell()}><GlobalSearch /></Show>
                 <SessionExpiredModal />

@@ -1,7 +1,8 @@
 /**
  * Forum widget, list mode: the thread cards, "Load more", live polling and
  * the new-thread composer (inline / form / button), placed above the list —
- * or below it in chat order (newest at the bottom, scrolled to the end).
+ * or below it in chat order (newest at the bottom, scrolled to the end). Both
+ * sit in ONE bordered frame; only the list inside it scrolls.
  */
 import { Component, createEffect, createSignal, For, Match, on, Show, Switch, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
@@ -68,9 +69,9 @@ const ForumListView: Component<{ feed: Feed; }> = (props,) => {
 
     const placeholder = () => s().postPlaceholder || (s().postMode === 'inline' ? 'Start a conversation…' : 'Write your post… (Markdown supported)');
 
-    const Composer = () => (
+    const Composer = (p: { at: 'top' | 'bottom'; },) => (
         <Show when={s().postMode !== 'off'}>
-            <div class="forum-widget__compose">
+            <div class={`forum-widget__compose forum-widget__compose--${p.at}`}>
                 <Switch>
                     <Match when={access() === 'none'}>
                         <Show when={isAdminView() && feed.loaded() && !feed.loading()}>
@@ -133,8 +134,10 @@ const ForumListView: Component<{ feed: Feed; }> = (props,) => {
     );
 
     return (
-        <>
-            <Show when={!chat()}><Composer /></Show>
+        // ONE bordered frame that does not scroll: the writing row (top, or bottom in
+        // chat order) and the list that scrolls inside it — nothing is cut at its edges.
+        <div class="forum-widget__frame">
+            <Show when={!chat()}><Composer at="top" /></Show>
             <div class="forum-widget__list" ref={listEl} onScroll={keeper.onScroll} aria-live="polite" aria-busy={feed.loading()}>
                 <Show when={chat()}><LoadMore /></Show>
                 <Show
@@ -164,8 +167,8 @@ const ForumListView: Component<{ feed: Feed; }> = (props,) => {
             <Show when={chat() && keeper.pill()}>
                 <button type="button" class="forum-widget__pill" onClick={() => keeper.toBottom(true,)}>New posts ↓</button>
             </Show>
-            <Show when={chat()}><Composer /></Show>
-        </>
+            <Show when={chat()}><Composer at="bottom" /></Show>
+        </div>
     );
 };
 

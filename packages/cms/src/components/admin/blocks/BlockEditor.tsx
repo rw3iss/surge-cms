@@ -9,6 +9,7 @@ import { previewBreakpoint, setPreviewBreakpoint, } from '../../../stores/previe
 import { PREVIEW_CONTAINER, } from '@sitesurge/types';
 import AddBlockMenu from './AddBlockMenu';
 import BlockEditController from './BlockEditController';
+import StableSuspense from '../../common/StableSuspense';
 import { stableSelection, } from './stableSelection';
 import { DATA_SETTLE_MS, holdViewport, } from './viewportHold';
 import ContentBlock, { BlockData, BlockType, } from './ContentBlock';
@@ -774,6 +775,10 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                 mode={flyoutMode()}
                 onModeChange={setFlyoutMode}
             >
+                {/* The panel's own boundary: an edit form that loads (categories, a
+                    data summary…) or re-keys a resource on a property change suspends
+                    only the panel, at its last height — never the page. */}
+                <StableSuspense>
                 <BlockEditController
                     block={block()}
                     blockTypes={blockTypes()}
@@ -784,6 +789,7 @@ const BlockEditor: Component<BlockEditorProps> = (props,) => {
                     isDirty={isBlockDirty(block().id,)}
                     onRevert={() => revertBlock(block().id,)}
                 />
+                </StableSuspense>
             </FlyoutPanel>
         );
     };

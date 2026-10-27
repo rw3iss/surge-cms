@@ -28,6 +28,7 @@ $fw-soft: color-mix(in srgb, var(--site-text, #111827) 4%, var(--site-bg, #fff))
     height: 100%;
   }
 
+  .forum-widget__frame { flex: 1 1 auto; }
   .forum-widget__list { max-height: none; }
 }
 
@@ -391,6 +392,52 @@ $fw-soft: color-mix(in srgb, var(--site-text, #111827) 4%, var(--site-bg, #fff))
   .forum-card--minimal.has-avatar > :not(.forum-card__head) { margin-left: 0; }
 }
 
+// ─── Frame: one bordered box that does NOT scroll — the writing row (top, or
+// bottom in chat order) + the list, which alone scrolls. Threads inside are
+// rows with dividers, not boxes, so nothing is cut at the scroll edges. ───
+.forum-widget__frame {
+  position: relative; // the "New posts" pill
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: $fw-bg;
+  border: 1px solid $fw-border;
+  border-radius: $fw-radius;
+  overflow: hidden;
+
+  > .forum-widget__compose {
+    flex: 0 0 auto;
+    padding: 0.75rem 0.9rem;
+    background: $fw-soft;
+
+    &--top { border-bottom: 1px solid $fw-border; }
+    &--bottom { border-top: 1px solid $fw-border; }
+
+    &:empty { display: none; }
+  }
+
+  > .forum-widget__list {
+    gap: 0;
+    padding: 0;
+  }
+
+  .forum-card {
+    border: 0;
+    border-radius: 0;
+    border-bottom: 1px solid $fw-border;
+
+    &:last-child { border-bottom: 0; }
+    &:hover { border-color: $fw-border; box-shadow: none; background: color-mix(in srgb, var(--site-text, #111827) 2%, var(--site-bg, #fff)); }
+    &.is-pinned { box-shadow: inset 3px 0 0 $fw-primary; border-left: 0; }
+  }
+
+  .forum-widget__more { align-self: center; margin: 0.6rem; }
+  .forum-widget__empty,
+  .forum-widget__skeleton,
+  .block-message { margin: 0; padding: 1rem; }
+  .forum-stream { padding: 0.75rem 0.9rem; gap: 0.6rem; }
+}
+
 // ─── Replies + messages ───
 .forum-replies {
   display: flex;
@@ -724,4 +771,11 @@ $fw-soft: color-mix(in srgb, var(--site-text, #111827) 4%, var(--site-bg, #fff))
   .forum-composer__guest { flex-direction: column; }
   .forum-composer__guest .forum-composer__field { max-width: none; }
   .forum-btn { align-self: stretch; }
+}
+
+@media (max-width: 768px) {
+  .forum-widget__frame {
+    > .forum-widget__compose { padding: 0.6rem; }
+    .forum-stream { padding: 0.6rem; }
+  }
 }

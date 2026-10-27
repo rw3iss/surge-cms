@@ -117,7 +117,7 @@ const ForumThreadView: Component<{ feed: Feed; }> = (props,) => {
             }
         >
             {(t,) => (
-                <>
+                <div class="forum-widget__frame">
                     <div class="forum-widget__list forum-stream" ref={listEl} onScroll={keeper.onScroll} aria-live="polite">
                         <Show when={s().showTitle}>
                             <div class="forum-stream__title">
@@ -180,7 +180,7 @@ const ForumThreadView: Component<{ feed: Feed; }> = (props,) => {
                             </Show>
                         </div>
                     </Show>
-                </>
+                </div>
             )}
         </Show>
     );
