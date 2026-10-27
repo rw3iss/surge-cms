@@ -78,7 +78,7 @@ export function EntityEditorShell<TEntity,>(
     const e = props.editor;
     // The View link follows the SAVED status (the live page exists only once saved as published),
     // not the unsaved Status field.
-    const savedPublished = () => ((e.saved() as { status?: string; } | null)?.status ?? props.status()) === 'published';
+    const savedPublished = () => ((e.entity() as { status?: string; } | null)?.status ?? props.status()) === 'published';
     // Resolved ONCE (`children` memoises): reading `props.content` directly in
     // two places would build the custom content section twice.
     const customContent = children(() => props.content,);
