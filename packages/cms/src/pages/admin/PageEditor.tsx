@@ -384,6 +384,211 @@ const AdminPageEditor: Component = () => {
                         so spacing / typography stay consistent. */
                     }
                     <div class="form-group page-editor__homepage-section">
+                        <div class="page-editor__homepage-toggle">
+                            <Toggle
+                                checked={showTitle()}
+                                onChange={(next,) => {
+                                    setShowTitle(next,);
+                                    editor.markDirty();
+                                }}
+                                label="Show title on page"
+                            />
+                            <Tooltip
+                                header="Show title on page"
+                                content="When on, the page renderer prints this page's title as a heading above the content blocks. Turn it off when your first block (e.g. a hero or carousel) already provides the visual headline and you don't want a duplicate."
+                            />
+                        </div>
+                        <div class="page-editor__homepage-toggle">
+                            <Toggle
+                                checked={applyPagePadding()}
+                                onChange={(next,) => {
+                                    setApplyPagePadding(next,);
+                                    editor.markDirty();
+                                }}
+                                label="Apply Page Padding"
+                            />
+                            <Tooltip
+                                header="Apply Page Padding"
+                                content="Apply the site's Page Padding (Settings → Appearance → Layout) to the top and bottom of this page. Default 0 until you set a value there — useful for pushing content down below a floating header."
+                            />
+                        </div>
+                        <div class="page-editor__homepage-toggle">
+                            <Toggle
+                                checked={applySiteGutter()}
+                                onChange={(next,) => {
+                                    setApplySiteGutter(next,);
+                                    editor.markDirty();
+                                }}
+                                label="Apply Site Gutter"
+                            />
+                            <Tooltip
+                                header="Apply Site Gutter"
+                                content="Apply the site's Gutter (left/right padding) to this page's content. Turn off for a full-bleed page."
+                            />
+                        </div>
+                        <div class="page-editor__header-row">
+                            <div class="form-group">
+                                <label>Header Style</label>
+                                <div class="u-flex-row" style={{ 'align-items': 'center', gap: '6px', }}>
+                                    <select
+                                        value={headerStyle()}
+                                        onChange={(e,) => {
+                                            setHeaderStyle(e.currentTarget.value,);
+                                            editor.markDirty();
+                                        }}
+                                    >
+                                        <option value="">- (use site default)</option>
+                                        <option value="default">Default</option>
+                                        <option value="alt">Alt</option>
+                                    </select>
+                                    <Tooltip
+                                        header="Header Style"
+                                        content="Which Site Header colors this page renders. '-' follows the site's 'Default Page Header Style' (Settings → Site Header). 'Default' forces the regular header colors; 'Alt' forces the alternate colors — handy when the page has its own background behind a floating header."
+                                    />
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Header Position</label>
+                                <div class="u-flex-row" style={{ 'align-items': 'center', gap: '6px', }}>
+                                    <select
+                                        value={headerPosition()}
+                                        onChange={(e,) => {
+                                            setHeaderPosition(e.currentTarget.value,);
+                                            editor.markDirty();
+                                        }}
+                                    >
+                                        <option value="">- (use site default)</option>
+                                        <option value="static">Static</option>
+                                        <option value="float">Float</option>
+                                    </select>
+                                    <Tooltip
+                                        header="Header Position"
+                                        content="How the site header sits on this page. '-' follows the site's 'Header Position' (Settings → Site Header). 'Static' renders the header at the top with the content below it; 'Float' places the header above (overlaying) the page content."
+                                    />
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Page Background Color</label>
+                                <div class="u-flex-row" style={{ 'align-items': 'center', gap: '6px', }}>
+                                    {
+                                        /* Same picker as Settings → Appearance → Colors, so a
+                                        swatch chosen here stays linked: editing the swatch
+                                        later reflows into every page using it. Clearing
+                                        returns the page to the site background. */
+                                    }
+                                    <ColorPicker
+                                        value={backgroundColor()}
+                                        onChange={(hex,) => {
+                                            setBackgroundColor(hex,);
+                                            editor.markDirty();
+                                        }}
+                                        clearable
+                                        onClear={() => {
+                                            setBackgroundColor('',);
+                                            editor.markDirty();
+                                        }}
+                                    />
+                                    <Tooltip
+                                        header="Page Background Color"
+                                        content="Background for this page's content area. Empty inherits the site background (Settings → Appearance → Colors). Pick a swatch to stay linked to it, or enter a custom colour."
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {
+                            /* Full-width row beneath the property columns: a code
+                            editor is unusable squeezed into a half column.
+                            Collapsed until asked for, since most pages never
+                            need one — but auto-open when the page already has
+                            CSS, so it is never silently hidden. */
+                        }
+                        <div class="editor-properties__css">
+                            <Show
+                                when={showCss() || customCss().trim()}
+                                fallback={
+                                    <button
+                                        type="button"
+                                        class="ui-button ui-button--secondary ui-button--sm"
+                                        onClick={() => setShowCss(true,)}
+                                    >
+                                        + Add Custom CSS
+                                    </button>
+                                }
+                            >
+                                <div class="editor-properties__css-head">
+                                    <label>Custom CSS</label>
+                                    <Tooltip
+                                        header="Custom CSS"
+                                        content="Rendered after this page's own styles, so these rules win. Useful for restyling parts of a built-in template — the shop's title and sidebar, say — without a setting per element. Tab indents by the amount set in Settings → Appearance → Code tab width."
+                                    />
+                                    <span class="editor-properties__css-spacer" />
+                                    <Show when={customCss().trim()}>
+                                        <button
+                                            type="button"
+                                            class="ui-button ui-button--ghost ui-button--sm"
+                                            onClick={() => {
+                                                if (!confirm("Remove this page's custom CSS?",)) return;
+                                                setCustomCss('',);
+                                                setShowCss(false,);
+                                                editor.markDirty();
+                                            }}
+                                        >
+                                            Clear
+                                        </button>
+                                    </Show>
+                                </div>
+                                <CssEditor
+                                    value={customCss()}
+                                    onChange={(next,) => {
+                                        setCustomCss(next,);
+                                        editor.markDirty();
+                                    }}
+                                    tabWidth={codeTabWidth()}
+                                    height="280px"
+                                />
+                            </Show>
+                        </div>
+                    </div>
+                </div>
+                <div class="editor-properties__sidebar">
+                    <FormField label="Status">
+                        <select
+                            value={status()}
+                            onChange={(e,) => {
+                                setStatus(e.currentTarget.value,);
+                                editor.markDirty();
+                            }}
+                        >
+                            <option value="draft">Draft</option>
+                            <option value="published">Published</option>
+                            <option value="archived">Archived</option>
+                        </select>
+                    </FormField>
+                    <FormField label="Access">
+                        <select
+                            value={accessLevel()}
+                            onChange={(e,) => {
+                                setAccessLevel(e.currentTarget.value,);
+                                editor.markDirty();
+                            }}
+                        >
+                            <option value="public">Public</option>
+                            <option value="member">Members Only</option>
+                            <option value="patron">Patrons Only</option>
+                        </select>
+                    </FormField>
+                    <Show when={siteSettings()?.membership?.required}>
+                        <div class="form-group">
+                            <Toggle
+                                checked={openAccess()}
+                                onChange={(v,) => { setOpenAccess(v,); editor.markDirty(); }}
+                                label="Open without a membership"
+                                hint="A membership is required on this site (Users → Settings). Members without one can still open this page — use it for landing, about or legal pages."
+                            />
+                        </div>
+                    </Show>
+                    <div class="form-group page-editor__homepage-section">
                         <FormField
                             label="Use as page"
                             tooltip="Show this page in place of a built-in page, at that page's address. One page per built-in page."
