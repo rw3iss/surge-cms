@@ -13,7 +13,7 @@ import { timeAgo, } from '../../utils/timeAgo';
 import { memberUrl, } from '../discussions/AuthorCard';
 import ReactionBar from '../discussions/ReactionBar';
 import { ForumAvatar, postForumReply, useForum, } from './forumContext';
-import { clipText, countLabel, replyAccess, } from './forumFeed';
+import { clipText, countLabel, replyAccess, titleRepeatsBody, } from './forumFeed';
 import ForumComposer from './ForumComposer';
 import ForumReplies, { type ForumRepliesApi, } from './ForumReplies';
 import { createFreshIds, } from './forumHooks';
@@ -73,7 +73,8 @@ const ForumThreadCard: Component<{ thread: ForumFeedThread; fresh?: boolean; }> 
                 </div>
             </header>
 
-            <Show when={s().showTitle}>
+            {/* A chat-style post's title is its first line: with the body shown, say it once. */}
+            <Show when={s().showTitle && (s().content === 'none' || !titleRepeatsBody(t().title, t().excerpt,))}>
                 <h3 class="forum-card__title"><A href={t().url}>{t().title}</A></h3>
             </Show>
             <Show when={s().content === 'excerpt' && excerpt()}>

@@ -1,6 +1,6 @@
 import { describe, expect, it, } from 'vitest';
 import {
-    appendPage, clipText, countLabel, displayOrder, hasMorePages, isNearBottom, mergeById, pollIntervalMs, postAccess, replyAccess, someoneTyping,
+    appendPage, clipText, countLabel, displayOrder, hasMorePages, isNearBottom, mergeById, pollIntervalMs, postAccess, replyAccess, someoneTyping, titleRepeatsBody,
 } from './forumFeed';
 
 const r = (id: string, v = 0,) => ({ id, v, });
@@ -117,5 +117,14 @@ describe('postAccess', () => {
         expect(postAccess(target(false, true,), false, true,),).toBe('write',);
         expect(postAccess(target(false, true,), false, false,),).toBe('login',);
         expect(postAccess(target(false, false,), false, true,),).toBe('login',);
+    },);
+},);
+
+describe('titleRepeatsBody', () => {
+    it('detects a derived (chat-style) title', () => {
+        expect(titleRepeatsBody('Hello from the test — inline', 'Hello from the test — inline posting.',),).toBe(true,);
+        expect(titleRepeatsBody('A long first line…', 'A long first line that goes on',),).toBe(true,);
+        expect(titleRepeatsBody('Welcome', 'Please read the rules first.',),).toBe(false,);
+        expect(titleRepeatsBody('', 'x',),).toBe(false,);
     },);
 },);

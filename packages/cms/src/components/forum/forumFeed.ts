@@ -35,6 +35,17 @@ export function hasMorePages(page: number, limit: number, total: number,): boole
     return page * limit < total;
 }
 
+/**
+ * Does the title only repeat the start of the post? True for chat-style
+ * (inline) posts, whose title the server derives from the first line — the
+ * card then shows the message alone instead of saying it twice.
+ */
+export function titleRepeatsBody(title: string, body: string | null | undefined,): boolean {
+    const norm = (v: string,) => v.replace(/…$/, '',).replace(/[^\p{L}\p{N}]+/gu, ' ',).trim().toLowerCase();
+    const t = norm(title,);
+    return t.length > 0 && norm(String(body ?? '',),).startsWith(t,);
+}
+
 /** Plain text cut to `max` characters at a word boundary, with "…". */
 export function clipText(text: string | null | undefined, max: number,): string {
     const t = String(text ?? '',).replace(/\s+/g, ' ',).trim();
