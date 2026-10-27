@@ -33,11 +33,19 @@
     transition: border-color 0.15s, color 0.15s;
   }
 
+  // The big price as a button: tight around the amount (its large font's line
+  // height otherwise added space above and below it).
   &__main.price-choice__opt {
-    padding: 0.15rem 0.5rem;
+    padding: 0.05rem 0.5rem;
+    line-height: 1.15;
     border: 2px solid transparent;
     border-radius: 8px;
+
+    > * { line-height: inherit; }
   }
+
+  // Selectable prices are bordered buttons: a little air before the label under them.
+  &--selectable { margin-bottom: 0.35rem; }
 
   &__opt.is-selected {
     border-color: var(--site-primary, #e63946);
