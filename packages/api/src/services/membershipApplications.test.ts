@@ -82,8 +82,8 @@ describe('apply (built-in form)', () => {
         expect(res.token,).toBeNull();
         const insert = q.mock.calls.find(([sql,],) => String(sql,).includes('INSERT INTO membership_applications',),)!;
         expect(JSON.parse(insert[1][4] as string,),).toEqual([
-            { label: 'Name', value: 'x-name', }, { label: 'Email', value: 'a@b.co', },
-            { label: 'Phone number', value: 'x-phone', }, { label: 'Occupation', value: 'x-occupation', },
+            { label: 'Name', value: 'x-name', field: 'name', }, { label: 'Email', value: 'a@b.co', field: 'email', },
+            { label: 'Phone number', value: 'x-phone', field: 'phone', }, { label: 'Occupation', value: 'x-occupation', },
         ],);
         expect(q.mock.calls.some(([sql, p,],) => String(sql,).includes('approval_status',) && (p as unknown[])[1] === 'pending',),).toBe(true,);
     },);

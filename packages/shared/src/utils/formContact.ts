@@ -95,3 +95,12 @@ export function formContactValues(questions: readonly FormContactQuestion[], ans
         phone: value('phone',),
     };
 }
+
+/** Contact details from a labelled answers SNAPSHOT (`{ label, value, field? }`,
+ *  e.g. a membership application): the recorded field first, else the label. */
+export function snapshotContactValues(answers: readonly { label: string; value: string; field?: FormContactField | null; }[],): FormContact {
+    return formContactValues(
+        answers.map((a, i,) => ({ id: String(i,), question: a.label, contactField: a.field ?? null, })),
+        answers.map((a, i,) => ({ questionId: String(i,), value: a.value, })),
+    );
+}

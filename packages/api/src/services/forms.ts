@@ -221,6 +221,14 @@ export interface SubmitInput {
     userAgent?: string;
     /** Per-render idempotency token (accidental double-submit guard). */
     nonce?: string;
+    /** The caller dedupes on its own terms (a membership application: one
+     *  pending per level) — skip the IP/user "one submission" check, which
+     *  silently dropped the form's actions for a second application from the
+     *  same household / office. */
+    skipDuplicateCheck?: boolean;
+    /** The caller sends its own, more specific admin notification (membership
+     *  applications → "Membership application") — skip the generic one. */
+    skipNotification?: boolean;
 }
 
 export type SubmitResult =
@@ -246,7 +254,7 @@ export async function submit(input: SubmitInput,): Promise<SubmitResult> {
     // re-subscribe. Gating these on user_id/IP would block everyone behind one
     // NAT / household — and make plus-address testing impossible — so the
     // IP/user duplicate check applies only to `submit` forms.
-    if (!form.allowMultipleSubmissions && form.action !== 'subscribe') {
+    if (!form.allowMultipleSubmissions && form.action !== 'subscribe' && !input.skipDuplicateCheck) {
         const isDuplicate = await repo.checkDuplicateSubmission(
             form.id,
             input.userId,
@@ -297,7 +305,7 @@ export async function submit(input: SubmitInput,): Promise<SubmitResult> {
     },);
 
     // Additive admin notification. Fire-and-forget.
-    void notifyWith('form_submission', async () => {
+    if (!input.skipNotification) void notifyWith('form_submission', async () => {
         const sorted = questions.slice().sort((x, y,) => x.order - y.order);
         const byId = new Map(input.answers.map((a,) => [a.questionId, a.value,]),);
         const emailQ = sorted.find((q,) => q.type === 'email',);

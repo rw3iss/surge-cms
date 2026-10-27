@@ -22,7 +22,7 @@ import type {
     MembershipApplyBody, MembershipApplyCardBody, MembershipApplyResponse, MembershipApplySubmitBody, MembershipApplySubmitResponse,
     MembershipProgramStatus,
 } from '@sitesurge/types';
-import { DEFAULT_APPLICATION_FIELDS, } from '@sitesurge/types';
+import { contactQuestions, DEFAULT_APPLICATION_FIELDS, snapshotContactValues, } from '@sitesurge/types';
 import { config, } from '../config';
 import { ConflictError, NotFoundError, ValidationError, } from '../core/errors';
 import { query, } from '../db';
@@ -105,6 +105,13 @@ function verifyApplicationToken(token: string, now = Date.now(),): string | null
     return a.length === b.length && timingSafeEqual(a, b,) ? id : null;
 }
 
+/** The applicant's name for a greeting: the name given in the application
+ *  (its answers' contact fields, else labels), else the account's display
+ *  name, else '' (the email then just says "Hi,"). */
+export function applicantName(app: { answers?: MembershipApplicationAnswer[] | null; user?: { displayName?: string | null; } | null; },): string {
+    return snapshotContactValues(app.answers ?? [],).name?.trim() || app.user?.displayName?.trim() || '';
+}
+
 /** Validate + label the answers; a Forms-entity application is submitted through the Forms pipeline. */
 async function collectAnswers(tier: TierRow, raw: MembershipApplyBody['answers'], ctx: ApplyContext,) {
     let answers: MembershipApplicationAnswer[];
@@ -122,17 +129,24 @@ async function collectAnswers(tier: TierRow, raw: MembershipApplyBody['answers']
             hasUser: !!ctx.userId,
             ipAddress: ctx.ipAddress,
             userAgent: ctx.userAgent,
+            // Applications dedupe per level themselves (below); and the team gets
+            // the "Membership application" notification instead of the generic one.
+            skipDuplicateCheck: true,
+            skipNotification: true,
         },);
-        // A duplicate (re-applying after a rejection) still records the
-        // application — the earlier submission stays in the Forms inbox.
-        if ('error' in res && res.error !== 'duplicate') throw new ValidationError('The application could not be submitted.',);
+        if ('error' in res) throw new ValidationError('The application could not be submitted.',);
         formId = form.id;
         submissionId = 'ok' in res ? res.submissionId ?? null : null;
         const byId = new Map(raw.map((a,) => [a.questionId, a.value,]),);
         const sorted = form.questions.slice().sort((a, b,) => a.order - b.order);
-        answers = sorted.map((q,) => ({ label: q.question, value: answerText(byId.get(q.id,),), }));
-        const emailQ = sorted.find((q,) => q.type === 'email',);
-        email = emailQ ? answerText(byId.get(emailQ.id,),) || null : null;
+        // Each answer records its contact field (the form's Contact field rule),
+        // so emails can greet by name and the email is found however it is labelled.
+        const fields = new Map(Object.entries(contactQuestions(sorted,),).map(([f, q,],) => [q!.id, f,]),);
+        answers = sorted.map((q,) => ({
+            label: q.question, value: answerText(byId.get(q.id,),),
+            ...(fields.get(q.id,) ? { field: fields.get(q.id,) as MembershipApplicationAnswer['field'], } : {}),
+        }));
+        email = snapshotContactValues(answers,).email;
     } else {
         const byId = new Map(raw.map((a,) => [a.questionId, answerText(a.value,),]),);
         answers = DEFAULT_APPLICATION_FIELDS.map((f,) => {
@@ -140,7 +154,7 @@ async function collectAnswers(tier: TierRow, raw: MembershipApplyBody['answers']
             if (f.required && !value) throw new ValidationError(`${f.label} is required.`,);
             if (f.type === 'email' && value && !EMAIL_RE.test(value,)) throw new ValidationError('Enter a valid email address.',);
             if (value.length > 500) throw new ValidationError(`${f.label} is too long.`,);
-            return { label: f.label, value, };
+            return { label: f.label, value, ...(f.id === 'name' || f.id === 'email' || f.id === 'phone' ? { field: f.id, } : {}), };
         },);
         email = byId.get('email',) || null;
     }
@@ -332,14 +346,16 @@ export async function submit(body: MembershipApplySubmitBody, ctx: ApplyContext,
     if (ctx.userId) await setUserApproval(ctx.userId, 'pending',);
     const token = ctx.userId ? null : applicationToken(id,);
 
-    // The tier's own form already emails per its settings; the built-in form uses
-    // the "Membership application" notification (Settings → Notifications).
-    if (!c.formId) {
-        void notifyWith('membership_application', () => applicationNotice(id, tier, body.priceId ?? null, c.answers, ctx.userId, c.email,), {
-            subject: `Membership application: ${tier.name}`,
-            text: `New membership application for ${tier.name}${c.email ? ` — ${c.email}` : ''}.`,
-        },);
-    }
+    // EVERY application notifies the team ("Membership application", Settings →
+    // Notifications) — with or without the level's own form. A form's own
+    // on-submit action (e.g. its email) still runs too, as the operator set it;
+    // the generic "Form submission" notification is skipped (skipNotification).
+    // It used to be sent only for the built-in form, so applications through a
+    // level's form reached nobody unless that form emailed someone itself.
+    void notifyWith('membership_application', () => applicationNotice(id, tier, body.priceId ?? null, c.answers, ctx.userId, c.email,), {
+        subject: `Membership application: ${tier.name}`,
+        text: `New membership application for ${tier.name}${c.email ? ` — ${c.email}` : ''}.`,
+    },);
     if (c.email) {
         const hide = (await query<{ hide_price: boolean; }>(`SELECT hide_price FROM subscription_plans WHERE id = $1`, [tier.id,],)).rows[0]?.hide_price === true;
         // Operator-editable: Users → Settings → Email templates → "Membership application received".
@@ -532,7 +548,7 @@ async function approveProgram(
         void sendPurposeMail('membership_application_approved', {
             to: app.contactEmail,
             context: {
-                user: { name: app.user?.displayName ?? '', email: app.contactEmail, },
+                user: { name: applicantName(app,), email: app.contactEmail, },
                 tier: { name: tier.name, },
                 application: { program: 'yes', invited: invited ? 'yes' : '', },
                 note: note?.trim() ?? '',
@@ -728,7 +744,7 @@ async function approveClaimed(a: Awaited<ReturnType<typeof loadPending>>, id: st
             void sendPurposeMail('membership_application_approved', {
                 to: app.contactEmail,
                 context: {
-                    user: { name: app.user?.displayName ?? '', email: app.contactEmail, },
+                    user: { name: applicantName(app,), email: app.contactEmail, },
                     tier: { name: tier.name, },
                     application: { claimUrl: url, offer: 'yes', offerExpires: until, },
                     note: note?.trim() ?? '',
@@ -785,7 +801,7 @@ export async function reject(id: string, note: string | undefined, ctx: AuditCon
         void sendPurposeMail('membership_application_rejected', {
             to: app.contactEmail,
             context: {
-                user: { name: app.user?.displayName ?? '', email: app.contactEmail, },
+                user: { name: applicantName(app,), email: app.contactEmail, },
                 tier: { name: app.tierName, },
                 note: note?.trim() ?? '',
                 reason: note?.trim() ?? '',

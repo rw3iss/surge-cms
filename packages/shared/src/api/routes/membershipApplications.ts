@@ -22,6 +22,9 @@ export type MembershipApplicationStatus = 'pending' | 'approved' | 'rejected' | 
 export interface MembershipApplicationAnswer {
     label: string;
     value: string;
+    /** What the answer is (email / name / phone …), per the form's Contact field
+     *  rule at submit time — `applicantName` reads it. Absent on older rows. */
+    field?: import('../../utils/formContact').FormContactField;
 }
 
 /** The built-in application form's field ids (used when a tier has no form). */

@@ -31,3 +31,12 @@ describe('formContactValues', () => {
         expect(formContactValues([{ id: 'z', question: 'Email', },], answers,).email,).toBeNull();
     },);
 },);
+
+describe('snapshotContactValues', () => {
+    it('uses the recorded field, else the label', async () => {
+        const { snapshotContactValues, } = await import('./formContact');
+        expect(snapshotContactValues([{ label: 'Who are you?', value: 'Ann Lee', field: 'name', }, { label: 'E-mail', value: 'a@x.com', },],),)
+            .toMatchObject({ name: 'Ann Lee', email: 'a@x.com', },);
+        expect(snapshotContactValues([{ label: 'Occupation', value: 'Writer', },],).name,).toBeNull();
+    },);
+},);
