@@ -65,6 +65,20 @@
       }
     }
 
+    // Join: outlined in the brand color, under Sign In.
+    &--join {
+      background: transparent;
+      color: var(--site-primary, #{$primary-color});
+      border: 2px solid var(--site-primary, #{$primary-color});
+      text-decoration: none;
+
+      &:hover {
+        background: var(--site-primary, #{$primary-color});
+        color: var(--site-button-text, white);
+        text-decoration: none;
+      }
+    }
+
     &--primary {
       background: var(--site-primary, #{$primary-color});
       color: white;
@@ -229,6 +243,14 @@
     text-decoration: none;
 
     &:hover { color: var(--site-primary, #{$primary-color}); text-decoration: underline; }
+}
+
+// "Don't have an account?" divider + the Join button, at the bottom of the form.
+.login__join {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+    margin-top: $spacing-lg;
 }
 
 // Why the visitor landed here (`?reason=`, from the access-denied fallback).

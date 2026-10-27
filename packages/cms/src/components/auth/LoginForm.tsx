@@ -1,6 +1,9 @@
 /**
- * The sign-in form — email/password, Patreon, the Register prompt and the
- * forgot-password link — shared by the `/login` PAGE and `LoginModal`.
+ * The sign-in form — email/password, Patreon, the forgot-password link and
+ * the Join button — shared by the `/login` PAGE and `LoginModal`.
+ *
+ * Join goes to `/subscribe` when the site sells paid membership levels (the
+ * visitor picks a level first), else to `/join`.
  *
  * It signs in and reports success; WHERE to go next is the caller's decision.
  * The page navigates; the modal just closes, leaving the visitor where they
@@ -9,7 +12,7 @@
  */
 import type { User, } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
-import { Component, createSignal, Show, } from 'solid-js';
+import { Component, createResource, createSignal, Show, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
 import { isFeatureEnabled, isPatreonEnabled, } from '../../stores/siteSettings';
@@ -38,6 +41,15 @@ const LoginForm: Component<LoginFormProps> = (props,) => {
     const [needsVerification, setNeedsVerification,] = createSignal(false,);
     const [resendState, setResendState,] = createSignal<'idle' | 'sending' | 'sent'>('idle',);
     const [showAdminForm, setShowAdminForm,] = createSignal(false,);
+
+    // Paid levels on offer → Join starts at /subscribe (choose a level); else /join.
+    const [paidLevels,] = createResource(
+        () => (isFeatureEnabled('users',) ? 'on' : false),
+        () => cms.payments.membershipTiers()
+            .then((r,) => (r?.tiers ?? []).some((t,) => !t.isFree),)
+            .catch(() => false,),
+    );
+    const joinHref = () => (paidLevels.latest ? '/subscribe' : '/join');
     const auth = useAuth();
     const id = (s: string,) => `${props.idPrefix ?? 'login'}-${s}`;
 
@@ -128,17 +140,6 @@ const LoginForm: Component<LoginFormProps> = (props,) => {
                 </button>
             </Show>
 
-            {
-                /* "Don't have an account? Join" — gated on Users:
-            registration is only meaningful when public sign-up
-            is enabled. */
-            }
-            <Show when={usersEnabled()}>
-                <div class="login__join-prompt">
-                    <span>Don't have an account?</span>
-                    <A href="/join" class="login__join-link">Register</A>
-                </div>
-            </Show>
 
             {
                 /* Admin-form disclosure — only renders when the form
@@ -251,6 +252,14 @@ const LoginForm: Component<LoginFormProps> = (props,) => {
                     <div class="login__forgot">
                         <A href="/forgot-password" class="login__forgot-link">Forgot your password?</A>
                     </div>
+
+                    {/* Joining — only when public sign-up exists (Users feature). */}
+                    <Show when={usersEnabled()}>
+                        <div class="login__join">
+                            <div class="login__divider"><span>Don't have an account?</span></div>
+                            <A href={joinHref()} class="login__btn login__btn--join">Join</A>
+                        </div>
+                    </Show>
                 </form>
             </div>
         </>
