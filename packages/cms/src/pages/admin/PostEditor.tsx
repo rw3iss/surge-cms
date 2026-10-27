@@ -1081,7 +1081,7 @@ const AdminPostEditor: Component = () => {
             revisionsEntityType="post"
             title={title}
             status={status}
-            publicUrl={() => `/posts/${(editor.entity() as any)?.slug || slug()}`}
+            publicUrl={() => `/posts/${(editor.saved() as any)?.slug || slug()}`}
             previewStatus={() =>
                 status() === 'published' ? 'Published' : status() === 'archived' ? 'Archived' : 'Draft'}
             rootClass={() => 'admin-full-bleed'}

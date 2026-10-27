@@ -115,7 +115,7 @@ const AdminPageEditor: Component = () => {
     /** Another PUBLISHED page holding the chosen key (drafts are reported after the save). */
     const currentHolder = () => {
         const held = systemPage() ? siteSettings()?.systemPages?.[systemPage()] : undefined;
-        return held && held !== (editor.entity() as Page | undefined)?.slug ? held : null;
+        return held && held !== (editor.saved() as Page | null)?.slug ? held : null;
     };
 
     // Per-block create/update/delete/reorder sync (page-specific; posts
@@ -217,14 +217,14 @@ const AdminPageEditor: Component = () => {
                 customCss: customCss(),
             };
             let pageId = ctx.id;
-            const before = (editor.entity() as Page | undefined)?.systemPage ?? null;
+            const before = (editor.saved() as Page | null)?.systemPage ?? null;
             const saved = (ctx.isNew ? await cms.pages.create(data as any,) : await cms.pages.update(ctx.id, data as any,)) as Page;
             if (ctx.isNew) pageId = saved.id;
             if (saved?.systemPageReplaced) {
                 toast.info(`'${saved.systemPageReplaced.title}' was the ${systemPageLabel(systemPage(),)} page — it is set back to None.`,);
             }
             // The public settings carry the assignments (previews + the public routes).
-            if ((data.systemPage ?? null) !== before || data.status !== editor.entity()?.status) void reloadSiteSettings();
+            if ((data.systemPage ?? null) !== before || data.status !== editor.saved()?.status) void reloadSiteSettings();
             // On a brand-new page nothing is saved yet, so diff against an
             // empty snapshot → every block is created.
             if (pageId) {
@@ -464,7 +464,7 @@ const AdminPageEditor: Component = () => {
      * second clone becomes "home-copy-1" instead of failing.
      */
     const handleClone = async () => {
-        const current = editor.entity() as { id?: string; title?: string; slug?: string; } | undefined;
+        const current = editor.saved() as { id?: string; title?: string; slug?: string; } | null;
         const id = current?.id;
         if (!id) return;
         const baseTitle = current?.title || title() || 'Untitled';
@@ -491,7 +491,7 @@ const AdminPageEditor: Component = () => {
             revisionsEntityType="page"
             title={title}
             status={status}
-            publicUrl={() => `/${(editor.entity() as any)?.slug || slug()}`}
+            publicUrl={() => `/${(editor.saved() as any)?.slug || slug()}`}
             previewStatus={() => status() === 'published' ? 'Published' : 'Draft'}
             rootClass={() => 'page-editor admin-full-bleed'}
             labels={{

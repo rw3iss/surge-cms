@@ -11,6 +11,7 @@ import { useAutoSave, } from './useAutoSave';
 import { useEditorState, } from './useEditorState';
 import { useKeyboardShortcuts, } from './useKeyboardShortcuts';
 import { useUnsavedChanges, } from './useUnsavedChanges';
+import { mergeSaved, } from './mergeSaved';
 
 /** Context handed to the entity module's `save()` at save time. */
 export interface EntitySaveContext {
@@ -72,6 +73,11 @@ export interface EntityEditorController<TEntity,> {
     navigate: Navigator;
     isNew: () => boolean;
     entity: Resource<TEntity | null>;
+    /** The entity AS LAST SAVED: the loaded row with the fields of every save
+     *  since merged over it (`autoSaveState()` at save time). `entity()` is
+     *  loaded once and NOT refetched after a save, so read slug / status for
+     *  anything that must match the server (the View link) from here. */
+    saved: () => TEntity | null;
     // dirty tracking
     isDirty: Accessor<boolean>;
     markDirty: () => void;
@@ -145,6 +151,10 @@ export function useEntityEditor<TEntity,>(
     const appearance = useAppearance();
     const siteContainerStyle = () => appearanceCssVars(appearance(), 'public',);
 
+    // Fields of the saves made since the entity loaded (see `saved`).
+    const [savedFields, setSavedFields,] = createSignal<Record<string, unknown> | null>(null,);
+    const saved = (): TEntity | null => mergeSaved(entity() ?? null, savedFields(),);
+
     const [blocks, setBlocks,] = createSignal<BlockData[]>([],);
     const [savedBlocks, setSavedBlocks,] = createSignal<BlockData[]>([],);
     const [originalBlockIds, setOriginalBlockIds,] = createSignal<Set<string>>(new Set(),);
@@ -182,6 +192,7 @@ export function useEntityEditor<TEntity,>(
         setBlocks([],);
         setSavedBlocks([],);
         setOriginalBlockIds(new Set<string>(),);
+        setSavedFields(null,);
         markClean();
     }, { defer: true, },),);
 
@@ -230,6 +241,8 @@ export function useEntityEditor<TEntity,>(
                 originalBlockIds: originalBlockIds(),
             },);
             setSavedBlocks(structuredClone(blocks(),),);
+            // What the server now holds (slug, status, …) — the View link reads it.
+            setSavedFields({ ...(savedFields() ?? {}), ...config.autoSaveState(), },);
             autoSave.clear();
             markClean();
             config.onSaved?.();
@@ -277,6 +290,7 @@ export function useEntityEditor<TEntity,>(
         setRestoring(true,);
         try {
             await config.restore(params.id,);
+            setSavedFields({ ...(savedFields() ?? {}), status: 'draft', },);
             config.onRestored?.();
             markClean();
         } catch (err: any) {
@@ -295,6 +309,7 @@ export function useEntityEditor<TEntity,>(
         navigate,
         isNew,
         entity,
+        saved,
         isDirty,
         markDirty,
         markClean,
