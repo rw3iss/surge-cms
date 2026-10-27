@@ -304,10 +304,21 @@ export async function runScheduledPayouts(now = new Date(),): Promise<void> {
 
 // ─── The partner's own page (Profile → Partner Program) ───────────────────
 
+/**
+ * A contributor = payouts on AND one of the user's own roles (main or
+ * additional; staff main roles are skipped) may write its own posts. Checked
+ * per ROLE, so a sysadmin's bypass doesn't make every sysadmin a contributor —
+ * but a staff member who also joined the Contributor program is one.
+ */
 export async function isContributor(user: { id: string; role?: string; },): Promise<boolean> {
     const s = await getContributorSettings();
-    if (!s.enabled || isStaffRole(user.role,)) return false;
-    return can({ id: user.id, role: user.role, }, 'posts:write_own',);
+    if (!s.enabled) return false;
+    const extra = (await query<{ extra_roles: string[] | null; }>(`SELECT extra_roles FROM users WHERE id = $1`, [user.id,],)).rows[0]?.extra_roles ?? [];
+    const roles = [user.role, ...extra,].filter((r,): r is string => !!r && !isStaffRole(r,) && r !== 'anonymous',);
+    for (const role of roles) {
+        if (await can({ role, }, 'posts:write_own',)) return true;
+    }
+    return false;
 }
 
 async function earningsBalance(table: string, userId: string,): Promise<{ pendingCents: number; availableCents: number; paidCents: number; currency: string; }> {

@@ -27,13 +27,19 @@
     gap: 0.5rem;
   }
 
-  &__programs {
+  // Three blocks, one width: the "Getting paid" card, the program switch, the program card.
+  &__top,
+  &__program {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
-    margin-top: 0.5rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--site-border, #e5e7eb);
+    gap: 1.1rem;
+    margin: 0;
+  }
+  &__switch {
+    display: flex;
+    justify-content: center;
+
+    .ui-tabs { margin: 0; }
   }
 
   // The embedded affiliate page sits inside this card — no second card.

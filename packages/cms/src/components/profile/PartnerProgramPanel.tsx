@@ -184,18 +184,22 @@ const PartnerProgramPanel: Component = () => {
     };
 
     return (
-        <div class="profile__card partner-panel">
-            <Show when={!data.loading || data()} fallback={<p class="profile__muted">Loading your partner account…</p>}>
+        <div class="partner-panel">
+            <Show when={!data.loading || data()} fallback={<div class="profile__card"><p class="profile__muted">Loading your partner account…</p></div>}>
                 <Show
                     when={data()}
                     fallback={
-                        <p class="profile__muted">
-                            Your partner details could not be loaded{data.error instanceof Error && data.error.message ? `: ${data.error.message}` : '.'}
-                        </p>
+                        <div class="profile__card">
+                            <p class="profile__muted">
+                                Your partner details could not be loaded{data.error instanceof Error && data.error.message ? `: ${data.error.message}` : '.'}
+                            </p>
+                        </div>
                     }
                 >
                     {(d,) => (
                         <>
+                            {/* 1. Getting paid: Stripe + the totals across programs. */}
+                            <div class="profile__card partner-panel__top">
                             <section class="affiliate-panel__section partner-panel__stripe">
                                 <h3>Getting paid</h3>
                                 <ul class="partner-panel__steps">
@@ -245,14 +249,19 @@ const PartnerProgramPanel: Component = () => {
                             <p class="profile__muted affiliate-panel__note">
                                 Pending earnings are in their holding period; payable ones are sent on the next payout.
                             </p>
+                            </div>
 
                             <Show when={programs().length}>
-                                <div class="partner-panel__programs">
+                                {/* 2. The program switch, between the two cards. */}
+                                <div class="partner-panel__switch">
                                     <Tabs<Program>
                                         items={programs()}
                                         value={program() ?? undefined}
                                         onChange={(v,) => setParams({ program: v, },)}
                                     />
+                                </div>
+                                {/* 3. The selected program. */}
+                                <div class="profile__card partner-panel__program">
                                     <Show when={program() === 'affiliate'}>
                                         <AffiliatePanel embedded />
                                     </Show>
