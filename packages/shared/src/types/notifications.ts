@@ -12,26 +12,74 @@
  * value is a `NotificationSettings` object.
  */
 
-/** The delivery channels a notification type can dispatch through. Only
- *  `email` is implemented today; `sms`/`push` are stubs. */
-export type NotificationChannelId = 'email' | 'sms' | 'push';
+/** The delivery channels a notification type can dispatch through. */
+export type NotificationChannelId = 'email' | 'sms' | 'push' | 'inApp';
 
 /** Per-channel config for one notification type: on/off + recipients. */
 export interface NotificationChannelConfig {
     enabled: boolean;
-    /** Recipient addresses for this channel (emails for `email`). */
+    /** Recipients: email addresses (`email`) or phone numbers in E.164, e.g. +12155550123 (`sms`). */
     addresses: string[];
+}
+
+/** In-app recipients: chosen users + every user holding one of the roles (main or additional). */
+export interface NotificationInAppConfig {
+    enabled: boolean;
+    userIds: string[];
+    roles: string[];
 }
 
 /** A notification type's config across all channels. */
 export interface NotificationTypeConfig {
     email?: NotificationChannelConfig;
     sms?: NotificationChannelConfig;
-    push?: NotificationChannelConfig;
+    inApp?: NotificationInAppConfig;
+    /** Desktop (Web Push) — sent to the IN-APP recipients on every browser where they turned desktop notifications on. */
+    push?: { enabled: boolean; };
 }
 
 /** The whole stored blob: type key → its per-channel config. */
 export type NotificationSettings = Record<string, NotificationTypeConfig>;
+
+/** Global notification options (`notification_options` row; Settings → Notifications). */
+export interface NotificationOptions {
+    /** In-app notifications in the admin (the sidebar Notifications widget + /admin/notifications). */
+    inAppEnabled: boolean;
+    /** Days to keep a user's in-app notifications (read or not); cleared ones go sooner. */
+    retentionDays: number;
+}
+
+/** One in-app notification of the signed-in user. */
+export interface UserNotification {
+    id: string;
+    /** The notification type key (`post_submitted`, …). */
+    type: string;
+    title: string;
+    body: string | null;
+    /** Where acting on it goes (a site path or absolute URL). */
+    url: string | null;
+    readAt: string | null;
+    createdAt: string;
+}
+
+export interface UserNotificationsResponse {
+    enabled: boolean;
+    unread: number;
+    items: UserNotification[];
+    total: number;
+}
+
+/** SMS provider (`sms_settings`; Settings → Notifications → SMS). Twilio first; AWS SNS later. */
+export interface SmsSettings {
+    provider: 'none' | 'twilio';
+    accountSid: string;
+    /** Masked (`••••••••`) when read; send the mask back = unchanged. */
+    authToken: string;
+    /** The sending number (E.164) or a Messaging Service SID (MG…). */
+    fromNumber: string;
+    /** Provider set and credentials present. */
+    configured?: boolean;
+}
 
 /** Static metadata describing a notification type (label, description,
  *  and the feature that must be enabled for it to appear in the UI). */

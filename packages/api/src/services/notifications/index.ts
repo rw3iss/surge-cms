@@ -10,10 +10,13 @@
  * `notify()` NEVER throws — it's an additive side-channel, so a failure
  * to notify must never break the originating request.
  */
-import type { NotificationChannelId, NotificationSettings, } from '@sitesurge/types';
+import type { NotificationSettings, } from '@sitesurge/types';
 import { query, } from '../../db';
 import { logger, } from '../../utils/logger';
-import { CHANNELS, type NotificationMessage, } from './channels';
+import { CHANNELS, shortForm, type NotificationMessage, } from './channels';
+import * as inApp from './inApp';
+import * as push from './push';
+import { getNotificationOptions, } from './options';
 
 export type { NotificationMessage, } from './channels';
 export {
@@ -21,7 +24,6 @@ export {
 } from './format';
 export type { NotificationSpec, NotifyLink, NotifyPerson, NotifyRow, NotifySection, } from './format';
 
-const CHANNEL_IDS: NotificationChannelId[] = ['email', 'sms', 'push',];
 
 // Light in-process cache — settings change rarely and every event would
 // otherwise re-read the row. Invalidated on settings update on THIS process;
@@ -71,7 +73,8 @@ export async function notify(typeKey: string, msg: NotificationMessage,): Promis
         const typeConfig = settings[typeKey];
         if (!typeConfig) return;
 
-        for (const channel of CHANNEL_IDS) {
+        // Address channels: email, SMS.
+        for (const channel of ['email', 'sms',] as const) {
             const channelConfig = typeConfig[channel];
             if (!channelConfig?.enabled) continue;
             const addresses = (channelConfig.addresses ?? []).map((a,) => a.trim()).filter(Boolean,);
@@ -79,11 +82,19 @@ export async function notify(typeKey: string, msg: NotificationMessage,): Promis
             try {
                 await CHANNELS[channel].send(addresses, msg,);
             } catch (err) {
-                logger.error('Notification channel dispatch failed', {
-                    error: err,
-                    type: typeKey,
-                    channel,
-                },);
+                logger.error('Notification channel dispatch failed', { error: err, type: typeKey, channel, },);
+            }
+        }
+
+        // User channels: in-app (+ desktop push to the same users).
+        if (typeConfig.inApp?.enabled && (await getNotificationOptions()).inAppEnabled) {
+            try {
+                const userIds = await inApp.recipientsFor(typeConfig.inApp,);
+                const f = shortForm(msg,);
+                await inApp.createFor(userIds, { type: typeKey, ...f, },);
+                if (typeConfig.push?.enabled) await push.sendTo(userIds, { ...f, tag: typeKey, },);
+            } catch (err) {
+                logger.error('In-app notification failed', { error: err, type: typeKey, },);
             }
         }
     } catch (err) {
@@ -91,10 +102,14 @@ export async function notify(typeKey: string, msg: NotificationMessage,): Promis
     }
 }
 
-/** True when at least one enabled channel of `typeKey` has a recipient. */
+/** True when at least one channel of `typeKey` would deliver to someone. */
 export async function hasRecipients(typeKey: string,): Promise<boolean> {
     const cfg = (await getNotificationSettings())[typeKey];
-    return Boolean(cfg,) && CHANNEL_IDS.some((c,) => cfg![c]?.enabled && (cfg![c]?.addresses ?? []).some((a,) => a.trim(),),);
+    if (!cfg) return false;
+    const addr = (['email', 'sms',] as const).some((c,) => cfg[c]?.enabled && (cfg[c]?.addresses ?? []).some((a,) => a.trim(),),);
+    if (addr) return true;
+    const ia = cfg.inApp;
+    return Boolean(ia?.enabled && ((ia.userIds ?? []).length || (ia.roles ?? []).length) && (await getNotificationOptions()).inAppEnabled,);
 }
 
 /**

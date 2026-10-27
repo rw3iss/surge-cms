@@ -33,6 +33,7 @@ import { initScheduledPublisher, } from './services/scheduledPublisher';
 import { initMerchandiseAnnounce, } from './services/shop/merchandiseAnnounceCron';
 import { initAffiliatePayouts, } from './services/affiliates/cron';
 import { initContributorPayouts, } from './services/contributions/cron';
+import { initNotificationSweep, } from './services/notifications/cron';
 import { initBackupCron, } from './services/backup/cron';
 import { initMailScheduleCron, } from './services/mail/scheduleCron';
 import { initEventReminderCron, } from './services/events/reminderCron';
@@ -159,6 +160,7 @@ async function bootRunningMode(
         initAffiliatePayouts();
         // Contributor payouts on their schedule (no-op unless enabled in Posts → Settings → Contributions).
         initContributorPayouts();
+        initNotificationSweep();
         initBackupCron();
         // Sweeps due mailing-list schedules. No-ops when the feature is off.
         initMailScheduleCron();

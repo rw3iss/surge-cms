@@ -266,7 +266,10 @@ function rowsText(rows: NotifyRow[],): string {
 }
 
 /** Render a notification spec to `{ subject, html, text }`. Pure. */
-export function renderNotification(spec: NotificationSpec,): Required<Pick<NotificationMessage, 'subject' | 'html' | 'text'>> {
+/** A rendered notification: the email parts + the short form (in-app / desktop / SMS). */
+export type RenderedNotification = Required<Pick<NotificationMessage, 'subject' | 'html' | 'text'>> & Pick<NotificationMessage, 'title' | 'body' | 'url'>;
+
+export function renderNotification(spec: NotificationSpec,): RenderedNotification {
     const base = spec.baseUrl ?? (config.frontendUrl || '').replace(/\/+$/, '',);
     const links = (spec.links ?? []).filter((l,) => l.url,).map((l,) => ({ label: l.label, url: absoluteUrl(l.url, base,), }),);
     const person = spec.person ?? null;
@@ -322,13 +325,17 @@ export function renderNotification(spec: NotificationSpec,): Required<Pick<Notif
 
     return {
         subject: spec.subject ?? spec.title,
+        // Short form: the title, the intro, and the FIRST link as the target.
+        title: spec.title,
+        body: spec.intro,
+        url: links[0]?.url,
         html,
         text: t.filter((line, i, arr,) => !(line === '' && arr[i - 1] === '')).join('\n',).trim(),
     };
 }
 
 /** `renderNotification` with the site's configured public URL resolved. */
-export async function buildNotification(spec: NotificationSpec,): Promise<Required<Pick<NotificationMessage, 'subject' | 'html' | 'text'>>> {
+export async function buildNotification(spec: NotificationSpec,): Promise<RenderedNotification> {
     const layout = spec.layout !== undefined ? spec.layout : await brandLayout().catch(() => null);
     return renderNotification({ ...spec, baseUrl: spec.baseUrl ?? await siteBaseUrl(), layout, },);
 }

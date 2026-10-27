@@ -216,6 +216,24 @@ export const CORE_PERMISSIONS: PermissionRegistration[] = [
         action: 'write',
         defaultRoles: STAFF,
     },
+    // Notifications: your own in-app notifications + desktop subscriptions;
+    // managing the channels (options, SMS provider, tests) is admin.
+    {
+        key: 'notifications:self',
+        feature: 'core',
+        label: 'Use in-app notifications',
+        description: 'See, read and clear their own in-app notifications and turn desktop notifications on for their browsers.',
+        action: 'read',
+        defaultRoles: ['member', 'editor', 'admin', 'sysadmin',],
+    },
+    {
+        key: 'notifications:manage',
+        feature: 'core',
+        label: 'Manage notification channels',
+        description: 'In-app on/off and retention, the SMS provider, and sending test notifications.',
+        action: 'manage',
+        defaultRoles: ADMIN,
+    },
     // Partner programs (affiliates, contributors): the member's own Partner
     // Program page + Stripe Connect account. Membership in a program is checked too.
     {

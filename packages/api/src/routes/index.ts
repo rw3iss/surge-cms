@@ -47,6 +47,7 @@ import { shopDiscountRoutes, } from './shopDiscounts';
 import { affiliateRoutes, } from './affiliates';
 import { contributionRoutes, } from './contributions';
 import { partnerRoutes, } from './partners';
+import { notificationRoutes, } from './notifications';
 import { pluginsRoutes, } from './plugins';
 import { sitemapRoutes, } from './sitemap';
 import { socialRoutes, } from './social';
@@ -106,6 +107,8 @@ router.use('/affiliates', registerModule('affiliates', affiliateRoutes, { mountP
 // Contributor payouts (Posts → Settings → Contributions) + the shared Partner Program page.
 router.use('/contributions', registerModule('contributions', contributionRoutes, { mountPath: '/api/v1/contributions', feature: 'posts', },),);
 router.use('/partners', registerModule('partners', partnerRoutes, { mountPath: '/api/v1/partners', },),);
+// In-app notifications (own) + notification channel admin (options, SMS, test).
+router.use('/notifications', registerModule('notifications', notificationRoutes, { mountPath: '/api/v1/notifications', },),);
 router.use('/plugins', registerModule('plugins', pluginsRoutes, { mountPath: '/api/v1/plugins', feature: 'plugins', },),);
 router.use('/contacts', registerModule('contacts', contactsRoutes, { mountPath: '/api/v1/contacts', feature: 'contacts', },),);
 // `feature: 'events'` makes every route here 404 while the module is disabled.

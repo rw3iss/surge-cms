@@ -502,6 +502,9 @@ export async function sendOrderPlacedEmails(order: OrderDetail,): Promise<void> 
         void notify('shop_order', {
             purpose: 'shop_order_admin',
             context: purposeContext(order, mail.html, ctx,),
+            // In-app / desktop / SMS: the order in the admin.
+            title: `New order ${order.orderNumber}`,
+            url: `/admin/shop/orders/${order.id}`,
             subject: mail.subject,
             html: mail.html,
             text: mail.text,

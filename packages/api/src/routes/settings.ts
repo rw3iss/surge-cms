@@ -66,7 +66,13 @@ const settingsSchema = z.object({
         z.object({
             email: notificationChannelSchema.optional(),
             sms: notificationChannelSchema.optional(),
-            push: notificationChannelSchema.optional(),
+            // In-app: chosen users + roles; desktop push goes to the same people.
+            inApp: z.object({
+                enabled: z.boolean(),
+                userIds: z.array(z.string().uuid(),).max(200,).default([],),
+                roles: z.array(z.string().max(32,),).max(50,).default([],),
+            },).optional(),
+            push: z.object({ enabled: z.boolean(), addresses: z.array(z.string(),).optional(), },).optional(),
         },),
     ).optional(),
     /**

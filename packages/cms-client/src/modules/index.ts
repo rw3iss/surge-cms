@@ -38,6 +38,7 @@ import { MembershipApplicationsModule, } from './membershipApplications';
 import { AffiliatesModule, } from './affiliates';
 import { ContributionsModule, } from './contributions';
 import { PartnersModule, } from './partners';
+import { NotificationsModule, } from './notifications';
 import { MailSendModule, } from './mailSend';
 import { PaymentsModule, } from './payments';
 import { SettingsModule, } from './settings';
@@ -96,6 +97,7 @@ export interface CmsModules {
     affiliates: AffiliatesModule;
     contributions: ContributionsModule;
     partners: PartnersModule;
+    notifications: NotificationsModule;
     mailSend: MailSendModule;
     payments: PaymentsModule;
     settings: SettingsModule;
@@ -160,6 +162,7 @@ export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModule
     c.affiliates = new AffiliatesModule(core,);
     c.contributions = new ContributionsModule(core,);
     c.partners = new PartnersModule(core,);
+    c.notifications = new NotificationsModule(core,);
     c.mailSend = new MailSendModule(core,);
     c.payments = new PaymentsModule(core,);
     c.settings = new SettingsModule(core,);
@@ -185,7 +188,7 @@ export {
     UsersModule, MessagesModule, SocialModule, SearchModule, UtilsModule, AuditModule, DashboardModule,
     AuthModule, ApiKeysModule, ConnectionsModule, BlockStylesModule, FontsModule,
     DevModule, HealthModule, SetupModule,
-    MailingListsModule, MailTemplatesModule, RepliesModule, MailArchiveModule, ExportsModule, RolesModule, SubscriptionTiersModule, MembershipApplicationsModule, AffiliatesModule, ContributionsModule, PartnersModule, MailSendModule, PaymentsModule,
+    MailingListsModule, MailTemplatesModule, RepliesModule, MailArchiveModule, ExportsModule, RolesModule, SubscriptionTiersModule, MembershipApplicationsModule, AffiliatesModule, ContributionsModule, PartnersModule, NotificationsModule, MailSendModule, PaymentsModule,
     SettingsModule, ShopModule, PluginsModule, FeedModule, SitemapModule,
     ComponentsModule,
     EntitiesModule, EntityTypesModule, ContentBlockTemplatesModule,

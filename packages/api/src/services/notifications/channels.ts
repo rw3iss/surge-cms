@@ -1,15 +1,11 @@
 /**
- * Notification delivery channels.
- *
- * Each channel knows how to deliver a `NotificationMessage` to a list of
- * addresses. Only `email` is implemented today (via the transactional
- * `sendEmail` helper); `sms`/`push` are stubs that log and no-op so the
- * config surface can already offer them.
+ * Notification delivery channels for ADDRESSES (email, SMS). The in-app and
+ * desktop channels resolve USERS instead and are dispatched by `notify()`
+ * (./inApp, ./push).
  *
  * A channel `send()` must NEVER throw — a delivery failure is logged and
  * swallowed so one bad recipient/channel can't break an event handler.
  */
-import type { NotificationChannelId, } from '@sitesurge/types';
 import { sendEmail, } from '../email';
 import { sendPurposeMail, } from '../mail/purposes';
 import { logger, } from '../../utils/logger';
@@ -18,6 +14,12 @@ export interface NotificationMessage {
     subject: string;
     html?: string;
     text?: string;
+    /** Short title for in-app / desktop / SMS (default: `subject`). */
+    title?: string;
+    /** One or two sentences for in-app / desktop (default: the start of `text`). */
+    body?: string;
+    /** Where acting on it goes — a site path or absolute URL (in-app click, desktop click, SMS link). */
+    url?: string;
     /**
      * Mail-purpose key. When set, the EMAIL channel renders through the purpose
      * pipeline instead of using `subject`/`html` directly — so the operator's
@@ -33,7 +35,7 @@ export interface NotificationMessage {
 }
 
 export interface NotificationChannel {
-    id: NotificationChannelId;
+    id: 'email' | 'sms';
     send(addresses: string[], msg: NotificationMessage,): Promise<void>;
 }
 
@@ -71,24 +73,24 @@ const emailChannel: NotificationChannel = {
     },
 };
 
-/** SMS channel — not yet wired to a provider. */
+/** The short form used by in-app, desktop and SMS. */
+export function shortForm(msg: NotificationMessage,): { title: string; body: string | null; url: string | null; } {
+    const body = msg.body ?? (msg.text ? msg.text.replace(/\s+/g, ' ',).trim().slice(0, 280,) : null);
+    return { title: msg.title ?? msg.subject, body: body || null, url: msg.url ?? null, };
+}
+
+/** SMS channel — the configured provider (Settings → Notifications → SMS). */
 const smsChannel: NotificationChannel = {
     id: 'sms',
-    async send() {
-        logger.info('SMS channel not configured',);
+    async send(addresses, msg,) {
+        const { sendSms, } = await import('./sms.js');
+        const f = shortForm(msg,);
+        await sendSms(addresses, f.url ? `${f.title}\n${f.url}` : f.title,);
     },
 };
 
-/** Push channel — not yet wired to a provider. */
-const pushChannel: NotificationChannel = {
-    id: 'push',
-    async send() {
-        logger.info('push channel not configured',);
-    },
-};
-
-export const CHANNELS: Record<NotificationChannelId, NotificationChannel> = {
+/** Address channels; `inApp` + `push` are user-based (see notify()). */
+export const CHANNELS: Record<'email' | 'sms', NotificationChannel> = {
     email: emailChannel,
     sms: smsChannel,
-    push: pushChannel,
 };
