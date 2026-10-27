@@ -60,3 +60,24 @@ describe('forum() template function', () => {
         expect(forumBlockSettingsFrom('forum', [], { readMore: false, },)!.readMoreLabel,).toBe('',);
     },);
 },);
+
+describe('thread style + counts', () => {
+    it('reads the split counts, falling back to the old switch', () => {
+        expect(normalizeForumBlockSettings({},),).toMatchObject({ threadStyle: 'full', showReplyCount: true, showViewCount: true, },);
+        expect(normalizeForumBlockSettings({ showCounts: false, },),).toMatchObject({ showReplyCount: false, showViewCount: false, },);
+        expect(normalizeForumBlockSettings({ showCounts: false, showViewCount: true, },),).toMatchObject({ showReplyCount: false, showViewCount: true, },);
+        expect(normalizeForumBlockSettings({ threadStyle: 'minimal', },).threadStyle,).toBe('minimal',);
+    },);
+    it('maps style / replyCount / views in forum()', () => {
+        expect(forumBlockSettingsFrom('forum', [], { style: 'chat', views: false, },),).toMatchObject({ threadStyle: 'minimal', showViewCount: false, },);
+        expect(forumBlockSettingsFrom('forum', [], { counts: false, },),).toMatchObject({ showReplyCount: false, showViewCount: false, },);
+    },);
+},);
+
+describe('subheading', () => {
+    it('follows the heading alignment unless set', () => {
+        expect(normalizeForumBlockSettings({ subheading: ' Hi ', headingAlign: 'center', },),).toMatchObject({ subheading: 'Hi', subheadingAlign: 'center', },);
+        expect(normalizeForumBlockSettings({ subheadingAlign: 'right', },).subheadingAlign,).toBe('right',);
+        expect(forumBlockSettingsFrom('forum', [], { subheading: 'Say hi', },)!.subheading,).toBe('Say hi',);
+    },);
+},);

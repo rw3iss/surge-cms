@@ -52,6 +52,16 @@ $fw-soft: color-mix(in srgb, var(--site-text, #111827) 4%, var(--site-bg, #fff))
 
   &__heading { margin: 0; }
 
+  // Plain paragraph under the heading (the site's paragraph style), line breaks kept.
+  &__subheading {
+    flex: 0 0 auto;
+    margin: -0.25rem 0 0;
+    white-space: pre-line;
+
+    &--center { text-align: center; }
+    &--right { text-align: right; }
+  }
+
   &__live {
     display: inline-flex;
     align-items: center;
@@ -194,6 +204,7 @@ $fw-soft: color-mix(in srgb, var(--site-text, #111827) 4%, var(--site-bg, #fff))
 
   &:hover:not(:disabled) { color: $fw-primary; }
   &:disabled { opacity: 0.6; cursor: default; }
+  &--strong { color: $fw-text; }
   &:focus-visible { outline: 2px solid $fw-primary; outline-offset: 2px; border-radius: 4px; }
 }
 
@@ -206,6 +217,7 @@ $fw-soft: color-mix(in srgb, var(--site-text, #111827) 4%, var(--site-bg, #fff))
   object-fit: cover;
 
   &--sm { width: 2rem; height: 2rem; }
+  &--xs { width: 1.5rem; height: 1.5rem; }
 
   &--initials {
     display: inline-flex;
@@ -218,6 +230,7 @@ $fw-soft: color-mix(in srgb, var(--site-text, #111827) 4%, var(--site-bg, #fff))
   }
 
   &--sm.forum-avatar--initials { font-size: 0.7rem; }
+  &--xs.forum-avatar--initials { font-size: 0.6rem; }
 }
 
 .forum-chip {
@@ -336,6 +349,46 @@ $fw-soft: color-mix(in srgb, var(--site-text, #111827) 4%, var(--site-bg, #fff))
   }
 
   &__composer { margin-top: 0.25rem; }
+
+  // ─── Minimal (chat) style ───
+  &--minimal {
+    gap: 0.4rem;
+    padding: 0.75rem 0.9rem;
+
+    .forum-card__head { gap: 0.45rem; }
+    .forum-card__byline { font-size: 0.82rem; line-height: 1.5rem; }
+    .forum-card__title { font-size: 0.95rem; }
+
+    // The message as a chat bubble.
+    .forum-card__message {
+      align-self: flex-start;
+      max-width: 100%;
+      padding: 0.5rem 0.85rem;
+      background: $fw-soft;
+      border-radius: 4px $fw-radius $fw-radius $fw-radius;
+    }
+    .forum-card__excerpt { color: $fw-text; }
+
+    // With an avatar, everything under the name row lines up with the name.
+    &.has-avatar > :not(.forum-card__head) { margin-left: 1.95rem; }
+  }
+
+  // One row: Reply · reactions · replies (last reply) · views · Read more.
+  &__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.9rem;
+    font-size: 0.8rem;
+    color: $fw-muted;
+  }
+
+  &__stat { white-space: nowrap; }
+  &__when { color: $fw-muted; font-weight: 400; }
+}
+
+@media (max-width: 768px) {
+  .forum-card--minimal.has-avatar > :not(.forum-card__head) { margin-left: 0; }
 }
 
 // ─── Replies + messages ───

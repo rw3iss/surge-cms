@@ -34,6 +34,9 @@
 
     > input { flex: 1 1 auto; min-width: 0; }
     > .align-buttons { flex: 0 0 auto; }
+
+    &--multiline { align-items: flex-start; }
+    > textarea { flex: 1 1 auto; min-width: 0; resize: vertical; }
   }
 
   &__toggles {

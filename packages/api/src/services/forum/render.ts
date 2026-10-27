@@ -36,7 +36,9 @@ export function forumListHtml(items: ForumFeedThread[] | null | undefined, s: Re
     const muted = o.email ? ' style="color:#6b7280;font-size:13px;"' : '';
     const para = o.email ? ` style="margin:4px 0 0;${o.textColor ? `color:${esc(o.textColor,)};` : ''}"` : '';
     const align = s.headingAlign !== 'left' ? ` style="text-align:${s.headingAlign};"` : '';
-    const heading = s.heading ? `<h2${align}>${esc(s.heading,)}</h2>` : '';
+    const subStyle = [s.subheadingAlign !== 'left' ? `text-align:${s.subheadingAlign};` : '', o.email && o.textColor ? `color:${esc(o.textColor,)};` : '',].join('',);
+    const heading = (s.heading ? `<h2${align}>${esc(s.heading,)}</h2>` : '')
+        + (s.subheading ? `<p${subStyle ? ` style="${subStyle}"` : ''}>${esc(s.subheading,).replace(/\r?\n/g, '<br>',)}</p>` : '');
 
     if (!list.length) {
         return s.emptyText ? `${heading}<p${para}>${esc(s.emptyText,)}</p>` : '';
@@ -45,7 +47,8 @@ export function forumListHtml(items: ForumFeedThread[] | null | undefined, s: Re
     const line = (t: ForumFeedThread,): string => {
         const meta: string[] = [];
         if (s.showAuthor) meta.push(esc(t.author?.name,),);
-        if (s.showCounts) meta.push(`${t.replyCount} ${t.replyCount === 1 ? 'reply' : 'replies'}`,);
+        if (s.showReplyCount) meta.push(`${t.replyCount} ${t.replyCount === 1 ? 'reply' : 'replies'}`,);
+        if (s.showViewCount) meta.push(`${t.viewCount} ${t.viewCount === 1 ? 'view' : 'views'}`,);
         const excerpt = s.content === 'none' ? '' : cut(t.excerpt ?? '', s.content === 'full' ? 500 : s.excerptLength,);
         return `<a href="${esc(base + t.url,)}"${link}>${esc(t.title,)}</a>`
             + (meta.length ? ` <span${muted}>— ${meta.join(' · ',)}</span>` : '')

@@ -53,7 +53,7 @@ export async function postForumReply(ctx: ForumWidgetCtx, threadId: string, pare
 }
 
 /** Round avatar (picture or initials). */
-export const ForumAvatar: Component<{ name: string; src?: string | null; size?: 'sm' | 'md'; }> = (props,) => (
+export const ForumAvatar: Component<{ name: string; src?: string | null; size?: 'xs' | 'sm' | 'md'; }> = (props,) => (
     <Show
         when={props.src}
         fallback={<span class={`forum-avatar forum-avatar--${props.size ?? 'md'} forum-avatar--initials`} aria-hidden="true">{userInitials(props.name,)}</span>}

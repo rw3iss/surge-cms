@@ -36,6 +36,8 @@ export type ForumFeedSort = 'latest' | 'newest' | 'hot' | 'top';
 export type ForumFeedWindow = '24h' | '7d' | '30d' | 'all';
 export type ForumBlockVisibility = 'public' | 'members';
 export type ForumHeadingAlign = 'left' | 'center' | 'right';
+/** full = card (title, body, meta row, then actions) · minimal = chat style (one compact name row, the message as a bubble, one action row). */
+export type ForumThreadStyle = 'full' | 'minimal';
 
 export const FORUM_FEED_SORTS: readonly ForumFeedSort[] = ['latest', 'newest', 'hot', 'top',];
 export const FORUM_FEED_WINDOWS: readonly ForumFeedWindow[] = ['24h', '7d', '30d', 'all',];
@@ -49,16 +51,25 @@ export interface ForumBlockSettings {
 
     heading?: string;
     headingAlign?: ForumHeadingAlign;
+    /** Optional paragraph under the heading (plain text; line breaks kept). */
+    subheading?: string;
+    subheadingAlign?: ForumHeadingAlign;
     emptyText?: string;
 
     // ─── What each post shows ───
+    /** How each thread is drawn. Default `full`. */
+    threadStyle?: ForumThreadStyle;
     showTitle?: boolean;
     showAuthor?: boolean;
     showAvatar?: boolean;
     showDate?: boolean;
     showLastReply?: boolean;
     showCategory?: boolean;
-    /** Reply + view counts. */
+    /** "N replies" (else a plain "Show replies" link when replies are shown). */
+    showReplyCount?: boolean;
+    /** "N views". */
+    showViewCount?: boolean;
+    /** @deprecated Reply + view counts together — read when the two above are unset. */
     showCounts?: boolean;
     content?: ForumContentDisplay;
     /** Characters of the excerpt (content = excerpt). */
@@ -106,8 +117,8 @@ export const DEFAULT_FORUM_BINDING: SlotBinding = {
 };
 
 export const DEFAULT_FORUM_BLOCK_SETTINGS: {
-    mode: ForumBlockMode; binding: SlotBinding; headingAlign: ForumHeadingAlign; showTitle: boolean; showAuthor: boolean;
-    showAvatar: boolean; showDate: boolean; showLastReply: boolean; showCategory: boolean; showCounts: boolean;
+    mode: ForumBlockMode; binding: SlotBinding; headingAlign: ForumHeadingAlign; threadStyle: ForumThreadStyle; showTitle: boolean; showAuthor: boolean;
+    showAvatar: boolean; showDate: boolean; showLastReply: boolean; showCategory: boolean; showReplyCount: boolean; showViewCount: boolean;
     content: ForumContentDisplay; excerptLength: number; readMoreLabel: string; chatOrder: boolean; listMaxHeight: string;
     limit: number; postMode: ForumPostMode; postPlaceholder: string; allowReplies: boolean; showReplies: boolean;
     expandReplies: boolean; allowReactions: boolean; visibility: ForumBlockVisibility; allowAnonymous: boolean;
@@ -116,13 +127,15 @@ export const DEFAULT_FORUM_BLOCK_SETTINGS: {
     mode: 'list' as ForumBlockMode,
     binding: DEFAULT_FORUM_BINDING,
     headingAlign: 'left' as ForumHeadingAlign,
+    threadStyle: 'full' as ForumThreadStyle,
     showTitle: true,
     showAuthor: true,
     showAvatar: true,
     showDate: true,
     showLastReply: true,
     showCategory: false,
-    showCounts: true,
+    showReplyCount: true,
+    showViewCount: true,
     content: 'excerpt' as ForumContentDisplay,
     excerptLength: 220,
     readMoreLabel: 'Read more',
@@ -144,6 +157,8 @@ export const DEFAULT_FORUM_BLOCK_SETTINGS: {
 export type ResolvedForumBlockSettings = typeof DEFAULT_FORUM_BLOCK_SETTINGS & {
     thread?: string;
     heading?: string;
+    subheading?: string;
+    subheadingAlign: ForumHeadingAlign;
     emptyText?: string;
     postCategory?: string;
 };
@@ -173,6 +188,10 @@ export function normalizeForumBlockSettings(raw: unknown,): ResolvedForumBlockSe
         thread: str(s.thread,) || undefined,
         heading: str(s.heading,) || undefined,
         headingAlign: oneOf(s.headingAlign, ['left', 'center', 'right',] as const, d.headingAlign,),
+        subheading: str(s.subheading,) || undefined,
+        // Follows the heading unless set on its own.
+        subheadingAlign: oneOf(s.subheadingAlign, ['left', 'center', 'right',] as const,
+            oneOf(s.headingAlign, ['left', 'center', 'right',] as const, d.headingAlign,),),
         emptyText: str(s.emptyText,) || undefined,
         showTitle: bool(s.showTitle, d.showTitle,),
         showAuthor: bool(s.showAuthor, d.showAuthor,),
@@ -180,7 +199,10 @@ export function normalizeForumBlockSettings(raw: unknown,): ResolvedForumBlockSe
         showDate: bool(s.showDate, d.showDate,),
         showLastReply: bool(s.showLastReply, d.showLastReply,),
         showCategory: bool(s.showCategory, d.showCategory,),
-        showCounts: bool(s.showCounts, d.showCounts,),
+        threadStyle: oneOf(s.threadStyle, ['full', 'minimal',] as const, d.threadStyle,),
+        // The old single "Counts" switch stands in for either one left unset.
+        showReplyCount: bool(s.showReplyCount, bool(s.showCounts, d.showReplyCount,),),
+        showViewCount: bool(s.showViewCount, bool(s.showCounts, d.showViewCount,),),
         content: oneOf(s.content, ['none', 'excerpt', 'full',] as const, d.content,),
         excerptLength: int(s.excerptLength, d.excerptLength, 20, 5000,),
         readMoreLabel: typeof s.readMoreLabel === 'string' ? s.readMoreLabel.trim() : d.readMoreLabel,

@@ -140,6 +140,9 @@ const ForumWidget: Component<ForumWidgetProps> = (props,) => {
                             </Show>
                         </header>
                     </Show>
+                    <Show when={s().subheading}>
+                        <p class={`forum-widget__subheading forum-widget__subheading--${s().subheadingAlign}`}>{s().subheading}</p>
+                    </Show>
 
                     <Switch>
                         <Match when={membersGate()}>

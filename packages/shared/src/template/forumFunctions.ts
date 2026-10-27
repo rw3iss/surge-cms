@@ -16,8 +16,10 @@
  *   post (off|inline|form|button; true = inline) · postTo (category for new threads) · placeholder
  *   replies (reply buttons) · showReplies · expandReplies · reactions
  *   content (none|excerpt|full) · excerptLength · readMore ('' / false hides the link)
- *   title · author · avatar · date · lastReply · categoryName · counts   (show/hide each field)
- *   chat (newest at the bottom) · height (list max height) · heading · emptyText
+ *   style (full|minimal — minimal = chat bubbles)
+ *   title · author · avatar · date · lastReply · categoryName · replyCount · views   (show/hide each field;
+ *   counts=false hides both counts)
+ *   chat (newest at the bottom) · height (list max height) · heading · subheading · emptyText
  *   members (true = members only) · anonymous (guest posting) · live · refresh (seconds)
  *
  * Result: `entityRef(FORUM_BLOCK_KIND, settings)`.
@@ -88,7 +90,8 @@ export function forumBlockSettingsFrom(name: string, args: unknown[], named: Rec
         ['showDate', named.date ?? named.showDate,],
         ['showLastReply', named.lastReply ?? named.showLastReply,],
         ['showCategory', named.categoryName ?? named.showCategory,],
-        ['showCounts', named.counts ?? named.showCounts,],
+        ['showReplyCount', named.replyCount ?? named.showReplyCount ?? named.counts,],
+        ['showViewCount', named.views ?? named.viewCount ?? named.showViewCount ?? named.counts,],
         ['chatOrder', named.chat ?? named.chatOrder,],
         ['allowAnonymous', named.anonymous,],
         ['liveUpdates', named.live,],
@@ -97,11 +100,14 @@ export function forumBlockSettingsFrom(name: string, args: unknown[], named: Rec
         const b = bool(v,);
         if (b !== undefined) (s as Record<string, unknown>)[k] = b;
     }
+    if (str(named.style ?? named.threadStyle,) === 'minimal' || str(named.style ?? named.threadStyle,) === 'chat') s.threadStyle = 'minimal';
+    else if (str(named.style ?? named.threadStyle,) === 'full') s.threadStyle = 'full';
     if (CONTENT.includes(str(named.content,) as ForumContentDisplay,)) s.content = str(named.content,) as ForumContentDisplay;
     if (num(named.excerptLength ?? named.length,) !== undefined) s.excerptLength = num(named.excerptLength ?? named.length,);
     if (named.readMore !== undefined) s.readMoreLabel = bool(named.readMore,) === false ? '' : str(named.readMore,);
     if (str(named.height,)) s.listMaxHeight = str(named.height,);
     if (str(named.heading,)) s.heading = str(named.heading,);
+    if (str(named.subheading ?? named.intro,)) s.subheading = str(named.subheading ?? named.intro,);
     if (str(named.emptyText ?? named.empty,)) s.emptyText = str(named.emptyText ?? named.empty,);
     if (bool(named.members,) === true || str(named.visibility,) === 'members') s.visibility = 'members';
     if (num(named.refresh,) !== undefined) s.refreshSeconds = num(named.refresh,);

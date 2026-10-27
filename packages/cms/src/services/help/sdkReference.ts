@@ -913,8 +913,12 @@ export const DISCUSSIONS_DOC: SdkDoc = {
                     list: [
                         'List mode: threads from Set data… on `forum_thread` — tick threads for a fixed selection, or tick none to '
                         + 'save a live query (sort `latest` / `newest` / `hot` / `top`, window, category). Each card shows what '
-                        + 'Display turns on: title, avatar, author, date, last reply, category, counts, an excerpt or the full post, '
-                        + 'Read more, reactions and the replies (open in place).',
+                        + 'Display turns on: title, avatar, author, date, last reply, category, reply count, view count, an excerpt '
+                        + 'or the full post, Read more, reactions and the replies (open in place). A heading and a subheading '
+                        + '(a paragraph, each with its own alignment) sit above the list.',
+                        'Thread display style: Full (a card — title, post, a meta row, then the actions) or Minimal (chat — a small '
+                        + 'avatar and the name on one row, the message as a bubble, then ONE row: Reply, reactions, "3 replies (2m '
+                        + 'ago by Ann)", views, Read more). Without the reply count, a "Show replies" link opens them.',
                         'Thread mode: one thread as a chat stream — the opening post, then the replies, oldest to newest, with a '
                         + 'reply box at the bottom. Posting replies to the thread.',
                         'Posting (list mode): Off, Inline (one chat-style box; the thread title is taken from the first line of '

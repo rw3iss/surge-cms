@@ -12,7 +12,7 @@
  * Text / number fields commit on blur (CommitInput); booleans are Toggles.
  */
 import type {
-    ForumBlockMode, ForumBlockVisibility, ForumCategory, ForumContentDisplay, ForumPostMode, ResolvedForumBlockSettings, SlotBinding,
+    ForumBlockMode, ForumBlockVisibility, ForumCategory, ForumContentDisplay, ForumPostMode, ForumThreadStyle, ResolvedForumBlockSettings, SlotBinding,
 } from '@sitesurge/types';
 import { DEFAULT_FORUM_BINDING, forumBlockPostCategory, normalizeForumBlockSettings, } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
@@ -26,7 +26,7 @@ import { FormField, } from '../../forms';
 import { CommitInput, } from '../../forms/CommitInput';
 import './ForumBlockEdit.scss';
 
-type Flag = 'showTitle' | 'showAuthor' | 'showAvatar' | 'showDate' | 'showLastReply' | 'showCategory' | 'showCounts';
+type Flag = 'showTitle' | 'showAuthor' | 'showAvatar' | 'showDate' | 'showLastReply' | 'showCategory' | 'showReplyCount' | 'showViewCount';
 
 /** Display toggles, in card order. */
 const DISPLAY: { key: Flag; label: string; }[] = [
@@ -35,7 +35,8 @@ const DISPLAY: { key: Flag; label: string; }[] = [
     { key: 'showDate', label: 'Date posted', },
     { key: 'showCategory', label: 'Category', },
     { key: 'showTitle', label: 'Title', },
-    { key: 'showCounts', label: 'Reply + view counts', },
+    { key: 'showReplyCount', label: 'Reply count', },
+    { key: 'showViewCount', label: 'View count', },
     { key: 'showLastReply', label: 'Last reply (time + by)', },
 ];
 
@@ -61,6 +62,12 @@ const ForumBlockEdit: Component<{
     const list = () => d().mode === 'list';
     const set = (patch: Record<string, unknown>,) => {
         const next: Record<string, unknown> = { ...props.data, ...patch, };
+        // The old single "Counts" switch is replaced by the two count toggles on first edit.
+        if ('showCounts' in next) {
+            next.showReplyCount ??= d().showReplyCount;
+            next.showViewCount ??= d().showViewCount;
+            delete next.showCounts;
+        }
         for (const k of Object.keys(next,)) if (next[k] === undefined) delete next[k];
         props.onUpdate(next,);
     };
@@ -85,6 +92,8 @@ const ForumBlockEdit: Component<{
     // The heading's draft (it commits on blur) so its alignment bar enables while typing.
     const [headingDraft, setHeadingDraft,] = createSignal(d().heading ?? '',);
     createEffect(() => setHeadingDraft(d().heading ?? '',),);
+    const [subheadingDraft, setSubheadingDraft,] = createSignal(d().subheading ?? '',);
+    createEffect(() => setSubheadingDraft(d().subheading ?? '',),);
 
     return (
         <div class="forum-block-edit block-edit-form">
@@ -136,6 +145,15 @@ const ForumBlockEdit: Component<{
             </Group>
 
             <Group title="Display">
+                <FormField
+                    label="Thread display style"
+                    tooltip="Full: a card — title, the post, a meta row, then the action row. Minimal (chat): avatar + name on one row, the message as a bubble, one row with Reply, reactions, replies, views and Read more."
+                >
+                    <select value={d().threadStyle} onChange={(e,) => set({ threadStyle: e.currentTarget.value as ForumThreadStyle, },)}>
+                        <option value="full">Full</option>
+                        <option value="minimal">Minimal (chat)</option>
+                    </select>
+                </FormField>
                 <div class="forum-block-edit__toggles">
                     <For each={DISPLAY}>
                         {(t,) => <Toggle checked={d()[t.key]} onChange={(v,) => set({ [t.key]: v, },)} label={t.label} />}
@@ -199,6 +217,24 @@ const ForumBlockEdit: Component<{
                             value={d().headingAlign}
                             disabled={!headingDraft().trim()}
                             onChange={(v,) => set({ headingAlign: v === 'left' ? undefined : v, },)}
+                        />
+                    </div>
+                </FormField>
+                <FormField label="Subheading" tooltip="Optional text under the heading — a paragraph to introduce the discussion. Line breaks are kept. The buttons set its alignment.">
+                    <div class="forum-block-edit__heading forum-block-edit__heading--multiline">
+                        <CommitInput
+                            multiline
+                            rows={3}
+                            value={d().subheading ?? ''}
+                            placeholder="e.g. Share your thoughts — be kind, stay on topic."
+                            onDraft={setSubheadingDraft}
+                            onCommit={(v,) => set({ subheading: text(v,), },)}
+                        />
+                        <AlignButtons
+                            label="Subheading alignment"
+                            value={d().subheadingAlign}
+                            disabled={!subheadingDraft().trim()}
+                            onChange={(v,) => set({ subheadingAlign: v, },)}
                         />
                     </div>
                 </FormField>

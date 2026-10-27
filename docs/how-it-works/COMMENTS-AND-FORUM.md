@@ -103,7 +103,14 @@ base installs with the first one and never shows in the list.
 An in-page forum / live discussion: threads from a query or a selection (list mode) or
 one thread as a chat stream (thread mode), with inline posting, replies and reactions.
 Settings: `ForumBlockSettings` in `@sitesurge/types` (`types/forumBlock.ts`; the template
-function maps through `forumBlockSettingsFrom`). Plan: `docs/plans/2026-10-27-forum-block.md`.
+function maps through `forumBlockSettingsFrom`). Plan: `docs/plans/completed/2026-10-27-forum-block.md`.
+
+**Display** — `threadStyle`: `full` (card: title, post, a meta row, then the actions) or
+`minimal` (chat: a compact avatar + name row, the message as a bubble, ONE row — Reply ·
+reactions · "N replies (2m ago by X)" · views · Read more). Reply count and view count are
+separate switches (`showReplyCount` / `showViewCount`; the old `showCounts` is read when they
+are unset); without the reply count a "Show replies" link opens the replies. A `heading`
+and a `subheading` (plain paragraph, line breaks kept) each take an alignment.
 
 **Feed** — `GET /api/v1/forum/feed` (optional auth, `cms.forum.feed`, service
 `services/forum/feed.ts`):
