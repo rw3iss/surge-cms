@@ -80,8 +80,8 @@ export const NOTIFICATION_TYPES: NotificationTypeMeta[] = [
     },
     {
         key: 'post_submitted',
-        label: 'Post submitted for review',
-        description: 'When a contributor submits a post for review.',
+        label: 'Content submissions',
+        description: 'When someone submits a post for review (contributors, or anyone whose publishing needs approval) — with a link to review it.',
         feature: 'posts',
     },
     {

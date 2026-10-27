@@ -441,12 +441,12 @@ export const MAIL_PURPOSES: MailPurposeMeta[] = [
     },
     {
         key: 'post_submitted_admin',
-        label: 'Post submitted for review (staff alert)',
-        description: 'Internal alert when a contributor submits a post for review. Goes to the addresses in Settings → Notifications → Post submitted for review.',
+        label: 'Content submitted for review (staff alert)',
+        description: 'Internal alert when someone submits a post for review. Goes to the addresses in Settings → Notifications → Content submissions.',
         feature: 'posts',
         audience: 'admin',
         defaultEnabled: true,
-        defaultSubject: 'Post to review: {{post.title}}',
+        defaultSubject: 'New post up for review: {{post.title}}',
         variables: [
             { name: 'post.title', description: 'The post title.', },
             { name: 'post.url', description: 'Link to the post in the admin editor (review it there).', },

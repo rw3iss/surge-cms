@@ -34,9 +34,9 @@ export function submitted(postId: string, userId: string,): void {
             const person = await notifyUser({ userId, },);
             const who = personLabel(person, 'A contributor',);
             const msg = await buildNotification({
-                title: 'Post submitted for review',
-                subject: `Post to review: ${post.title} (${who})`,
-                intro: `${who} submitted “${post.title}” for review. Open it to publish it or return it with a note.`,
+                title: 'New post up for review',
+                subject: `New post up for review: ${post.title} (${who})`,
+                intro: `${who} submitted “${post.title}” for review. Open it to publish it (and pay the contributor, when payouts are on) or return it with a note.`,
                 person,
                 personHeading: 'Author',
                 links: [
@@ -49,7 +49,7 @@ export function submitted(postId: string, userId: string,): void {
                 purpose: 'post_submitted_admin',
                 context: { post: { title: post.title, url: editUrl, }, author: { name: person?.name ?? '', email: person?.email ?? '', }, },
             };
-        }, { subject: `Post to review: ${post.title}`, text: `A post was submitted for review: ${post.title}\n${editUrl}`, },);
+        }, { subject: `New post up for review: ${post.title}`, text: `A post was submitted for review: ${post.title}\n${editUrl}`, },);
     })().catch((e: unknown,) => logger.warn('post submitted notice failed', { postId, error: (e as Error).message, },),);
 }
 

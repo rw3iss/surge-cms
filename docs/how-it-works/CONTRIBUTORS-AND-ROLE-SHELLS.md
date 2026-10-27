@@ -21,7 +21,7 @@ reviews before they go live.
 
 1. Sign in → `/admin` → the contributor dashboard (drafts, waiting for review, published).
 2. **Write a new post** (any type except Live). Author is always themselves; Access (subscription gating), Author and comment settings are staff-only and hidden.
-3. Status **Submit for review** + Save → status `pending_review`; the team is alerted (Settings → Notifications → **Post submitted for review**, mail purpose `post_submitted_admin`).
+3. Status **Submit for review** + Save → status `pending_review`; the team is alerted — "New post up for review" with a **Review the post** link (Settings → Notifications → **Content submissions**, notification `post_submitted`, mail purpose `post_submitted_admin`). Anyone who sets a post to "Waiting for review" triggers it, not only contributors.
 4. While pending they may keep editing. Once published they cannot edit it (an editor can). Drafts and pending posts can be deleted by them.
 5. They are emailed the result (`post_review_result`): published (link to the post) or returned with the editor's note (shown in their editor too).
 

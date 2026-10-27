@@ -54,8 +54,10 @@ export async function shapeStatus(
     const out: Record<string, unknown> = { ...body, };
     const mode = await checkMode({ id: user.id, role: user.role, }, 'posts:publish',);
     if (mode === 'allow') {
-        if (out.status === 'pending_review' && !current) out.status = 'draft';
-        return { body: out, submitted: false, };
+        // Anyone may still choose "Waiting for review" — that is a submission too
+        // (the team is alerted: notification "Content submissions").
+        const submitted = out.status === 'pending_review' && current?.status !== 'pending_review';
+        return { body: out, submitted, };
     }
     if (current && (current.status === 'published' || current.status === 'scheduled')) {
         throw new ForbiddenError('This post is published — ask an editor to change it.',);

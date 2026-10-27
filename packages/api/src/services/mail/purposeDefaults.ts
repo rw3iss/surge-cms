@@ -267,7 +267,7 @@ export async function defaultPurposeHtml(
             break;
 
         case 'post_submitted_admin':
-            body = H('Post submitted for review',)
+            body = H('New post up for review',)
                 + P(`<strong>${escapeHtml(pick(ctx, 'author.name',) || 'A contributor',)}</strong> submitted <strong>${escapeHtml(pick(ctx, 'post.title',),)}</strong> for review.`,)
                 + (pick(ctx, 'post.url',) ? button(pick(ctx, 'post.url',), 'Review the post',) : '');
             break;
