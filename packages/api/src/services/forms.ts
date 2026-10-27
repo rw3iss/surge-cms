@@ -16,6 +16,8 @@ import type { Form, FormQuestion, FormResults, FormSubmission, QuestionResult, }
 import { formatAnswerValue, } from '@sitesurge/types';
 import { NotFoundError, ValidationError, } from '../core/errors';
 import * as repo from '../repositories/forms.repo';
+import { query, } from '../db';
+import { uuidOrNull, } from '../utils/uuid';
 import { performBulkAction, } from '../utils/bulkActions';
 import type { BulkActionResult, } from '../utils/bulkActions';
 import { logAudit, } from './audit';
@@ -40,6 +42,28 @@ export async function list(
         data: result.data,
         meta: { page, limit, total: result.total, totalPages: Math.ceil(result.total / limit,), },
     };
+}
+
+/**
+ * Clone a form with ALL its questions, sections, settings and on-submit action
+ * (the generic deep copy, `entities.copy`). The copy is "<title> (Copy)", a
+ * DRAFT with no submissions; its slug gets a free suffix (`-1`, `-2`…).
+ */
+export async function clone(id: string, ctx: AuditContext,): Promise<Form> {
+    const src = await repo.findFormById(id,).catch(() => null);
+    if (!src) throw new NotFoundError('Form',);
+    const { copy, } = await import('./entities.js');
+    const rec = await copy('form', id, { userId: ctx.userId, }, { title: `${src.title} (Copy)`, },);
+    const newId = String((rec as { id: string; }).id,);
+    await query(
+        `UPDATE forms SET title = $3, status = 'draft', submission_count = 0, closed_at = NULL, created_by = $2, created_at = NOW(), updated_at = NOW() WHERE id = $1`,
+        [newId, uuidOrNull(ctx.userId,), `${src.title} (Copy)`.slice(0, 255,),],
+    );
+    await cache.invalidateFormCache();
+    await logAudit({ userId: ctx.userId, action: 'clone', entityType: 'form', entityId: newId, newValues: { from: id, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
+    const form = await getById(newId,);
+    if (!form) throw new NotFoundError('Form',);
+    return form;
 }
 
 export async function getById(id: string,): Promise<Form | null> {

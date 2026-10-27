@@ -5822,6 +5822,26 @@ export const API_MODULES: ApiModuleDoc[] = [
             },
             {
                 "method": "POST",
+                "path": "/:id/clone",
+                "absolutePath": "/api/v1/forms/:id/clone",
+                "auth": "staff",
+                "summary": "Clone a form with all its questions, sections and settings — a draft \"<title> (Copy)\" with a free slug.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.forms.clone"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
                 "path": "/:id/questions",
                 "absolutePath": "/api/v1/forms/:id/questions",
                 "auth": "staff",
@@ -18493,4 +18513,4 @@ export const API_MODULES: ApiModuleDoc[] = [
 ];
 
 export const API_MODULE_COUNT = 59;
-export const API_ROUTE_COUNT = 639;
+export const API_ROUTE_COUNT = 640;

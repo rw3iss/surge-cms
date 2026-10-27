@@ -3198,6 +3198,22 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 ]
             },
             {
+                "name": "clone",
+                "signature": "clone(id: string): Promise<Form>",
+                "summary": "POST /forms/:id/clone — a draft copy with every question, section and setting (\"<title> (Copy)\", free slug).",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<Form>",
+                "routes": [
+                    "POST /api/v1/forms/:id/clone"
+                ]
+            },
+            {
                 "name": "create",
                 "signature": "create(body: FormCreateBody): Promise<FormCreateResponse>",
                 "summary": "",
@@ -10787,4 +10803,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 54;
-export const SDK_METHOD_COUNT = 634;
+export const SDK_METHOD_COUNT = 635;

@@ -279,6 +279,14 @@ export const formsRoutes = [
         handler: ({ params, body, audit, },) => forms.update(params.id, body, audit(),),
     },),
 
+    // Clone a form with its questions (admin).
+    defineRoute({
+        method: 'post', path: '/:id/clone', auth: 'staff',
+        summary: 'Clone a form with all its questions, sections and settings — a draft "<title> (Copy)" with a free slug.',
+        input: { params: idParams, },
+        handler: async ({ params, audit, },) => reply(await forms.clone(params.id, audit(),), { status: 201, },),
+    },),
+
     // Add question (admin).
     defineRoute({
         method: 'post', path: '/:id/questions', auth: 'staff',

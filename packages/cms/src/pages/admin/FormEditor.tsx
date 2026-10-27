@@ -67,6 +67,23 @@ const FormEditor: Component = () => {
     const isNew = () => !params.id || params.id === 'new';
     const { markDirty, markClean, ...leaveGuard } = useUnsavedChanges();
     const toast = useToast();
+    // Clone (header button): a draft copy with every question — opens it.
+    const [cloneOpen, setCloneOpen,] = createSignal(false,);
+    const [cloning, setCloning,] = createSignal(false,);
+    const cloneForm = async () => {
+        if (!params.id) return;
+        setCloning(true,);
+        try {
+            const copy = await cms.forms.clone(params.id,);
+            setCloneOpen(false,);
+            toast.success(`Cloned — editing "${copy.title}" (draft, /${copy.slug}).`,);
+            navigate(`/admin/forms/${copy.id}`,);
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Could not clone the form.',);
+        } finally {
+            setCloning(false,);
+        }
+    };
     const { error, saving, beginSave, endSave, showError, setError, } = useEditorState();
 
     // Form metadata
@@ -1016,6 +1033,16 @@ const FormEditor: Component = () => {
                 guard was shared. */
             }
             <ConfirmModal
+                open={cloneOpen()}
+                title="Clone this form?"
+                message={`A new DRAFT form "${title() || 'Untitled'} (Copy)" is made with every question, section and setting — from the last SAVED version (save first to include unsaved changes). Its submissions are not copied.`}
+                confirmLabel="Clone form"
+                busyLabel="Cloning…"
+                loading={cloning()}
+                onConfirm={() => void cloneForm()}
+                onCancel={() => setCloneOpen(false,)}
+            />
+            <ConfirmModal
                 open={leaveGuard.pending()}
                 title="Unsaved changes"
                 message={'This form has changes that have not been saved. Leaving now discards them.'}
@@ -1074,6 +1101,11 @@ const FormEditor: Component = () => {
                     <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={() => setPreviewOpen(true,)}>
                         Preview
                     </button>
+                    <Show when={!isNew()}>
+                        <button type="button" class="ui-button ui-button--secondary ui-button--sm" disabled={cloning()} onClick={() => setCloneOpen(true,)}>
+                            {cloning() ? 'Cloning…' : 'Clone'}
+                        </button>
+                    </Show>
                     <EditorSaveBar
                         onSave={() => handleSubmit()}
                         onCancel={() => navigate('/admin/forms',)}

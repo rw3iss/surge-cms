@@ -7,7 +7,7 @@ import type {
     FormQuestionUpdateResponse, FormQuestionDeleteResponse, FormSubmissionsExportResponse,
     FormSubmissionDeleteResponse, FormSubmissionsBulkDeleteResponse,
 } from '@sitesurge/types';
-import type { Paginated, } from '@sitesurge/types';
+import type { Form, Paginated, } from '@sitesurge/types';
 import type { QueryOptions, } from '../core/types';
 import { ModuleBase, } from './base';
 
@@ -92,6 +92,11 @@ export class FormsModule extends ModuleBase {
 
     update(id: string, body: FormUpdateBody,): Promise<FormUpdateResponse> {
         return this.mutate<FormUpdateResponse>('PUT', '/forms/:id', { params: { id, }, body, invalidates: ['forms', 'entities',], },);
+    }
+
+    /** POST /forms/:id/clone — a draft copy with every question, section and setting ("<title> (Copy)", free slug). */
+    clone(id: string,): Promise<Form> {
+        return this.mutate<Form>('POST', '/forms/:id/clone', { params: { id, }, invalidates: ['forms', 'entities',], },);
     }
 
     remove(id: string,): Promise<FormDeleteResponse> {

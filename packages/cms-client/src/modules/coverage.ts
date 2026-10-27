@@ -120,6 +120,7 @@ export const ROUTE_COVERAGE: string[] = [
     'POST /api/v1/forms',
     'PUT /api/v1/forms/:id',
     'DELETE /api/v1/forms/:id',
+    'POST /api/v1/forms/:id/clone',
     'POST /api/v1/forms/bulk',
     'POST /api/v1/forms/:id/questions',
     'PUT /api/v1/forms/:formId/questions/:questionId',

@@ -39,6 +39,9 @@ import { BLOCK_STORES, cloneBlockTree, tableColumns, } from '../services/blockSt
 const CHILD_TABLES: Record<string, { table: string; fk: string; }[]> = {
     page: [{ table: BLOCK_STORES.page.table, fk: BLOCK_STORES.page.fk, },],
     post: [{ table: BLOCK_STORES.post.table, fk: BLOCK_STORES.post.fk, },],
+    // A form's questions (each copied with every column; section ids live in
+    // the form's own `sections`, so they stay valid on the copy).
+    form: [{ table: 'form_questions', fk: 'form_id', },],
 };
 
 
