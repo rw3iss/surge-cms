@@ -226,6 +226,7 @@ const AdminPostEditor: Component = () => {
                 ? await cms.posts.create(data,)
                 : await cms.posts.update(ctx.id, data,);
             const savedId = (saved as any)?.id ?? ctx.id;
+            ctx.commit(saved as unknown as Record<string, unknown>,);
             // Comment switches live on their own row, keyed by the post id —
             // a NEW post only has one now.
             if (savedId) await commentSwitches.save(savedId,);
@@ -1081,7 +1082,7 @@ const AdminPostEditor: Component = () => {
             revisionsEntityType="post"
             title={title}
             status={status}
-            publicUrl={() => `/posts/${(editor.entity() as any)?.slug || slug()}`}
+            publicUrl={() => `/posts/${(editor.saved() as any)?.slug || slug()}`}
             previewStatus={() =>
                 status() === 'published' ? 'Published' : status() === 'archived' ? 'Archived' : 'Draft'}
             rootClass={() => 'admin-full-bleed'}

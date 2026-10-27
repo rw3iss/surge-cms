@@ -22,6 +22,13 @@ export interface EntitySaveContext {
      *  Lets a module skip re-saving blocks whose data + order are unchanged. */
     savedBlocks: BlockData[];
     originalBlockIds: Set<string>;
+    /**
+     * Report what the server stored (its response row). The loaded `entity` is fetched ONCE and never
+     * refreshed — refetching would re-run each editor's hydrate effect over in-progress edits — so without
+     * this, anything derived from it kept the values the page was OPENED with. A clone opened as
+     * `home-copy` and saved as `home-draft` still "View"ed `/home-copy` (404).
+     */
+    commit: (saved: Record<string, unknown> | null | undefined,) => void;
 }
 
 export interface UseEntityEditorConfig<TEntity,> {
@@ -72,6 +79,9 @@ export interface EntityEditorController<TEntity,> {
     navigate: Navigator;
     isNew: () => boolean;
     entity: Resource<TEntity | null>;
+    /** The loaded entity overlaid with the last successful save's server row — read THIS for anything
+     *  that must reflect what is saved now (the public URL, the saved status). */
+    saved: () => TEntity | null;
     // dirty tracking
     isDirty: Accessor<boolean>;
     markDirty: () => void;
@@ -141,6 +151,15 @@ export function useEntityEditor<TEntity,>(
             }
         },
     );
+
+    // Server row from the last successful save on THIS id (see EntitySaveContext.commit).
+    const [savedPatch, setSavedPatch,] = createSignal<{ id: string; row: Record<string, unknown>; } | null>(null,);
+    const saved = (): TEntity | null => {
+        const base = entity();
+        const patch = savedPatch();
+        if (!patch || patch.id !== params.id) return base ?? null;
+        return { ...(base ?? {}), ...patch.row, } as TEntity;
+    };
 
     const appearance = useAppearance();
     const siteContainerStyle = () => appearanceCssVars(appearance(), 'public',);
@@ -221,6 +240,7 @@ export function useEntityEditor<TEntity,>(
         autoSave.cancel();
 
         beginSave();
+        let committed: Record<string, unknown> | null = null;
         try {
             const id = await config.save({
                 isNew: isNew(),
@@ -228,8 +248,14 @@ export function useEntityEditor<TEntity,>(
                 blocks: blocks(),
                 savedBlocks: savedBlocks(),
                 originalBlockIds: originalBlockIds(),
+                commit: (row,) => { committed = row ? { ...row, } : null; },
             },);
             setSavedBlocks(structuredClone(blocks(),),);
+            const savedId0 = id || params.id;
+            if (committed && savedId0 && savedId0 !== 'new') {
+                const { blocks: _b, ...row } = committed as Record<string, unknown>;
+                setSavedPatch({ id: savedId0, row, },);
+            }
             autoSave.clear();
             markClean();
             config.onSaved?.();
@@ -295,6 +321,7 @@ export function useEntityEditor<TEntity,>(
         navigate,
         isNew,
         entity,
+        saved,
         isDirty,
         markDirty,
         markClean,
