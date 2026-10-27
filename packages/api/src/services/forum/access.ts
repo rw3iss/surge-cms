@@ -36,3 +36,19 @@ export function canReplyCategory(level: number, s: ForumSettings, c: CategoryRan
     if (c.locked || level < 0) return false;
     return canReadCategory(level, s, c,) && level >= Math.max(s.replyMinRank, c.post_min_rank ?? 0,);
 }
+
+/**
+ * Guests (Forum → Settings → Allow anonymous posting): only where the forum
+ * setting is on, the category is readable by a visitor and not locked, and
+ * its minimum is "anyone" (rank ≤ 0) — a subscribers-only category stays
+ * closed to guests. The permission `forum:post_anonymous` is checked separately.
+ */
+export function canGuestPostCategory(s: ForumSettings, c: CategoryRanks,): boolean {
+    if (!s.allowAnonymous || c.locked || !canReadCategory(-1, s, c,)) return false;
+    return Math.max(s.threadMinRank, c.post_min_rank ?? 0,) <= 0;
+}
+
+export function canGuestReplyCategory(s: ForumSettings, c: CategoryRanks,): boolean {
+    if (!s.allowAnonymous || c.locked || !canReadCategory(-1, s, c,)) return false;
+    return Math.max(s.replyMinRank, c.post_min_rank ?? 0,) <= 0;
+}

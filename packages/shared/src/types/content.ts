@@ -61,6 +61,8 @@ export type BlockType =
     | 'event'
     /** A list of events (grid / row / column of event cards). */
     | 'events'
+    /** In-page forum / live discussion widget (list of threads or one thread, posting, replies). */
+    | 'forum'
     | 'rich_text'
     | 'text'
     | 'post'

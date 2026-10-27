@@ -903,6 +903,57 @@ export const DISCUSSIONS_DOC: SdkDoc = {
             ],
         },
         {
+            heading: 'Forum block',
+            blocks: [
+                {
+                    p: 'Add a Forum block (Add block → Blocks → Forum) to put a live discussion on any page or post. It reads and '
+                        + 'writes the real forum, so every forum rule (who reads, who posts, locks, approval) still applies.',
+                },
+                {
+                    list: [
+                        'List mode: threads from Set data… on `forum_thread` — tick threads for a fixed selection, or tick none to '
+                        + 'save a live query (sort `latest` / `newest` / `hot` / `top`, window, category). Each card shows what '
+                        + 'Display turns on: title, avatar, author, date, last reply, category, counts, an excerpt or the full post, '
+                        + 'Read more, reactions and the replies (open in place).',
+                        'Thread mode: one thread as a chat stream — the opening post, then the replies, oldest to newest, with a '
+                        + 'reply box at the bottom. Posting replies to the thread.',
+                        'Posting (list mode): Off, Inline (one chat-style box; the thread title is taken from the first line of '
+                        + 'the message), Form (title + message) or Button ("New post" opens the form). New threads go to "New '
+                        + 'posts go to", else the query\'s category. With neither, the block cannot post (the editor says so).',
+                        'Chat order puts the newest post at the bottom and keeps the list scrolled there; a "New posts" pill '
+                        + 'appears instead when the reader has scrolled up.',
+                        'Live updates poll for new posts every N seconds (default 20) while the page is visible and nobody is '
+                        + 'typing in the block; new posts slide in.',
+                        'Visibility "Members" shows signed-out visitors a sign-in card instead of the discussion. The server\'s read '
+                        + 'rules apply either way.',
+                        'Anonymous posting: turn on Forum → Settings → "Allow anonymous posting" (guests\' posts wait for approval '
+                        + 'by default) AND the block\'s own "Allow anonymous posting". Guests may give a name. Permission '
+                        + '`forum:post_anonymous`.',
+                    ],
+                },
+                {
+                    p: 'Hidden categories: a category marked "Hide from forum index" (Admin → Forum → Categories) is left out of '
+                        + '`/forum`, unscoped lists (latest / hot threads), the sitemap and search. Its threads still open by link '
+                        + 'and in any Forum block or query that names the category — handy for a page-only discussion.',
+                },
+                {
+                    p: 'The same widget as a template function:',
+                },
+                {
+                    code: `{{ forum() }}                                                  // latest threads, read-only
+{{ forum(10, category='discussions', post='inline', replies=true) }}
+{{ forum(category='discussions', sort='hot', window='7d', content='full') }}
+{{ forum(threads='welcome,rules') }}                           // these threads, in order
+{{ forum(thread='ask-us-anything', post=true) }}               // one thread as a chat stream
+{{ forum(category='discussions', chat=true, height='420px', members=true) }}`,
+                },
+                {
+                    note: 'In server-rendered HTML and in email the block is a plain linked list of the threads (anonymous reader). '
+                        + 'Every argument is listed under Variables & Functions → Forum.',
+                },
+            ],
+        },
+        {
             heading: 'Member pages and activity',
             blocks: [
                 {
@@ -957,6 +1008,7 @@ export const DISCUSSIONS_DOC: SdkDoc = {
                         ['`comments:write`, `forum:thread_create`, `forum:reply`', 'Members',],
                         ['`discussions:react`, `discussions:report`, `discussions:edit_own`, `discussions:delete_own`', 'Members',],
                         ['`comments:anonymous`', 'Everyone (only where an item allows it)',],
+                        ['`forum:post_anonymous`', 'Everyone (only while Forum → Settings allows anonymous posting)',],
                         ['`discussions:moderate`, `comments:manage`, `forum:moderate`', 'Staff',],
                         ['`forum:manage` (categories + settings)', 'Admins',],
                     ],

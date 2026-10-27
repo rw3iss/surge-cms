@@ -22,6 +22,10 @@ describe('BLOCK_CONFIGURED', () => {
         expect(isBlockConfigured('events', {},),).toBe(true,);
         expect(isBlockConfigured('events', { binding: { mode: 'list', refs: [], }, },),).toBe(false,);
         expect(isBlockConfigured('events', { binding: { mode: 'list', refs: ['e1',], }, },),).toBe(true,);
+        // Forum: list mode always queries; thread mode needs its thread.
+        expect(isBlockConfigured('forum', {},),).toBe(true,);
+        expect(isBlockConfigured('forum', { mode: 'thread', },),).toBe(false,);
+        expect(isBlockConfigured('forum', { mode: 'thread', thread: 'welcome', },),).toBe(true,);
         expect(isBlockConfigured('event', { eventId: 'e1', },),).toBe(true,);
     },);
 },);

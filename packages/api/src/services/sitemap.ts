@@ -59,7 +59,7 @@ async function forumSitemapRows(): Promise<Array<{ slug: string; c_slug: string;
         const r = await query<{ slug: string; c_slug: string; updated_at: string; }>(
             `SELECT t.slug, fc.slug AS c_slug, GREATEST(t.updated_at, COALESCE(t.last_reply_at, t.updated_at)) AS updated_at
                FROM forum_threads t JOIN forum_categories fc ON fc.id = t.category_id
-              WHERE t.status = 'visible' AND fc.read_min_rank IS NULL
+              WHERE t.status = 'visible' AND fc.read_min_rank IS NULL AND NOT fc.hidden_from_index
               ORDER BY COALESCE(t.last_reply_at, t.created_at) DESC LIMIT 5000`,
         );
         return r.rows;

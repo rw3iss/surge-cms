@@ -219,7 +219,8 @@ export async function create(input: DiscussionsCommentCreateBody, viewer: Viewer
     const guest = !viewer.id;
     if (guest) {
         if (!access.allowAnonymous) throw new ForbiddenError('Sign in to comment.',);
-        if (!(await permissions.can(viewer, 'comments:anonymous',).catch(() => false))) throw new ForbiddenError('Sign in to comment.',);
+        const key = target.anonymousPermission ?? 'comments:anonymous';
+        if (!(await permissions.can(viewer, key,).catch(() => false))) throw new ForbiddenError('Sign in to comment.',);
     } else if (!(await permissions.can(viewer, target.writePermission as never,).catch(() => false))) {
         throw new ForbiddenError('You do not have permission to post here.',);
     }

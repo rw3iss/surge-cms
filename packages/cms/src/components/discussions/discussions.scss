@@ -527,3 +527,16 @@
     &:disabled { opacity: 0.6; cursor: default; }
     &:hover:not(:disabled) { text-decoration: underline; }
 }
+
+// Reaction chip "pop" after a toggle (ReactionBar — comments, forum pages, the Forum block).
+.comment-item__reaction.is-pop { animation: reaction-pop 0.35s ease-out; }
+
+@keyframes reaction-pop {
+    0% { transform: scale(1); }
+    45% { transform: scale(1.22); }
+    100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .comment-item__reaction.is-pop { animation: none; }
+}

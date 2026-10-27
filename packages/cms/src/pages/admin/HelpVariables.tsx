@@ -4,6 +4,8 @@ import {
     ENTITIES,
     EVENT_EXAMPLES,
     EVENT_FUNCTION_ARGS,
+    FORUM_EXAMPLES,
+    FORUM_FUNCTION_ARGS,
     FUNCTIONS,
     GLOBAL_VARIABLES,
     LOGIC_EXAMPLES,
@@ -140,6 +142,52 @@ const EventsSection: Component = () => (
     </section>
 );
 
+/** Forum: the live discussion widget (`forum()`), its arguments and examples. */
+const ForumSection: Component = () => (
+    <section class="help-doc__section" id="forum">
+        <h2>Forum</h2>
+        <p class="form-help-muted">
+            <code>{'{{ forum(...) }}'}</code> renders the Forum block's widget anywhere text is templated: thread cards that
+            visitors read, react to, reply to and (with <code>post=</code>) start threads in — or, with{' '}
+            <code>thread=</code>, one thread as a chat stream. Each argument means what the Forum block's option of the same
+            name means. Only threads the viewer may read appear; in server-rendered HTML and email it is a plain linked list
+            of the threads.
+        </p>
+
+        <h3>Function arguments</h3>
+        <table class="help-entity__table">
+            <thead>
+                <tr><th>Argument</th><th>Values</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+                <For each={FORUM_FUNCTION_ARGS}>
+                    {(a,) => (
+                        <tr>
+                            <td><code>{a.name}</code></td>
+                            <td class="help-entity__type">{a.values}</td>
+                            <td class="form-help-muted">{a.desc}</td>
+                        </tr>
+                    )}
+                </For>
+            </tbody>
+        </table>
+
+        <h3>Examples</h3>
+        <For each={FORUM_EXAMPLES}>
+            {(ex,) => (
+                <div class="help-doc__example help-doc__example--block">
+                    <p class="help-doc__desc"><strong>{ex.title}.</strong> {ex.desc}</p>
+                    <pre class="help-doc__pre">{ex.code}</pre>
+                </div>
+            )}
+        </For>
+        <p class="form-help-muted">
+            New threads need a category: <code>postTo=</code>, else <code>category=</code>. Guest posting also needs Forum →
+            Settings → Allow anonymous posting. More in <A href="/admin/help/comments-and-forum">Comments &amp; Forum</A>.
+        </p>
+    </section>
+);
+
 const HelpVariables: Component = () => (
     <div class="admin-help help-doc">
         <AdminTitle>Variables &amp; Functions - Help</AdminTitle>
@@ -258,6 +306,7 @@ const HelpVariables: Component = () => (
         </section>
 
         <EventsSection />
+        <ForumSection />
     </div>
 );
 

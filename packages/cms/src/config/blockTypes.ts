@@ -22,7 +22,7 @@
 // We now import + re-export it so the many admin call sites that pull
 // `BlockType` from this registry keep working, with ZERO drift risk.
 import type { BlockType, } from '@sitesurge/types';
-import { DEFAULT_EVENTS_BINDING, DEFAULT_GALLERY_BLOCK_SETTINGS, } from '@sitesurge/types';
+import { DEFAULT_EVENTS_BINDING, DEFAULT_FORUM_BINDING, DEFAULT_GALLERY_BLOCK_SETTINGS, } from '@sitesurge/types';
 import { eventsBindingIsEmpty, } from '../components/events/eventsLayout';
 export type { BlockType, };
 
@@ -36,7 +36,7 @@ export type BlockCategory = 'text' | 'media' | 'blocks' | 'layout';
 /** Site-feature flag keys (mirror of SiteFeatures in @sitesurge/types). When
  *  a block type sets `gating`, it's only shown in the AddBlockMenu when
  *  that feature is enabled in site settings. */
-export type BlockGatingFeature = 'posts' | 'campaigns' | 'forms' | 'messages' | 'users' | 'patreon' | 'gallery' | 'events';
+export type BlockGatingFeature = 'posts' | 'campaigns' | 'forms' | 'messages' | 'users' | 'patreon' | 'gallery' | 'events' | 'forum';
 
 /** Source of a "recent items" submenu, when applicable. The menu
  *  fetches the last N entries from this source on hover and lets the
@@ -173,6 +173,15 @@ export const BLOCK_TYPES: BlockTypeConfig[] = [
     },
     // Legacy name of `events`: still renders + edits (as Events), never offered.
     { type: 'event', label: 'Events', icon: '📅', category: 'blocks', gating: 'events', enabled: false, },
+    {
+        type: 'forum',
+        label: 'Forum',
+        description: 'A live discussion from the forum — threads to read, post and reply to, or one thread as a chat.',
+        icon: '💬',
+        category: 'blocks',
+        gating: 'forum',
+        defaultData: () => ({ mode: 'list', binding: DEFAULT_FORUM_BINDING, }),
+    },
     { type: 'social', label: 'Social', icon: '⌘', category: 'blocks', },
     {
         type: 'template',
@@ -320,6 +329,8 @@ export const BLOCK_CONFIGURED: Record<BlockType, (d: BlockData,) => boolean> = {
     // (and any live query) always has something to draw.
     events: (d,) => !eventsBindingIsEmpty(d,),
     event: (d,) => !eventsBindingIsEmpty(d,),
+    // List mode always has a query; thread mode needs its thread.
+    forum: (d,) => d.mode !== 'thread' || Boolean(String(d.thread ?? '',).trim(),),
     html: hasGenericContent,
     document: hasGenericContent,
     url_link: hasGenericContent,

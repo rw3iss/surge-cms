@@ -31,6 +31,8 @@ export interface CommentTarget {
     feature: FeatureKey;
     /** Permission a signed-in user needs to post here. */
     writePermission: string;
+    /** Permission a GUEST needs to post here (default `comments:anonymous`). */
+    anonymousPermission?: string;
     /** null = no such item, or it is not visible to this viewer at all. */
     access(targetId: string, viewer: Viewer,): Promise<TargetAccess | null>;
     /**

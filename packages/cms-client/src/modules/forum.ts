@@ -1,5 +1,5 @@
 import type {
-    DiscussionQuery, DiscussionThreadItem, ForumAdminThreadsQuery, ForumCategory, ForumCategoryBody, ForumCategoryThreadsResponse, ForumSettings, ForumSettingsBody,
+    DiscussionQuery, DiscussionThreadItem, ForumFeedQuery, ForumFeedResponse, ForumAdminThreadsQuery, ForumCategory, ForumCategoryBody, ForumCategoryThreadsResponse, ForumSettings, ForumSettingsBody,
     ForumThread, ForumThreadAction, ForumThreadActResponse, ForumThreadCreateBody, ForumThreadDetail, ForumThreadUpdateBody,
     PageMeta, Paginated,
 } from '@sitesurge/types';
@@ -20,6 +20,17 @@ export class ForumModule extends ModuleBase {
 
     updateSettings(body: ForumSettingsBody,): Promise<ForumSettings> {
         return this.mutate('PUT', '/forum/settings', { body, invalidates: ['forum',], },);
+    }
+
+    /**
+     * Threads for a forum block / widget, shaped for the caller: each with its
+     * opening post (body, reactions, rights), plus where new posts go
+     * (`postTarget`, when `postCategory` is given). Not cached — it is polled.
+     */
+    feed(query: ForumFeedQuery = {},): Promise<ForumFeedResponse> {
+        const q: Record<string, unknown> = { ...query, };
+        if (Array.isArray(query.threads,)) q.threads = query.threads.join(',',);
+        return this.get('/forum/feed', { query: q, options: { cache: false, }, },);
     }
 
     readonly categories = {

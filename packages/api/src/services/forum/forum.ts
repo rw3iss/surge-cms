@@ -9,10 +9,10 @@
  * `applyVisibility` / `setStatus`, via this feature's `forum_thread` target.
  */
 import type {
-    ForumAdminThreadsQuery, ForumCategory, ForumCategoryBody, ForumThread, ForumThreadAction, ForumThreadDetail,
+    ForumAdminThreadsQuery, ForumCategory, ForumCategoryBody, ForumThread, ForumThreadAction, ForumThreadCreateBody, ForumThreadDetail,
     ForumThreadStatus,
 } from '@sitesurge/types';
-import { generateSlug, } from '@sitesurge/types';
+import { deriveThreadTitle, generateSlug, } from '@sitesurge/types';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError, } from '../../core/errors';
 import { query, transaction, } from '../../db';
 import * as permissions from '../permissions';
@@ -21,17 +21,17 @@ import { applyVisibility, getRow, mapForViewer, setStatus, } from '../discussion
 import { emitDiscussionEvent, } from '../discussions/events';
 import { authorColumns, authorJoin, type CommentRow, excerptOf, mapAuthor, } from '../discussions/rows';
 import { getSettings as getEngineSettings, } from '../discussions/settings';
-import { checkWriteRate, } from '../discussions/spam';
+import { checkWriteRate, countLinks, } from '../discussions/spam';
 import { isModerator, isStaffViewer, type Viewer, } from '../discussions/viewer';
-import { canPostCategory, canReadCategory, canReplyCategory, viewerLevel, } from './access';
+import { canGuestPostCategory, canGuestReplyCategory, canPostCategory, canReadCategory, canReplyCategory, viewerLevel, } from './access';
 import { getSettings, } from './settings';
 
 // ─── Rows ───────────────────────────────────────────────────────────
 
-interface CategoryRow {
+export interface CategoryRow {
     id: string; slug: string; name: string; description: string | null; sort_order: number; parent_id: string | null;
     read_min_rank: number | null; post_min_rank: number | null; locked: boolean; thread_count: number; post_count: number;
-    last_thread_id: string | null; last_post_at: Date | null;
+    last_thread_id: string | null; last_post_at: Date | null; hidden_from_index?: boolean | null;
     lt_slug?: string | null; lt_title?: string | null; lt_author?: string | null;
 }
 
@@ -43,13 +43,15 @@ interface ThreadRow {
     a_name: string | null; a_handle: string | null; a_public: boolean | null; a_avatar: string | null; a_role: string | null;
     a_joined: Date | null; a_activity: number | null; a_tier: string | null;
     lr_name: string | null; lr_handle: string | null; opening_body: string | null; reactions: number | null;
+    /** The opening post's guest fields (a guest thread has no author). */
+    o_guest_name: string | null; o_guest_email: string | null; o_guest_ip: string | null;
 }
 
 const THREAD_SELECT = `
     SELECT t.*, fc.slug AS c_slug, fc.name AS c_name, fc.read_min_rank, fc.post_min_rank, fc.locked AS c_locked,
            ${authorColumns('t.author_id',)},
            lu.display_name AS lr_name, CASE WHEN lu.profile_public THEN lu.handle END AS lr_handle,
-           oc.body AS opening_body,
+           oc.body AS opening_body, oc.guest_name AS o_guest_name, oc.guest_email AS o_guest_email, oc.guest_ip AS o_guest_ip,
            (SELECT COALESCE(SUM(v::int), 0) FROM jsonb_each_text(oc.reaction_counts) AS j(k, v)) AS reactions
       FROM forum_threads t
       JOIN forum_categories fc ON fc.id = t.category_id
@@ -61,7 +63,7 @@ export const threadUrl = (categorySlug: string, threadSlug: string,): string => 
 
 function mapThread(r: ThreadRow,): ForumThread {
     const author = mapAuthor({
-        author_id: r.author_id, guest_name: null, guest_email: null, guest_ip: null,
+        author_id: r.author_id, guest_name: r.o_guest_name ?? null, guest_email: r.o_guest_email ?? null, guest_ip: r.o_guest_ip ?? null,
         a_name: r.a_name, a_handle: r.a_handle, a_public: r.a_public, a_avatar: r.a_avatar, a_role: r.a_role,
         a_joined: r.a_joined, a_activity: r.a_activity, a_tier: r.a_tier,
     } as CommentRow,);
@@ -110,6 +112,7 @@ function mapCategory(r: CategoryRow, canPost: boolean,): ForumCategory {
         readMinRank: r.read_min_rank,
         postMinRank: r.post_min_rank,
         locked: r.locked,
+        hiddenFromIndex: Boolean(r.hidden_from_index,),
         threadCount: Number(r.thread_count,),
         postCount: Number(r.post_count,),
         lastPostAt: r.last_post_at ? new Date(r.last_post_at,).toISOString() : null,
@@ -126,14 +129,19 @@ const CATEGORY_SELECT = `
       LEFT JOIN forum_threads lt ON lt.id = fc.last_thread_id AND lt.status = 'visible'
       LEFT JOIN users lu ON lu.id = lt.author_id`;
 
-/** Categories the viewer may read (all of them for managers, flagged). */
+/**
+ * Categories the viewer may read (all of them for managers, flagged). A
+ * category hidden from the index is listed only for managers / moderators
+ * (flagged `hiddenFromIndex`); its page still opens by slug.
+ */
 export async function listCategories(viewer: Viewer,): Promise<ForumCategory[]> {
-    const [s, level, manager,] = await Promise.all([
-        getSettings(), viewerLevel(viewer,), permissions.can(viewer, 'forum:manage',).catch(() => false),
+    const [s, level, manager, moderator,] = await Promise.all([
+        getSettings(), viewerLevel(viewer,), permissions.can(viewer, 'forum:manage',).catch(() => false), canModerate(viewer,),
     ],);
     const canStart = viewer.id ? await permissions.can(viewer, 'forum:thread_create',).catch(() => false) : false;
     const rows = (await query<CategoryRow>(`${CATEGORY_SELECT} ORDER BY fc.sort_order, fc.name`,)).rows;
     return rows
+        .filter((r,) => manager || moderator || !r.hidden_from_index)
         .filter((r,) => manager || canReadCategory(level, s, r,))
         .map((r,) => mapCategory(r, canStart && canPostCategory(level, s, r,),));
 }
@@ -142,6 +150,15 @@ async function categoryBy(column: 'id' | 'slug', value: string,): Promise<Catego
     const r = (await query<CategoryRow>(`${CATEGORY_SELECT} WHERE fc.${column} = $1`, [value,],)).rows[0];
     if (!r) throw new NotFoundError('Forum category',);
     return r;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A category by id OR slug (forum blocks name categories either way). */
+export async function categoryByRef(ref: string,): Promise<CategoryRow> {
+    const v = String(ref ?? '',).trim();
+    if (!v) throw new NotFoundError('Forum category',);
+    return categoryBy(UUID.test(v,) ? 'id' : 'slug', v,);
 }
 
 async function uniqueCategorySlug(base: string, exceptId?: string,): Promise<string> {
@@ -162,11 +179,11 @@ export async function saveCategory(id: string | null, body: ForumCategoryBody, v
     if (!id) {
         const slug = await uniqueCategorySlug(body.slug || name,);
         const r = await query<{ id: string; }>(
-            `INSERT INTO forum_categories (slug, name, description, parent_id, read_min_rank, post_min_rank, locked, sort_order)
+            `INSERT INTO forum_categories (slug, name, description, parent_id, read_min_rank, post_min_rank, locked, sort_order, hidden_from_index)
              VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, false),
-                     COALESCE($8, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM forum_categories))) RETURNING id`,
+                     COALESCE($8, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM forum_categories)), COALESCE($9, false)) RETURNING id`,
             [slug, name, body.description ?? null, body.parentId ?? null, rank(body.readMinRank,) ?? null, rank(body.postMinRank,) ?? null,
-                body.locked ?? null, body.sortOrder ?? null,],
+                body.locked ?? null, body.sortOrder ?? null, body.hiddenFromIndex ?? null,],
         );
         return mapCategory(await categoryBy('id', r.rows[0].id,), true,);
     }
@@ -178,11 +195,12 @@ export async function saveCategory(id: string | null, body: ForumCategoryBody, v
                 parent_id = CASE WHEN $6 THEN $7::uuid ELSE parent_id END,
                 read_min_rank = CASE WHEN $8 THEN $9::int ELSE read_min_rank END,
                 post_min_rank = CASE WHEN $10 THEN $11::int ELSE post_min_rank END,
-                locked = COALESCE($12, locked), sort_order = COALESCE($13, sort_order), updated_at = NOW()
+                locked = COALESCE($12, locked), sort_order = COALESCE($13, sort_order),
+                hidden_from_index = COALESCE($14, hidden_from_index), updated_at = NOW()
           WHERE id = $1`,
         [id, slug, name, body.description !== undefined, body.description ?? null, body.parentId !== undefined, body.parentId ?? null,
             body.readMinRank !== undefined, rank(body.readMinRank,) ?? null, body.postMinRank !== undefined, rank(body.postMinRank,) ?? null,
-            body.locked ?? null, body.sortOrder ?? null,],
+            body.locked ?? null, body.sortOrder ?? null, body.hiddenFromIndex ?? null,],
     );
     return mapCategory(await categoryBy('id', id,), true,);
 }
@@ -259,11 +277,13 @@ async function detail(r: ThreadRow, viewer: Viewer,): Promise<ForumThreadDetail>
     const fullOpening = openingRow ? await getRow(openingRow.id,) : null;
     const opening = fullOpening ? (await mapForViewer([fullOpening,], viewer, moderator,))[0] : null;
     let replyBlockedReason: string | null = null;
-    const canReplyPerm = viewer.id ? await permissions.can(viewer, 'forum:reply',).catch(() => false) : false;
-    if (!viewer.id) replyBlockedReason = 'Sign in to reply.';
+    const canReplyPerm = viewer.id
+        ? await permissions.can(viewer, 'forum:reply',).catch(() => false)
+        : canGuestReplyCategory(s, cat,) && (await permissions.can(viewer, 'forum:post_anonymous',).catch(() => false));
+    if (!viewer.id && !canReplyPerm) replyBlockedReason = 'Sign in to reply.';
     else if (r.locked || r.c_locked) replyBlockedReason = 'This thread is locked.';
     else if (r.status !== 'visible') replyBlockedReason = 'This thread is awaiting approval.';
-    else if (!canReplyPerm || !canReplyCategory(level, s, cat,)) replyBlockedReason = 'Replying here needs a higher subscription.';
+    else if (viewer.id && (!canReplyPerm || !canReplyCategory(level, s, cat,))) replyBlockedReason = 'Replying here needs a higher subscription.';
     return {
         ...mapThread(r,),
         opening,
@@ -323,39 +343,98 @@ async function uniqueThreadSlug(categoryId: string, title: string, client: { que
     return `${root}-${Date.now().toString(36,)}`;
 }
 
-export async function createThread(input: { categoryId: string; title: string; body: string; }, viewer: Viewer, ip: string | null,): Promise<ForumThreadDetail> {
-    if (!viewer.id) throw new ForbiddenError('Sign in to start a thread.',);
-    if (!(await permissions.can(viewer, 'forum:thread_create',).catch(() => false))) throw new ForbiddenError('You cannot start threads.',);
+/** Name used in a derived title ("Post by …") when the message is too short for one. */
+async function posterName(viewer: Viewer, guestName: string | null,): Promise<string> {
+    if (!viewer.id) return guestName || 'a guest';
+    const r = await query<{ display_name: string | null; }>(`SELECT display_name FROM users WHERE id = $1`, [viewer.id,],).catch(() => null);
+    return r?.rows[0]?.display_name || 'a member';
+}
+
+/**
+ * Start a thread. Signed in: `forum:thread_create` + the category's post rule.
+ * Guest: Forum → Settings → Allow anonymous posting + `forum:post_anonymous`
+ * + a category open to guests (`canGuestPostCategory`); held for approval
+ * while `anonymousApproval` (or approve-all) is on; the guest name / email are
+ * stored on the opening post like an anonymous comment's.
+ *
+ * `categoryId` may be an id or a slug; an empty `title` is derived from the
+ * first line of the body (`deriveThreadTitle`). A filled `website` honeypot
+ * answers like a held post and stores nothing.
+ */
+export async function createThread(input: ForumThreadCreateBody, viewer: Viewer, ip: string | null,): Promise<ForumThreadDetail> {
+    const guest = !viewer.id;
     const s = await getSettings();
+    if (guest) {
+        if (!s.allowAnonymous || !(await permissions.can(viewer, 'forum:post_anonymous',).catch(() => false))) {
+            throw new ForbiddenError('Sign in to start a thread.',);
+        }
+    } else if (!(await permissions.can(viewer, 'forum:thread_create',).catch(() => false))) {
+        throw new ForbiddenError('You cannot start threads.',);
+    }
     const level = await viewerLevel(viewer,);
-    const cat = await categoryBy('id', input.categoryId,);
-    if (!canPostCategory(level, s, cat,)) throw new ForbiddenError(cat.locked ? 'This category is locked.' : 'Starting threads here needs a higher subscription.',);
-    const title = String(input.title ?? '',).trim();
+    const cat = await categoryByRef(input.categoryId,);
+    const allowed = guest ? canGuestPostCategory(s, cat,) : canPostCategory(level, s, cat,);
+    if (!allowed) {
+        throw new ForbiddenError(
+            cat.locked ? 'This category is locked.' : guest ? 'Sign in to post here.' : 'Starting threads here needs a higher subscription.',
+        );
+    }
     const body = String(input.body ?? '',).trim();
-    if (title.length < 3 || title.length > 200) throw new ValidationError('The title must be 3–200 characters.',);
     const { maxLength, } = await getEngineSettings();
     if (!body) throw new ValidationError('Write the first post.',);
     if (body.length > maxLength) throw new ValidationError(`Posts are limited to ${maxLength} characters.`,);
+    const guestName = guest ? String(input.guestName ?? '',).trim().slice(0, 80,) || null : null;
+    const guestEmail = guest ? String(input.guestEmail ?? '',).trim().slice(0, 255,) || null : null;
+    if (guestEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail,)) throw new ValidationError('That email address does not look right.',);
+    const typed = String(input.title ?? '',).trim();
+    const title = typed || deriveThreadTitle(body, `Post by ${await posterName(viewer, guestName,)}`,).slice(0, 200,);
+    if (title.length < 3 || title.length > 200) throw new ValidationError('The title must be 3–200 characters.',);
     await checkWriteRate(viewer.id, ip,);
-    const status: ForumThreadStatus = (await forumNeedsApproval(viewer,)) ? 'pending' : 'visible';
+
+    // Honeypot: a bot filled the hidden field — answer as if held for review, store nothing.
+    if (input.website) return heldThreadEcho(cat, title, body, guestName,);
+
+    const pending = guest
+        ? (s.anonymousApproval || s.approveAll || countLinks(body,) > 2)
+        : await forumNeedsApproval(viewer,);
+    const status: ForumThreadStatus = pending ? 'pending' : 'visible';
 
     const { threadId, commentId, } = await transaction(async (client,) => {
         const slug = await uniqueThreadSlug(cat.id, title, client as never,);
         const t = await client.query<{ id: string; }>(
             `INSERT INTO forum_threads (category_id, slug, title, author_id, status) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-            [cat.id, slug, title, viewer.id, status,],
+            [cat.id, slug, title, viewer.id ?? null, status,],
         );
         const c = await client.query<CommentRow>(
-            `INSERT INTO comments (target_type, target_id, author_id, body, status, is_opening)
-             VALUES ('forum_thread', $1, $2, $3, $4, true) RETURNING *`,
-            [t.rows[0].id, viewer.id, body, status,],
+            `INSERT INTO comments (target_type, target_id, author_id, guest_name, guest_email, guest_ip, body, status, is_opening)
+             VALUES ('forum_thread', $1, $2, $3, $4, $5, $6, $7, true) RETURNING *`,
+            [t.rows[0].id, viewer.id ?? null, guestName, guestEmail, guest ? ip : null, body, status,],
         );
         if (status === 'visible') await applyVisibility(client, c.rows[0], 1,);
         return { threadId: t.rows[0].id, commentId: c.rows[0].id, };
     },);
     const row = await getRow(commentId,);
     if (row) emitDiscussionEvent({ type: 'created', comment: row, actor: viewer, },);
-    return getThreadById(threadId, viewer,);
+    if (!guest) return getThreadById(threadId, viewer,);
+    // A guest cannot read their own pending thread back (no account to own it):
+    // answer with the stored thread directly.
+    const r = await threadRow(`t.id = $1`, [threadId,],);
+    if (!r) throw new NotFoundError('Thread',);
+    return detail(r, viewer,);
+}
+
+/** The honeypot answer: a plausible pending thread that was never stored. */
+function heldThreadEcho(cat: CategoryRow, title: string, body: string, guestName: string | null,): ForumThreadDetail {
+    const now = new Date().toISOString();
+    const id = crypto.randomUUID();
+    const slug = generateSlug(title,).slice(0, 140,) || 'thread';
+    const author = mapAuthor({ author_id: null, guest_name: guestName, guest_email: null, guest_ip: '', } as CommentRow,);
+    return {
+        id, categoryId: cat.id, category: { id: cat.id, slug: cat.slug, name: cat.name, }, slug, title, url: threadUrl(cat.slug, slug,),
+        author, status: 'pending', pinned: false, locked: false, replyCount: 0, viewCount: 0, reactionCount: 0, lastReplyAt: null,
+        lastReplyBy: null, createdAt: now, updatedAt: now, excerpt: excerptOf(body,),
+        opening: null, canReply: false, canEdit: false, canModerate: false, replyBlockedReason: 'This thread is awaiting approval.',
+    };
 }
 
 /** Title / category (author or moderator). */

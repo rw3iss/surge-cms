@@ -1,0 +1,44 @@
+// Forum block editor (admin).
+@use '../../../../styles/variables' as *;
+
+.forum-block-edit {
+  &__group {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+
+    + .forum-block-edit__group {
+      margin-top: $spacing-lg;
+      padding-top: $spacing-md;
+      border-top: 1px solid var(--admin-border);
+    }
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--admin-text);
+  }
+
+  // Two fields per row (the block panel is narrow, so the shared auto-fit
+  // row would stack them).
+  &__row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  &__heading {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+
+    > input { flex: 1 1 auto; min-width: 0; }
+    > .align-buttons { flex: 0 0 auto; }
+  }
+
+  &__toggles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $spacing-sm $spacing-md;
+  }
+}

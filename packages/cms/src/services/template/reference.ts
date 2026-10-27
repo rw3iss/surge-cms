@@ -157,6 +157,14 @@ export const FUNCTIONS: { group: string; items: FunctionDoc[] }[] = [
         ],
     },
     {
+        group: 'Forum (live discussion widget)',
+        items: [
+            { sig: 'forum(limit?, …)', desc: 'The Forum block as a function: thread cards from the forum (latest activity first) that visitors can read, react to, reply to and — with post= — start threads in; live updates on by default. E.g. forum(10, category=\'discussions\', post=\'inline\', replies=true). Every argument is listed in the Forum section below.' },
+            { sig: "forum(thread='slugOrId', …)", desc: 'One thread as a chat stream: its opening post, then the replies, newest at the bottom; post=true adds a reply box.' },
+            { sig: '(visibility)', desc: 'Only threads the viewer may read appear, and every write is checked by the forum (locks, tiers, approval). In server-rendered HTML and email it is a plain linked list of the threads (anonymous reader).' },
+        ],
+    },
+    {
         group: 'Gallery',
         items: [
             { sig: "gallery('<item id>')", desc: 'One gallery item. Alone it renders the media (image, or the video player); with a property it reads it: .title, .caption, .url (the item page), .media.url, .media.thumbnailUrl, .mediaType (image|video; same as .media.type), .media.width / .height, .media.credits, .media.durationMs, .tags, .isFeatured, .commentCount, .publishedAt, .collectionId. Add title=true to show the title under it, caption=false to hide the caption.' },
@@ -295,4 +303,55 @@ export const EVENT_EXAMPLES: SyntaxExample[] = [
     { title: 'Your own markup', code: "<ul>\n{{ for events(5) as e }}\n  <li><a href=\"{{ e.url }}\">{{ e.title }}</a> · {{ e.dateLabel }}{{ if e.soldOut }} · Sold out{{ endif }}</li>\n{{ endfor }}\n</ul>", desc: 'Loop the list and write the HTML yourself.' },
     { title: 'Ticket types', code: "{{ for event.tiers as t }}\n  {{ t.name }}: {{ if t.isFree }}Free{{ else }}{{ formatCurrency(t.price) }}{{ endif }}{{ if t.remaining != null }} ({{ t.remaining }} left){{ endif }}\n{{ endfor }}", desc: 'Inside an event template (or with event(\'x\') in place of event): one line per ticket type.' },
     { title: 'Access badge', code: "{{ if event.isPublic }}Public{{ else }}{{ event.access.badgeLabel }}{{ endif }}{{ if event.requiresSignIn }} · Sign in to register{{ endif }}", desc: 'Who can see the event, and whether registering needs an account.' },
+];
+
+// ─── Forum (the help page's Forum section) ─────────────────────────────────
+
+/** One named argument of `forum()`. */
+export interface ForumArgDoc { name: string; values: string; desc: string; }
+
+/**
+ * Every argument of `{{ forum(...) }}` — the mapping lives in
+ * `@sitesurge/types` (`forumBlockSettingsFrom`), shared by the site, SSR and
+ * email, so each argument means what the Forum block's option of the same
+ * name means.
+ */
+export const FORUM_FUNCTION_ARGS: ForumArgDoc[] = [
+    { name: 'limit', values: '1–50 (default 20)', desc: 'Threads per load ("Load more" fetches the next set). Also the first positional number: forum(10).' },
+    { name: 'thread', values: "'slug' or id", desc: 'Thread mode: this one thread as a chat stream (opening post, then replies, newest at the bottom).' },
+    { name: 'threads', values: "'a,b,c'", desc: 'These threads, in this order (slugs or ids). Ignores sort / window / category.' },
+    { name: 'category', values: "'slug' or id", desc: 'Only threads in this category. Also where new threads go unless postTo is set. Works for a category hidden from the forum index.' },
+    { name: 'sort', values: "'latest' (default) | 'newest' | 'hot' | 'top'", desc: 'latest = last activity (newest reply, else posted); newest = date posted; hot / top = activity in the window.' },
+    { name: 'window', values: "'24h' | '7d' | '30d' | 'all'", desc: 'Time window (default: all time for latest / newest, 7 days for hot / top).' },
+    { name: 'post', values: "'off' (default) | 'inline' | 'form' | 'button' | true", desc: 'Starting threads: one chat-style box (true = inline; the title is taken from the message), a title + message form, or a "New post" button. In thread mode any value adds the reply box.' },
+    { name: 'postTo', values: "'slug' or id", desc: 'The category new threads go to (default: category). Without either the widget cannot post.' },
+    { name: 'placeholder', values: 'text', desc: 'Text in the empty writing box.' },
+    { name: 'replies', values: 'true | false (default)', desc: 'A Reply button on each thread (and each reply).' },
+    { name: 'showReplies', values: 'true (default) | false', desc: '"N replies" under each thread opens them in place.' },
+    { name: 'expandReplies', values: 'true | false (default)', desc: 'Replies open when the page loads.' },
+    { name: 'reactions', values: 'true (default) | false', desc: 'Reactions on posts (the kinds set in Forum → Settings).' },
+    { name: 'content', values: "'none' | 'excerpt' (default) | 'full'", desc: 'The opening post under the title.' },
+    { name: 'excerptLength', values: 'characters (default 220)', desc: 'Excerpt length, cut at a word boundary. length= also works.' },
+    { name: 'readMore', values: "text | false (default 'Read more')", desc: 'The link to the thread page; false or \'\' hides it.' },
+    { name: 'title / author / avatar / date', values: 'true | false', desc: 'Show or hide each part of a post (all on by default).' },
+    { name: 'lastReply / counts', values: 'true | false', desc: 'The last reply line (time + by) and the reply / view counts (on by default).' },
+    { name: 'categoryName', values: 'true | false (default)', desc: 'The category chip on each thread.' },
+    { name: 'chat', values: 'true | false (default)', desc: 'Chat order: newest at the bottom, the list scrolled to the end, the writing box under it.' },
+    { name: 'height', values: "CSS length (default '560px')", desc: 'Max height of the scrolling list.' },
+    { name: 'heading', values: 'text', desc: 'A heading above the widget.' },
+    { name: 'emptyText', values: 'text', desc: 'Shown when there is nothing yet. empty= also works.' },
+    { name: 'members', values: 'true | false (default)', desc: 'Signed-out visitors see a sign-in card instead of the discussion.' },
+    { name: 'anonymous', values: 'true | false (default)', desc: 'Offer guest posting (also needs Forum → Settings → Allow anonymous posting).' },
+    { name: 'live', values: 'true (default) | false', desc: 'Check for new posts while the page is open and nobody is typing.' },
+    { name: 'refresh', values: 'seconds, 10–300 (default 20)', desc: 'How often live updates check.' },
+];
+
+/** Worked examples for the Forum section. */
+export const FORUM_EXAMPLES: SyntaxExample[] = [
+    { title: 'Latest threads', code: '{{ forum() }}', desc: 'The latest threads across the forum, read-only.' },
+    { title: 'A category people can post in', code: "{{ forum(10, category='discussions', post='inline', replies=true) }}", desc: 'Ten threads from one category, a chat-style box to start a thread, and Reply on every thread.' },
+    { title: 'Hot this week, full posts', code: "{{ forum(category='discussions', sort='hot', window='7d', content='full') }}", desc: 'The most active threads of the last 7 days with their whole opening posts.' },
+    { title: 'Hand-picked threads', code: "{{ forum(threads='welcome,rules') }}", desc: 'These threads in this order.' },
+    { title: 'One thread as a live chat', code: "{{ forum(thread='ask-us-anything', post=true) }}", desc: 'The opening post, the replies newest at the bottom, a reply box under them.' },
+    { title: 'Members-only chat box', code: "{{ forum(category='discussions', chat=true, height='420px', members=true) }}", desc: 'Chat order in a 420px box; visitors get a sign-in card.' },
 ];

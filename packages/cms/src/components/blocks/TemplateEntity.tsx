@@ -1,9 +1,10 @@
 import {
-    DISCUSSION_LIST_KIND, type DiscussionItem, EVENT_KIND, EVENT_LIST_KIND, eventDisplayFrom, FORUM_THREAD_KIND, featuredImagePath, GALLERY_ITEM_KIND, GALLERY_LIST_KIND, galleryDisplayFrom,
+    DISCUSSION_LIST_KIND, type DiscussionItem, EVENT_KIND, EVENT_LIST_KIND, eventDisplayFrom, FORUM_BLOCK_KIND, FORUM_THREAD_KIND, featuredImagePath, GALLERY_ITEM_KIND, GALLERY_LIST_KIND, galleryDisplayFrom,
     type GalleryItem, COMPONENT_KIND, TEMPLATE_KIND,
 } from '@sitesurge/types';
 import { A, } from '@solidjs/router';
 import type { Campaign, Form, Media, Post, } from '@sitesurge/types';
+import { normalizeForumBlockSettings, } from '@sitesurge/types';
 import { Component, For, lazy, Match, Show, Switch, } from 'solid-js';
 import DiscussionList from '../discussions/DiscussionList';
 import EventCard from '../events/EventCard';
@@ -17,6 +18,8 @@ import CampaignDetail, { type CampaignDetailOptions, } from './CampaignDetail';
 import CampaignCard from './CampaignCard';
 import CampaignForm, { type CampaignFormOptions, } from './CampaignForm';
 import CampaignStatus, { type CampaignStatusOptions, } from './CampaignStatus';
+// The Forum widget (`{{ forum(...) }}`) loads only when used.
+const ForumWidget = lazy(() => import('../forum/ForumWidget'),);
 // Membership cards + the apply flow (Stripe, forms) load only when used.
 const MembershipLevels = lazy(() => import('../membership/MembershipLevels'),);
 
@@ -65,6 +68,10 @@ const TemplateEntity: Component<{
             {/* Discovery lists (`{{ hotThreads(5) }}`) + one forum thread. */}
             <Match when={props.kind === DISCUSSION_LIST_KIND}>
                 <DiscussionList items={(props.data as unknown as DiscussionItem[]) ?? []} excerpts={props.options?.excerpts !== false} />
+            </Match>
+            {/* `{{ forum(...) }}` — the Forum block's live widget (data = ForumBlockSettings). */}
+            <Match when={props.kind === FORUM_BLOCK_KIND}>
+                <ForumWidget settings={normalizeForumBlockSettings(props.data,)} />
             </Match>
             <Match when={props.kind === FORUM_THREAD_KIND}>
                 <DiscussionList items={[{ kind: 'thread', ...props.data, } as unknown as DiscussionItem,]} excerpts={props.options?.excerpts !== false} />

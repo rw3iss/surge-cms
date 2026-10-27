@@ -4,7 +4,9 @@ import type { ForumSettings, } from '@sitesurge/types';
 
 vi.mock('../access/level', () => ({ viewerLevel: vi.fn(), }),);
 
-import { canPostCategory, canReadCategory, canReplyCategory, forumReadFloor, type CategoryRanks, } from './access';
+import {
+    canGuestPostCategory, canGuestReplyCategory, canPostCategory, canReadCategory, canReplyCategory, forumReadFloor, type CategoryRanks,
+} from './access';
 
 const ANON = -1, FREE = 0, SUB = 2, STAFF = Infinity;
 const settings = (over: Partial<ForumSettings> = {},): ForumSettings =>
@@ -50,5 +52,25 @@ describe('canPostCategory / canReplyCategory', () => {
     },);
     it('you cannot post where you cannot read', () => {
         expect(canReplyCategory(FREE, settings(), cat({ read_min_rank: 2, },),),).toBe(false,);
+    },);
+},);
+
+describe('guest posting (Allow anonymous posting)', () => {
+    it('is closed while the forum setting is off', () => {
+        expect(canGuestPostCategory(settings(), cat(),),).toBe(false,);
+        expect(canGuestReplyCategory(settings(), cat(),),).toBe(false,);
+    },);
+    it('opens public, unlocked, rank-0 categories', () => {
+        const s = settings({ allowAnonymous: true, },);
+        expect(canGuestPostCategory(s, cat(),),).toBe(true,);
+        expect(canGuestReplyCategory(s, cat(),),).toBe(true,);
+    },);
+    it('stays closed for locked, members-only or subscriber categories', () => {
+        const s = settings({ allowAnonymous: true, },);
+        expect(canGuestPostCategory(s, cat({ locked: true, },),),).toBe(false,);
+        expect(canGuestPostCategory(s, cat({ read_min_rank: 0, },),),).toBe(false,);
+        expect(canGuestPostCategory(s, cat({ post_min_rank: 2, },),),).toBe(false,);
+        expect(canGuestReplyCategory(settings({ allowAnonymous: true, replyMinRank: 1, },), cat(),),).toBe(false,);
+        expect(canGuestPostCategory(settings({ allowAnonymous: true, readAccess: 'members', },), cat(),),).toBe(false,);
     },);
 },);

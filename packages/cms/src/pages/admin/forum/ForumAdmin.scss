@@ -72,6 +72,21 @@
     p { margin: 0.15rem 0 0; color: var(--admin-text-muted); font-size: 0.85rem; }
   }
 
+  &__badge {
+    display: inline-block;
+    margin-left: 0.4rem;
+    padding: 0.05rem 0.45rem;
+    border: 1px solid var(--admin-border);
+    border-radius: 999px;
+    background: var(--admin-bg-subtle);
+    color: var(--admin-text-muted);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    vertical-align: middle;
+  }
+
   &__order {
     display: flex;
     flex-direction: column;

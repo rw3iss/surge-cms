@@ -18,6 +18,7 @@ import {
     type DiscussionItem,
     EVENT_KIND,
     EVENT_LIST_KIND,
+    FORUM_BLOCK_KIND,
     eventDisplayFrom,
     type EventRecord,
     FORUM_THREAD_KIND,
@@ -49,6 +50,8 @@ import { escapeHtml, } from './blocks/_util';
 import { discussionListHtml, forumThreadHtml, } from '../discussions/templateFunctions';
 import { galleryFiguresHtml, galleryItemHtml, } from '../gallery/render';
 import { eventCardsSsrHtml, } from '../events/render';
+import { forumListHtml, } from '../forum/render';
+import type { ForumFunctionData, } from '../forum/serverRender';
 import {
     type AsyncMemo,
     buildBackendRuntime,
@@ -132,6 +135,11 @@ function entityToHtml(kind: string, data: Rec | null, options?: Record<string, u
             return discussionListHtml(data as unknown as DiscussionItem[],);
         case FORUM_THREAD_KIND:
             return forumThreadHtml(data,);
+        // `{{ forum(...) }}` — the Forum block's threads as indexable links.
+        case FORUM_BLOCK_KIND: {
+            const f = data as unknown as ForumFunctionData;
+            return forumListHtml(f.items, f.settings,);
+        }
         // `{{gallery(...)}}` — indexable figures (image / video poster + caption + link).
         case GALLERY_LIST_KIND:
             return galleryFiguresHtml(data as unknown as GalleryItem[], config.frontendUrl ?? '',);

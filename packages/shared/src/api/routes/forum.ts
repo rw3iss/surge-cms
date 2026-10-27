@@ -20,6 +20,7 @@ export interface ForumCategoryBody {
     readMinRank?: number | null;
     postMinRank?: number | null;
     locked?: boolean;
+    hiddenFromIndex?: boolean;
     sortOrder?: number;
 }
 export type ForumCategoryResponse = ForumCategory;
@@ -51,9 +52,16 @@ export type ForumAdminThreadsResponse = ForumThread[];
 export type ForumThreadDetailResponse = ForumThreadDetail;
 
 export interface ForumThreadCreateBody {
+    /** Category id or slug. */
     categoryId: string;
-    title: string;
+    /** Optional: derived from the first line of `body` when empty (chat-style posting). */
+    title?: string;
     body: string;
+    /** Guests (Forum → Settings → Allow anonymous posting). */
+    guestName?: string;
+    guestEmail?: string;
+    /** Honeypot — must stay empty. */
+    website?: string;
 }
 export type ForumThreadCreateResponse = ForumThreadDetail;
 

@@ -315,6 +315,35 @@ export const BLOCK_TYPE_CATALOG: BlockTypeSpec[] = [
         },
         wiring: 'Only renders while the gallery feature is on. In email, only items whose media is public are shown.',
     },
+    {
+        type: 'forum',
+        label: 'Forum',
+        description: 'An in-page forum / live discussion: forum threads from a query or a selection (list mode), or ONE thread as a chat stream (thread mode); visitors can post, reply and react. Needs the forum feature.',
+        container: 'settings',
+        fields: [
+            { name: 'mode', type: 'enum', enum: ['list', 'thread',], default: 'list', description: '"list" = threads from `binding`; "thread" = one thread (`thread`) with its replies.', },
+            { name: 'binding', type: 'object', description: 'SlotBinding on entity type forum_thread: { mode: "query", query: { filter: { sort: latest|newest|hot|top, window: 24h|7d|30d|all, category: <slug> }, limit } } or { mode: "list", refs: [threadId|slug] }.', },
+            { name: 'thread', type: 'string', description: 'Thread id or slug (mode="thread").', },
+            { name: 'heading', type: 'string', description: 'Optional heading above the list.', },
+            { name: 'postMode', type: 'enum', enum: ['off', 'inline', 'form', 'button',], default: 'off', description: 'Posting: off, a chat-style input (title derived from the message), a title+body form, or a "New post" button.', },
+            { name: 'postCategory', type: 'string', description: 'Category (id or slug) new threads go to; default = the query\'s category.', },
+            { name: 'content', type: 'enum', enum: ['none', 'excerpt', 'full',], default: 'excerpt', description: 'How much of each opening post to show.', },
+            { name: 'allowReplies', type: 'boolean', description: 'Reply button on each post.', },
+            { name: 'allowReactions', type: 'boolean', description: 'Reactions on posts.', },
+            { name: 'limit', type: 'number', default: 20, description: 'Threads per load (≤ 50).', },
+            { name: 'liveUpdates', type: 'boolean', description: 'Poll for new posts (refreshSeconds, default 20).', },
+            { name: 'visibility', type: 'enum', enum: ['public', 'members',], default: 'public', description: '"members" shows visitors a sign-in placeholder (forum read rules still apply).', },
+            { name: 'allowAnonymous', type: 'boolean', description: 'Offer guest posting (needs Forum → Settings → Allow anonymous posting).', },
+        ],
+        defaults: {
+            mode: 'list',
+            binding: { mode: 'query', query: { filter: { sort: 'latest', }, limit: 20, }, },
+            postMode: 'off',
+            content: 'excerpt',
+            limit: 20,
+        },
+        wiring: 'Only renders while the forum feature is on. SSR and email show a linked list of the public threads. Same as {{ forum(...) }}.',
+    },
 ];
 
 const CATALOG_BY_TYPE = new Map(BLOCK_TYPE_CATALOG.map((s,) => [s.type, s,],),);

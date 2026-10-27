@@ -127,6 +127,20 @@ const ForumSettingsPage: Component = () => {
                         onChange={(e,) => set({ approveUntil: Number(e.currentTarget.value,) || 0, },)}
                     />
                 </FormField>
+                <Toggle
+                    checked={s().allowAnonymous}
+                    onChange={(v,) => set({ allowAnonymous: v, },)}
+                    label="Allow anonymous posting"
+                    hint={<>Guests may start threads and reply from a Forum block that offers it (the block's own "Allow anonymous posting" switch). The permission <code>forum:post_anonymous</code> also applies (Settings → Permissions).</>}
+                />
+                <Show when={s().allowAnonymous}>
+                    <Toggle
+                        checked={s().anonymousApproval}
+                        onChange={(v,) => set({ anonymousApproval: v, },)}
+                        label="Hold anonymous posts for approval"
+                        hint="Guests' threads and replies wait in the moderation queue until approved."
+                    />
+                </Show>
                 <p class="form-help-muted">
                     Pending and reported posts are in <A href="/admin/comments?scope=forum">the moderation queue</A>.
                 </p>

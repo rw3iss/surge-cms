@@ -120,7 +120,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
         defaultEnabled: false,
         // Transitively `users` (discussions requires it).
         requires: ['discussions',],
-        migrations: ['135_forum.sql',],
+        migrations: ['135_forum.sql', '197_forum_category_hidden.sql',],
         tables: ['forum_categories', 'forum_threads',],
         settingsKeys: ['forum_settings',],
         onUninstall: async (client,) => {

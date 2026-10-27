@@ -77,6 +77,64 @@ base installs with the first one and never shows in the list.
   (public / members / tier ≥ N) and each category's minimums are checked against it.
 - **Approval:** approve everything, or hold a member's posts until they have N approved
   forum posts.
+- **Hide from forum index** (category switch, `forum_categories.hidden_from_index`,
+  migration 197): the category is left out of the forum index (moderators / managers
+  still see it, flagged), unscoped discovery lists (`latestThreads`, `hotThreads`, …,
+  replies included), the sitemap, and its category page is `noindex`. Its threads still
+  open by link, and a forum block / discovery query that NAMES the category (or the
+  threads) still lists them.
+- **Thread titles are optional** (`POST /forum/threads`): an empty `title` is derived from
+  the first line of the body (`deriveThreadTitle`), falling back to "Post by <name>".
+  `categoryId` takes an id or a slug.
+- **Anonymous posting** (Forum → Settings): `allowAnonymous` (default off) lets guests
+  start threads and reply, only with the permission `forum:post_anonymous` (everyone by
+  default) and only in categories a visitor may read whose post minimum is "anyone"
+  (rank ≤ 0, not locked). `anonymousApproval` (default on) holds guests' posts for
+  approval (as does approve-all; a guest post with more than two links is always held).
+  A guest thread has no author (`author_id` NULL); the guest name / email / IP sit on its
+  opening post like an anonymous comment's. Guests are rate-limited per IP; the
+  `website` honeypot answers like a held post and stores nothing. Replies follow the same
+  rule through the `forum_thread` comment target (`allowAnonymous` + its
+  `anonymousPermission`), so the engine checks `forum:post_anonymous`, not
+  `comments:anonymous`, for forum replies.
+
+## Forum block (`forum`) and `{{ forum() }}`
+
+An in-page forum / live discussion: threads from a query or a selection (list mode) or
+one thread as a chat stream (thread mode), with inline posting, replies and reactions.
+Settings: `ForumBlockSettings` in `@sitesurge/types` (`types/forumBlock.ts`; the template
+function maps through `forumBlockSettingsFrom`). Plan: `docs/plans/2026-10-27-forum-block.md`.
+
+**Feed** — `GET /api/v1/forum/feed` (optional auth, `cms.forum.feed`, service
+`services/forum/feed.ts`):
+
+| Query | Meaning |
+|---|---|
+| `threads` | comma-joined ids or slugs (≤ 50), returned in THIS order; present but empty = nothing |
+| `sort` | `latest` (last activity, default) · `newest` (date posted) · `hot` · `top` |
+| `window` | `24h` · `7d` · `30d` · `all` (default `all` for latest/newest, `7d` for hot/top) |
+| `category` | slug or id; a hidden-from-index category is listed only when named |
+| `postCategory` | slug or id new posts go to → `postTarget` |
+| `page`, `limit` | paging; `limit` ≤ 50, default 20 |
+
+Each item is a `ForumFeedThread`: the opening post (`Comment`: body html, reactions,
+`myReactions`, edit/delete rights), author (guest name for a guest thread), `lastReplyBy`
+(newest visible reply), excerpt (≤ 500 chars), category, `status` (`visible`, or
+`pending` for the viewer's OWN held threads — shown so a poster sees "awaiting
+approval"), `canReply` + `replyBlockedReason` (the `forum_thread` target's decision +
+`forum:reply` / guest rule). Categories the viewer cannot read are dropped in SQL;
+pinned threads do not float (chronological widget). `postTarget` = `{ canPost, reason,
+anonymous }` for the post category (`null` when not asked or not found). Also returned:
+`anonymousAllowed`, `maxLength`, `reactions`, `reactionsEnabled`. Anonymous results are
+cached 30 s (`CACHE_KEYS.forumFeed`, under the discussion-feed prefix, so every comment
+write / moderation drops them); signed-in viewers are computed per request.
+
+**SSR + email** render a plain linked list of the threads, read as the anonymous viewer
+(`services/forum/serverRender.ts` → `settings.__forumItems`, stashed by the shared
+pre-pass `mail/expandBlocks.ts`; HTML in `services/forum/render.ts`, shared by the
+block and `{{ forum() }}`): heading, title links, author + reply count, excerpt; thread
+mode shows the one thread. Email links are absolute and end with "Join the discussion →"
+(the first thread's category page, else `/forum`). The feature off → nothing.
 
 ## Member pages
 
@@ -110,6 +168,7 @@ Hot score: `(replies × 2 + reactions + views ÷ 50 + 1) / (age_hours + 2) ^ 1.5
 | `comments:manage` | staff |
 | `forum:read` | everyone (narrowed by forum settings / categories) |
 | `forum:thread_create`, `forum:reply` | members |
+| `forum:post_anonymous` | everyone (only while Allow anonymous posting is on) |
 | `forum:moderate` | staff |
 | `forum:manage` | admins |
 
@@ -121,7 +180,7 @@ All of them can be granted per subscription tier (Settings → Permissions).
 |---|---|---|
 | `/api/v1/discussions` | discussions | comments CRUD, reactions, reports, moderation, engine settings, discovery query |
 | `/api/v1/comments` | comments | per-item switches, Comments settings |
-| `/api/v1/forum` | forum | settings, categories, threads |
+| `/api/v1/forum` | forum | settings, categories, threads, forum-block feed (`/feed`) |
 | `/api/v1/members` | core | public member pages + their comments |
 
 ## Smoke tests (dev DB)

@@ -19,6 +19,7 @@ import { applyInlineRules, planCustomCss, } from './customCss';
 import { renderDocument, } from './document';
 import { renderEvent, } from './event';
 import { renderForm, } from './form';
+import { renderForum, } from './forum';
 import { renderGallery, } from './gallery';
 import { renderGroup, } from './group';
 import { renderHero, } from './hero';
@@ -119,6 +120,9 @@ export const RENDERERS: Record<BlockType, BlockEmailRenderer> = {
     // Gallery block: a table grid of PUBLIC media, resolved ahead of time by
     // `expandDynamicBlocks` (the emitter is synchronous).
     gallery: renderGallery,
+    // Forum block: thread links (public threads), resolved ahead of time by
+    // `expandDynamicBlocks`.
+    forum: renderForum,
     // `entity` and `template` don't carry content of their own — they point at
     // a content-block template (and, for `entity`, the record to bind). That
     // needs DB reads, which this synchronous emitter cannot do, so

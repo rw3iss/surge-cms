@@ -26,6 +26,7 @@ import * as socialFeed from '../socialFeed';
 import { logger, } from '../../utils/logger';
 import { GALLERY_RESOLVED_KEY, resolveGalleryBlockItems, } from '../gallery/serverRender';
 import { EVENTS_RESOLVED_KEY, resolveEventsBlockRecords, } from '../events/serverRender';
+import { FORUM_RESOLVED_KEY, resolveForumBlockItems, } from '../forum/serverRender';
 import { resolveMailTemplate, } from './templateRuntime';
 import { attachVideoMediaSize, } from './videoMediaSize';
 import { MAX_BINDING_RECORDS, recordIds, resolveBindingRecords, resolveSlotRecords, SLOT_CONTEXT_KEY, } from '../templateSlots';
@@ -453,7 +454,7 @@ async function expandPass(
         return blocks;
     }
     const pending = blocks.filter(
-        (b,) => (b.blockType === 'entity' || b.blockType === 'template' || b.blockType === 'gallery' || isEventsBlockType(b.blockType,)
+        (b,) => (b.blockType === 'entity' || b.blockType === 'template' || b.blockType === 'gallery' || b.blockType === 'forum' || isEventsBlockType(b.blockType,)
             || (opts.feeds && (b.blockType === 'social' || (b.blockType === 'post_list' && b.settings?.source === 'slot'))))
             && !done.has(b.id,),
     );
@@ -533,6 +534,11 @@ async function expandPass(
                 const idx = out.findIndex((b,) => b.id === block.id);
                 if (idx < 0) continue;
                 out[idx] = { ...out[idx], settings: await resolveEventsBlock(out[idx].settings, opts.audience,), };
+            } else if (block.blockType === 'forum') {
+                // Not an expansion: the block's threads (public ones — anonymous reader) ride on its settings.
+                const idx = out.findIndex((b,) => b.id === block.id);
+                if (idx < 0) continue;
+                out[idx] = { ...out[idx], settings: { ...out[idx].settings, [FORUM_RESOLVED_KEY]: await resolveForumBlockItems(out[idx].settings,), }, };
             } else if (block.blockType === 'post_list') {
                 // Posts from the enclosing template's slot (only slot sources are pending).
                 const idx = out.findIndex((b,) => b.id === block.id);

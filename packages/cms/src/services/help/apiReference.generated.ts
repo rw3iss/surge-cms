@@ -6164,6 +6164,16 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "name": "showActivityCounts",
                             "type": "boolean",
                             "required": false
+                        },
+                        {
+                            "name": "allowAnonymous",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
+                            "name": "anonymousApproval",
+                            "type": "boolean",
+                            "required": false
                         }
                     ]
                 },
@@ -6223,6 +6233,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                         },
                         {
                             "name": "locked",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
+                            "name": "hiddenFromIndex",
                             "type": "boolean",
                             "required": false
                         },
@@ -6309,6 +6324,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "required": false
                         },
                         {
+                            "name": "hiddenFromIndex",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
                             "name": "sortOrder",
                             "type": "integer",
                             "required": false
@@ -6374,6 +6394,56 @@ export const API_MODULES: ApiModuleDoc[] = [
             },
             {
                 "method": "GET",
+                "path": "/feed",
+                "absolutePath": "/api/v1/forum/feed",
+                "auth": "optional",
+                "summary": "Threads for a forum block: opening posts, last replier, per-thread reply rights and the post target.",
+                "input": {
+                    "query": [
+                        {
+                            "name": "threads",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "sort",
+                            "type": "'latest' | 'newest' | 'hot' | 'top'",
+                            "required": false
+                        },
+                        {
+                            "name": "window",
+                            "type": "'24h' | '7d' | '30d' | 'all'",
+                            "required": false
+                        },
+                        {
+                            "name": "category",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "postCategory",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "page",
+                            "type": "integer",
+                            "required": false
+                        },
+                        {
+                            "name": "limit",
+                            "type": "integer",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.forum.feed"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
                 "path": "/threads",
                 "absolutePath": "/api/v1/forum/threads",
                 "auth": "staff",
@@ -6421,24 +6491,39 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "method": "POST",
                 "path": "/threads",
                 "absolutePath": "/api/v1/forum/threads",
-                "auth": "user",
-                "summary": "Start a thread (title + first post).",
+                "auth": "optional",
+                "summary": "Start a thread (first post; title optional — derived from the first line). Guests when Allow anonymous posting is on.",
                 "input": {
                     "body": [
                         {
                             "name": "categoryId",
-                            "type": "string<uuid>",
+                            "type": "string",
                             "required": true
                         },
                         {
                             "name": "title",
                             "type": "string",
-                            "required": true
+                            "required": false
                         },
                         {
                             "name": "body",
                             "type": "string",
                             "required": true
+                        },
+                        {
+                            "name": "guestName",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "guestEmail",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "website",
+                            "type": "string",
+                            "required": false
                         }
                     ]
                 },
@@ -18793,4 +18878,4 @@ export const API_MODULES: ApiModuleDoc[] = [
 ];
 
 export const API_MODULE_COUNT = 60;
-export const API_ROUTE_COUNT = 653;
+export const API_ROUTE_COUNT = 654;

@@ -13,6 +13,7 @@ import CampaignBlock from './types/CampaignBlock';
 import CarouselBlock from './types/CarouselBlock';
 import EntityBlockEdit from './types/EntityBlock';
 import EventsBlockEdit from './types/EventsBlockEdit';
+import ForumBlockEdit from './types/ForumBlockEdit';
 import GalleryBlockEdit from './types/GalleryBlockEdit';
 import TemplateBlockEdit from './types/TemplateBlock';
 import DocumentBlock from './types/DocumentBlock';
@@ -495,6 +496,7 @@ const BLOCK_EDIT_FORMS: Record<BlockType, Component<EditFormProps> | null> = {
     events: (p,) => <EventsBlockEdit data={p.block.data} onUpdate={p.onUpdate} />,
     // Legacy name of `events` — same panel; the first edit folds `eventId` into `binding`.
     event: (p,) => <EventsBlockEdit data={p.block.data} onUpdate={p.onUpdate} />,
+    forum: (p,) => <ForumBlockEdit data={p.block.data} onUpdate={p.onUpdate} />,
 };
 
 /**

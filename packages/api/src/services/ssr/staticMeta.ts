@@ -286,12 +286,14 @@ async function forumIndex(c: StaticMetaCtx,): Promise<MetaTags | null> {
 async function forumCategory(c: StaticMetaCtx, slug: string,): Promise<MetaTags | null> {
     const s = await forumSettings();
     if (!s) return null;
-    const row = await safe(async () => (await query<{ name: string; description: string | null; read_min_rank: number | null; }>(
-        `SELECT name, description, read_min_rank FROM forum_categories WHERE slug = $1`, [slug,],
+    const row = await safe(async () => (await query<{ name: string; description: string | null; read_min_rank: number | null; hidden_from_index: boolean | null; }>(
+        `SELECT name, description, read_min_rank, hidden_from_index FROM forum_categories WHERE slug = $1`, [slug,],
     )).rows[0] ?? null,);
     if (!row) return null;
     const description = clip(row.description,) || `${row.name} — ${s.title || 'Forum'} on ${c.siteName}.`;
-    return page(c, row.name, description, forumPublic(s, row.read_min_rank,) ? {} : { noindex: true, jsonLd: undefined, body: undefined, },);
+    // A category hidden from the forum index stays out of search too.
+    const indexable = forumPublic(s, row.read_min_rank,) && !row.hidden_from_index;
+    return page(c, row.name, description, indexable ? {} : { noindex: true, jsonLd: undefined, body: undefined, },);
 }
 
 async function forumThread(c: StaticMetaCtx, category: string, slug: string,): Promise<MetaTags | null> {
@@ -302,7 +304,7 @@ async function forumThread(c: StaticMetaCtx, category: string, slug: string,): P
         c_name: string; author: string | null; opening: string | null;
     }>(
         `SELECT t.id, t.title, t.created_at, t.updated_at, t.reply_count, fc.read_min_rank, fc.name AS c_name,
-                u.display_name AS author, oc.body AS opening
+                COALESCE(u.display_name, oc.guest_name) AS author, oc.body AS opening
            FROM forum_threads t
            JOIN forum_categories fc ON fc.id = t.category_id
            LEFT JOIN users u ON u.id = t.author_id

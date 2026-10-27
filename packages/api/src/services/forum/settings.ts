@@ -32,6 +32,8 @@ export async function updateSettings(patch: Partial<ForumSettings>, ctx: AuditCo
         threadsPerPage: int(n.threadsPerPage, 5, 100, 'Threads per page',),
         postsPerPage: int(n.postsPerPage, 5, 100, 'Posts per page',),
         showActivityCounts: Boolean(n.showActivityCounts,),
+        allowAnonymous: Boolean(n.allowAnonymous,),
+        anonymousApproval: Boolean(n.anonymousApproval,),
     };
     await settingsService.set(SETTINGS_KEY, next, ctx,);
     return next;

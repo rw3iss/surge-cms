@@ -118,6 +118,9 @@ export const CACHE_KEYS = {
     // ANONYMOUS result only. 5 min; dropped on any comment write / moderation.
     discussionFeed: (hash: string,) => `discussions:feed:${hash}`,
     discussionFeedPrefix: 'discussions:feed:*',
+    /** Anonymous forum-block feeds (GET /forum/feed). Under the discussion-feed
+     *  prefix on purpose: every comment write / moderation drops them too. */
+    forumFeed: (hash: string,) => `discussions:feed:forum:${hash}`,
 } as const;
 
 let redis: Redis | null = null;

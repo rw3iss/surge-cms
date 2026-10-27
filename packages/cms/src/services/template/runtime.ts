@@ -9,7 +9,7 @@
  */
 import {
     commentCountTarget, DISCUSSION_LIST_KIND, type DiscussionItem, discussionQueryFor, EVENT_KIND, EVENT_LIST_KIND,
-    eventsCallFor, FORUM_THREAD_KIND, GALLERY_ITEM_KIND, GALLERY_LIST_KIND, galleryCallFor, type GalleryItem, resolveValueFunction, UNRESOLVED,
+    eventsCallFor, FORUM_BLOCK_KIND, FORUM_THREAD_KIND, forumBlockSettingsFrom, GALLERY_ITEM_KIND, GALLERY_LIST_KIND, galleryCallFor, type GalleryItem, resolveValueFunction, UNRESOLVED,
     COMPONENT_KIND, componentArgsFor, TEMPLATE_KIND, templateCallError, templateCallFor, templateRecordFor,
 } from '@sitesurge/types';
 import { cms, } from '../cmsClient';
@@ -181,6 +181,12 @@ export function buildRuntime(opts: RuntimeOptions = {}): TemplateRuntime {
             });
             return entityRef(GALLERY_LIST_KIND, items as unknown as Record<string, unknown>);
         }
+
+        // ── forum(...) ── the Forum block's live widget: the call maps to
+        // ForumBlockSettings (shared with SSR + email); the widget fetches
+        // its own feed for the viewer, so nothing is read here.
+        const fs = forumBlockSettingsFrom(name, args, named ?? {});
+        if (fs) return entityRef(FORUM_BLOCK_KIND, fs as Record<string, unknown>);
 
         // ── event('x') / events(...) ── full EventRecords (dates, access, tiers)
         // through the generic entity endpoint, filtered server-side to the

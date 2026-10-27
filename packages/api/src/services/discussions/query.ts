@@ -38,8 +38,35 @@ const FEED_TTL_SECONDS = 300;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Total reactions on a comment row aliased `alias`. */
-const reactionTotal = (alias: string,) =>
+export const reactionTotal = (alias: string,) =>
     `(SELECT COALESCE(SUM(v::int), 0) FROM jsonb_each_text(${alias}.reaction_counts) AS j(k, v))`;
+
+/** Thread sorts: discovery's three + the forum block's `newest` (date posted). */
+export type ThreadSort = 'latest' | 'newest' | 'hot' | 'top';
+
+/**
+ * Score + ORDER BY for forum threads (`t` = forum_threads, `reactions` = the
+ * opening post's reaction total). ONE definition for discovery and the forum
+ * block feed (services/forum/feed.ts):
+ *   latest = last activity (newest reply, else posted) · newest = date posted
+ *   hot    = hotScoreSql over replies / reactions / views, aged from last activity
+ *   top    = replies + reactions
+ */
+export function threadRankSql(sort: ThreadSort, reactions: string,): { score: string; order: string; } {
+    const score = sort === 'hot'
+        ? hotScoreSql({ replies: 't.reply_count', reactions, views: 't.view_count', ageFrom: 'COALESCE(t.last_reply_at, t.created_at)', },)
+        : sort === 'top' ? `(t.reply_count + ${reactions})::float` : '0::float';
+    const order = sort === 'latest' ? 'COALESCE(t.last_reply_at, t.created_at) DESC'
+        : sort === 'newest' ? 't.created_at DESC'
+        : 'score DESC, t.created_at DESC';
+    return { score, order, };
+}
+
+/**
+ * Threads in categories hidden from the forum index are left out of UNSCOPED
+ * lists (no category / thread named). `fc` = forum_categories.
+ */
+export const NOT_HIDDEN_CATEGORY = `NOT COALESCE(fc.hidden_from_index, false)`;
 
 export interface QueryResult {
     items: DiscussionItem[];
@@ -77,6 +104,10 @@ Promise<{ rows: (CommentRow & { score: number; })[]; total: number; }> {
         params.push(q.category,);
         where.push(`EXISTS (SELECT 1 FROM forum_threads ft JOIN forum_categories fc ON fc.id = ft.category_id
                             WHERE ft.id = c.target_id AND fc.slug = $${params.length})`,);
+    } else if (!q.targetId && allowed.includes('forum_thread',)) {
+        // Unscoped: replies in categories hidden from the forum index stay out.
+        where.push(`NOT EXISTS (SELECT 1 FROM forum_threads ft JOIN forum_categories fc ON fc.id = ft.category_id
+                                WHERE c.target_type = 'forum_thread' AND ft.id = c.target_id AND fc.hidden_from_index)`,);
     }
     const reactions = reactionTotal('c',);
     if (q.minReactions) { params.push(q.minReactions,); where.push(`${reactions} >= $${params.length}`,); }
@@ -129,16 +160,14 @@ async function queryThreads(q: NormalizedQuery, take: number,): Promise<{ rows: 
         where.push(UUID.test(q.thread,) ? `t.id = $${params.length}::uuid` : `t.slug = $${params.length}`,);
     }
     if (q.category) { params.push(q.category,); where.push(`fc.slug = $${params.length}`,); }
+    else if (!q.thread) where.push(NOT_HIDDEN_CATEGORY,);
     if (q.author) { params.push(q.author,); where.push(`lower(u.handle) = lower($${params.length})`,); }
     const hours = windowHours(q.window,);
     if (hours && !q.thread) where.push(`COALESCE(t.last_reply_at, t.created_at) >= NOW() - INTERVAL '${hours} hours'`,);
     const reactions = `COALESCE(${reactionTotal('oc',)}, 0)`;
     if (q.minReactions) { params.push(q.minReactions,); where.push(`${reactions} >= $${params.length}`,); }
 
-    const score = q.sort === 'hot'
-        ? hotScoreSql({ replies: 't.reply_count', reactions, views: 't.view_count', ageFrom: 'COALESCE(t.last_reply_at, t.created_at)', },)
-        : q.sort === 'top' ? `(t.reply_count + ${reactions})::float` : '0::float';
-    const order = q.sort === 'latest' ? 'COALESCE(t.last_reply_at, t.created_at) DESC' : 'score DESC, t.created_at DESC';
+    const { score, order, } = threadRankSql(q.sort, reactions,);
     const from = `
         FROM forum_threads t
         JOIN forum_categories fc ON fc.id = t.category_id

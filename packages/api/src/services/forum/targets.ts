@@ -8,7 +8,7 @@ import * as permissions from '../permissions';
 import { onDiscussionEvent, } from '../discussions/events';
 import { registerCommentTarget, type TargetAccess, } from '../discussions/targets';
 import { isModerator, type Viewer, } from '../discussions/viewer';
-import { canReadCategory, canReplyCategory, viewerLevel, } from './access';
+import { canGuestReplyCategory, canReadCategory, canReplyCategory, viewerLevel, } from './access';
 import { forumNeedsApproval, onForumCount, reconcile, syncThreadStatus, threadUrl, } from './forum';
 import { getSettings, } from './settings';
 
@@ -41,15 +41,18 @@ async function accessMany(ids: string[], viewer: Viewer,): Promise<Map<string, T
 function decide(r: Row, viewer: Viewer, mod: boolean, s: Awaited<ReturnType<typeof getSettings>>, level: number,): TargetAccess | null {
     const own = Boolean(viewer.id,) && r.author_id === viewer.id;
     if (r.status !== 'visible' && !mod && !(own && r.status === 'pending')) return null;
-    const base = { title: r.title, url: threadUrl(r.c_slug, r.slug,), allowAnonymous: false, };
-    if (mod) return { ...base, canRead: true, canComment: r.status === 'visible', };
     const cat = { read_min_rank: r.read_min_rank, post_min_rank: r.post_min_rank, locked: r.c_locked, };
+    // Guests may reply where Allow anonymous posting is on and the category is open to them
+    // (the engine still checks `forum:post_anonymous`).
+    const guestOk = canGuestReplyCategory(s, cat,);
+    const base = { title: r.title, url: threadUrl(r.c_slug, r.slug,), allowAnonymous: guestOk, };
+    if (mod) return { ...base, canRead: true, canComment: r.status === 'visible', };
     if (!canReadCategory(level, s, cat,)) {
         return { ...base, canRead: false, canComment: false, reason: level < 0 ? 'Sign in to read the forum.' : 'This part of the forum is for subscribers.', };
     }
     if (r.locked || r.c_locked) return { ...base, canRead: true, canComment: false, reason: 'This thread is locked.', };
     if (r.status !== 'visible') return { ...base, canRead: true, canComment: false, reason: 'This thread is awaiting approval.', };
-    const ok = canReplyCategory(level, s, cat,);
+    const ok = level < 0 ? guestOk : canReplyCategory(level, s, cat,);
     return { ...base, canRead: true, canComment: ok, reason: ok ? undefined : (level < 0 ? 'Sign in to reply.' : 'Replying here needs a higher subscription.'), };
 }
 
@@ -57,6 +60,7 @@ registerCommentTarget({
     type: 'forum_thread',
     feature: 'forum',
     writePermission: 'forum:reply',
+    anonymousPermission: 'forum:post_anonymous',
     async access(id, viewer,) {
         return (await accessMany([id,], viewer,)).get(id,) ?? null;
     },
@@ -70,7 +74,11 @@ registerCommentTarget({
         return new Map(r.rows.map((t,) => [t.id, { title: t.title, url: threadUrl(t.c_slug, t.slug,), },],),);
     },
     activityKind: (isOpening,) => (isOpening ? 'forum_threads' : 'forum_replies'),
-    needsApproval: (viewer,) => forumNeedsApproval(viewer,),
+    needsApproval: async (viewer, isGuest,) => {
+        if (!isGuest) return forumNeedsApproval(viewer,);
+        const s = await getSettings();
+        return s.anonymousApproval || s.approveAll;
+    },
     onCountChange: (client, id, delta, c,) => onForumCount(client as never, id, delta, c,),
     reconcile,
 },);

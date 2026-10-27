@@ -21,6 +21,7 @@ export const ALL_BLOCK_TYPES = [
     'campaign',
     'event',
     'events',
+    'forum',
     'hero',
     'html',
     'document',

@@ -3,7 +3,10 @@
  * are read and written through /api/v1/discussions (`forum_thread:<id>`).
  */
 import { z, } from 'zod';
-import type { ForumCategoryBody, ForumSettingsBody, ForumThreadCreateBody, ForumThreadUpdateBody, } from '@sitesurge/types';
+import type {
+    AssertCompatible, ForumCategoryBody, ForumFeedQuery, ForumSettingsBody, ForumThreadCreateBody, ForumThreadUpdateBody,
+} from '@sitesurge/types';
+import { MAX_FORUM_BLOCK_LIMIT, } from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
 import { viewerOf, } from '../services/discussions';
 import * as forum from '../services/forum';
@@ -27,6 +30,8 @@ const settingsBody = z.object({
     threadsPerPage: z.number().int().optional(),
     postsPerPage: z.number().int().optional(),
     showActivityCounts: z.boolean().optional(),
+    allowAnonymous: z.boolean().optional(),
+    anonymousApproval: z.boolean().optional(),
 },) satisfies z.ZodType<ForumSettingsBody>;
 
 const categoryBody = z.object({
@@ -37,16 +42,38 @@ const categoryBody = z.object({
     readMinRank: rank,
     postMinRank: rank,
     locked: z.boolean().optional(),
+    hiddenFromIndex: z.boolean().optional(),
     sortOrder: z.number().int().optional(),
 },) satisfies z.ZodType<ForumCategoryBody>;
 
 const threadCreateBody = z.object({
-    categoryId: z.string().uuid(), title: z.string().min(1,).max(200,), body: z.string().min(1,).max(50_000,),
+    // Id or slug.
+    categoryId: z.string().min(1,).max(80,),
+    // Empty → derived from the first line of the body.
+    title: z.string().max(200,).optional(),
+    body: z.string().min(1,).max(50_000,),
+    guestName: z.string().max(80,).optional(),
+    guestEmail: z.string().max(255,).optional(),
+    // Honeypot.
+    website: z.string().max(500,).optional(),
 },) satisfies z.ZodType<ForumThreadCreateBody>;
 
 const threadUpdateBody = z.object({
     title: z.string().max(200,).optional(), categoryId: z.string().uuid().optional(),
 },) satisfies z.ZodType<ForumThreadUpdateBody>;
+
+/** `threads` arrives comma-joined (the SDK joins the array); present-but-empty = an empty selection. */
+const feedQuery = z.object({
+    threads: z.string().max(8_200,).optional()
+        .transform((v,) => (v === undefined ? undefined : v.split(',',).map((x,) => x.trim()).filter(Boolean,).slice(0, MAX_FORUM_BLOCK_LIMIT,))),
+    sort: z.enum(['latest', 'newest', 'hot', 'top',],).optional(),
+    window: z.enum(['24h', '7d', '30d', 'all',],).optional(),
+    category: z.string().max(80,).optional(),
+    postCategory: z.string().max(80,).optional(),
+    page,
+    limit: z.coerce.number().int().min(1,).max(MAX_FORUM_BLOCK_LIMIT,).optional(),
+},);
+type _AssertFeedQuery = AssertCompatible<z.infer<typeof feedQuery>, ForumFeedQuery>;
 
 const THREAD_ACTIONS = ['pin', 'unpin', 'lock', 'unlock', 'approve', 'hide', 'restore', 'delete',] as const;
 
@@ -115,6 +142,14 @@ export const forumRoutes = [
         },
     },),
 
+    // ─── Forum block feed ───
+    defineRoute({
+        method: 'get', path: '/feed', auth: 'optional',
+        summary: 'Threads for a forum block: opening posts, last replier, per-thread reply rights and the post target.',
+        input: { query: feedQuery, },
+        handler: ({ query, user, },) => forum.forumFeed(query, viewerOf(user,),),
+    },),
+
     // ─── Threads ───
     defineRoute({
         method: 'get', path: '/threads', auth: 'staff',
@@ -134,8 +169,8 @@ export const forumRoutes = [
         },
     },),
     defineRoute({
-        method: 'post', path: '/threads', auth: 'user',
-        summary: 'Start a thread (title + first post).',
+        method: 'post', path: '/threads', auth: 'optional',
+        summary: 'Start a thread (first post; title optional — derived from the first line). Guests when Allow anonymous posting is on.',
         input: {
             body: threadCreateBody,
         },

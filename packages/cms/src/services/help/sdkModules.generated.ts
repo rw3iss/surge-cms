@@ -3607,6 +3607,23 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 ]
             },
             {
+                "name": "feed",
+                "signature": "feed(query: ForumFeedQuery = {}): Promise<ForumFeedResponse>",
+                "summary": "Threads for a forum block / widget, shaped for the caller: each with its opening post (body, reactions, rights), plus where new posts go (`postTarget`, when `postCategory` is given). Not cached — it is polled.",
+                "params": [
+                    {
+                        "name": "query",
+                        "type": "ForumFeedQuery",
+                        "optional": true,
+                        "default": "{}"
+                    }
+                ],
+                "returns": "Promise<ForumFeedResponse>",
+                "routes": [
+                    "GET /api/v1/forum/feed"
+                ]
+            },
+            {
                 "name": "settings",
                 "signature": "settings(): Promise<ForumSettings>",
                 "summary": "",
@@ -10995,4 +11012,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 55;
-export const SDK_METHOD_COUNT = 648;
+export const SDK_METHOD_COUNT = 649;

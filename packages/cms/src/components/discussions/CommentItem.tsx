@@ -5,12 +5,14 @@
  * Shared by Comments and the Forum.
  */
 import type { Comment, CommentTargetRef, DiscussionsSettings, } from '@sitesurge/types';
-import { Component, createSignal, For, Show, } from 'solid-js';
+import { Component, createSignal, Show, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
+import { timeAgo, } from '../../utils/timeAgo';
 import AuthorCard from './AuthorCard';
 import CommentComposer, { errorText, } from './CommentComposer';
 import DiscussionDialog from './DiscussionDialog';
+import ReactionBar from './ReactionBar';
 import './discussions.scss';
 
 export interface CommentItemProps {
@@ -30,16 +32,6 @@ export interface CommentItemProps {
     hideActions?: boolean;
 }
 
-const when = (iso: string,): string => {
-    const d = new Date(iso,);
-    const s = (Date.now() - d.getTime()) / 1000;
-    if (s < 60) return 'just now';
-    if (s < 3600) return `${Math.floor(s / 60,)}m ago`;
-    if (s < 86_400) return `${Math.floor(s / 3600,)}h ago`;
-    if (s < 7 * 86_400) return `${Math.floor(s / 86_400,)}d ago`;
-    return d.toLocaleDateString();
-};
-
 const CommentItem: Component<CommentItemProps> = (props,) => {
     const auth = useAuth();
     const c = () => props.comment;
@@ -48,29 +40,10 @@ const CommentItem: Component<CommentItemProps> = (props,) => {
     const [draft, setDraft,] = createSignal('',);
     const [busy, setBusy,] = createSignal(false,);
     const [error, setError,] = createSignal('',);
-    const [reactions, setReactions,] = createSignal<Record<string, number>>(c().reactions,);
-    const [mine, setMine,] = createSignal<string[]>(c().myReactions,);
-    const [picker, setPicker,] = createSignal(false,);
     const [reported, setReported,] = createSignal(false,);
 
     const deleted = () => c().status === 'deleted';
     const reactable = () => Boolean(props.settings?.reactionsEnabled,) && !deleted() && c().status === 'visible';
-    const shownKinds = () => (props.settings?.reactions ?? []).filter((k,) => (reactions()[k] ?? 0) > 0);
-
-    const react = async (kind: string,) => {
-        if (!auth.isAuthenticated || busy()) return;
-        setBusy(true,);
-        try {
-            const r = await cms.discussions.react(c().id, kind,);
-            setReactions(r.reactions,);
-            setMine(r.myReactions,);
-            setPicker(false,);
-        } catch (e) {
-            setError(errorText(e,),);
-        } finally {
-            setBusy(false,);
-        }
-    };
 
     const startEdit = () => {
         setDraft(c().body ?? '',);
@@ -125,7 +98,7 @@ const CommentItem: Component<CommentItemProps> = (props,) => {
             <div class="comment-item__head">
                 <AuthorCard author={c().author} />
                 <a class="comment-item__time" href={`#comment-${c().id}`} title={new Date(c().createdAt,).toLocaleString()}>
-                    {when(c().createdAt,)}
+                    {timeAgo(c().createdAt,)}
                 </a>
             </div>
             <Show when={props.replyingTo}>
@@ -168,38 +141,13 @@ const CommentItem: Component<CommentItemProps> = (props,) => {
             <Show when={!props.hideActions && !editing()}>
                 <div class="comment-item__actions">
                     <Show when={reactable()}>
-                        <div class="comment-item__reactions">
-                            <For each={shownKinds()}>
-                                {(k,) => (
-                                    <button
-                                        type="button"
-                                        class="comment-item__reaction"
-                                        classList={{ 'is-mine': mine().includes(k,), }}
-                                        disabled={!auth.isAuthenticated}
-                                        title={auth.isAuthenticated ? undefined : 'Log in to react'}
-                                        onClick={() => void react(k,)}
-                                    >
-                                        <span>{k}</span> <span class="comment-item__reaction-n">{reactions()[k]}</span>
-                                    </button>
-                                )}
-                            </For>
-                            <Show when={auth.isAuthenticated}>
-                                <span class="comment-item__picker-wrap">
-                                    <button type="button" class="comment-item__action" aria-expanded={picker()} onClick={() => setPicker(!picker(),)} title="React">
-                                        ☺+
-                                    </button>
-                                    <Show when={picker()}>
-                                        <span class="comment-item__picker" role="menu">
-                                            <For each={props.settings?.reactions ?? []}>
-                                                {(k,) => (
-                                                    <button type="button" role="menuitem" classList={{ 'is-mine': mine().includes(k,), }} onClick={() => void react(k,)}>{k}</button>
-                                                )}
-                                            </For>
-                                        </span>
-                                    </Show>
-                                </span>
-                            </Show>
-                        </div>
+                        <ReactionBar
+                            commentId={c().id}
+                            reactions={c().reactions}
+                            myReactions={c().myReactions}
+                            kinds={props.settings?.reactions ?? []}
+                            onError={setError}
+                        />
                     </Show>
                     <Show when={props.allowReply && !deleted() && c().status === 'visible'}>
                         <button type="button" class="comment-item__action" onClick={() => setReplying(!replying(),)}>Reply</button>

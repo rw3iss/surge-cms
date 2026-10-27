@@ -23,6 +23,7 @@ import {
     type DiscussionItem,
     EVENT_KIND,
     EVENT_LIST_KIND,
+    FORUM_BLOCK_KIND,
     eventDisplayFrom,
     type EventRecord,
     FORUM_THREAD_KIND,
@@ -75,6 +76,8 @@ import { config, } from '../../config';
 import { discussionListHtml, forumThreadHtml, } from '../discussions/templateFunctions';
 import { galleryEmailHtml, } from '../gallery/render';
 import { eventCardsEmailHtml, } from '../events/render';
+import { forumListHtml, } from '../forum/render';
+import type { ForumFunctionData, } from '../forum/serverRender';
 import { get as settingsGet, } from '../settings';
 
 /** Site origin for absolute links in email (`https://site`), no trailing slash. */
@@ -132,6 +135,11 @@ function entityToMailHtml(kind: string, data: Rec | null, options?: Record<strin
             return discussionListHtml(data as unknown as DiscussionItem[], siteBase(),);
         case FORUM_THREAD_KIND:
             return forumThreadHtml(data, siteBase(),);
+        // `{{ forum(...) }}` — thread links + "Join the discussion →" (public threads).
+        case FORUM_BLOCK_KIND: {
+            const f = data as unknown as ForumFunctionData;
+            return forumListHtml(f.items, f.settings, { base: siteBase(), email: true, },);
+        }
         // `{{gallery(...)}}` — an email-safe table grid of PUBLIC media
         // (the runtime resolves with the `email` audience).
         case GALLERY_LIST_KIND:

@@ -39,6 +39,7 @@ import { TemplateBlock, } from './types/TemplateBlock';
 import { EntityBlock, } from './types/EntityBlock';
 import { GalleryBlock, } from './types/GalleryBlock';
 import { EventsBlock, } from './types/EventsBlock';
+import { ForumBlock, } from './types/ForumBlock';
 import { GroupBlock, GroupItemBlock, } from './types/GroupBlock';
 import './BlockRenderer.scss';
 
@@ -117,6 +118,8 @@ const WEB_BLOCK_RENDERERS: Record<BlockType, Component<WebBlockProps> | null> = 
     // `event` is the legacy name, rendered by the same block.
     events: (p,) => <EventsBlock block={p.block} preview={p.preview} />,
     event: (p,) => <EventsBlock block={p.block} preview={p.preview} />,
+    // Forum (feature `forum`) — threads to read / post / reply, or one thread as a chat.
+    forum: (p,) => <ForumBlock block={p.block} preview={p.preview} />,
 };
 
 export const BlockRenderer: Component<BlockRendererProps> = (props,) => {

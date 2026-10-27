@@ -523,6 +523,11 @@ export const FEATURE_PERMISSIONS: Record<string, PermissionRegistration[]> = {
         },
         { key: 'forum:thread_create', feature: 'forum', label: 'Start forum threads', action: 'write', defaultRoles: MEMBERS, },
         { key: 'forum:reply', feature: 'forum', label: 'Reply in the forum', action: 'write', defaultRoles: MEMBERS, },
+        {
+            key: 'forum:post_anonymous', feature: 'forum', label: 'Post in the forum without an account',
+            description: 'Start threads and reply as a guest — only while Forum → Settings → Allow anonymous posting is on.',
+            action: 'write', defaultAccess: 'everyone',
+        },
         { key: 'forum:moderate', feature: 'forum', label: 'Moderate the forum', description: 'Pin, lock, move, hide and delete threads.', action: 'write', defaultRoles: STAFF, },
         { key: 'forum:manage', feature: 'forum', label: 'Manage the forum', description: 'Categories and forum settings.', action: 'admin', defaultRoles: ADMIN, },
     ],

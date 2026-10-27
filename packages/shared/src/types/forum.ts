@@ -25,6 +25,10 @@ export interface ForumSettings {
     threadsPerPage: number;
     postsPerPage: number;
     showActivityCounts: boolean;
+    /** Guests may start threads + reply (forum blocks that allow it; permission `forum:post_anonymous`). */
+    allowAnonymous: boolean;
+    /** Hold guests' posts for approval. */
+    anonymousApproval: boolean;
 }
 
 export const DEFAULT_FORUM_SETTINGS: ForumSettings = {
@@ -39,6 +43,8 @@ export const DEFAULT_FORUM_SETTINGS: ForumSettings = {
     threadsPerPage: 25,
     postsPerPage: 20,
     showActivityCounts: true,
+    allowAnonymous: false,
+    anonymousApproval: true,
 };
 
 export interface ForumCategory {
@@ -52,6 +58,9 @@ export interface ForumCategory {
     readMinRank: number | null;
     postMinRank: number | null;
     locked: boolean;
+    /** Left out of the forum index, unscoped discovery lists, the sitemap and search; its
+     *  threads still open by link and in a forum block / query naming the category. */
+    hiddenFromIndex: boolean;
     threadCount: number;
     postCount: number;
     lastPostAt: string | null;

@@ -24,7 +24,7 @@ const TierSelect: Component<{ value: number | null; onChange: (v: number | null,
     </select>
 );
 
-const empty = (): ForumCategoryBody => ({ name: '', slug: '', description: '', readMinRank: null, postMinRank: null, locked: false, });
+const empty = (): ForumCategoryBody => ({ name: '', slug: '', description: '', readMinRank: null, postMinRank: null, locked: false, hiddenFromIndex: false, });
 
 const ForumCategories: Component = () => {
     const toast = useToast();
@@ -112,7 +112,9 @@ const ForumCategories: Component = () => {
                                     <button type="button" class="ui-button ui-button--sm ui-button--ghost" aria-label="Move down" disabled={i() === (cats()?.length ?? 0) - 1} onClick={() => move(i(), 1,)}>▼</button>
                                 </div>
                                 <div>
-                                    <h3>{c.name} <Show when={c.locked}><span title="Locked">🔒</span></Show></h3>
+                                    <h3>{c.name} <Show when={c.locked}><span title="Locked">🔒</span></Show>
+                                        <Show when={c.hiddenFromIndex}><span class="admin-forum__badge" title="Hidden from the forum index">Hidden</span></Show>
+                                    </h3>
                                     <Show when={c.description}><p>{c.description}</p></Show>
                                     <div class="admin-forum__meta">
                                         /forum/{c.slug} · {c.threadCount} threads · {c.postCount} posts
@@ -131,6 +133,7 @@ const ForumCategories: Component = () => {
                                                 body: {
                                                     name: c.name, slug: c.slug, description: c.description ?? '',
                                                     readMinRank: c.readMinRank, postMinRank: c.postMinRank, locked: c.locked,
+                                                    hiddenFromIndex: Boolean(c.hiddenFromIndex,),
                                                 },
                                             },);
                                         }}
@@ -167,6 +170,12 @@ const ForumCategories: Component = () => {
                                 <TierSelect value={e().body.postMinRank ?? null} onChange={(v,) => patch({ postMinRank: v, },)} tiers={tiers() ?? []} defaultLabel="Forum default" />
                             </FormField>
                             <Toggle checked={Boolean(e().body.locked,)} onChange={(v,) => patch({ locked: v, },)} label="Locked (readable, no new threads or replies)" />
+                            <Toggle
+                                checked={Boolean(e().body.hiddenFromIndex,)}
+                                onChange={(v,) => patch({ hiddenFromIndex: v, },)}
+                                label="Hide from forum index"
+                                hint="Left out of /forum and unscoped lists (latest / hot threads, sitemap, search). Its threads still open by link and in Forum blocks that name this category."
+                            />
                             <div class="admin-forum__form-actions">
                                 <button type="button" class="ui-button ui-button--secondary" onClick={() => setEditing(null,)}>Cancel</button>
                                 <button type="button" class="ui-button ui-button--primary" disabled={saving() || !e().body.name.trim()} onClick={save}>

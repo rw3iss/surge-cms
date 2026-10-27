@@ -196,6 +196,13 @@ export function buildBackendRuntime(opts: BackendRuntimeOptions,): TemplateRunti
             if (r !== UNRESOLVED) return r;
         }
 
+        // `forum(...)` — the Forum block's threads for the anonymous reader (SSR + email alike).
+        if (name === 'forum') {
+            const { resolveForumFunction, } = await import('../forum/serverRender.js');
+            const r = await resolveForumFunction(name, args, named, memo,);
+            if (r !== UNRESOLVED) return r;
+        }
+
         // Gallery items (`gallery(...)`) — audience-shaped (see galleryAudience).
         if (name === 'gallery') {
             const { resolveGalleryFunction, } = await import('../gallery/serverRender.js');

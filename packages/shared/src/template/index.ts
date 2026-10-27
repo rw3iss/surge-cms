@@ -39,6 +39,8 @@ export {
     DEFAULT_EVENTS_LIMIT, EVENT_FUNCTION_NAMES, EVENT_KIND, EVENT_LIST_KIND, eventDisplayFrom, eventsCallFor, MAX_EVENTS_LIMIT,
     type EventDisplayOptions, type EventsCall,
 } from './eventFunctions';
+/** `{{forum(...)}}` call → Forum block settings (shared with the Forum block). */
+export { FORUM_BLOCK_KIND, FORUM_FUNCTION_NAMES, forumBlockSettingsFrom, } from './forumFunctions';
 /** `{{template(...)}}` / `{{component(...)}}` — render a saved template / component inline. */
 export {
     COMPONENT_KIND, componentArgsFor, MAX_TEMPLATE_DEPTH, TEMPLATE_FUNCTION_NAMES, TEMPLATE_KIND, templateCallError, templateCallFor,
