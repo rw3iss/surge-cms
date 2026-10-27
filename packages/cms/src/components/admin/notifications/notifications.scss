@@ -1,0 +1,33 @@
+@use '../../../styles/variables' as *;
+
+// Settings → Notifications (type cards + SMS provider).
+.notification-type {
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $spacing-md;
+  }
+
+  &__muted {
+    margin-top: $spacing-md;
+  }
+}
+
+.notifications-sms {
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: $spacing-md;
+    margin-top: $spacing-md;
+  }
+
+  &__test {
+    display: flex;
+    align-items: flex-start;
+    gap: $spacing-sm;
+
+    input { max-width: 14rem; }
+  }
+}

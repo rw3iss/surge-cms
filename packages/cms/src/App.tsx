@@ -45,6 +45,7 @@ const AdminPosts = lazy(() => import('./pages/admin/Posts'));
 const AdminPostEditor = lazy(() => import('./pages/admin/PostEditor'));
 const AdminPostsSettings = lazy(() => import('./pages/admin/PostsSettings'));
 const AdminUsers = lazy(() => import('./pages/admin/Users'));
+const AdminNotifications = lazy(() => import('./pages/admin/Notifications'));
 const AdminUsersSettings = lazy(() => import('./pages/admin/UsersSettings'));
 const AdminFormsSettings = lazy(() => import('./pages/admin/FormsSettings'));
 const AdminUserDetail = lazy(() => import('./pages/admin/UserDetail'));
@@ -237,6 +238,7 @@ const App: Component = () => {
 									{/* Admin routes with admin layout */}
 									<Route path="/admin" component={AdminLayout}>
 										<Route path="/" component={AdminDashboard} />
+										<Route path="/notifications" component={AdminNotifications} />
 										<Route path="/pages" component={AdminPages} />
 										<Route path="/pages/:id/preview" component={AdminPagePreview} />
 										<Route path="/pages/:id" component={AdminPageEditor} />

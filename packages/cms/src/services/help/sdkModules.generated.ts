@@ -5757,6 +5757,198 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         ]
     },
     {
+        "namespace": "notifications",
+        "className": "NotificationsModule",
+        "summary": "notifications namespace — the signed-in user's IN-APP notifications + desktop (Web Push) subscriptions (`me*`), and the channel admin (`options`, `sms`, `test` — `notifications:manage`). Per-type channel config is saved with `cms.settings.update({ notifications })`.",
+        "methods": [
+            {
+                "name": "clear",
+                "signature": "clear(ids: string[] | 'all'): Promise<{ cleared: number; }>",
+                "summary": "POST /notifications/me/clear — the ids, or all.",
+                "params": [
+                    {
+                        "name": "ids",
+                        "type": "string[] | 'all'",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<{ cleared: number; }>",
+                "routes": [
+                    "POST /api/v1/notifications/me/clear"
+                ]
+            },
+            {
+                "name": "count",
+                "signature": "count(): Promise<{ unread: number; enabled: boolean; }>",
+                "summary": "GET /notifications/me/count — unread count (+ enabled).",
+                "params": [],
+                "returns": "Promise<{ unread: number; enabled: boolean; }>",
+                "routes": [
+                    "GET /api/v1/notifications/me/count"
+                ]
+            },
+            {
+                "name": "markRead",
+                "signature": "markRead(ids: string[] | 'all'): Promise<{ updated: number; }>",
+                "summary": "POST /notifications/me/read — the ids, or all.",
+                "params": [
+                    {
+                        "name": "ids",
+                        "type": "string[] | 'all'",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<{ updated: number; }>",
+                "routes": [
+                    "POST /api/v1/notifications/me/read"
+                ]
+            },
+            {
+                "name": "mine",
+                "signature": "mine(query: { unread?: boolean; type?: string; page?: number; limit?: number; } = {}): Promise<UserNotificationsResponse>",
+                "summary": "GET /notifications/me — your notifications, unread count, whether in-app is on.",
+                "params": [
+                    {
+                        "name": "query",
+                        "type": "{ unread?: boolean; type?: string; page?: number; limit?: number; }",
+                        "optional": true,
+                        "default": "{}"
+                    }
+                ],
+                "returns": "Promise<UserNotificationsResponse>",
+                "routes": [
+                    "GET /api/v1/notifications/me"
+                ]
+            },
+            {
+                "name": "options",
+                "signature": "options(): Promise<NotificationOptions>",
+                "summary": "GET /notifications/options",
+                "params": [],
+                "returns": "Promise<NotificationOptions>",
+                "routes": [
+                    "GET /api/v1/notifications/options"
+                ]
+            },
+            {
+                "name": "pushInfo",
+                "signature": "pushInfo(): Promise<{ available: boolean; publicKey: string | null; subscriptions: number; }>",
+                "summary": "GET /notifications/me/push — VAPID public key (null = unavailable) + your subscribed browsers.",
+                "params": [],
+                "returns": "Promise<{ available: boolean; publicKey: string | null; subscriptions: number; }>",
+                "routes": [
+                    "GET /api/v1/notifications/me/push"
+                ]
+            },
+            {
+                "name": "pushSubscribe",
+                "signature": "pushSubscribe(sub: { endpoint: string; keys: { p256dh: string; auth: string; }; }): Promise<{ ok: true; }>",
+                "summary": "POST /notifications/me/push/subscribe — this browser's PushSubscription (`sub.toJSON()`).",
+                "params": [
+                    {
+                        "name": "sub",
+                        "type": "{ endpoint: string; keys: { p256dh: string; auth: string; }; }",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<{ ok: true; }>",
+                "routes": [
+                    "POST /api/v1/notifications/me/push/subscribe"
+                ]
+            },
+            {
+                "name": "pushUnsubscribe",
+                "signature": "pushUnsubscribe(endpoint: string): Promise<{ ok: true; }>",
+                "summary": "POST /notifications/me/push/unsubscribe",
+                "params": [
+                    {
+                        "name": "endpoint",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<{ ok: true; }>",
+                "routes": [
+                    "POST /api/v1/notifications/me/push/unsubscribe"
+                ]
+            },
+            {
+                "name": "setOptions",
+                "signature": "setOptions(body: Partial<NotificationOptions>): Promise<NotificationOptions>",
+                "summary": "PUT /notifications/options",
+                "params": [
+                    {
+                        "name": "body",
+                        "type": "Partial<NotificationOptions>",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<NotificationOptions>",
+                "routes": [
+                    "PUT /api/v1/notifications/options"
+                ]
+            },
+            {
+                "name": "setSms",
+                "signature": "setSms(body: Partial<SmsSettings>): Promise<SmsSettings>",
+                "summary": "PUT /notifications/sms",
+                "params": [
+                    {
+                        "name": "body",
+                        "type": "Partial<SmsSettings>",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<SmsSettings>",
+                "routes": [
+                    "PUT /api/v1/notifications/sms"
+                ]
+            },
+            {
+                "name": "sms",
+                "signature": "sms(): Promise<SmsSettings>",
+                "summary": "GET /notifications/sms — provider settings (token masked).",
+                "params": [],
+                "returns": "Promise<SmsSettings>",
+                "routes": [
+                    "GET /api/v1/notifications/sms"
+                ]
+            },
+            {
+                "name": "test",
+                "signature": "test(type: string): Promise<{ ok: true; }>",
+                "summary": "POST /notifications/test — send a test of a type to its configured recipients.",
+                "params": [
+                    {
+                        "name": "type",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<{ ok: true; }>",
+                "routes": [
+                    "POST /api/v1/notifications/test"
+                ]
+            },
+            {
+                "name": "testSms",
+                "signature": "testSms(to: string): Promise<{ ok: true; }>",
+                "summary": "POST /notifications/sms/test",
+                "params": [
+                    {
+                        "name": "to",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<{ ok: true; }>",
+                "routes": [
+                    "POST /api/v1/notifications/sms/test"
+                ]
+            }
+        ]
+    },
+    {
         "namespace": "pages",
         "className": "PagesModule",
         "summary": "/pages namespace — CMS pages with embedded blocks, revisions, block CRUD.",
@@ -10802,5 +10994,5 @@ export const SDK_MODULES: SdkModuleDoc[] = [
     }
 ];
 
-export const SDK_MODULE_COUNT = 54;
-export const SDK_METHOD_COUNT = 635;
+export const SDK_MODULE_COUNT = 55;
+export const SDK_METHOD_COUNT = 648;

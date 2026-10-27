@@ -1,0 +1,92 @@
+@use '../../../styles/variables' as *;
+
+.user-role-picker {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+
+  &.is-disabled { opacity: 0.6; }
+
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    min-height: 1.6rem;
+    align-items: center;
+  }
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.3rem 0.2rem 0.6rem;
+    border: 1px solid $border-color;
+    border-radius: 999px;
+    background: $bg-muted;
+    font-size: 0.85rem;
+
+    &--role { background: $info-bg; color: $info-fg; }
+
+    button {
+      border: 0;
+      background: none;
+      padding: 0 0.3rem;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      color: inherit;
+      opacity: 0.7;
+
+      &:hover { opacity: 1; }
+    }
+  }
+  &__empty { margin: 0; }
+
+  &__search {
+    position: relative;
+    max-width: 28rem;
+
+    input { width: 100%; }
+  }
+  &__menu {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    margin: 0;
+    padding: 0.25rem;
+    list-style: none;
+    max-height: 18rem;
+    overflow-y: auto;
+    background: $background;
+    border: 1px solid $border-color;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+
+    button {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.4rem;
+      width: 100%;
+      padding: 0.45rem 0.6rem;
+      border: 0;
+      border-radius: 6px;
+      background: none;
+      text-align: left;
+      font: inherit;
+      cursor: pointer;
+
+      &:hover, &:focus-visible { background: $bg-muted; }
+    }
+  }
+  &__kind {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $text-light;
+  }
+  &__meta { font-size: 0.8rem; color: $text-light; }
+  &__note { padding: 0.45rem 0.6rem; font-size: 0.85rem; color: $text-light; }
+}

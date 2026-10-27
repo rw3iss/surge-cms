@@ -4,6 +4,8 @@ import { isAdminRole, isStaffRole, type AppearanceSettings, } from '@sitesurge/t
 import { createEffect, createMemo, createResource, createSignal, For, onCleanup, ParentComponent, Show, } from 'solid-js';
 import GlobalSearch from '../../components/admin/common/GlobalSearch';
 import AdminPresence from '../../components/admin/presence/AdminPresence';
+import NotificationWidget from '../../components/admin/notifications/NotificationWidget';
+import { notificationsEnabled, startNotificationPolling, stopNotificationPolling, } from '../../stores/notifications';
 import SamePageWarning from '../../components/admin/presence/SamePageWarning';
 import MediaViewerHost from '../../components/admin/media/MediaViewerHost';
 import MediaDeleteConfirmHost from '../../components/admin/media/MediaDeleteConfirmHost';
@@ -171,7 +173,8 @@ const AdminLayout: ParentComponent = (props,) => {
     const shellNavItems = () => NAV_ITEMS.filter((i,) => shell()!.nav.includes(i.id,),);
     const shellAllows = (path: string,) => {
         const sh = shell();
-        if (!sh || path === '/admin' || path === '/admin/') return true;
+        // Everyone in the admin has their own notifications page.
+        if (!sh || path === '/admin' || path === '/admin/' || path === '/admin/notifications') return true;
         const allowed = sh.paths ?? shellNavItems().map((i,) => i.path,);
         return allowed.some((p,) => path === p || path.startsWith(`${p}/`,),);
     };
@@ -227,6 +230,14 @@ const AdminLayout: ParentComponent = (props,) => {
         if (path.startsWith('/admin',)) adminChannel.notifyNavigate(path,);
     },);
     onCleanup(() => adminChannel.disconnect(),);
+
+    // ── In-app notifications ── unread count for every admin user (role shells
+    // included — polled, since /ws/admin is staff-only).
+    createEffect(() => {
+        if (!auth.isLoading && auth.isAuthenticated && canEnterAdmin(auth.user,)) startNotificationPolling();
+        else if (!auth.isLoading) stopNotificationPolling();
+    },);
+    onCleanup(stopNotificationPolling,);
 
     // Moderation badge: poll every 60 s while visible, refresh on return and
     // on navigation (acting in the queue changes the count).
@@ -420,6 +431,7 @@ const AdminLayout: ParentComponent = (props,) => {
                         </For>
                     </nav>
                     <div class="admin-layout__sidebar-footer">
+                        <Show when={notificationsEnabled()}><NotificationWidget collapsed={collapsed()} /></Show>
                         <Show when={!shell()}><AdminPresence /></Show>
                         <div class="admin-layout__user">
                             <Show

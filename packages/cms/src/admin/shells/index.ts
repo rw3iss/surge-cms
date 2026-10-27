@@ -26,7 +26,7 @@ export interface AdminShellConfig {
 }
 
 export const ROLE_SHELLS: Record<string, AdminShellConfig> = {
-    contributor: { nav: ['posts',], dashboard: 'contributor', paths: ['/admin/posts', '/admin/help',], },
+    contributor: { nav: ['posts',], dashboard: 'contributor', paths: ['/admin/posts', '/admin/help', '/admin/notifications',], },
 };
 
 /** The shell for a user: null for staff (full admin) and for users without one. */

@@ -70,6 +70,10 @@ export default defineConfig(({ mode }) => {
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        // Desktop (Web Push) notifications: the generated worker pulls in our
+        // `push` + `notificationclick` handlers (public/push-sw.js), so ONE
+        // service worker serves both the PWA cache and admin notifications.
+        importScripts: ['/push-sw.js'],
         // Disable the precache navigation fallback. It served the SPA shell
         // (index.html) from the precache for every navigation, which FROZE
         // the document's response headers — most importantly the CSP. A

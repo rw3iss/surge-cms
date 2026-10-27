@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-27T02:57:47.903Z",
-  "totalModules": 59,
-  "totalRoutes": 640,
+  "generatedAt": "2026-10-27T03:44:52.863Z",
+  "totalModules": 60,
+  "totalRoutes": 653,
   "modules": [
     {
       "module": "admin-channel",
@@ -8154,6 +8154,234 @@
             "params": [
               {
                 "name": "id",
+                "type": "string",
+                "required": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "module": "notifications",
+      "mountPath": "/api/v1/notifications",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/me",
+          "absolutePath": "/api/v1/notifications/me",
+          "auth": "user",
+          "summary": "Your in-app notifications (newest first; `unread=1` for unread only), the unread count and whether in-app notifications are on.",
+          "input": {
+            "query": [
+              {
+                "name": "unread",
+                "type": "string",
+                "required": false
+              },
+              {
+                "name": "type",
+                "type": "string",
+                "required": false
+              },
+              {
+                "name": "page",
+                "type": "integer",
+                "required": false
+              },
+              {
+                "name": "limit",
+                "type": "integer",
+                "required": false
+              }
+            ]
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/me/count",
+          "absolutePath": "/api/v1/notifications/me/count",
+          "auth": "user",
+          "summary": "Your unread in-app notification count (+ whether in-app notifications are on) — polled by the admin sidebar."
+        },
+        {
+          "method": "POST",
+          "path": "/me/read",
+          "absolutePath": "/api/v1/notifications/me/read",
+          "auth": "user",
+          "summary": "Mark your notifications read: `ids`, or `all: true`.",
+          "input": {
+            "body": [
+              {
+                "name": "ids",
+                "type": "string<uuid>[]",
+                "required": false
+              },
+              {
+                "name": "all",
+                "type": "boolean",
+                "required": false
+              }
+            ]
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/me/clear",
+          "absolutePath": "/api/v1/notifications/me/clear",
+          "auth": "user",
+          "summary": "Clear (remove) your notifications: `ids`, or `all: true`.",
+          "input": {
+            "body": [
+              {
+                "name": "ids",
+                "type": "string<uuid>[]",
+                "required": false
+              },
+              {
+                "name": "all",
+                "type": "boolean",
+                "required": false
+              }
+            ]
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/me/push",
+          "absolutePath": "/api/v1/notifications/me/push",
+          "auth": "user",
+          "summary": "Desktop notifications: the VAPID public key (null = not available on this server) and how many of your browsers are subscribed."
+        },
+        {
+          "method": "POST",
+          "path": "/me/push/subscribe",
+          "absolutePath": "/api/v1/notifications/me/push/subscribe",
+          "auth": "user",
+          "summary": "Turn desktop notifications on for this browser (its Web Push subscription).",
+          "input": {
+            "body": [
+              {
+                "name": "endpoint",
+                "type": "string<uri>",
+                "required": true
+              },
+              {
+                "name": "keys",
+                "type": "object",
+                "required": true
+              }
+            ]
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/me/push/unsubscribe",
+          "absolutePath": "/api/v1/notifications/me/push/unsubscribe",
+          "auth": "user",
+          "summary": "Turn desktop notifications off for this browser.",
+          "input": {
+            "body": [
+              {
+                "name": "endpoint",
+                "type": "string",
+                "required": true
+              }
+            ]
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/options",
+          "absolutePath": "/api/v1/notifications/options",
+          "auth": "admin",
+          "summary": "In-app notifications on/off + how long they are kept."
+        },
+        {
+          "method": "PUT",
+          "path": "/options",
+          "absolutePath": "/api/v1/notifications/options",
+          "auth": "admin",
+          "summary": "Update the in-app notification options.",
+          "input": {
+            "body": [
+              {
+                "name": "inAppEnabled",
+                "type": "boolean",
+                "required": false
+              },
+              {
+                "name": "retentionDays",
+                "type": "integer",
+                "required": false
+              }
+            ]
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/sms",
+          "absolutePath": "/api/v1/notifications/sms",
+          "auth": "admin",
+          "summary": "The SMS provider settings (auth token masked)."
+        },
+        {
+          "method": "PUT",
+          "path": "/sms",
+          "absolutePath": "/api/v1/notifications/sms",
+          "auth": "admin",
+          "summary": "Set the SMS provider (Twilio): Account SID, auth token (the mask = unchanged), sending number or Messaging Service SID.",
+          "input": {
+            "body": [
+              {
+                "name": "provider",
+                "type": "'none' | 'twilio'",
+                "required": false
+              },
+              {
+                "name": "accountSid",
+                "type": "string",
+                "required": false
+              },
+              {
+                "name": "authToken",
+                "type": "string",
+                "required": false
+              },
+              {
+                "name": "fromNumber",
+                "type": "string",
+                "required": false
+              }
+            ]
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/sms/test",
+          "absolutePath": "/api/v1/notifications/sms/test",
+          "auth": "admin",
+          "summary": "Send a test SMS to a number through the configured provider.",
+          "input": {
+            "body": [
+              {
+                "name": "to",
+                "type": "string",
+                "required": true
+              }
+            ]
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/test",
+          "absolutePath": "/api/v1/notifications/test",
+          "auth": "admin",
+          "summary": "Send a TEST of a notification type to its configured recipients on every enabled channel.",
+          "input": {
+            "body": [
+              {
+                "name": "type",
                 "type": "string",
                 "required": true
               }

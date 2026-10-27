@@ -9376,6 +9376,286 @@ export const API_MODULES: ApiModuleDoc[] = [
         ]
     },
     {
+        "module": "notifications",
+        "mountPath": "/api/v1/notifications",
+        "routes": [
+            {
+                "method": "GET",
+                "path": "/me",
+                "absolutePath": "/api/v1/notifications/me",
+                "auth": "user",
+                "summary": "Your in-app notifications (newest first; `unread=1` for unread only), the unread count and whether in-app notifications are on.",
+                "input": {
+                    "query": [
+                        {
+                            "name": "unread",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "type",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "page",
+                            "type": "integer",
+                            "required": false
+                        },
+                        {
+                            "name": "limit",
+                            "type": "integer",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.notifications.mine"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/me/count",
+                "absolutePath": "/api/v1/notifications/me/count",
+                "auth": "user",
+                "summary": "Your unread in-app notification count (+ whether in-app notifications are on) — polled by the admin sidebar.",
+                "sdk": [
+                    "cms.notifications.count"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/me/read",
+                "absolutePath": "/api/v1/notifications/me/read",
+                "auth": "user",
+                "summary": "Mark your notifications read: `ids`, or `all: true`.",
+                "input": {
+                    "body": [
+                        {
+                            "name": "ids",
+                            "type": "string<uuid>[]",
+                            "required": false
+                        },
+                        {
+                            "name": "all",
+                            "type": "boolean",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.notifications.markRead"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/me/clear",
+                "absolutePath": "/api/v1/notifications/me/clear",
+                "auth": "user",
+                "summary": "Clear (remove) your notifications: `ids`, or `all: true`.",
+                "input": {
+                    "body": [
+                        {
+                            "name": "ids",
+                            "type": "string<uuid>[]",
+                            "required": false
+                        },
+                        {
+                            "name": "all",
+                            "type": "boolean",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.notifications.clear"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/me/push",
+                "absolutePath": "/api/v1/notifications/me/push",
+                "auth": "user",
+                "summary": "Desktop notifications: the VAPID public key (null = not available on this server) and how many of your browsers are subscribed.",
+                "sdk": [
+                    "cms.notifications.pushInfo"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/me/push/subscribe",
+                "absolutePath": "/api/v1/notifications/me/push/subscribe",
+                "auth": "user",
+                "summary": "Turn desktop notifications on for this browser (its Web Push subscription).",
+                "input": {
+                    "body": [
+                        {
+                            "name": "endpoint",
+                            "type": "string<uri>",
+                            "required": true
+                        },
+                        {
+                            "name": "keys",
+                            "type": "object",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.notifications.pushSubscribe"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/me/push/unsubscribe",
+                "absolutePath": "/api/v1/notifications/me/push/unsubscribe",
+                "auth": "user",
+                "summary": "Turn desktop notifications off for this browser.",
+                "input": {
+                    "body": [
+                        {
+                            "name": "endpoint",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.notifications.pushUnsubscribe"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/options",
+                "absolutePath": "/api/v1/notifications/options",
+                "auth": "admin",
+                "summary": "In-app notifications on/off + how long they are kept.",
+                "sdk": [
+                    "cms.notifications.options"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "PUT",
+                "path": "/options",
+                "absolutePath": "/api/v1/notifications/options",
+                "auth": "admin",
+                "summary": "Update the in-app notification options.",
+                "input": {
+                    "body": [
+                        {
+                            "name": "inAppEnabled",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
+                            "name": "retentionDays",
+                            "type": "integer",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.notifications.setOptions"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/sms",
+                "absolutePath": "/api/v1/notifications/sms",
+                "auth": "admin",
+                "summary": "The SMS provider settings (auth token masked).",
+                "sdk": [
+                    "cms.notifications.sms"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "PUT",
+                "path": "/sms",
+                "absolutePath": "/api/v1/notifications/sms",
+                "auth": "admin",
+                "summary": "Set the SMS provider (Twilio): Account SID, auth token (the mask = unchanged), sending number or Messaging Service SID.",
+                "input": {
+                    "body": [
+                        {
+                            "name": "provider",
+                            "type": "'none' | 'twilio'",
+                            "required": false
+                        },
+                        {
+                            "name": "accountSid",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "authToken",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "fromNumber",
+                            "type": "string",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.notifications.setSms"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/sms/test",
+                "absolutePath": "/api/v1/notifications/sms/test",
+                "auth": "admin",
+                "summary": "Send a test SMS to a number through the configured provider.",
+                "input": {
+                    "body": [
+                        {
+                            "name": "to",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.notifications.testSms"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/test",
+                "absolutePath": "/api/v1/notifications/test",
+                "auth": "admin",
+                "summary": "Send a TEST of a notification type to its configured recipients on every enabled channel.",
+                "input": {
+                    "body": [
+                        {
+                            "name": "type",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.notifications.test"
+                ],
+                "sdkStatus": "method"
+            }
+        ]
+    },
+    {
         "module": "pages",
         "mountPath": "/api/v1/pages",
         "routes": [
@@ -18512,5 +18792,5 @@ export const API_MODULES: ApiModuleDoc[] = [
     }
 ];
 
-export const API_MODULE_COUNT = 59;
-export const API_ROUTE_COUNT = 640;
+export const API_MODULE_COUNT = 60;
+export const API_ROUTE_COUNT = 653;
