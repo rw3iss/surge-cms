@@ -1,6 +1,6 @@
 # Notifications: channels (email, SMS, desktop push) + in-app notifications — plan
 
-> **STATUS 2026-10-27 — IN PROGRESS.**
+> **STATUS 2026-10-27 — DONE.** All phases built, deployed and checked on production (in-app test notification → badge, panel, page, read, clear; VAPID keys generated; settings restored). Not verified live: a real desktop push in a browser and a real Twilio SMS (needs a Twilio account).
 
 ## Decisions
 1. In-app recipients: chosen **users and roles** (main or additional role).

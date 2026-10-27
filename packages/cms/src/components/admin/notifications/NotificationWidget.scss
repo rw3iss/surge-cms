@@ -48,12 +48,23 @@ $nw-text: var(--admin-sidebar-text, white);
     }
     &__head {
         display: flex;
-        align-items: center;
-        gap: $spacing-sm;
+        flex-direction: column;
+        gap: 4px;
         padding: $spacing-sm $spacing-md;
         border-bottom: 1px solid color-mix(in srgb, #{$nw-text} 12%, transparent);
 
         strong { flex: 1; font-size: $font-size-sm; }
+    }
+    &__head-row {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+    }
+    &__head-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px $spacing-md;
+        white-space: nowrap;
     }
     &__link {
         padding: 0;

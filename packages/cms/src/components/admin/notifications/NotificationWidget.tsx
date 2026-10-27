@@ -63,10 +63,15 @@ const NotificationWidget: Component<{ collapsed?: boolean; }> = (props,) => {
             <Show when={open()}>
                 <div class="notification-widget__panel" role="dialog" aria-label="Notifications">
                     <div class="notification-widget__head">
-                        <strong>Notifications</strong>
-                        <A href="/admin/notifications" class="notification-widget__link" onClick={() => setOpen(false,)}>View all</A>
-                        <button type="button" class="notification-widget__link" disabled={!unreadNotifications()} onClick={() => void markAll()}>Mark all read</button>
-                        <button type="button" class="notification-widget__close" aria-label="Close notifications" onClick={() => setOpen(false,)}>×</button>
+                        <div class="notification-widget__head-row">
+                            <strong>Notifications</strong>
+                            <button type="button" class="notification-widget__close" aria-label="Close notifications" onClick={() => setOpen(false,)}>×</button>
+                        </div>
+                        {/* Actions on their own row — the sidebar is too narrow for title + two links. */}
+                        <div class="notification-widget__head-actions">
+                            <A href="/admin/notifications" class="notification-widget__link" onClick={() => setOpen(false,)}>View all</A>
+                            <button type="button" class="notification-widget__link" disabled={!unreadNotifications()} onClick={() => void markAll()}>Mark all read</button>
+                        </div>
                     </div>
                     <div class="notification-widget__list" role="list">
                         <Show when={!loading() || items().length} fallback={<div class="notification-widget__empty">Loading…</div>}>
