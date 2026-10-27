@@ -12,6 +12,7 @@ import { NOTIFICATION_TYPES, } from '@sitesurge/types';
 import type { NotificationSettings, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
 import { FormCheck, FormField, } from '../../../components/admin/forms';
+import { isFeatureEnabled, } from '../../../stores/siteSettings';
 
 /** Local editable state for one notification type's email channel. */
 interface TypeState {
@@ -34,8 +35,6 @@ function parseAddresses(raw: string,): string[] {
 const NotificationsPanel: Component = () => {
     // Per-type UI state, keyed by notification type key.
     const [state, setState,] = createSignal<Record<string, TypeState>>({},);
-    // Which feature flags are enabled (gates which types show).
-    const [features, setFeatures,] = createSignal<Record<string, boolean>>({},);
     const [loading, setLoading,] = createSignal(true,);
     const [saving, setSaving,] = createSignal(false,);
     const [success, setSuccess,] = createSignal(false,);
@@ -56,14 +55,6 @@ const NotificationsPanel: Component = () => {
             }
             setState(next,);
 
-            // Feature defaults mirror the General tab: `users` is opt-in
-            // (default false); every other module defaults on.
-            setFeatures({
-                users: getValue(s, 'users_enabled', false,) === true,
-                shop: getValue(s, 'shop_enabled', true,) !== false,
-                forms: getValue(s, 'forms_enabled', true,) !== false,
-                messages: getValue(s, 'messages_enabled', true,) !== false,
-            },);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to load notification settings',);
         } finally {
@@ -71,9 +62,11 @@ const NotificationsPanel: Component = () => {
         }
     },);
 
-    /** Types shown = those with no feature, or whose feature is enabled. */
+    /** Types shown = those with no feature, or whose feature is enabled — the
+     *  site's real feature flags (a hardcoded list here hid every type of a
+     *  feature it didn't name: posts, comments, forum…). */
     const shownTypes = () =>
-        NOTIFICATION_TYPES.filter((t,) => !t.feature || features()[t.feature]);
+        NOTIFICATION_TYPES.filter((t,) => !t.feature || isFeatureEnabled(t.feature,));
 
     const patch = (key: string, p: Partial<TypeState>,) =>
         setState((s,) => ({ ...s, [key]: { ...s[key], ...p, }, }),);
