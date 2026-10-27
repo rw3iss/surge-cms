@@ -6,7 +6,7 @@
  * flag still reads as admin + sysadmin (`pluginVisibleTo`).
  * Rendered once in the public Layout (after the footer).
  */
-import { Component, For, createResource, onCleanup, onMount } from 'solid-js';
+import { Component, For, Show, createResource, onCleanup, onMount } from 'solid-js';
 import { pluginVisibleTo, type PublicPlugin } from '@sitesurge/types';
 import { cms } from '../../services/cmsClient';
 import { useAuth, useIsAdmin } from '../../stores/auth';
@@ -75,10 +75,21 @@ const PluginWidgetHost: Component = () => {
             (p) => p.clientUrl && p.capabilities.includes('public-widget') && pluginVisibleTo(p, auth.user as { role?: string; extraRoles?: string[]; } | null,),
         );
 
+    // Remount every widget when the signed-in user CHANGES (sign in / out /
+    // switch account): each plugin re-checks its role rules and re-initialises
+    // with the new user, and a widget the new user may not see is torn down.
+    // Without the key, a widget still visible to both users kept the previous
+    // user's context, and one that should disappear could linger until reload.
+    const userKey = () => (auth.isLoading ? null : auth.user?.id ?? 'anonymous');
+
     return (
-        <For each={visible()}>
-            {(p) => <PluginWidgetMount plugin={p} isAdmin={isAdmin()} user={currentUser()} />}
-        </For>
+        <Show when={userKey()} keyed>
+            {(_key) => (
+                <For each={visible()}>
+                    {(p) => <PluginWidgetMount plugin={p} isAdmin={isAdmin()} user={currentUser()} />}
+                </For>
+            )}
+        </Show>
     );
 };
 

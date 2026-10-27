@@ -50,9 +50,25 @@ export default {
         if (!cfg.endpoint || !cfg.projectId) return; // not configured yet
         if (activeInstance) return;                   // already live — never duplicate
         let instance = null;
+        let unmounted = false;
+        // The PageLoop instance has stop() (async; unmounts its toolbar/sidebar),
+        // not destroy() — calling only destroy() left the widget on screen.
+        const stopInstance = (inst) => {
+            try {
+                if (inst && typeof inst.stop === 'function') void inst.stop();
+                else if (inst && typeof inst.destroy === 'function') inst.destroy();
+            } catch (_) { /* noop */ }
+            if (activeInstance === inst) activeInstance = null;
+        };
+        // Registered BEFORE the async load: an unmount during it (e.g. signing
+        // out / switching user) must still tear the widget down.
+        host.onCleanup(() => {
+            unmounted = true;
+            stopInstance(instance);
+        });
         try {
             const PageLoop = await loadBundle(host && host.version);
-            if (!PageLoop || typeof PageLoop.init !== 'function') return;
+            if (!PageLoop || typeof PageLoop.init !== 'function' || unmounted) return;
             if (activeInstance) return;                // lost an init race — bail
             instance = PageLoop.init({
                 endpoint: cfg.endpoint,
@@ -65,13 +81,10 @@ export default {
                 },
             });
             activeInstance = instance;
+            if (unmounted) stopInstance(instance);     // unmounted while initialising
         } catch (err) {
             console.warn('[pageloop] widget init failed:', err && err.message);
         }
-        host.onCleanup(() => {
-            try { if (instance && typeof instance.destroy === 'function') instance.destroy(); } catch (_) { /* noop */ }
-            if (activeInstance === instance) activeInstance = null;
-        });
     },
 
     async mountConfig(el, host) {
