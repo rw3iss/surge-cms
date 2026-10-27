@@ -38,7 +38,13 @@ const LocationField: Component<LocationFieldProps> = (props,) => {
     const [busy, setBusy,] = createSignal(false,);
     const [matches, setMatches,] = createSignal<GeoPlace[]>([],);
     const [error, setError,] = createSignal('',);
+    /** The address could not be placed on the map (cleared whenever a position is set). */
+    const [unlocated, setUnlocated,] = createSignal(false,);
     const hasPoint = () => props.lat != null && props.lng != null;
+    const setPoint = (lat: number | null, lng: number | null,) => {
+        props.onPoint(lat, lng,);
+        if (lat != null) setUnlocated(false,);
+    };
 
     /** Search the text and drop the pin on the best match (the text is kept). */
     const searchText = async (text: string,) => {
@@ -49,9 +55,9 @@ const LocationField: Component<LocationFieldProps> = (props,) => {
         setBusy(true,);
         try {
             const found = await cms.geo.search(q, 5,);
-            setMatches(found.length > 1 ? found : [],);
-            if (found[0]) props.onPoint(found[0].lat, found[0].lng,);
-            else setError('No match on the map — drag the pin or click where it is.',);
+            setMatches(open() && found.length > 1 ? found : [],);
+            if (found[0]) setPoint(found[0].lat, found[0].lng,);
+            else setUnlocated(true,);
         } catch (e) {
             setError((e as Error).message || 'The map search failed.',);
         } finally {
@@ -61,7 +67,7 @@ const LocationField: Component<LocationFieldProps> = (props,) => {
 
     /** The pin moved: the text becomes the address there (else its coordinates). */
     const picked = async (lat: number, lng: number,) => {
-        props.onPoint(lat, lng,);
+        setPoint(lat, lng,);
         setMatches([],);
         setError('',);
         setBusy(true,);
@@ -77,7 +83,7 @@ const LocationField: Component<LocationFieldProps> = (props,) => {
 
     const choose = (p: GeoPlace,) => {
         props.onLocation(p.shortLabel || p.label,);
-        props.onPoint(p.lat, p.lng,);
+        setPoint(p.lat, p.lng,);
         setMatches([],);
     };
 
@@ -100,7 +106,10 @@ const LocationField: Component<LocationFieldProps> = (props,) => {
                         onCommit={(v,) => {
                             const changed = v.trim() !== props.location.trim();
                             props.onLocation(v,);
-                            if (changed && open()) void searchText(v,);
+                            // A new address moves the point when it matters: the map is open,
+                            // the event shows a map, or a point was set for the old text.
+                            if (changed && (open() || props.showMap || hasPoint())) void searchText(v,);
+                            if (!v.trim()) setUnlocated(false,);
                         }}
                     />
                     <button type="button" class="ui-button ui-button--sm ui-button--secondary" aria-expanded={open()} onClick={toggle}>
@@ -138,7 +147,7 @@ const LocationField: Component<LocationFieldProps> = (props,) => {
                                 : 'Type an address above, or click the map to drop the pin.'}
                         </span>
                         <Show when={hasPoint()}>
-                            <button type="button" class="ui-button ui-button--sm ui-button--ghost" onClick={() => { props.onPoint(null, null,); props.onShowMap(false,); }}>
+                            <button type="button" class="ui-button ui-button--sm ui-button--ghost" onClick={() => props.onPoint(null, null,)}>
                                 Clear pin
                             </button>
                         </Show>
@@ -148,12 +157,23 @@ const LocationField: Component<LocationFieldProps> = (props,) => {
             </Show>
 
             <Toggle
-                checked={props.showMap && hasPoint()}
-                disabled={!hasPoint()}
-                onChange={(v,) => props.onShowMap(v,)}
+                checked={props.showMap}
+                onChange={(v,) => {
+                    props.onShowMap(v,);
+                    // No point yet: place the typed address now (the map need not be open).
+                    if (v && !hasPoint() && props.location.trim()) void searchText(props.location,);
+                }}
                 label="Show a map on the event page"
-                hint={hasPoint() ? 'A small map above the sign-up box; clicking it opens Google Maps.' : 'Set the point on the map first (Pick on map).'}
+                hint="A small map above the sign-up box (clicking it opens Google Maps). It shows once the location has a point on the map — set from the address, or picked with Pick on map."
             />
+            <Show when={unlocated() && props.location.trim()}>
+                <p class="location-field__warning" role="status">
+                    Couldn't locate “{props.location.trim()}” on the map. Use Pick on map to drag the pin to the place{hasPoint() ? ' (the current pin was kept)' : ''}, or adjust the address.
+                </p>
+            </Show>
+            <Show when={props.showMap && !hasPoint() && !props.location.trim()}>
+                <p class="location-field__hint">Enter a location (or pick one on the map) for the map to show.</p>
+            </Show>
         </div>
     );
 };

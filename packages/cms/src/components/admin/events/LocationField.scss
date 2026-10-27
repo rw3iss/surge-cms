@@ -52,4 +52,13 @@
 
   &__hint { font-size: $font-size-xs; color: $text-light; }
   &__error { margin: 0; font-size: $font-size-xs; color: $error-color; }
+  &__warning {
+    margin: 0;
+    padding: 6px 10px;
+    font-size: $font-size-xs;
+    color: #92400e;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: $border-radius-sm;
+  }
 }

@@ -278,7 +278,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
                 location: location().trim() || null,
                 locationLat: locationLat(),
                 locationLng: locationLng(),
-                showMap: showMap() && locationLat() !== null,
+                showMap: showMap(),
                 startsAt,
                 endsAt,
                 allDay: allDay(),

@@ -14,6 +14,7 @@ import * as repo from '../../repositories/events.repo';
 import { logAudit, } from '../audit';
 import type { AuditContext, ListResult, } from '../types';
 import { notifyForEvent, } from './notifications';
+import * as geo from '../geo';
 import { accessFor, assertCanView, assertRule, filterViewable, } from './access';
 import type { LevelViewer, } from '../access/level';
 
@@ -154,6 +155,24 @@ async function assertAccessInput(input: Partial<CalendarEventInput>,): Promise<v
     await assertRule(input.registerAccess, input.registerMinTierId, 'registering',);
 }
 
+/**
+ * The event shows a map but has only an address: find its point now, so the
+ * event page can draw the map (the editor usually did already; this covers a
+ * lookup that had not finished, the API and imports). Best-effort — a failed
+ * lookup saves without a point and the page shows no map.
+ */
+export async function mapPointFor(
+    showMap: boolean | undefined, location: string | null | undefined, lat: number | null | undefined,
+): Promise<{ locationLat: number; locationLng: number; } | null> {
+    if (!showMap || lat != null || !location?.trim()) return null;
+    try {
+        const [hit,] = await geo.search(location, 1,);
+        return hit ? { locationLat: hit.lat, locationLng: hit.lng, } : null;
+    } catch {
+        return null;
+    }
+}
+
 export async function create(
     input: CalendarEventInput,
     ctx: AuditContext,
@@ -162,6 +181,8 @@ export async function create(
     await assertAccessInput(input,);
     if (!input.title?.trim()) throw new ValidationError('Title is required',);
     if (!input.startsAt) throw new ValidationError('startsAt is required',);
+    const point = await mapPointFor(input.showMap, input.location, input.locationLat,);
+    if (point) input = { ...input, ...point, };
 
     // Probe-then-insert is not atomic: two simultaneous saves can both find the
     // same suffix free. `slug` is UNIQUE, so the loser gets a constraint error —
@@ -206,6 +227,13 @@ export async function update(
     for (const [rule, tier,] of [['viewAccess', 'viewMinTierId',], ['registerAccess', 'registerMinTierId',],] as const) {
         if (patch[rule] !== undefined && patch[rule] !== 'tier') (patch as Record<string, unknown>)[tier] = null;
     }
+
+    const point = await mapPointFor(
+        patch.showMap ?? existing.showMap,
+        patch.location !== undefined ? patch.location : existing.location,
+        patch.locationLat !== undefined ? patch.locationLat : existing.locationLat,
+    );
+    if (point) patch = { ...patch, ...point, };
 
     const dbPatch: Record<string, unknown> = {};
     const map: Record<string, string> = {
