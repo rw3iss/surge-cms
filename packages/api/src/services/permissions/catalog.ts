@@ -216,6 +216,16 @@ export const CORE_PERMISSIONS: PermissionRegistration[] = [
         action: 'write',
         defaultRoles: STAFF,
     },
+    // Partner programs (affiliates, contributors): the member's own Partner
+    // Program page + Stripe Connect account. Membership in a program is checked too.
+    {
+        key: 'partners:self',
+        feature: 'core',
+        label: 'Use the Partner Program page',
+        description: 'Connect a Stripe account and see their partner earnings and payouts (affiliates, contributors).',
+        action: 'read',
+        defaultRoles: ['member', 'editor', 'admin', 'sysadmin',],
+    },
     // Own media (contributors): upload, and see only what they uploaded.
     {
         key: 'media:read_own',
@@ -276,6 +286,11 @@ export const FEATURE_PERMISSIONS: Record<string, PermissionRegistration[]> = {
             defaultRoles: STAFF,
         },
         { key: 'posts:delete', feature: 'posts', label: 'Delete posts', action: 'delete', defaultRoles: ADMIN, },
+        {
+            key: 'contributions:manage', feature: 'posts', label: 'Manage contributor payouts',
+            description: 'Contributor settings, see contributions and their payouts, change or revoke a payout, pay contributors.',
+            action: 'manage', defaultRoles: ADMIN,
+        },
         // ── Own posts (contributors): the `_own` variants cover only posts the
         // user authored; `posts:read`/`posts:write`/`posts:delete` cover all.
         // `scopeFor(subject, 'posts', action)` decides any / own.

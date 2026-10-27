@@ -408,6 +408,38 @@ export const MAIL_PURPOSES: MailPurposeMeta[] = [
 
     // ── Posts (contributors) ──
     {
+        key: 'contribution_published',
+        label: 'Contribution published',
+        description: "Sent to a contributor when their post is approved and published, with the payout credited to their partner balance (contributor payouts on).",
+        feature: 'posts',
+        audience: 'user',
+        defaultEnabled: true,
+        defaultSubject: 'Your post is published: {{post.title}}',
+        variables: [
+            ...USER_VARS,
+            { name: 'post.title', description: 'The post title.', },
+            { name: 'post.url', description: 'The published post.', },
+            { name: 'contribution.amount', description: 'The payout credited, formatted.', example: '$40.00', },
+            { name: 'contribution.partnerUrl', description: 'Their Partner Program page (earnings, payouts, Stripe).', },
+        ],
+    },
+    {
+        key: 'contribution_published_admin',
+        label: 'Contribution published (staff alert)',
+        description: 'Internal alert when a contribution is approved and published. Goes to Settings → Notifications → Contribution published.',
+        feature: 'posts',
+        audience: 'admin',
+        defaultEnabled: true,
+        defaultSubject: 'Contribution published: {{post.title}}',
+        variables: [
+            { name: 'post.title', description: 'The post title.', },
+            { name: 'post.url', description: 'The published post.', },
+            { name: 'author.name', description: 'The contributor.', },
+            { name: 'author.email', description: "The contributor's email.", },
+            { name: 'contribution.amount', description: 'The payout credited, formatted.', example: '$40.00', },
+        ],
+    },
+    {
         key: 'post_submitted_admin',
         label: 'Post submitted for review (staff alert)',
         description: 'Internal alert when a contributor submits a post for review. Goes to the addresses in Settings → Notifications → Post submitted for review.',

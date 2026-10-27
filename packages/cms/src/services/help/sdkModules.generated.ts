@@ -1752,6 +1752,151 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         ]
     },
     {
+        "namespace": "contributions",
+        "className": "ContributionsModule",
+        "summary": "contributions namespace — contributor payouts (admin). Approve a post with a payout through `cms.posts.review(id, { action: 'approve', payoutCents })`. Needs `contributions:manage` (settings READ: any staff).",
+        "methods": [
+            {
+                "name": "byPost",
+                "signature": "byPost(postId: string): Promise<Contribution>",
+                "summary": "GET /contributions/:postId",
+                "params": [
+                    {
+                        "name": "postId",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<Contribution>",
+                "routes": [
+                    "GET /api/v1/contributions/:postId"
+                ]
+            },
+            {
+                "name": "list",
+                "signature": "list(query: ContributionListQuery = {}): Promise<Paginated<Contribution>>",
+                "summary": "GET /contributions — contributed posts (filter by state / author / search, sort, paginate).",
+                "params": [
+                    {
+                        "name": "query",
+                        "type": "ContributionListQuery",
+                        "optional": true,
+                        "default": "{}"
+                    }
+                ],
+                "returns": "Promise<Paginated<Contribution>>",
+                "routes": [
+                    "GET /api/v1/contributions"
+                ]
+            },
+            {
+                "name": "payOut",
+                "signature": "payOut(userIds?: string[]): Promise<ContributionPayoutsResponse>",
+                "summary": "POST /contributions/payouts — pay the listed contributors (else everyone payable).",
+                "params": [
+                    {
+                        "name": "userIds",
+                        "type": "string[]",
+                        "optional": true
+                    }
+                ],
+                "returns": "Promise<ContributionPayoutsResponse>",
+                "routes": [
+                    "POST /api/v1/contributions/payouts"
+                ]
+            },
+            {
+                "name": "revoke",
+                "signature": "revoke(postId: string): Promise<Contribution>",
+                "summary": "POST /contributions/:postId/revoke — revoke an unpaid payout.",
+                "params": [
+                    {
+                        "name": "postId",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<Contribution>",
+                "routes": [
+                    "POST /api/v1/contributions/:postId/revoke"
+                ]
+            },
+            {
+                "name": "setPayout",
+                "signature": "setPayout(postId: string, amountCents: number): Promise<Contribution>",
+                "summary": "PUT /contributions/:postId/payout — credit or change the payout (not once paid).",
+                "params": [
+                    {
+                        "name": "postId",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "amountCents",
+                        "type": "number",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<Contribution>",
+                "routes": [
+                    "PUT /api/v1/contributions/:postId/payout"
+                ]
+            },
+            {
+                "name": "settings",
+                "signature": "settings(): Promise<ContributorSettings>",
+                "summary": "GET /contributions/settings",
+                "params": [],
+                "returns": "Promise<ContributorSettings>",
+                "routes": [
+                    "GET /api/v1/contributions/settings"
+                ]
+            },
+            {
+                "name": "summary",
+                "signature": "summary(): Promise<ContributionSummary>",
+                "summary": "GET /contributions/summary — counts, money owed / payable / paid, contributors.",
+                "params": [],
+                "returns": "Promise<ContributionSummary>",
+                "routes": [
+                    "GET /api/v1/contributions/summary"
+                ]
+            },
+            {
+                "name": "unpublish",
+                "signature": "unpublish(postId: string): Promise<Contribution>",
+                "summary": "POST /contributions/:postId/unpublish — back to draft (the payout is left as is).",
+                "params": [
+                    {
+                        "name": "postId",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<Contribution>",
+                "routes": [
+                    "POST /api/v1/contributions/:postId/unpublish"
+                ]
+            },
+            {
+                "name": "updateSettings",
+                "signature": "updateSettings(body: ContributorSettingsBody): Promise<ContributorSettings>",
+                "summary": "PUT /contributions/settings",
+                "params": [
+                    {
+                        "name": "body",
+                        "type": "ContributorSettingsBody",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<ContributorSettings>",
+                "routes": [
+                    "PUT /api/v1/contributions/settings"
+                ]
+            }
+        ]
+    },
+    {
         "namespace": "dashboard",
         "className": "DashboardModule",
         "summary": "/dashboard namespace (admin) — aggregated stats + recent activity.",
@@ -5919,6 +6064,63 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "returns": "Promise<PageBlockUpdateResponse>",
                 "routes": [
                     "PUT /api/v1/pages/:pageId/blocks/:blockId"
+                ]
+            }
+        ]
+    },
+    {
+        "namespace": "partners",
+        "className": "PartnersModule",
+        "summary": "partners namespace — the member's Partner Program page (affiliates + contributors): one Stripe Connect Express account, totals, contributions.",
+        "methods": [
+            {
+                "name": "me",
+                "signature": "me(): Promise<PartnerMeResponse>",
+                "summary": "GET /partners/me — programs, Stripe account, totals, contributions.",
+                "params": [],
+                "returns": "Promise<PartnerMeResponse>",
+                "routes": [
+                    "GET /api/v1/partners/me"
+                ]
+            },
+            {
+                "name": "status",
+                "signature": "status(): Promise<{ affiliate: boolean; contributor: boolean; }>",
+                "summary": "GET /partners/me/status — which programs the caller is in.",
+                "params": [],
+                "returns": "Promise<{ affiliate: boolean; contributor: boolean; }>",
+                "routes": [
+                    "GET /api/v1/partners/me/status"
+                ]
+            },
+            {
+                "name": "stripeDashboard",
+                "signature": "stripeDashboard(): Promise<AffiliateLinkResponse>",
+                "summary": "POST /partners/me/stripe/dashboard — a one-time Express dashboard link.",
+                "params": [],
+                "returns": "Promise<AffiliateLinkResponse>",
+                "routes": [
+                    "POST /api/v1/partners/me/stripe/dashboard"
+                ]
+            },
+            {
+                "name": "stripeOnboard",
+                "signature": "stripeOnboard(): Promise<AffiliateLinkResponse>",
+                "summary": "POST /partners/me/stripe/onboard — the Stripe Express onboarding link.",
+                "params": [],
+                "returns": "Promise<AffiliateLinkResponse>",
+                "routes": [
+                    "POST /api/v1/partners/me/stripe/onboard"
+                ]
+            },
+            {
+                "name": "stripeRefresh",
+                "signature": "stripeRefresh(): Promise<AffiliateStripeStatus>",
+                "summary": "POST /partners/me/stripe/refresh — re-read the Stripe account status.",
+                "params": [],
+                "returns": "Promise<AffiliateStripeStatus>",
+                "routes": [
+                    "POST /api/v1/partners/me/stripe/refresh"
                 ]
             }
         ]
@@ -10584,5 +10786,5 @@ export const SDK_MODULES: SdkModuleDoc[] = [
     }
 ];
 
-export const SDK_MODULE_COUNT = 52;
-export const SDK_METHOD_COUNT = 620;
+export const SDK_MODULE_COUNT = 54;
+export const SDK_METHOD_COUNT = 634;

@@ -45,6 +45,8 @@ import { shopRoutes, } from './shop';
 import { shopProviderRoutes, } from './shopProviders';
 import { shopDiscountRoutes, } from './shopDiscounts';
 import { affiliateRoutes, } from './affiliates';
+import { contributionRoutes, } from './contributions';
+import { partnerRoutes, } from './partners';
 import { pluginsRoutes, } from './plugins';
 import { sitemapRoutes, } from './sitemap';
 import { socialRoutes, } from './social';
@@ -101,6 +103,9 @@ router.use('/shop/discounts', registerModule('shop-discounts', shopDiscountRoute
 router.use('/shop', registerModule('shop', shopRoutes, { mountPath: '/api/v1/shop', feature: 'shop', },),);
 // Affiliate program (requires shop) — every route 404s while the feature is off.
 router.use('/affiliates', registerModule('affiliates', affiliateRoutes, { mountPath: '/api/v1/affiliates', feature: 'affiliates', },),);
+// Contributor payouts (Posts → Settings → Contributions) + the shared Partner Program page.
+router.use('/contributions', registerModule('contributions', contributionRoutes, { mountPath: '/api/v1/contributions', feature: 'posts', },),);
+router.use('/partners', registerModule('partners', partnerRoutes, { mountPath: '/api/v1/partners', },),);
 router.use('/plugins', registerModule('plugins', pluginsRoutes, { mountPath: '/api/v1/plugins', feature: 'plugins', },),);
 router.use('/contacts', registerModule('contacts', contactsRoutes, { mountPath: '/api/v1/contacts', feature: 'contacts', },),);
 // `feature: 'events'` makes every route here 404 while the module is disabled.

@@ -96,10 +96,10 @@ export async function earningsFor(userId: string, limit = 200,): Promise<Affilia
     }));
 }
 
-export async function payoutsFor(userId: string, limit = 100,): Promise<AffiliatePayout[]> {
+export async function payoutsFor(userId: string, limit = 100, source: 'affiliate' | 'contribution' = 'affiliate',): Promise<AffiliatePayout[]> {
     const r = await query<{ id: string; amount_cents: number; currency: string; status: 'pending' | 'paid' | 'failed'; trigger: 'manual' | 'auto'; error: string | null; created_at: Date; }>(
-        `SELECT id, amount_cents, currency, status, trigger, error, created_at FROM affiliate_payouts WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
-        [userId, limit,],
+        `SELECT id, amount_cents, currency, status, trigger, error, created_at FROM affiliate_payouts WHERE user_id = $1 AND source = $3 ORDER BY created_at DESC LIMIT $2`,
+        [userId, limit, source,],
     );
     return r.rows.map((p,) => ({ id: p.id, amountCents: p.amount_cents, currency: p.currency, status: p.status, trigger: p.trigger, error: p.error, createdAt: new Date(p.created_at,).toISOString(), }));
 }

@@ -248,6 +248,24 @@ export async function defaultPurposeHtml(
                 + (pick(ctx, 'shop.url',) ? button(pick(ctx, 'shop.url',), 'Shop now',) : '');
             break;
 
+        case 'contribution_published':
+            body = H('Your post is published',)
+                + greeting(name,)
+                + P(`<strong>${escapeHtml(pick(ctx, 'post.title',),)}</strong> was approved and is now published on ${escapeHtml(siteName,)}.`,)
+                + (pick(ctx, 'contribution.amount',)
+                    ? P(`<strong>${escapeHtml(pick(ctx, 'contribution.amount',),)}</strong> was credited to your partner balance. It is paid out to your connected Stripe account.`,)
+                    : '')
+                + (pick(ctx, 'post.url',) ? button(pick(ctx, 'post.url',), 'Read it',) : '')
+                + (pick(ctx, 'contribution.partnerUrl',) ? MUTED(`See your earnings and payouts on your <a href="${escapeHtml(pick(ctx, 'contribution.partnerUrl',),)}" style="color:#2563eb">Partner Program page</a>.`,) : '');
+            break;
+
+        case 'contribution_published_admin':
+            body = H('Contribution published',)
+                + P(`<strong>${escapeHtml(pick(ctx, 'author.name',) || 'A contributor',)}</strong>'s post <strong>${escapeHtml(pick(ctx, 'post.title',),)}</strong> was approved and published.`,)
+                + (pick(ctx, 'contribution.amount',) ? P(`Payout credited: <strong>${escapeHtml(pick(ctx, 'contribution.amount',),)}</strong>.`,) : '')
+                + (pick(ctx, 'post.url',) ? button(pick(ctx, 'post.url',), 'Read the post',) : '');
+            break;
+
         case 'post_submitted_admin':
             body = H('Post submitted for review',)
                 + P(`<strong>${escapeHtml(pick(ctx, 'author.name',) || 'A contributor',)}</strong> submitted <strong>${escapeHtml(pick(ctx, 'post.title',),)}</strong> for review.`,)

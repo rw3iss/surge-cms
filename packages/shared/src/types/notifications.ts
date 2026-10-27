@@ -73,6 +73,12 @@ export const NOTIFICATION_TYPES: NotificationTypeMeta[] = [
         feature: 'shop',
     },
     {
+        key: 'contribution_published',
+        label: 'Contribution published',
+        description: "When a contributor's post is approved and published (with the payout credited).",
+        feature: 'posts',
+    },
+    {
         key: 'post_submitted',
         label: 'Post submitted for review',
         description: 'When a contributor submits a post for review.',

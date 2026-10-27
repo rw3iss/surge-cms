@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-26T22:12:22.726Z",
-  "totalModules": 57,
-  "totalRoutes": 625,
+  "generatedAt": "2026-10-27T01:58:35.707Z",
+  "totalModules": 59,
+  "totalRoutes": 639,
   "modules": [
     {
       "module": "admin-channel",
@@ -2312,6 +2312,196 @@
                 "name": "importProfile",
                 "type": "boolean",
                 "required": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "module": "contributions",
+      "mountPath": "/api/v1/contributions",
+      "feature": "posts",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/settings",
+          "absolutePath": "/api/v1/contributions/settings",
+          "auth": "staff",
+          "summary": "Contributor payout settings (enabled, default payout, holding period, payout schedule; the Connect webhook secret masked)."
+        },
+        {
+          "method": "PUT",
+          "path": "/settings",
+          "absolutePath": "/api/v1/contributions/settings",
+          "auth": "admin",
+          "summary": "Update the contributor payout settings.",
+          "input": {
+            "body": [
+              {
+                "name": "enabled",
+                "type": "boolean",
+                "required": false
+              },
+              {
+                "name": "defaultPayoutCents",
+                "type": "integer",
+                "required": false
+              },
+              {
+                "name": "currency",
+                "type": "string",
+                "required": false
+              },
+              {
+                "name": "holdDays",
+                "type": "integer",
+                "required": false
+              },
+              {
+                "name": "payoutSchedule",
+                "type": "'off' | 'weekly' | 'biweekly' | 'monthly'",
+                "required": false
+              },
+              {
+                "name": "connectWebhookSecret",
+                "type": "string",
+                "required": false
+              }
+            ]
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/summary",
+          "absolutePath": "/api/v1/contributions/summary",
+          "auth": "admin",
+          "summary": "Counts by state, money owed / payable / paid, and every contributor's balance + Stripe status."
+        },
+        {
+          "method": "GET",
+          "path": "/",
+          "absolutePath": "/api/v1/contributions",
+          "auth": "admin",
+          "summary": "Contributed posts (submitted for review, or credited) with their payout — filter by state / author / search, sortable, paginated.",
+          "input": {
+            "query": [
+              {
+                "name": "state",
+                "type": "'all' | 'pending_review' | 'returned' | 'approved' | 'paid' | 'revoked'",
+                "required": false
+              },
+              {
+                "name": "authorId",
+                "type": "string<uuid>",
+                "required": false
+              },
+              {
+                "name": "search",
+                "type": "string",
+                "required": false
+              },
+              {
+                "name": "sort",
+                "type": "string",
+                "required": false
+              },
+              {
+                "name": "page",
+                "type": "integer",
+                "required": false
+              },
+              {
+                "name": "limit",
+                "type": "integer",
+                "required": false
+              }
+            ]
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/payouts",
+          "absolutePath": "/api/v1/contributions/payouts",
+          "auth": "admin",
+          "summary": "Pay contributors their payable balance (the listed ones, else everyone with a payable balance).",
+          "input": {
+            "body": [
+              {
+                "name": "userIds",
+                "type": "string<uuid>[]",
+                "required": false
+              }
+            ]
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/:postId",
+          "absolutePath": "/api/v1/contributions/:postId",
+          "auth": "admin",
+          "summary": "One contributed post with its payout.",
+          "input": {
+            "params": [
+              {
+                "name": "postId",
+                "type": "string<uuid>",
+                "required": true
+              }
+            ]
+          }
+        },
+        {
+          "method": "PUT",
+          "path": "/:postId/payout",
+          "absolutePath": "/api/v1/contributions/:postId/payout",
+          "auth": "admin",
+          "summary": "Credit or change a contribution's payout (not once paid; re-credits a revoked one).",
+          "input": {
+            "params": [
+              {
+                "name": "postId",
+                "type": "string<uuid>",
+                "required": true
+              }
+            ],
+            "body": [
+              {
+                "name": "amountCents",
+                "type": "integer",
+                "required": true
+              }
+            ]
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/:postId/revoke",
+          "absolutePath": "/api/v1/contributions/:postId/revoke",
+          "auth": "admin",
+          "summary": "Revoke an unpaid contribution payout.",
+          "input": {
+            "params": [
+              {
+                "name": "postId",
+                "type": "string<uuid>",
+                "required": true
+              }
+            ]
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/:postId/unpublish",
+          "absolutePath": "/api/v1/contributions/:postId/unpublish",
+          "auth": "admin",
+          "summary": "Take a contributed post off the site (back to draft). Its payout is left as is — revoke it separately.",
+          "input": {
+            "params": [
+              {
+                "name": "postId",
+                "type": "string<uuid>",
+                "required": true
               }
             ]
           }
@@ -8614,6 +8804,47 @@
       ]
     },
     {
+      "module": "partners",
+      "mountPath": "/api/v1/partners",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/me/status",
+          "absolutePath": "/api/v1/partners/me/status",
+          "auth": "user",
+          "summary": "Which partner programs the caller is in (shows Profile → Partner Program)."
+        },
+        {
+          "method": "GET",
+          "path": "/me",
+          "absolutePath": "/api/v1/partners/me",
+          "auth": "user",
+          "summary": "The Partner Program page: programs, Stripe account, totals, and the contributions (with payouts)."
+        },
+        {
+          "method": "POST",
+          "path": "/me/stripe/onboard",
+          "absolutePath": "/api/v1/partners/me/stripe/onboard",
+          "auth": "user",
+          "summary": "Connect (or finish connecting) your Stripe Express account — returns the Stripe onboarding link."
+        },
+        {
+          "method": "POST",
+          "path": "/me/stripe/dashboard",
+          "absolutePath": "/api/v1/partners/me/stripe/dashboard",
+          "auth": "user",
+          "summary": "A one-time link into your Stripe Express dashboard (payouts, bank details)."
+        },
+        {
+          "method": "POST",
+          "path": "/me/stripe/refresh",
+          "absolutePath": "/api/v1/partners/me/stripe/refresh",
+          "auth": "user",
+          "summary": "Re-read your Stripe account status (after onboarding)."
+        }
+      ]
+    },
+    {
       "module": "payments",
       "mountPath": "/api/v1/payments",
       "routes": [
@@ -9962,6 +10193,11 @@
               {
                 "name": "note",
                 "type": "string",
+                "required": false
+              },
+              {
+                "name": "payoutCents",
+                "type": "integer",
                 "required": false
               }
             ]

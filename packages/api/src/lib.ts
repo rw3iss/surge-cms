@@ -32,6 +32,7 @@ import { initFulfilmentSyncCron, } from './services/shop/fulfilmentSync';
 import { initScheduledPublisher, } from './services/scheduledPublisher';
 import { initMerchandiseAnnounce, } from './services/shop/merchandiseAnnounceCron';
 import { initAffiliatePayouts, } from './services/affiliates/cron';
+import { initContributorPayouts, } from './services/contributions/cron';
 import { initBackupCron, } from './services/backup/cron';
 import { initMailScheduleCron, } from './services/mail/scheduleCron';
 import { initEventReminderCron, } from './services/events/reminderCron';
@@ -156,6 +157,8 @@ async function bootRunningMode(
         // checks both, so registration is unconditional and cheap.
         initMerchandiseAnnounce();
         initAffiliatePayouts();
+        // Contributor payouts on their schedule (no-op unless enabled in Posts → Settings → Contributions).
+        initContributorPayouts();
         initBackupCron();
         // Sweeps due mailing-list schedules. No-ops when the feature is off.
         initMailScheduleCron();

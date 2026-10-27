@@ -39,7 +39,7 @@ export async function handleWebhook(
 
     // The affiliate program's Connect endpoint signs with its own secret; load
     // it (cached 30 s) so every worker can verify `account.updated`.
-    await import('../affiliates/settings.js').then((m,) => m.getAffiliateSettings(),).catch(() => undefined);
+    await import('../partners/settings.js').then((m,) => m.getPartnerSettings(),).catch(() => undefined);
 
     try {
         if (allWebhookSecrets().length > 0) {

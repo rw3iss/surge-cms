@@ -70,6 +70,7 @@ export * from './routes/mailSend';
 export * from './routes/shop';
 export * from './routes/shopDiscounts';
 export * from './routes/affiliates';
+export * from './routes/contributions';
 export * from './routes/utils';
 export * from './routes/plugins';
 export * from './routes/contacts';

@@ -318,8 +318,10 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureConfig> = {
         defaultEnabled: false,
         requires: ['shop',],
         migrations: ['193_affiliates.sql',],
-        // Reverse-dropped on uninstall, so parents first.
-        tables: ['affiliate_accounts', 'affiliate_payouts', 'affiliate_earnings',],
+        // Reverse-dropped on uninstall, so parents first. `affiliate_accounts` +
+        // `affiliate_payouts` are shared partner tables (core since migration
+        // 194 — contributors use them too), so they are NOT owned here.
+        tables: ['affiliate_earnings',],
         settingsKeys: ['affiliate_settings',],
     },
     events: {

@@ -274,10 +274,17 @@ export const postsRoutes = [
     defineRoute({
         method: 'post', path: '/:id/review', auth: 'staff',
         summary: 'Approve (publish) or return (to draft, with a note) a post waiting for review. Needs posts:publish (plain allow).',
-        input: { params: idParams, body: z.object({ action: z.enum(['approve', 'return',],), note: z.string().max(2000,).optional(), },), },
+        input: {
+            params: idParams,
+            body: z.object({
+                action: z.enum(['approve', 'return',],), note: z.string().max(2000,).optional(),
+                /** Contributor payout override (cents), when contributor payouts are on. */
+                payoutCents: z.number().int().min(0,).max(10_000_000,).optional(),
+            },),
+        },
         handler: async ({ params, body, user, audit, },) => {
             await requirePermission({ id: user?.id, role: user?.role, }, 'posts:publish',);
-            return postReview.review(params.id, body.action, body.note, { id: user!.id, role: user!.role, }, audit(),);
+            return postReview.review(params.id, body.action, body.note, { id: user!.id, role: user!.role, }, audit(), body.payoutCents,);
         },
     },),
 

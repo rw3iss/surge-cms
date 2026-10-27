@@ -60,6 +60,8 @@ export async function review(
     note: string | undefined,
     reviewer: { id: string; role?: string; },
     ctx: AuditContext,
+    /** Contributor payout for this post (cents) instead of the default — only when contributor payouts are on. */
+    payoutCents?: number,
 ): Promise<Awaited<ReturnType<typeof posts.update>>> {
     // A reviewer needs a PLAIN allow — an approval-mode grant cannot approve itself.
     if (await checkMode(reviewer, 'posts:publish',) !== 'allow') throw new ForbiddenError('You may not publish posts.',);
@@ -73,7 +75,12 @@ export async function review(
           WHERE id = $1`,
         [id, reviewer.id, text, action === 'approve',],
     );
-    if (post.author_id) {
+    // Contributor payouts on: an approved contribution is credited and the
+    // author + team get the "content published" emails instead.
+    const contribution = action === 'approve'
+        ? await import('./contributions/index.js').then((m,) => m.onApproved(id, payoutCents, ctx,),).catch(() => false)
+        : false;
+    if (post.author_id && !contribution) {
         const a = (await query<{ email: string; display_name: string | null; }>(`SELECT email, display_name FROM users WHERE id = $1`, [post.author_id,],)).rows[0];
         if (a?.email) {
             const base = await siteBaseUrl();

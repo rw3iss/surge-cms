@@ -2704,6 +2704,232 @@ export const API_MODULES: ApiModuleDoc[] = [
         ]
     },
     {
+        "module": "contributions",
+        "mountPath": "/api/v1/contributions",
+        "feature": "posts",
+        "routes": [
+            {
+                "method": "GET",
+                "path": "/settings",
+                "absolutePath": "/api/v1/contributions/settings",
+                "auth": "staff",
+                "summary": "Contributor payout settings (enabled, default payout, holding period, payout schedule; the Connect webhook secret masked).",
+                "sdk": [
+                    "cms.contributions.settings"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "PUT",
+                "path": "/settings",
+                "absolutePath": "/api/v1/contributions/settings",
+                "auth": "admin",
+                "summary": "Update the contributor payout settings.",
+                "input": {
+                    "body": [
+                        {
+                            "name": "enabled",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
+                            "name": "defaultPayoutCents",
+                            "type": "integer",
+                            "required": false
+                        },
+                        {
+                            "name": "currency",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "holdDays",
+                            "type": "integer",
+                            "required": false
+                        },
+                        {
+                            "name": "payoutSchedule",
+                            "type": "'off' | 'weekly' | 'biweekly' | 'monthly'",
+                            "required": false
+                        },
+                        {
+                            "name": "connectWebhookSecret",
+                            "type": "string",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.contributions.updateSettings"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/summary",
+                "absolutePath": "/api/v1/contributions/summary",
+                "auth": "admin",
+                "summary": "Counts by state, money owed / payable / paid, and every contributor's balance + Stripe status.",
+                "sdk": [
+                    "cms.contributions.summary"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/",
+                "absolutePath": "/api/v1/contributions",
+                "auth": "admin",
+                "summary": "Contributed posts (submitted for review, or credited) with their payout — filter by state / author / search, sortable, paginated.",
+                "input": {
+                    "query": [
+                        {
+                            "name": "state",
+                            "type": "'all' | 'pending_review' | 'returned' | 'approved' | 'paid' | 'revoked'",
+                            "required": false
+                        },
+                        {
+                            "name": "authorId",
+                            "type": "string<uuid>",
+                            "required": false
+                        },
+                        {
+                            "name": "search",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "sort",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "page",
+                            "type": "integer",
+                            "required": false
+                        },
+                        {
+                            "name": "limit",
+                            "type": "integer",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.contributions.list"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/payouts",
+                "absolutePath": "/api/v1/contributions/payouts",
+                "auth": "admin",
+                "summary": "Pay contributors their payable balance (the listed ones, else everyone with a payable balance).",
+                "input": {
+                    "body": [
+                        {
+                            "name": "userIds",
+                            "type": "string<uuid>[]",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.contributions.payOut"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/:postId",
+                "absolutePath": "/api/v1/contributions/:postId",
+                "auth": "admin",
+                "summary": "One contributed post with its payout.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "postId",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.contributions.byPost"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "PUT",
+                "path": "/:postId/payout",
+                "absolutePath": "/api/v1/contributions/:postId/payout",
+                "auth": "admin",
+                "summary": "Credit or change a contribution's payout (not once paid; re-credits a revoked one).",
+                "input": {
+                    "params": [
+                        {
+                            "name": "postId",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ],
+                    "body": [
+                        {
+                            "name": "amountCents",
+                            "type": "integer",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.contributions.setPayout"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/:postId/revoke",
+                "absolutePath": "/api/v1/contributions/:postId/revoke",
+                "auth": "admin",
+                "summary": "Revoke an unpaid contribution payout.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "postId",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.contributions.revoke"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/:postId/unpublish",
+                "absolutePath": "/api/v1/contributions/:postId/unpublish",
+                "auth": "admin",
+                "summary": "Take a contributed post off the site (back to draft). Its payout is left as is — revoke it separately.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "postId",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.contributions.unpublish"
+                ],
+                "sdkStatus": "method"
+            }
+        ]
+    },
+    {
         "module": "dashboard",
         "mountPath": "/api/v1/dashboard",
         "routes": [
@@ -9859,6 +10085,67 @@ export const API_MODULES: ApiModuleDoc[] = [
         ]
     },
     {
+        "module": "partners",
+        "mountPath": "/api/v1/partners",
+        "routes": [
+            {
+                "method": "GET",
+                "path": "/me/status",
+                "absolutePath": "/api/v1/partners/me/status",
+                "auth": "user",
+                "summary": "Which partner programs the caller is in (shows Profile → Partner Program).",
+                "sdk": [
+                    "cms.partners.status"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/me",
+                "absolutePath": "/api/v1/partners/me",
+                "auth": "user",
+                "summary": "The Partner Program page: programs, Stripe account, totals, and the contributions (with payouts).",
+                "sdk": [
+                    "cms.partners.me"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/me/stripe/onboard",
+                "absolutePath": "/api/v1/partners/me/stripe/onboard",
+                "auth": "user",
+                "summary": "Connect (or finish connecting) your Stripe Express account — returns the Stripe onboarding link.",
+                "sdk": [
+                    "cms.partners.stripeOnboard"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/me/stripe/dashboard",
+                "absolutePath": "/api/v1/partners/me/stripe/dashboard",
+                "auth": "user",
+                "summary": "A one-time link into your Stripe Express dashboard (payouts, bank details).",
+                "sdk": [
+                    "cms.partners.stripeDashboard"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/me/stripe/refresh",
+                "absolutePath": "/api/v1/partners/me/stripe/refresh",
+                "auth": "user",
+                "summary": "Re-read your Stripe account status (after onboarding).",
+                "sdk": [
+                    "cms.partners.stripeRefresh"
+                ],
+                "sdkStatus": "method"
+            }
+        ]
+    },
+    {
         "module": "payments",
         "mountPath": "/api/v1/payments",
         "routes": [
@@ -11473,6 +11760,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                         {
                             "name": "note",
                             "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "payoutCents",
+                            "type": "integer",
                             "required": false
                         }
                     ]
@@ -18200,5 +18492,5 @@ export const API_MODULES: ApiModuleDoc[] = [
     }
 ];
 
-export const API_MODULE_COUNT = 57;
-export const API_ROUTE_COUNT = 625;
+export const API_MODULE_COUNT = 59;
+export const API_ROUTE_COUNT = 639;

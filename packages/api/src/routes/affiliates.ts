@@ -61,7 +61,7 @@ export const affiliateRoutes = [
     defineRoute({
         method: 'get', path: '/settings', auth: 'admin',
         summary: 'Affiliate program settings (role, refund window, payout schedule, default commission).',
-        handler: async ({ user, },) => { await manage(user,); return affiliates.maskSettings(await affiliates.getAffiliateSettings(),); },
+        handler: async ({ user, },) => { await manage(user,); return await affiliates.maskSettings(await affiliates.getAffiliateSettings(),); },
     },),
     defineRoute({
         method: 'put', path: '/settings', auth: 'admin',
