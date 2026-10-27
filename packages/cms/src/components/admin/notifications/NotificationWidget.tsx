@@ -97,7 +97,7 @@ const NotificationWidget: Component<{ collapsed?: boolean; }> = (props,) => {
                         </Show>
                     </div>
                     <div class="notification-widget__foot">
-                        <NotificationDesktopToggle size="sm" />
+                        <NotificationDesktopToggle size="sm" label="Browser notifications" />
                     </div>
                 </div>
             </Show>

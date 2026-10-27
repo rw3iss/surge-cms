@@ -25,7 +25,7 @@ async function registration(): Promise<ServiceWorkerRegistration> {
     return navigator.serviceWorker.ready;
 }
 
-const NotificationDesktopToggle: Component<{ size?: 'sm' | 'md'; }> = (props,) => {
+const NotificationDesktopToggle: Component<{ size?: 'sm' | 'md'; /** Default: "Desktop notifications on this browser". */ label?: string; }> = (props,) => {
     const [on, setOn,] = createSignal(false,);
     const [busy, setBusy,] = createSignal(false,);
     const [note, setNote,] = createSignal('',);
@@ -94,7 +94,7 @@ const NotificationDesktopToggle: Component<{ size?: 'sm' | 'md'; }> = (props,) =
                 disabled={busy() || !available()}
                 size={props.size ?? 'sm'}
                 onChange={(v,) => void change(v,)}
-                label="Desktop notifications on this browser"
+                label={props.label ?? 'Desktop notifications on this browser'}
             />
             <Show when={note()}><span class="notification-desktop-toggle__note">{note()}</span></Show>
         </div>

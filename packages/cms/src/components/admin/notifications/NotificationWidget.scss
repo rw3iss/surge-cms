@@ -151,3 +151,7 @@ $nw-text: var(--admin-sidebar-text, white);
 
     &__note { font-size: $font-size-xs; opacity: 0.75; }
 }
+
+// In the dark sidebar the switch's label takes the sidebar's light text
+// (the admin default is dark text, which made it invisible here).
+.notification-widget .toggle-control__label { color: inherit; font-size: $font-size-sm; }
