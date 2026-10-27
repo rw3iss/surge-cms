@@ -38,6 +38,7 @@ import type { Contribution, Post, } from '@sitesurge/types';
 import ChangePayoutModal from '../../components/admin/contributions/ChangePayoutModal';
 import { centsToDollarsInput, formatMoney, parseDollars, } from '../../components/admin/contributions/money';
 import '../../components/admin/contributions/contributions.scss';
+import { followTitleSlug, } from '../../utils/autoSlug';
 
 const AdminPostEditor: Component = () => {
     const auth = useAuth();
@@ -509,7 +510,14 @@ const AdminPostEditor: Component = () => {
                         <input
                             type="text"
                             value={title()}
-                            onInput={(e,) => { setTitle(e.currentTarget.value,); editor.markDirty(); }}
+                            onInput={(e,) => {
+                                const next = e.currentTarget.value;
+                                // New post: the slug follows the title until the author edits it.
+                                const s = followTitleSlug(title(), next, slug(), { isNew: editor.isNew(), },);
+                                setTitle(next,);
+                                if (s !== null) setSlug(s,);
+                                editor.markDirty();
+                            }}
                             placeholder="Post title"
                         />
                     </FormField>

@@ -34,6 +34,7 @@ import {
     resolveActiveStyleRef,
     styleRefToPersistedStyle,
 } from '../../services/blockStyleRef';
+import { followTitleSlug, } from '../../utils/autoSlug';
 
 function pageBlockToBlockData(block: any,): BlockData {
     return {
@@ -349,7 +350,11 @@ const AdminPageEditor: Component = () => {
                                 type="text"
                                 value={title()}
                                 onInput={(e,) => {
-                                    setTitle(e.currentTarget.value,);
+                                    const next = e.currentTarget.value;
+                                    // New page: the slug follows the title until the author edits it.
+                                    const sl = followTitleSlug(title(), next, slug(), { isNew: editor.isNew(), },);
+                                    setTitle(next,);
+                                    if (sl !== null) setSlug(sl,);
                                     editor.markDirty();
                                 }}
                                 placeholder="Page title"
