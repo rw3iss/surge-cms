@@ -76,21 +76,23 @@ async function snapshotEnds(from: string, to: string,): Promise<Map<string, Snap
     const r = await query(
         `SELECT p.platform,
                 (SELECT MIN(date) FROM social_account_snapshots s WHERE s.platform = p.platform) AS since,
-                e.followers AS followers_end, b.followers AS followers_start,
+                e.followers AS followers_end, b.followers AS followers_start, e.date AS end_date, b.date AS start_date,
                 e.total_views AS views_end, b.total_views AS views_start
            FROM (SELECT DISTINCT platform FROM social_account_snapshots) p
-           LEFT JOIN LATERAL (SELECT followers, total_views FROM social_account_snapshots s
+           LEFT JOIN LATERAL (SELECT date, followers, total_views FROM social_account_snapshots s
                                WHERE s.platform = p.platform AND s.date <= $2 ORDER BY date DESC LIMIT 1) e ON true
-           LEFT JOIN LATERAL (SELECT followers, total_views FROM social_account_snapshots s
+           LEFT JOIN LATERAL (SELECT date, followers, total_views FROM social_account_snapshots s
                                WHERE s.platform = p.platform AND s.date >= $1 AND s.date <= $2 ORDER BY date ASC LIMIT 1) b ON true`,
         [from, to,],
     );
+    // One snapshot in the period is no change to measure — null, not 0.
+    const span = (row: Record<string, any>,) => row.start_date && row.end_date && String(row.start_date,) !== String(row.end_date,);
     return new Map(r.rows.map((row,) => [row.platform as string, {
         since: row.since ? new Date(row.since,).toISOString().slice(0, 10,) : null,
         followersEnd: num(row.followers_end,),
-        followersStart: num(row.followers_start,),
+        followersStart: span(row,) ? num(row.followers_start,) : null,
         viewsEnd: num(row.views_end,),
-        viewsStart: num(row.views_start,),
+        viewsStart: span(row,) ? num(row.views_start,) : null,
     },]),);
 }
 
@@ -100,10 +102,10 @@ async function postAggregates(from: string, to: string,): Promise<Map<string, Re
         `WITH m AS (
             SELECT p.platform::text AS platform, p.published_at,
                    e.views AS v_end, e.likes AS l_end, e.comments AS c_end, e.shares AS s_end, e.saves AS sv_end,
-                   COALESCE(b.views, CASE WHEN p.published_at >= $1::date THEN 0 END, f.views) AS v_start,
-                   COALESCE(b.likes, CASE WHEN p.published_at >= $1::date THEN 0 END, f.likes) AS l_start,
-                   COALESCE(b.comments, CASE WHEN p.published_at >= $1::date THEN 0 END, f.comments) AS c_start,
-                   COALESCE(b.shares, CASE WHEN p.published_at >= $1::date THEN 0 END, f.shares) AS s_start
+                   COALESCE(b.views, CASE WHEN p.published_at >= $1::date THEN 0 END, CASE WHEN f.date < e.date THEN f.views END) AS v_start,
+                   COALESCE(b.likes, CASE WHEN p.published_at >= $1::date THEN 0 END, CASE WHEN f.date < e.date THEN f.likes END) AS l_start,
+                   COALESCE(b.comments, CASE WHEN p.published_at >= $1::date THEN 0 END, CASE WHEN f.date < e.date THEN f.comments END) AS c_start,
+                   COALESCE(b.shares, CASE WHEN p.published_at >= $1::date THEN 0 END, CASE WHEN f.date < e.date THEN f.shares END) AS s_start
               FROM social_posts p
               JOIN LATERAL (SELECT * FROM social_post_metrics x WHERE x.social_post_id = p.id AND x.date <= $2 ORDER BY date DESC LIMIT 1) e ON true
               LEFT JOIN LATERAL (SELECT * FROM social_post_metrics x WHERE x.social_post_id = p.id AND x.date < $1 ORDER BY date DESC LIMIT 1) b ON true
@@ -280,13 +282,13 @@ const POST_SELECT = `
            e.date AS as_of, e.views, e.likes, e.comments, e.shares, e.saves, e.watch_time_s, e.avg_watch_s,
            e.completion_rate, e.reach, e.clicks,
            COALESCE(imp.total, e.impressions) AS impressions,
-           e.views - COALESCE(b.views, CASE WHEN p.published_at >= $1::date THEN 0 END, f.views) AS views_in_period,
+           e.views - COALESCE(b.views, CASE WHEN p.published_at >= $1::date THEN 0 END, CASE WHEN f.date < e.date THEN f.views END) AS views_in_period,
            d7.views AS views_day7,
            (COALESCE(e.likes,0) + COALESCE(e.comments,0) + COALESCE(e.shares,0) + COALESCE(e.saves,0))::float / NULLIF(e.views, 0) AS engagement_rate
       FROM social_posts p
       JOIN LATERAL (SELECT * FROM social_post_metrics x WHERE x.social_post_id = p.id AND x.date <= $2 ORDER BY date DESC LIMIT 1) e ON true
       LEFT JOIN LATERAL (SELECT views FROM social_post_metrics x WHERE x.social_post_id = p.id AND x.date < $1 ORDER BY date DESC LIMIT 1) b ON true
-      LEFT JOIN LATERAL (SELECT views FROM social_post_metrics x WHERE x.social_post_id = p.id AND x.date >= $1 ORDER BY date ASC LIMIT 1) f ON true
+      LEFT JOIN LATERAL (SELECT date, views FROM social_post_metrics x WHERE x.social_post_id = p.id AND x.date >= $1 ORDER BY date ASC LIMIT 1) f ON true
       LEFT JOIN LATERAL (SELECT views FROM social_post_metrics x WHERE x.social_post_id = p.id
                           AND x.date BETWEEN p.published_at::date + 6 AND p.published_at::date + 8
                           ORDER BY ABS(x.date - (p.published_at::date + 7)) LIMIT 1) d7 ON true
