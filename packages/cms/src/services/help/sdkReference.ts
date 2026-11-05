@@ -1632,4 +1632,138 @@ const versions = await cms.posts.liveReplays.list(id);       // recording versio
     ],
 };
 
+export const CLAUDE_BROKER_DOC: SdkDoc = {
+    id: 'claude-broker',
+    path: '/admin/help/claude-broker',
+    title: 'Claude Broker (AI)',
+    lead:
+        'The claude-broker plugin lets the CMS send AI requests to Claude Code sessions running on your own server, '
+        + 'signed in with your Claude subscription — no per-token API billing. The CMS AI module uses it by default; '
+        + 'the Anthropic API stays available as an option (Settings → AI).',
+    sections: [
+        {
+            heading: 'How it works',
+            blocks: [
+                {
+                    list: [
+                        '**claude-broker** is a small daemon on the server (`http://127.0.0.1:4180`). It holds a queue of jobs and '
+                        + 'hands each one to a Claude Code session that is attached to it.',
+                        'A **session** is a running `claude` process (kept alive in tmux) with the broker\'s MCP "shim" loaded. '
+                        + 'It receives a job, does the work, and answers through the `complete_job` tool.',
+                        'A **pool** is a session label. The plugin config lists your pools with how many sessions each should '
+                        + 'have: pool `summary` with count 2 means sessions `summary-1` and `summary-2`. A request to a pool '
+                        + 'goes to its least-busy session.',
+                        'The CMS sends every request through ONE AI module and gets ONE answer shape back (`AiResult`), '
+                        + 'whichever provider answered.',
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'Set it up',
+            blocks: [
+                {
+                    p: 'One time, on the server, as the user the CMS runs as (SSH):',
+                },
+                { code: 'bash packages/api/plugins/claude-broker/setup/setup-server.sh', },
+                {
+                    p: 'It installs tmux, Claude Code and claude-broker, starts the broker daemon as a systemd user service '
+                        + '(it survives logout and reboot) and prints the broker token. Everything else happens in the admin, '
+                        + 'on Plugins → Claude Broker:',
+                },
+                {
+                    list: [
+                        '**Broker connection** — paste the token (URL `http://127.0.0.1:4180`) and Save.',
+                        '**Setup → Sign in to Claude** — the server starts `claude auth login`. Open the link it shows, sign in '
+                        + 'with the Claude account the sessions should use, copy the code the page shows and paste it back. '
+                        + 'The sign-in is stored on the server (`~/.claude`) and renews itself.',
+                        '**Pools** — add a pool (name + session count), Save.',
+                        '**Setup → Start sessions** — starts the missing sessions in tmux (`tmux -L sitesurge-broker`). Each one '
+                        + 'answers Claude Code\'s first-run questions by itself and attaches within ~30 s; the checklist shows '
+                        + 'each session as attached, or why not.',
+                        '**Test prompt** — at the bottom of the page.',
+                    ],
+                },
+                {
+                    note: 'If a session reports "Claude Code refused the broker channel: Channels are not currently available", '
+                        + 'Claude Code started but its channels feature is switched off for that account or version, so it cannot '
+                        + 'receive jobs. Update Claude Code (`claude update`) and start the session again; to look at it, run '
+                        + '`tmux -L sitesurge-broker attach -t sitesurge-broker` on the server.',
+                },
+            ],
+        },
+        {
+            heading: 'Send AI requests — API',
+            blocks: [
+                {
+                    p: 'Every route is under `/api/v1/ai` and needs a staff session or an API key, plus the `ai:use` permission '
+                        + '(settings need `ai:manage`). A request waits for the answer up to 55 s over HTTP; a longer job comes back '
+                        + 'with `timedOut: true` and you poll it.',
+                },
+                {
+                    code: `curl -X POST https://your-site/api/v1/ai/query \\
+  -H "Authorization: Bearer ssk_…" -H "Content-Type: application/json" \\
+  -d '{ "prompt": "Summarize this in 3 bullets: …", "pool": "summary", "kind": "SUMMARY" }'
+
+# JSON answers — "data" holds the parsed value
+curl -X POST https://your-site/api/v1/ai/query -H "Authorization: Bearer ssk_…" -H "Content-Type: application/json" \\
+  -d '{ "prompt": "Return 5 tags for: …", "format": "json" }'
+
+# A long job: start without waiting, then poll
+curl -X POST …/api/v1/ai/query -d '{ "prompt": "…", "wait": false }'
+curl "…/api/v1/ai/jobs/<id>?wait=50"`,
+                },
+                {
+                    table: [
+                        ['Route', 'Does'],
+                        ['`GET /ai/status`', 'Providers + whether each is ready, the default provider'],
+                        ['`GET /ai/pools`', 'Configured pools with attached / expected / busy sessions'],
+                        ['`GET /ai/sessions?pool=`', 'Attached sessions (of one pool)'],
+                        ['`POST /ai/query`', '`{ prompt, system?, pool?, session?, provider?, format?: "text"|"json", wait?, timeoutSec?, kind?, meta? }` → `AiResult`'],
+                        ['`GET /ai/jobs`, `GET /ai/jobs/:id?wait=`', 'Recent jobs; one job (optionally wait for it)'],
+                        ['`DELETE /ai/jobs/:id`, `POST /ai/jobs/:id/comment`', 'Cancel a job; add a note to a running one'],
+                        ['`GET/PUT /ai/settings`', 'Default provider, Anthropic key + model'],
+                    ],
+                },
+            ],
+        },
+        {
+            heading: 'Send AI requests — SDK and server code',
+            blocks: [
+                {
+                    code: `// @sitesurge/client (browser, headless app, component JS)
+const r = await cms.ai.ask('Write a 1-line teaser for: …', { pool: 'summary' });
+if (r.status === 'completed') console.log(r.text);
+
+const tags = await cms.ai.query({ prompt: 'Return 5 tags as a JSON array for: …', format: 'json' });
+console.log(tags.data); // ['…', …]
+
+// Long job: don't wait, poll
+const job = await cms.ai.query({ prompt: '…', wait: false });
+const done = await cms.ai.job(job.id, { wait: 50 });`,
+                },
+                {
+                    code: `// Inside the CMS server (any service) — not capped by HTTP time limits
+import * as ai from '../services/ai';
+
+const r = await ai.ask('Summarize: …', { pool: 'summary', kind: 'SUMMARY' });
+const data = await ai.askJson<string[]>('Return 5 tags as a JSON array for: …'); // null on failure`,
+                },
+                {
+                    p: '`AiResult` = `{ id, provider, status, text, data, error, pool, sessionId, model, timedOut, progress, meta, '
+                        + 'createdAt, completedAt }`. `status` is `pending` / `in_progress` / `completed` / `failed` / `cancelled` / '
+                        + '`expired`; an answer that loops, or is not JSON when `format: "json"` was asked, reads `failed`. Provider '
+                        + 'failures never throw — check `status` and `error`.',
+                },
+                {
+                    links: [
+                        { href: '/admin/help/api', label: 'API Reference', desc: 'Every /ai route with its fields.', },
+                        { href: '/admin/help/sdk/reference', label: 'SDK Reference', desc: 'cms.ai.* signatures.', },
+                    ],
+                },
+            ],
+        },
+    ],
+};
+
 export const SDK_DOCS: SdkDoc[] = [HEADLESS_DOC, MODULES_DOC, PERMISSIONS_DOC, COMPONENT_JS_DOC,];

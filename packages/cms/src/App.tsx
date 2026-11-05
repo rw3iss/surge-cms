@@ -154,6 +154,8 @@ const AdminHelpComponents = lazy(() =>
     import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpComponents, })));
 const AdminHelpLiveShows = lazy(() =>
     import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpLiveShows, })));
+const AdminHelpClaudeBroker = lazy(() =>
+    import('./pages/admin/HelpSdk').then((m) => ({ default: m.HelpClaudeBroker, })));
 const AdminEntitiesList = lazy(() => import('./pages/admin/entities/EntitiesList'));
 const AdminEntityDetail = lazy(() => import('./pages/admin/entities/EntityDetail'));
 const AdminEntityRecordEdit = lazy(() => import('./pages/admin/entities/EntityRecordEdit'));
@@ -331,6 +333,7 @@ const App: Component = () => {
 										<Route path="/help/gallery" component={AdminHelpGallery} />
 										<Route path="/help/components" component={AdminHelpComponents} />
 										<Route path="/help/live-shows" component={AdminHelpLiveShows} />
+										<Route path="/help/claude-broker" component={AdminHelpClaudeBroker} />
 										<Route path="/wiki" component={AdminWiki} />
 										<Route path="/wiki/:id" component={AdminWikiEditor} />
 									</Route>

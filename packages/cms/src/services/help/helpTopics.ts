@@ -70,6 +70,11 @@ export const TOPICS: HelpTopic[] = [
         desc: 'Stream a show from the browser: provider setup, running the show, recordings and replays, and moderating viewers (mute, silence, kick, ban).',
     },
     {
+        path: '/admin/help/claude-broker',
+        title: 'Claude Broker (AI)',
+        desc: 'Run AI requests on Claude Code sessions on your own server: set up the server, sign in to Claude from the admin, pools and sessions, and sending requests through the API and SDK.',
+    },
+    {
         path: '/admin/help/comments-and-forum',
         feature: 'discussions',
         title: 'Comments & Forum',

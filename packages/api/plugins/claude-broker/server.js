@@ -13,6 +13,7 @@
  * GET /sessions, GET /healthz — Bearer token.
  */
 const lib = require('./lib.js');
+const claude = require('./claude.js');
 
 const DEFAULT_URL = 'http://127.0.0.1:4180';
 const MAX_POLL_SEC = 60;
@@ -35,6 +36,10 @@ function cfg(ctx) {
         waitSec: num(c.waitSec, 120, 1, 3600),
         frame: c.framePrompts !== false,
         gapMs: num(c.sessionGapMs, 6000, 0, 60000),
+        claudePath: String(c.claudePath || '').trim(),
+        sessionCwd: String(c.sessionCwd || '').trim(),
+        brokerSocket: String(c.brokerSocket || '').trim(),
+        dataDir: (ctx.storage && ctx.storage.dataDir) || require('node:path').join(require('node:os').tmpdir(), 'sitesurge-claude-broker'),
     };
 }
 
@@ -297,6 +302,88 @@ module.exports = {
             if (!payload.id || !String(payload.note || '').trim()) return fail(400, 'Job id and note required');
             const r = await broker(ctx, 'POST', `/jobs/${encodeURIComponent(String(payload.id))}/comment`, { note: String(payload.note).trim() });
             return r.ok ? { ok: true, job: lib.normalizeJob(r.data) } : r;
+        },
+
+        // ── Setup: Claude Code on this server (see claude.js) ──
+
+        /** Checklist: Claude Code installed + signed in, tmux, broker reachable, sessions per pool. */
+        async setupStatus(ctx) {
+            const c = cfg(ctx);
+            const [local, h] = await Promise.all([claude.claudeStatus(c), health(ctx)]);
+            let attached = [];
+            let brokerError = h.ok ? null : h.error;
+            if (h.ok) {
+                const s = await listSessions(ctx);
+                if (s.ok) attached = s.sessions.filter((x) => x.status === 'attached').map((x) => x.label).filter(Boolean);
+                else brokerError = s.error;
+            }
+            const tmux = claude.findBinary('tmux');
+            const windows = tmux ? await claude.tmuxWindows(tmux) : [];
+            return {
+                ok: true,
+                ...local,
+                broker: { reachable: h.ok && !brokerError, error: brokerError, version: h.ok ? (h.health.version || null) : null, url: c.url },
+                pools: c.pools.map((p) => {
+                    const labels = claude.poolLabels(p);
+                    return {
+                        name: p.name,
+                        expected: labels.length,
+                        labels: labels.map((l) => ({ label: l, attached: attached.includes(l), running: windows.includes(l), note: claude.readSessionNote(c, l) })),
+                        attached: attached.filter((l) => lib.inPool(l, p.name)).length,
+                    };
+                }),
+                tmuxSession: claude.TMUX_SESSION,
+                tmuxAttach: `tmux -L ${claude.TMUX_SOCKET} attach -t ${claude.TMUX_SESSION}`,
+            };
+        },
+
+        /** Start `claude auth login` on the server → the sign-in link for the admin to open. */
+        async loginStart(ctx) {
+            return claude.loginStart(cfg(ctx));
+        },
+
+        /** The code from the sign-in page → the waiting login. */
+        async loginSubmit(ctx, payload) {
+            return claude.loginSubmit(cfg(ctx), payload.code);
+        },
+
+        async loginCancel(ctx) {
+            return claude.loginCancel(cfg(ctx));
+        },
+
+        /**
+         * Start the missing sessions of every pool (or `pool`) in tmux. Returns at
+         * once; each session answers Claude Code's first-run prompts in the
+         * background and attaches to the broker within ~30 s.
+         */
+        async startSessions(ctx, payload) {
+            const c = cfg(ctx);
+            const h = await health(ctx);
+            if (!h.ok) return h;
+            const s = await listSessions(ctx);
+            if (!s.ok) return s;
+            const attached = s.sessions.filter((x) => x.status === 'attached').map((x) => x.label).filter(Boolean);
+            const r = await claude.startSessions(c, attached, payload.pool ? String(payload.pool) : '');
+            if (!r.ok) return r;
+            for (const label of r.started) {
+                const isAttached = async () => {
+                    const now = await listSessions(ctx);
+                    return now.ok && now.sessions.some((x) => x.status === 'attached' && x.label === label);
+                };
+                claude.writeSessionNote(c, label, 'Starting…');
+                claude.acceptPrompts(r.tmux, `${r.target}:${label}`, isAttached)
+                    .then((res) => {
+                        claude.writeSessionNote(c, label, res.ok ? null : res.note);
+                        if (!res.ok) ctx.logger.warn(`session "${label}": ${res.note} (tmux -L ${claude.TMUX_SOCKET} attach -t ${r.target})`);
+                    })
+                    .catch((e) => claude.writeSessionNote(c, label, e.message));
+            }
+            return { ok: true, started: r.started, skipped: r.skipped, tmuxSession: r.target };
+        },
+
+        /** Close session windows started here (all, or `labels`). The broker detaches them. */
+        async stopSessions(ctx, payload) {
+            return claude.stopSessions(cfg(ctx), Array.isArray(payload.labels) ? payload.labels.map(String) : []);
         },
 
         /** Recent jobs — CMS jobs only unless `all`; filter by status / session / pool. */

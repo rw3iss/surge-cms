@@ -12,6 +12,15 @@ Settings → **AI** picks the default provider, holds the Anthropic key (masked;
 an echoed mask keeps it) + model (default `claude-sonnet-5-5`), shows each
 provider's readiness and every broker pool, and has a test prompt.
 
+## Server setup (broker)
+
+1. Once, on the server, as the CMS's OS user: `bash packages/api/plugins/claude-broker/setup/setup-server.sh`
+   (tmux, Claude Code, claude-broker, the daemon as a systemd user service; prints the token).
+2. Plugins → Claude Broker → paste the token → **Setup → Sign in to Claude** (open the link, sign in,
+   paste the code back — the server runs `claude auth login` for you) → add pools → **Start sessions**.
+
+Full walkthrough: in-admin `/admin/help/claude-broker`; details in the plugin README.
+
 ## Pools
 
 A broker **pool** is a session label: members are attached sessions labelled
