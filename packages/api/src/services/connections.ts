@@ -22,7 +22,8 @@ import { logger, } from '../utils/logger';
 import { mapRow, mapRows, } from '../utils/mapRow';
 import { uuidOrNull, } from '../utils/uuid';
 
-export const VALID_PROVIDERS = ['instagram', 'facebook', 'tiktok', 'patreon', 'youtube', 'twitter',];
+// 'threads' is an analytics-only connection (no feed sync / public rendering).
+export const VALID_PROVIDERS = ['instagram', 'facebook', 'tiktok', 'patreon', 'youtube', 'twitter', 'threads',];
 
 export interface UpsertConnectionInput {
     provider: string;
@@ -546,6 +547,8 @@ export async function completeOAuth(
                 // Google (YouTube) issues a refresh token on consent — without it
                 // the connection dies with the 1 h access token.
                 ...(tokenResult.refreshToken ? { refreshToken: tokenResult.refreshToken, } : {}),
+                // Google: which scopes the owner granted (analytics needs yt-analytics.readonly).
+                ...(typeof tokenResult.rawData?.scope === 'string' ? { grantedScopes: tokenResult.rawData.scope, } : {}),
             },),
             // connected_by is a UUID FK; the state-carried actor may be a
             // synthetic api-key:<name> — coerce to NULL.
@@ -568,7 +571,9 @@ export async function completeOAuth(
         return {
             kind: 'error',
             query: encodeURIComponent(
-                msg + '. Your token was saved — link your Instagram to a Facebook Page, then reconnect.',
+                provider === 'instagram'
+                    ? msg + '. Your token was saved — link your Instagram to a Facebook Page, then reconnect.'
+                    : msg + '. Your token was saved — reconnect to finish.',
             ),
         };
     }

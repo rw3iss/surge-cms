@@ -138,6 +138,7 @@ export async function dispatchAction(
     action: string,
     payload: Record<string, unknown>,
     ctx: AuditContext,
+    opts: { audit?: boolean; } = {},
 ): Promise<unknown> {
     const row = await mustGetRow(name);
     if (!row.enabled || !row.installed || row.error) {
@@ -153,7 +154,8 @@ export async function dispatchAction(
     });
     try {
         const result = await fn(pctx, payload ?? {});
-        await audit(`plugin.action:${action}`, name, ctx);
+        // Internal callers (the AI module) skip the per-call audit row.
+        if (opts.audit !== false) await audit(`plugin.action:${action}`, name, ctx);
         return result;
     } catch (err) {
         pctx.logger.error(`action "${action}" failed`, {

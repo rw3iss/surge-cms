@@ -24,6 +24,7 @@ const SiteFooterEditor = lazy(() => import('../../components/admin/editors/SiteF
 const ApiKeysPanel = lazy(() => import('../../components/admin/settings/ApiKeysPanel'));
 const PermissionsPanel = lazy(() => import('../../components/admin/settings/PermissionsPanel'));
 const NotificationsPanel = lazy(() => import('./settings/NotificationsPanel'));
+const AiSettingsPanel = lazy(() => import('../../components/admin/ai/AiSettingsPanel'));
 const StripeKeysEditor = lazy(() => import('../../components/admin/StripeKeysEditor'));
 
 // ─── Tabs ───
@@ -36,6 +37,7 @@ const TABS = [
     { id: 'site-footer', label: 'Site Footer', },
     { id: 'payments', label: 'Payments', },
     { id: 'api-keys', label: 'API Keys', },
+    { id: 'ai', label: 'AI', },
     { id: 'permissions', label: 'Permissions', },
     { id: 'admin', label: 'Admin', },
 ] as const;
@@ -543,6 +545,11 @@ const AdminSettings: Component = () => {
 
                 <Show when={activeTab() === 'api-keys'}>
                     <ApiKeysPanel />
+                </Show>
+
+                {/* ─── AI Tab ─── */}
+                <Show when={activeTab() === 'ai'}>
+                    <AiSettingsPanel />
                 </Show>
 
                 {/* ─── Admin Tab ─── */}

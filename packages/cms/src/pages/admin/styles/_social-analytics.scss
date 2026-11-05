@@ -1,0 +1,196 @@
+// Social → Analytics dashboard (pages/admin/social/SocialAnalyticsPanel.tsx).
+@use '../../../styles/variables' as *;
+
+.social-analytics {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-lg;
+
+  &__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: $spacing-md;
+  }
+
+  &__filter {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+    font-size: $font-size-xs;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--admin-text-muted, #{$text-light});
+
+    select, input { text-transform: none; letter-spacing: normal; font-weight: 400; }
+  }
+
+  &__actions {
+    display: flex;
+    gap: $spacing-sm;
+    margin-left: auto;
+  }
+
+  &__export { margin-left: auto; }
+
+  &__summary {
+    @include admin-card;
+    padding: $spacing-md $spacing-lg;
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: $spacing-sm;
+      margin-bottom: $spacing-sm;
+
+      button { margin-left: auto; }
+    }
+  }
+
+  &__totals {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: $spacing-sm;
+
+    .social-analytics__metric {
+      @include admin-card;
+      padding: $spacing-md;
+    }
+
+    .social-analytics__metric-value { font-size: 1.5rem; }
+  }
+
+  &__metric { cursor: help; }
+
+  &__metric-value {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--admin-text, #{$text-color});
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__metric-label {
+    font-size: $font-size-xs;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__accounts {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: $spacing-md;
+  }
+
+  &__account {
+    @include admin-card;
+    padding: $spacing-md;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+
+    &--off { opacity: 0.75; }
+  }
+
+  &__account-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-sm;
+
+    h3 { margin: 0; font-size: 1rem; }
+  }
+
+  &__state {
+    font-size: $font-size-xs;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: $border-radius-full;
+    background: var(--admin-bg-subtle, #f3f4f6);
+    color: var(--admin-text-muted, #{$text-light});
+
+    &--ready { background: #dcfce7; color: #166534; }
+    &--partial { background: #fef3c7; color: #92400e; }
+  }
+
+  &__message {
+    margin: 0;
+    font-size: $font-size-sm;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: $spacing-sm $spacing-md;
+  }
+
+  &__account-foot {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: $spacing-xs $spacing-md;
+    font-size: $font-size-xs;
+    color: var(--admin-text-muted, #{$text-light});
+    margin-top: auto;
+  }
+
+  &__notes {
+    font-size: $font-size-xs;
+    color: var(--admin-text-muted, #{$text-light});
+
+    summary { cursor: pointer; }
+    ul { margin: $spacing-xs 0 0; padding-left: 1.1rem; }
+    .is-error { color: #b91c1c; }
+  }
+
+  &__chart-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-sm;
+  }
+
+  &__chart-controls {
+    display: flex;
+    gap: $spacing-sm;
+  }
+
+  &__table-wrap { overflow-x: auto; }
+
+  &__table {
+    td:not(.social-analytics__post), th { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  }
+
+  &__row { cursor: pointer; }
+
+  &__detail td { background: var(--admin-bg-subtle, #f9fafb); }
+
+  &__post {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    min-width: 260px;
+  }
+
+  &__post-title {
+    max-width: 320px;
+    @include line-clamp(2);
+  }
+
+  &__thumb {
+    width: 64px;
+    height: 36px;
+    object-fit: cover;
+    border-radius: $border-radius-sm;
+    flex: 0 0 auto;
+    background: var(--admin-bg-subtle, #f3f4f6);
+
+    &--empty { display: inline-block; }
+  }
+
+  @media (max-width: 640px) {
+    &__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    &__actions, &__export { margin-left: 0; }
+  }
+}

@@ -1,0 +1,92 @@
+@use '../../../styles/variables' as *;
+
+.line-chart {
+  width: 100%;
+
+  &__svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  &__empty {
+    padding: $spacing-xl $spacing-md;
+    text-align: center;
+    font-size: $font-size-sm;
+    color: var(--admin-text-muted, #{$text-light});
+    border: 1px dashed var(--admin-border, #{$border-color});
+    border-radius: $border-radius-md;
+  }
+
+  &__grid {
+    stroke: var(--admin-border, #{$border-color});
+    stroke-width: 1;
+  }
+
+  &__tick {
+    font-size: 11px;
+    fill: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__area {
+    fill: var(--site-primary, #{$primary-color});
+    opacity: 0.08;
+  }
+
+  &__line {
+    fill: none;
+    stroke: var(--site-primary, #{$primary-color});
+    stroke-width: 2;
+    stroke-linejoin: round;
+  }
+
+  &__marker {
+    line {
+      stroke: var(--admin-text-muted, #{$text-light});
+      stroke-dasharray: 3 3;
+    }
+
+    circle { fill: var(--admin-text-muted, #{$text-light}); }
+  }
+
+  &__hover {
+    pointer-events: none;
+
+    line { stroke: var(--admin-border, #{$border-color}); }
+
+    circle {
+      fill: var(--site-primary, #{$primary-color});
+      stroke: #fff;
+      stroke-width: 2;
+    }
+
+    text {
+      font-size: 12px;
+      font-weight: 600;
+      fill: var(--admin-text, #{$text-color});
+    }
+  }
+
+  &__notes {
+    margin: $spacing-xs 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: $font-size-xs;
+    color: var(--admin-text-muted, #{$text-light});
+
+    li {
+      display: flex;
+      align-items: center;
+      gap: $spacing-xs;
+    }
+  }
+
+  &__note-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--admin-text-muted, #{$text-light});
+    flex: 0 0 auto;
+  }
+}

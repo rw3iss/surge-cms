@@ -61,6 +61,7 @@ export async function youTubeAccessToken(creds?: Record<string, unknown>,): Prom
             tokenExpiresAt: new Date(Date.now() + (t.expiresIn ?? 3600) * 1000,).toISOString(),
             // Google normally keeps the same refresh token; keep a new one if sent.
             ...(t.refreshToken ? { refreshToken: t.refreshToken, } : {}),
+            ...(typeof t.rawData?.scope === 'string' ? { grantedScopes: t.rawData.scope, } : {}),
             oauthError: null,
         },);
         return t.accessToken;

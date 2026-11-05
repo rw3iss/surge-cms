@@ -1,0 +1,22 @@
+{
+  "name": "claude-broker",
+  "label": "Claude Broker (AI)",
+  "description": "Send AI prompts to Claude Code sessions attached to a local claude-broker daemon. Configures the session pools the CMS AI module can use.",
+  "version": "0.1.0",
+  "author": "Surge CMS",
+  "homepage": "https://github.com/rw3iss/claude-broker",
+  "apiVersion": 1,
+  "server": "server.js",
+  "client": "client.js",
+  "capabilities": ["config-page"],
+  "configSchema": [
+    { "key": "brokerUrl", "label": "Broker URL", "type": "string", "default": "http://127.0.0.1:4180", "secret": true, "help": "The claude-broker daemon's HTTP address (usually on the same server)." },
+    { "key": "token", "label": "Broker token", "type": "secret", "required": true, "help": "The daemon's CLAUDE_BROKER_TOKEN." },
+    { "key": "pools", "label": "Pools", "type": "textarea", "secret": true, "help": "Session pools: [{ name, count, description }]. A pool is a session label; members are labelled <name> or <name>-<n>." },
+    { "key": "defaultPool", "label": "Default pool", "type": "string", "secret": true },
+    { "key": "ttlSec", "label": "Job TTL (seconds)", "type": "number", "default": 300, "secret": true },
+    { "key": "waitSec", "label": "Wait timeout (seconds)", "type": "number", "default": 120, "secret": true },
+    { "key": "framePrompts", "label": "Frame prompts", "type": "boolean", "default": true, "secret": true, "help": "Add the ▶ KIND header and the complete_job footer to every prompt." },
+    { "key": "sessionGapMs", "label": "Gap between jobs to one session (ms)", "type": "number", "default": 6000, "secret": true }
+  ]
+}

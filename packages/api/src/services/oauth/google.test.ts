@@ -2,7 +2,7 @@ import { describe, expect, it, vi, } from 'vitest';
 
 vi.mock('../../db', () => ({ query: vi.fn(), }),);
 
-const { GoogleYouTubeOAuthProvider, YOUTUBE_READONLY_SCOPE, } = await import('./google');
+const { GoogleYouTubeOAuthProvider, YOUTUBE_READONLY_SCOPE, YT_ANALYTICS_SCOPE, } = await import('./google');
 const { authRequest, } = await import('../social/youtubeAuth');
 
 describe('Google (YouTube) OAuth', () => {
@@ -12,7 +12,7 @@ describe('Google (YouTube) OAuth', () => {
         const u = new URL(p.getAuthorizationUrl('st8',),);
         expect(u.searchParams.get('access_type',),).toBe('offline',);
         expect(u.searchParams.get('prompt',),).toBe('consent',);
-        expect(u.searchParams.get('scope',),).toBe(YOUTUBE_READONLY_SCOPE,);
+        expect(u.searchParams.get('scope',),).toBe(`${YOUTUBE_READONLY_SCOPE} ${YT_ANALYTICS_SCOPE}`,);
         expect(u.searchParams.get('state',),).toBe('st8',);
         expect(u.searchParams.get('redirect_uri',),).toBe('https://x.test/cb',);
     },);

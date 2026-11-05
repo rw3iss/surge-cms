@@ -3,12 +3,13 @@ import { For, type ParentComponent, } from 'solid-js';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
 
 /**
- * Social hub shell — a header + sub-navigation over the three Social areas,
- * rendered as discrete routes (Posts / Compose / Configuration). The active
+ * Social hub shell — a header + sub-navigation over the Social areas,
+ * rendered as discrete routes (Posts / Analytics / Compose / Configuration). The active
  * route's component is rendered via `props.children` (nested router outlet).
  */
 const SUB_NAV = [
     { path: '/admin/social', label: 'Posts', end: true, },
+    { path: '/admin/social/analytics', label: 'Analytics', end: false, },
     { path: '/admin/social/compose', label: 'Compose', end: false, },
     { path: '/admin/social/configuration', label: 'Configuration', end: false, },
 ];

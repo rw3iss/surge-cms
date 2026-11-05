@@ -203,6 +203,22 @@ export const CORE_PERMISSIONS: PermissionRegistration[] = [
         defaultRoles: ADMIN,
     },
     {
+        key: 'ai:use',
+        feature: 'core',
+        label: 'Use AI',
+        description: 'Send prompts to the AI module (the claude-broker plugin or the Anthropic API) and read their answers, pools and sessions.',
+        action: 'write',
+        defaultRoles: STAFF,
+    },
+    {
+        key: 'ai:manage',
+        feature: 'core',
+        label: 'Manage AI settings',
+        description: 'Choose the default AI provider and set the Anthropic API key and model.',
+        action: 'write',
+        defaultRoles: ADMIN,
+    },
+    {
         key: 'geo:lookup',
         feature: 'core',
         label: 'Search addresses on the map',
@@ -480,6 +496,15 @@ export const FEATURE_PERMISSIONS: Record<string, PermissionRegistration[]> = {
     social: [
         { key: 'social:read', feature: 'social', label: 'View social posts', action: 'read', defaultRoles: STAFF, },
         { key: 'social:write', feature: 'social', label: 'Compose and manage social posts', action: 'write', defaultRoles: STAFF, },
+        { key: 'social.analytics:view', feature: 'social', label: 'View social analytics', action: 'read', defaultRoles: STAFF, },
+        {
+            key: 'social.analytics:manage',
+            feature: 'social',
+            label: 'Run social analytics collectors',
+            description: 'Collect now, and see collector runs and errors.',
+            action: 'manage',
+            defaultRoles: ADMIN,
+        },
     ],
     // ─── Discussions (Comments + Forum) ───
     // Member-level defaults use MEMBERS: a custom role (e.g. `subscriber`)

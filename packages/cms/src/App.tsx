@@ -60,6 +60,7 @@ const AdminSocialHub = lazy(() => import('./pages/admin/social/SocialHub'));
 const AdminSocialPosts = lazy(() => import('./pages/admin/social/SocialPostsPanel'));
 const AdminSocialCompose = lazy(() => import('./pages/admin/social/SocialComposePanel'));
 const AdminSocialConfiguration = lazy(() => import('./pages/admin/social/SocialConfigurationPanel'));
+const AdminSocialAnalytics = lazy(() => import('./pages/admin/social/SocialAnalyticsPanel'));
 const AdminMailingLists = lazy(() => import('./pages/admin/MailingLists'));
 const AdminMailingListEdit = lazy(() => import('./pages/admin/MailingListEdit'));
 const AdminMailingListsSettings = lazy(() => import('./pages/admin/MailingListsSettings'));
@@ -275,6 +276,7 @@ const App: Component = () => {
 										<Route path="/messages/:id" component={AdminMessageView} />
 										<Route path="/social" component={AdminSocialHub}>
 											<Route path="/" component={AdminSocialPosts} />
+											<Route path="/analytics" component={AdminSocialAnalytics} />
 											<Route path="/compose" component={AdminSocialCompose} />
 											<Route path="/configuration" component={AdminSocialConfiguration} />
 										</Route>

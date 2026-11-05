@@ -51,6 +51,10 @@ export const envSchema = z.object({
     // A per-template "From email" still overrides this.
     MAIL_LIST_FROM: z.string().optional(),
 
+    // Optional Anthropic API key for the AI module's `anthropic` provider
+    // (Settings → AI may store one instead; env wins).
+    ANTHROPIC_API_KEY: z.string().optional(),
+
     MAIL_PROVIDER: z.enum(['smtp', 'mailgun', 'sendgrid', 'postmark',],).default('smtp',),
     MAIL_SEND_CONCURRENCY: z.string().transform(Number,).prefault('10',),
     MAIL_SEND_DELAY_MS: z.string().transform(Number,).prefault('50',),

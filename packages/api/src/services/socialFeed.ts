@@ -57,11 +57,12 @@ export async function listPosts(
 
     const posts = await getSocialPosts(platform, limit, offset,);
 
-    let whereClause = '';
+    // Same rows getSocialPosts returns: hidden posts are not counted.
+    let whereClause = 'WHERE is_hidden = false';
     const params: unknown[] = [];
     if (platform) {
         params.push(platform,);
-        whereClause = `WHERE platform = $${params.length}`;
+        whereClause += ` AND platform = $${params.length}`;
     }
     const countResult = await query(`SELECT COUNT(*) FROM social_posts ${whereClause}`, params,);
     const total = parseInt(countResult.rows[0].count, 10,);
@@ -179,7 +180,9 @@ export async function homepagePosts(): Promise<SocialPost[]> {
 
     if (selectedPosts.length === 0) {
         const latestResult = await query(
+            // Hidden posts (incl. analytics-only Threads rows) never reach the homepage.
             `SELECT DISTINCT ON (platform) * FROM social_posts
+         WHERE is_hidden = false
          ORDER BY platform, published_at DESC
          LIMIT 6`,
         );

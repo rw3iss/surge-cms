@@ -71,6 +71,10 @@ export interface Config {
         webhookSecret: string | undefined;
     };
 
+    ai: {
+        anthropicApiKey: string | undefined;
+    };
+
     email: {
         host: string | undefined;
         port: number | undefined;
@@ -215,6 +219,10 @@ function build(parsed: EnvVars,): Config {
             secretKey: parsed.STRIPE_SECRET_KEY,
             publishableKey: parsed.STRIPE_PUBLISHABLE_KEY,
             webhookSecret: parsed.STRIPE_WEBHOOK_SECRET,
+        },
+
+        ai: {
+            anthropicApiKey: parsed.ANTHROPIC_API_KEY,
         },
 
         email: {

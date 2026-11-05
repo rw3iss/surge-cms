@@ -1,6 +1,6 @@
 # Social analytics — research: what each platform lets us pull
 
-Date: 2026-11-04 · Status: RESEARCH (no code yet) · Next step: a design/plan doc for the build.
+Date: 2026-11-04 · Status: **IN PROGRESS — build started 2026-11-05** (see §6 status lines and `docs/how-it-works/SOCIAL-ANALYTICS.md`).
 
 Goal: pull view + engagement analytics from every connected social account into the CMS, store
 them, show a cross-platform dashboard, and later let AI summarise and analyse them — our own
@@ -342,6 +342,17 @@ tables. Platform APIs are only a source, never the store.
 6. **Manual import**: per-platform CSV upload mapped into the same tables, for history and gaps.
 7. **Permissions**: `social.analytics:view` (staff) / `social.analytics:manage` (admin: collectors,
    X spend cap, imports).
+
+> **STATUS 2026-11-05 — phases 1–4 BUILT** (guide: `docs/how-it-works/SOCIAL-ANALYTICS.md`).
+> 1 storage: DONE (migration 201; `social_metric_definitions` is code, not a table —
+> `SOCIAL_METRICS` / `SOCIAL_DEFINITION_CHANGES` in `@sitesurge/types`; plus a `social_analytics_runs` log).
+> 2 collectors: DONE for YouTube (Data + Analytics + Reporting), Instagram (+ Stories sweep),
+> Facebook, TikTok (Display; Business branch unverified), X (opt-in, spend-capped), Patreon
+> (no webhooks yet), Threads (new analytics-only provider, migration 203). Not yet verified
+> against live accounts except where noted in the guide.
+> 3 derived metrics + 4 dashboard: DONE (Social → Analytics; CSV export of posts).
+> 5: AI summary DONE (through the new AI module / claude-broker plugin); weekly email report and
+> CSV import NOT built. 6 manual import: NOT built. 7 permissions: DONE.
 
 **Phasing suggestion:** (1) snapshot tables + YouTube + Instagram + Facebook collectors (all free,
 largest value) → (2) dashboard + derived metrics → (3) TikTok Display + Patreon → (4) X owned

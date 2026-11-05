@@ -12,6 +12,8 @@ import { connectionsRoutes, } from './connections';
 import { contactsRoutes, } from './contacts';
 import { eventsRoutes, } from './events';
 import { geoRoutes, } from './geo';
+import { aiRoutes, } from './ai';
+import { socialAnalyticsRoutes, } from './socialAnalytics';
 import { discussionsRoutes, } from './discussions';
 import { commentsRoutes, } from './comments';
 import { forumRoutes, } from './forum';
@@ -114,6 +116,8 @@ router.use('/plugins', registerModule('plugins', pluginsRoutes, { mountPath: '/a
 router.use('/contacts', registerModule('contacts', contactsRoutes, { mountPath: '/api/v1/contacts', feature: 'contacts', },),);
 // Map pickers: address search + reverse lookup (OpenStreetMap, proxied + cached).
 router.use('/geo', registerModule('geo', geoRoutes, { mountPath: '/api/v1/geo', },),);
+router.use('/ai', registerModule('ai', aiRoutes, { mountPath: '/api/v1/ai', },),);
+router.use('/social-analytics', registerModule('social-analytics', socialAnalyticsRoutes, { mountPath: '/api/v1/social-analytics', feature: 'social', },),);
 // `feature: 'events'` makes every route here 404 while the module is disabled.
 router.use('/events', registerModule('events', eventsRoutes, { mountPath: '/api/v1/events', feature: 'events', },),);
 // Discussions: the engine (comment CRUD/moderation, used by Comments AND the

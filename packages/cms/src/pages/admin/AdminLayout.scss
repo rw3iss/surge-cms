@@ -42,6 +42,7 @@
 @use './styles/mailing-lists';
 @use './styles/shop';
 @use './styles/social-hub';
+@use './styles/social-analytics';
 @use './styles/permission-chip';
 @use '../../components/admin/features/features';
 // `.toggle-control` styling now lives with the component (components/ui/Toggle.scss,

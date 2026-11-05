@@ -3,7 +3,7 @@ import { Component, createResource, createSignal, For, type JSX, onMount, Show, 
 import { cms, } from '../../../services/cmsClient';
 import Toggle from '../common/Toggle';
 import Tooltip from '../common/Tooltip';
-import { FormField, } from '../forms';
+import { CommitInput, FormField, } from '../forms';
 
 /** A credential field that shows a masked read view + "Change" once saved,
  *  and an editable password input otherwise. Keeps the four X OAuth 1.0a
@@ -70,6 +70,8 @@ const PROVIDERS = [
     { id: 'patreon', name: 'Patreon', icon: 'PA', oauth: false, },
     { id: 'youtube', name: 'YouTube', icon: 'YT', oauth: false, },
     { id: 'twitter', name: 'Twitter/X', icon: 'TW', oauth: false, },
+    // Analytics only: no feed sync, so no Sync now / auto-sync controls.
+    { id: 'threads', name: 'Threads', icon: 'TH', oauth: true, analyticsOnly: true, },
 ];
 
 const ConnectionsPanel: Component = () => {
@@ -97,6 +99,9 @@ const ConnectionsPanel: Component = () => {
     const [appId, setAppId,] = createSignal('',);
     const [appSecret, setAppSecret,] = createSignal('',);
     const [twitterMode, setTwitterMode,] = createSignal<'free' | 'api'>('free',);
+    /** X analytics (paid reads): opt-in + monthly spend cap in USD ('' = server default). */
+    const [xAnalytics, setXAnalytics,] = createSignal(false,);
+    const [xAnalyticsCap, setXAnalyticsCap,] = createSignal('',);
     // "Change" toggles a saved-secret read view back to an editable input.
     const [changingApiKey, setChangingApiKey,] = createSignal(false,);
     const [changingApiSecret, setChangingApiSecret,] = createSignal(false,);
@@ -136,6 +141,8 @@ const ConnectionsPanel: Component = () => {
         setAppId(conn?.credentials?.appId || '',);
         setAppSecret('',);
         setTwitterMode(conn?.settings?.twitterMode === 'api' ? 'api' : 'free',);
+        setXAnalytics(conn?.settings?.analytics?.enabled === true,);
+        setXAnalyticsCap(conn?.settings?.analytics?.monthlyCapUsd != null ? String(conn.settings.analytics.monthlyCapUsd,) : '',);
         setChangingApiKey(false,);
         setChangingApiSecret(false,);
         setChangingAccessToken(false,);
@@ -219,7 +226,14 @@ const ConnectionsPanel: Component = () => {
             credentials,
         };
         // X free/api mode lives in the connection settings blob.
-        if (provider === 'twitter') data.settings = { twitterMode: twitterMode(), };
+        // X analytics opt-in rides there too (the spend counter is a separate key the collector owns).
+        if (provider === 'twitter') {
+            const cap = Number.parseFloat(xAnalyticsCap(),);
+            data.settings = {
+                twitterMode: twitterMode(),
+                analytics: { enabled: xAnalytics(), ...(Number.isFinite(cap,) && cap >= 0 ? { monthlyCapUsd: cap, } : {}), },
+            };
+        }
 
         const conn = getConnection(provider,);
         try {
@@ -353,6 +367,7 @@ const ConnectionsPanel: Component = () => {
                                             {conn() ? 'Edit' : 'Setup'}
                                         </button>
                                         <Show when={isConnected()}>
+                                            <Show when={!provider.analyticsOnly}>
                                             <button
                                                 class="ui-button ui-button--sm"
                                                 disabled={syncing() === provider.id}
@@ -360,6 +375,7 @@ const ConnectionsPanel: Component = () => {
                                             >
                                                 {syncing() === provider.id ? 'Syncing…' : 'Sync now'}
                                             </button>
+                                            </Show>
                                             <button
                                                 class="ui-button ui-button--sm ui-button--danger"
                                                 onClick={() => handleDisconnect(provider.id,)}
@@ -394,6 +410,32 @@ const ConnectionsPanel: Component = () => {
                                                         <option value="api">API (paid Basic tier auto-sync)</option>
                                                     </select>
                                                 </FormField>
+                                                <Show when={twitterMode() === 'api'}>
+                                                        <Toggle
+                                                            checked={xAnalytics()}
+                                                            onChange={setXAnalytics}
+                                                            label="Collect analytics (paid)"
+                                                        />
+                                                        <FormField
+                                                            label="Monthly cap (USD)"
+                                                            tooltip="Every X API read costs credits. Collection stops for the month once the estimated spend would pass this cap. Estimate uses X's standard rates ($0.005 per post read, $0.01 per account read); owned reads bill less. Empty = $10."
+                                                            hint={(() => {
+                                                                const s = conn()?.settings?.analyticsSpend;
+                                                                const month = new Date().toISOString().slice(0, 7,);
+                                                                return s?.month === month ? `≈$${Number(s.spentUsd || 0,).toFixed(2,)} spent this month` : undefined;
+                                                            })()}
+                                                        >
+                                                            <CommitInput
+                                                                type="number"
+                                                                min={0}
+                                                                step="0.5"
+                                                                value={xAnalyticsCap()}
+                                                                placeholder="10"
+                                                                disabled={!xAnalytics()}
+                                                                onCommit={setXAnalyticsCap}
+                                                            />
+                                                        </FormField>
+                                                </Show>
                                             </Show>
                                             <Show when={provider.id === 'youtube'}>
                                                 <div class="connection-card__google">
@@ -578,6 +620,15 @@ const ConnectionsPanel: Component = () => {
                                             </Show>
                                         </>
                                     }>
+                                        <Show when={provider.id === 'threads'}>
+                                            <p class="form-help">
+                                                Analytics only — Threads posts are not added to the public feed. In your Meta app, add the
+                                                <strong> Threads API</strong> use case with the <code>threads_basic</code> and{' '}
+                                                <code>threads_manage_insights</code> permissions, add this redirect callback URL:{' '}
+                                                <code>{`${window.location.origin}/api/v1/connections/threads/oauth/callback`}</code>,
+                                                and use the <strong>Threads</strong> app ID and secret (Use cases → Threads API → Settings).
+                                            </p>
+                                        </Show>
                                         <FormField label="App ID" hint="From your Meta Developer App at developers.facebook.com">
                                             <input
                                                 type="text"
@@ -617,6 +668,7 @@ const ConnectionsPanel: Component = () => {
                                     <div class="form-group">
                                         <Toggle checked={enabled()} onChange={setEnabled} label="Enabled" />
                                     </div>
+                                    <Show when={!provider.analyticsOnly}>
                                     <div class="form-group">
                                         <span class="u-flex-row" style={{ 'align-items': 'center', gap: '6px', }}>
                                             <Toggle checked={autoPublish()} onChange={setAutoPublish} label="Sync posts automatically" />
@@ -653,6 +705,7 @@ const ConnectionsPanel: Component = () => {
                                                 </div>
                                             </Show>
                                         </div>
+                                    </Show>
                                     </Show>
                                     </div>
                                     <div class="form-actions u-flex-row">

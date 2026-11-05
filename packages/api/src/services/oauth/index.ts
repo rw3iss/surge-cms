@@ -1,6 +1,7 @@
 import { ValidationError, } from '../../core/errors';
 import { GoogleYouTubeOAuthProvider, } from './google';
 import { InstagramOAuthProvider, } from './instagram';
+import { ThreadsOAuthProvider, } from './threads';
 import type { OAuthProvider, } from './types';
 
 export type { OAuthProvider, OAuthTokenResult, OAuthUserInfo, } from './types';
@@ -30,6 +31,13 @@ const OAUTH_PROVIDERS: Record<string, OAuthProviderFactory> = {
         new GoogleYouTubeOAuthProvider({
             clientId: credentials.appId,
             clientSecret: credentials.appSecret,
+            redirectUri,
+        },),
+    // Threads: analytics-only connection (threads_basic + threads_manage_insights).
+    threads: (credentials, redirectUri,) =>
+        new ThreadsOAuthProvider({
+            appId: credentials.appId,
+            appSecret: credentials.appSecret,
             redirectUri,
         },),
 };

@@ -68,7 +68,10 @@ that writes plugin tables should manage its own transaction. Client SDK:
 (`docs/how-it-works/GIVEBUTTER.md`) and **Shopify** (`docs/how-it-works/SHOPIFY.md`) — the latter an
 **override-style** plugin that takes over the whole Shop feature (public storefront
 + admin) via the action-RPC and a frontend `shopifySource` seam gated on
-`isPluginEnabled('shopify')`.
+`isPluginEnabled('shopify')`. **claude-broker** (`docs/how-it-works/AI.md`) is a
+*service* plugin: core code (the AI module) calls its actions server-side through
+`plugins.dispatchAction(name, action, payload, ctx, { audit: false })` — the
+pattern for a plugin that backs a core feature.
 - `ctx.db` — `query(sql,params)`, `tableName(suffix)` → `plugin_<name>_<suffix>`, `migrate()`.
 - `ctx.storage` — `dir`, `dataDir`, `read/write/exists`, `download(url, rel, {force})`.
 - `ctx.httpJson(url, {method, headers, jsonBody})` — JSON HTTP with a normalized

@@ -226,6 +226,190 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         ]
     },
     {
+        "namespace": "ai",
+        "className": "AiModule",
+        "summary": "/ai — the CMS AI module (staff + `ai:use`). Prompts go to the claude-broker plugin (session POOLS) or the Anthropic API; every answer is an `AiResult`. Reads are never cached — pools and jobs change by the second.",
+        "methods": [
+            {
+                "name": "ask",
+                "signature": "ask(prompt: string, opts: Omit<AiQueryBody, 'prompt'> = {}): Promise<AiResult>",
+                "summary": "Shorthand: `query({ prompt, ...opts })`.",
+                "params": [
+                    {
+                        "name": "prompt",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "opts",
+                        "type": "Omit<AiQueryBody, 'prompt'>",
+                        "optional": true,
+                        "default": "{}"
+                    }
+                ],
+                "returns": "Promise<AiResult>",
+                "routes": [
+                    "POST /api/v1/ai/query"
+                ]
+            },
+            {
+                "name": "cancel",
+                "signature": "cancel(id: string): Promise<AiResult>",
+                "summary": "Cancel a broker job.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<AiResult>",
+                "routes": [
+                    "DELETE /api/v1/ai/jobs/:id"
+                ]
+            },
+            {
+                "name": "comment",
+                "signature": "comment(id: string, note: string): Promise<AiResult>",
+                "summary": "Add a note to a running broker job.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "note",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<AiResult>",
+                "routes": [
+                    "POST /api/v1/ai/jobs/:id/comment"
+                ]
+            },
+            {
+                "name": "job",
+                "signature": "job(id: string, opts: { wait?: number; } = {}): Promise<AiResult>",
+                "summary": "One job; `wait` (seconds) long-polls until it settles.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "opts",
+                        "type": "{ wait?: number; }",
+                        "optional": true,
+                        "default": "{}"
+                    }
+                ],
+                "returns": "Promise<AiResult>",
+                "routes": [
+                    "GET /api/v1/ai/jobs/:id"
+                ]
+            },
+            {
+                "name": "jobs",
+                "signature": "jobs(query: AiJobsQuery = {}): Promise<AiResult[]>",
+                "summary": "Recent broker jobs sent by the CMS.",
+                "params": [
+                    {
+                        "name": "query",
+                        "type": "AiJobsQuery",
+                        "optional": true,
+                        "default": "{}"
+                    }
+                ],
+                "returns": "Promise<AiResult[]>",
+                "routes": [
+                    "GET /api/v1/ai/jobs"
+                ]
+            },
+            {
+                "name": "pools",
+                "signature": "pools(): Promise<AiPool[]>",
+                "summary": "Broker pools: expected vs attached / busy / idle sessions.",
+                "params": [],
+                "returns": "Promise<AiPool[]>",
+                "routes": [
+                    "GET /api/v1/ai/pools"
+                ]
+            },
+            {
+                "name": "query",
+                "signature": "query(body: AiQueryBody): Promise<AiResult>",
+                "summary": "Send a prompt. Waits (≤ 55 s over HTTP) unless `wait: false`; a running job comes back `timedOut` — poll `job(id, { wait })`.",
+                "params": [
+                    {
+                        "name": "body",
+                        "type": "AiQueryBody",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<AiResult>",
+                "routes": [
+                    "POST /api/v1/ai/query"
+                ]
+            },
+            {
+                "name": "sessions",
+                "signature": "sessions(query: { pool?: string; all?: boolean; } = {}): Promise<AiSession[]>",
+                "summary": "Broker sessions (attached unless `all`), optionally one pool's.",
+                "params": [
+                    {
+                        "name": "query",
+                        "type": "{ pool?: string; all?: boolean; }",
+                        "optional": true,
+                        "default": "{}"
+                    }
+                ],
+                "returns": "Promise<AiSession[]>",
+                "routes": [
+                    "GET /api/v1/ai/sessions"
+                ]
+            },
+            {
+                "name": "settings",
+                "signature": "settings(): Promise<AiSettings>",
+                "summary": "AI settings (Anthropic key masked). `ai:manage`.",
+                "params": [],
+                "returns": "Promise<AiSettings>",
+                "routes": [
+                    "GET /api/v1/ai/settings"
+                ]
+            },
+            {
+                "name": "status",
+                "signature": "status(): Promise<AiStatusResponse>",
+                "summary": "Providers, broker plugin state, and every pool's live status.",
+                "params": [],
+                "returns": "Promise<AiStatusResponse>",
+                "routes": [
+                    "GET /api/v1/ai/status"
+                ]
+            },
+            {
+                "name": "updateSettings",
+                "signature": "updateSettings(body: AiSettingsBody): Promise<AiSettings>",
+                "summary": "Update the default provider / Anthropic key + model. `ai:manage`.",
+                "params": [
+                    {
+                        "name": "body",
+                        "type": "AiSettingsBody",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<AiSettings>",
+                "routes": [
+                    "PUT /api/v1/ai/settings"
+                ]
+            }
+        ]
+    },
+    {
         "namespace": "apiKeys",
         "className": "ApiKeysModule",
         "summary": "/api-keys namespace (all admin) — list/create/revoke.",
@@ -10336,6 +10520,145 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         ]
     },
     {
+        "namespace": "socialAnalytics",
+        "className": "SocialAnalyticsModule",
+        "summary": "/social-analytics — collected social account + post analytics (staff). Everything is read from the CMS's own daily snapshots; `collect` runs the platform collectors now.",
+        "methods": [
+            {
+                "name": "collect",
+                "signature": "collect(platforms?: string[]): Promise<SocialAnalyticsCollectResponse>",
+                "summary": "Run the collectors now (all ready ones, or the named platforms).",
+                "params": [
+                    {
+                        "name": "platforms",
+                        "type": "string[]",
+                        "optional": true
+                    }
+                ],
+                "returns": "Promise<SocialAnalyticsCollectResponse>",
+                "routes": [
+                    "POST /api/v1/social-analytics/collect"
+                ]
+            },
+            {
+                "name": "collectors",
+                "signature": "collectors(): Promise<SocialAnalyticsCollectorsResponse>",
+                "summary": "Each platform collector's state and what it collects.",
+                "params": [],
+                "returns": "Promise<SocialAnalyticsCollectorsResponse>",
+                "routes": [
+                    "GET /api/v1/social-analytics/collectors"
+                ]
+            },
+            {
+                "name": "overview",
+                "signature": "overview(query: SocialAnalyticsOverviewQuery = {}): Promise<SocialAnalyticsOverviewResponse>",
+                "summary": "Per-platform totals for a period (default: the last 28 days).",
+                "params": [
+                    {
+                        "name": "query",
+                        "type": "SocialAnalyticsOverviewQuery",
+                        "optional": true,
+                        "default": "{}"
+                    }
+                ],
+                "returns": "Promise<SocialAnalyticsOverviewResponse>",
+                "routes": [
+                    "GET /api/v1/social-analytics/overview"
+                ]
+            },
+            {
+                "name": "post",
+                "signature": "post(id: string, query: SocialAnalyticsRangeQuery = {}): Promise<SocialAnalyticsPostSeriesResponse>",
+                "summary": "One post's metrics + daily history in the period.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "query",
+                        "type": "SocialAnalyticsRangeQuery",
+                        "optional": true,
+                        "default": "{}"
+                    }
+                ],
+                "returns": "Promise<SocialAnalyticsPostSeriesResponse>",
+                "routes": [
+                    "GET /api/v1/social-analytics/posts/:id"
+                ]
+            },
+            {
+                "name": "posts",
+                "signature": "posts(query: SocialAnalyticsPostsQuery = {}): Promise<Paginated<SocialPostAnalytics>>",
+                "summary": "Posts with their latest metrics (paginated).",
+                "params": [
+                    {
+                        "name": "query",
+                        "type": "SocialAnalyticsPostsQuery",
+                        "optional": true,
+                        "default": "{}"
+                    }
+                ],
+                "returns": "Promise<Paginated<SocialPostAnalytics>>",
+                "routes": [
+                    "GET /api/v1/social-analytics/posts"
+                ]
+            },
+            {
+                "name": "runs",
+                "signature": "runs(query: SocialAnalyticsRunsQuery = {}): Promise<SocialAnalyticsRunsResponse>",
+                "summary": "Recent collector runs (admin).",
+                "params": [
+                    {
+                        "name": "query",
+                        "type": "SocialAnalyticsRunsQuery",
+                        "optional": true,
+                        "default": "{}"
+                    }
+                ],
+                "returns": "Promise<SocialAnalyticsRunsResponse>",
+                "routes": [
+                    "GET /api/v1/social-analytics/runs"
+                ]
+            },
+            {
+                "name": "series",
+                "signature": "series(query: SocialAnalyticsSeriesQuery): Promise<SocialAnalyticsSeriesResponse>",
+                "summary": "One daily series of a platform (followers, views, watchTimeMinutes, likes, …).",
+                "params": [
+                    {
+                        "name": "query",
+                        "type": "SocialAnalyticsSeriesQuery",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<SocialAnalyticsSeriesResponse>",
+                "routes": [
+                    "GET /api/v1/social-analytics/series"
+                ]
+            },
+            {
+                "name": "summary",
+                "signature": "summary(range: SocialAnalyticsRangeQuery = {}): Promise<AiResult>",
+                "summary": "AI summary of a period (Markdown in `text`). A long answer comes back `timedOut` — poll `cms.ai.job(id, { wait })`.",
+                "params": [
+                    {
+                        "name": "range",
+                        "type": "SocialAnalyticsRangeQuery",
+                        "optional": true,
+                        "default": "{}"
+                    }
+                ],
+                "returns": "Promise<AiResult>",
+                "routes": [
+                    "POST /api/v1/social-analytics/summary"
+                ]
+            }
+        ]
+    },
+    {
         "namespace": "subscriptionTiers",
         "className": "SubscriptionTiersModule",
         "summary": "subscriptionTiers namespace (admin) — what subscribers get. Writes need `subscriptions:manage`.",
@@ -11060,5 +11383,5 @@ export const SDK_MODULES: SdkModuleDoc[] = [
     }
 ];
 
-export const SDK_MODULE_COUNT = 56;
-export const SDK_METHOD_COUNT = 651;
+export const SDK_MODULE_COUNT = 58;
+export const SDK_METHOD_COUNT = 670;

@@ -353,6 +353,280 @@ export const API_MODULES: ApiModuleDoc[] = [
         ]
     },
     {
+        "module": "ai",
+        "mountPath": "/api/v1/ai",
+        "routes": [
+            {
+                "method": "GET",
+                "path": "/status",
+                "absolutePath": "/api/v1/ai/status",
+                "auth": "staff",
+                "summary": "Providers (available or why not), the broker plugin state and every pool's live status.",
+                "sdk": [
+                    "cms.ai.status"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/pools",
+                "absolutePath": "/api/v1/ai/pools",
+                "auth": "staff",
+                "summary": "The broker pools: configured count vs attached / busy / idle sessions.",
+                "sdk": [
+                    "cms.ai.pools"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/sessions",
+                "absolutePath": "/api/v1/ai/sessions",
+                "auth": "staff",
+                "summary": "Broker sessions (attached unless `all`), optionally one pool's.",
+                "input": {
+                    "query": [
+                        {
+                            "name": "pool",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "all",
+                            "type": "boolean",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.ai.sessions"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/query",
+                "absolutePath": "/api/v1/ai/query",
+                "auth": "staff",
+                "summary": "Send a prompt to a provider (broker pool / session, or Anthropic). Waits (≤ 55 s) for the answer unless wait=false.",
+                "input": {
+                    "body": [
+                        {
+                            "name": "prompt",
+                            "type": "string",
+                            "required": true
+                        },
+                        {
+                            "name": "system",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "provider",
+                            "type": "'broker' | 'anthropic'",
+                            "required": false
+                        },
+                        {
+                            "name": "pool",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "session",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "format",
+                            "type": "'text' | 'json'",
+                            "required": false
+                        },
+                        {
+                            "name": "wait",
+                            "type": "boolean",
+                            "required": false
+                        },
+                        {
+                            "name": "timeoutSec",
+                            "type": "integer",
+                            "required": false
+                        },
+                        {
+                            "name": "kind",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "meta",
+                            "type": "object",
+                            "required": false
+                        },
+                        {
+                            "name": "model",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "maxTokens",
+                            "type": "integer",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.ai.ask",
+                    "cms.ai.query"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/jobs",
+                "absolutePath": "/api/v1/ai/jobs",
+                "auth": "staff",
+                "summary": "Recent broker jobs sent by the CMS (all jobs with `all`).",
+                "input": {
+                    "query": [
+                        {
+                            "name": "status",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "pool",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "limit",
+                            "type": "integer",
+                            "required": false
+                        },
+                        {
+                            "name": "all",
+                            "type": "boolean",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.ai.jobs"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/jobs/:id",
+                "absolutePath": "/api/v1/ai/jobs/:id",
+                "auth": "staff",
+                "summary": "One broker job as an AiResult; `wait=N` long-polls until it settles.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string",
+                            "required": true
+                        }
+                    ],
+                    "query": [
+                        {
+                            "name": "wait",
+                            "type": "integer",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.ai.job"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "DELETE",
+                "path": "/jobs/:id",
+                "absolutePath": "/api/v1/ai/jobs/:id",
+                "auth": "staff",
+                "summary": "Cancel a broker job.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.ai.cancel"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/jobs/:id/comment",
+                "absolutePath": "/api/v1/ai/jobs/:id/comment",
+                "auth": "staff",
+                "summary": "Add a note to a running broker job (the session sees it).",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string",
+                            "required": true
+                        }
+                    ],
+                    "body": [
+                        {
+                            "name": "note",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.ai.comment"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/settings",
+                "absolutePath": "/api/v1/ai/settings",
+                "auth": "staff",
+                "summary": "AI settings (the Anthropic key masked).",
+                "sdk": [
+                    "cms.ai.settings"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "PUT",
+                "path": "/settings",
+                "absolutePath": "/api/v1/ai/settings",
+                "auth": "staff",
+                "summary": "Update the default provider / Anthropic key + model (an echoed mask keeps the key).",
+                "input": {
+                    "body": [
+                        {
+                            "name": "defaultProvider",
+                            "type": "'broker' | 'anthropic'",
+                            "required": false
+                        },
+                        {
+                            "name": "anthropic",
+                            "type": "object",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.ai.updateSettings"
+                ],
+                "sdkStatus": "method"
+            }
+        ]
+    },
+    {
         "module": "api-keys",
         "mountPath": "/api/v1/api-keys",
         "routes": [
@@ -2429,7 +2703,7 @@ export const API_MODULES: ApiModuleDoc[] = [
                     "body": [
                         {
                             "name": "provider",
-                            "type": "'instagram' | 'facebook' | 'tiktok' | 'patreon' | 'youtube' | 'twitter'",
+                            "type": "'instagram' | 'facebook' | 'tiktok' | 'patreon' | 'youtube' | 'twitter' | 'threads'",
                             "required": true
                         },
                         {
@@ -2513,7 +2787,7 @@ export const API_MODULES: ApiModuleDoc[] = [
                     "params": [
                         {
                             "name": "provider",
-                            "type": "'instagram' | 'facebook' | 'tiktok' | 'patreon' | 'youtube' | 'twitter'",
+                            "type": "'instagram' | 'facebook' | 'tiktok' | 'patreon' | 'youtube' | 'twitter' | 'threads'",
                             "required": true
                         }
                     ]
@@ -2533,7 +2807,7 @@ export const API_MODULES: ApiModuleDoc[] = [
                     "params": [
                         {
                             "name": "provider",
-                            "type": "'instagram' | 'facebook' | 'tiktok' | 'patreon' | 'youtube' | 'twitter'",
+                            "type": "'instagram' | 'facebook' | 'tiktok' | 'patreon' | 'youtube' | 'twitter' | 'threads'",
                             "required": true
                         }
                     ],
@@ -2580,14 +2854,14 @@ export const API_MODULES: ApiModuleDoc[] = [
                     "params": [
                         {
                             "name": "provider",
-                            "type": "'instagram' | 'facebook' | 'tiktok' | 'patreon' | 'youtube' | 'twitter'",
+                            "type": "'instagram' | 'facebook' | 'tiktok' | 'patreon' | 'youtube' | 'twitter' | 'threads'",
                             "required": true
                         }
                     ],
                     "body": [
                         {
                             "name": "provider",
-                            "type": "'instagram' | 'facebook' | 'tiktok' | 'patreon' | 'youtube' | 'twitter'",
+                            "type": "'instagram' | 'facebook' | 'tiktok' | 'patreon' | 'youtube' | 'twitter' | 'threads'",
                             "required": false
                         },
                         {
@@ -4853,6 +5127,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                             "required": false
                         },
                         {
+                            "name": "locationLabel",
+                            "type": "string | null",
+                            "required": false
+                        },
+                        {
                             "name": "locationLat",
                             "type": "number | null",
                             "required": false
@@ -4996,6 +5275,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                         },
                         {
                             "name": "location",
+                            "type": "string | null",
+                            "required": false
+                        },
+                        {
+                            "name": "locationLabel",
                             "type": "string | null",
                             "required": false
                         },
@@ -17124,6 +17408,251 @@ export const API_MODULES: ApiModuleDoc[] = [
         ]
     },
     {
+        "module": "social-analytics",
+        "mountPath": "/api/v1/social-analytics",
+        "feature": "social",
+        "routes": [
+            {
+                "method": "GET",
+                "path": "/overview",
+                "absolutePath": "/api/v1/social-analytics/overview",
+                "auth": "staff",
+                "summary": "Per-platform totals for a period (followers, views, watch time, engagement) + definition-change notes.",
+                "input": {
+                    "query": [
+                        {
+                            "name": "from",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "to",
+                            "type": "string",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.socialAnalytics.overview"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/series",
+                "absolutePath": "/api/v1/social-analytics/series",
+                "auth": "staff",
+                "summary": "One daily series of a platform (followers, views, watchTimeMinutes, likes, …).",
+                "input": {
+                    "query": [
+                        {
+                            "name": "from",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "to",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "platform",
+                            "type": "string",
+                            "required": true
+                        },
+                        {
+                            "name": "metric",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.socialAnalytics.series"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/posts",
+                "absolutePath": "/api/v1/social-analytics/posts",
+                "auth": "staff",
+                "summary": "Captured posts with their latest metrics, views gained in the period and at day 7 (paginated).",
+                "input": {
+                    "query": [
+                        {
+                            "name": "from",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "to",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "platform",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "kind",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "search",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "sort",
+                            "type": "'publishedAt' | 'views' | 'viewsInPeriod' | 'likes' | 'comments' | 'shares' | 'watchTimeS' | 'engagementRate' | …",
+                            "required": false
+                        },
+                        {
+                            "name": "dir",
+                            "type": "'asc' | 'desc'",
+                            "required": false
+                        },
+                        {
+                            "name": "page",
+                            "type": "integer",
+                            "required": false
+                        },
+                        {
+                            "name": "limit",
+                            "type": "integer",
+                            "required": false
+                        },
+                        {
+                            "name": "publishedInPeriod",
+                            "type": "boolean",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.socialAnalytics.posts"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/posts/:id",
+                "absolutePath": "/api/v1/social-analytics/posts/:id",
+                "auth": "staff",
+                "summary": "One post's metrics and its daily history in the period.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ],
+                    "query": [
+                        {
+                            "name": "from",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "to",
+                            "type": "string",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.socialAnalytics.post"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/collectors",
+                "absolutePath": "/api/v1/social-analytics/collectors",
+                "auth": "staff",
+                "summary": "Each platform collector: ready / partial / off, what it collects and what to do.",
+                "sdk": [
+                    "cms.socialAnalytics.collectors"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/runs",
+                "absolutePath": "/api/v1/social-analytics/runs",
+                "auth": "staff",
+                "summary": "Recent collector runs (status, counts, warnings, errors).",
+                "input": {
+                    "query": [
+                        {
+                            "name": "platform",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "limit",
+                            "type": "integer",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.socialAnalytics.runs"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/summary",
+                "absolutePath": "/api/v1/social-analytics/summary",
+                "auth": "staff",
+                "summary": "AI summary of the period (headline, what changed, top posts, next steps) via the AI module.",
+                "input": {
+                    "body": [
+                        {
+                            "name": "from",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "to",
+                            "type": "string",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.socialAnalytics.summary"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/collect",
+                "absolutePath": "/api/v1/social-analytics/collect",
+                "auth": "staff",
+                "summary": "Run the collectors now (all ready ones, or the named platforms).",
+                "input": {
+                    "body": [
+                        {
+                            "name": "platforms",
+                            "type": "string[]",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.socialAnalytics.collect"
+                ],
+                "sdkStatus": "method"
+            }
+        ]
+    },
+    {
         "module": "subscription-tiers",
         "mountPath": "/api/v1/subscription-tiers",
         "routes": [
@@ -18973,5 +19502,5 @@ export const API_MODULES: ApiModuleDoc[] = [
     }
 ];
 
-export const API_MODULE_COUNT = 61;
-export const API_ROUTE_COUNT = 656;
+export const API_MODULE_COUNT = 63;
+export const API_ROUTE_COUNT = 674;

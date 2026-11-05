@@ -17,6 +17,8 @@ const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 export const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 export const GOOGLE_REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
 export const YOUTUBE_READONLY_SCOPE = 'https://www.googleapis.com/auth/youtube.readonly';
+/** YouTube Analytics + Reporting APIs (views, watch time, impressions) — the channel OWNER must grant it. */
+export const YT_ANALYTICS_SCOPE = 'https://www.googleapis.com/auth/yt-analytics.readonly';
 const YT_API = 'https://www.googleapis.com/youtube/v3';
 
 interface GoogleConfig {
@@ -83,7 +85,7 @@ export class GoogleYouTubeOAuthProvider implements OAuthProvider {
             client_id: this.config.clientId,
             redirect_uri: this.config.redirectUri,
             response_type: 'code',
-            scope: YOUTUBE_READONLY_SCOPE,
+            scope: `${YOUTUBE_READONLY_SCOPE} ${YT_ANALYTICS_SCOPE}`,
             access_type: 'offline',
             // A refresh token is only issued on a consent screen; without this a
             // second connect returns none and the connection dies in an hour.

@@ -40,6 +40,8 @@ import { ContributionsModule, } from './contributions';
 import { PartnersModule, } from './partners';
 import { NotificationsModule, } from './notifications';
 import { GeoModule, } from './geo';
+import { AiModule, } from './ai';
+import { SocialAnalyticsModule, } from './socialAnalytics';
 import { MailSendModule, } from './mailSend';
 import { PaymentsModule, } from './payments';
 import { SettingsModule, } from './settings';
@@ -100,6 +102,8 @@ export interface CmsModules {
     partners: PartnersModule;
     notifications: NotificationsModule;
     geo: GeoModule;
+    ai: AiModule;
+    socialAnalytics: SocialAnalyticsModule;
     mailSend: MailSendModule;
     payments: PaymentsModule;
     settings: SettingsModule;
@@ -166,6 +170,8 @@ export function assembleModules(core: CmsClientCore,): CmsClientCore & CmsModule
     c.partners = new PartnersModule(core,);
     c.notifications = new NotificationsModule(core,);
     c.geo = new GeoModule(core,);
+    c.ai = new AiModule(core,);
+    c.socialAnalytics = new SocialAnalyticsModule(core,);
     c.mailSend = new MailSendModule(core,);
     c.payments = new PaymentsModule(core,);
     c.settings = new SettingsModule(core,);
@@ -191,7 +197,7 @@ export {
     UsersModule, MessagesModule, SocialModule, SearchModule, UtilsModule, AuditModule, DashboardModule,
     AuthModule, ApiKeysModule, ConnectionsModule, BlockStylesModule, FontsModule,
     DevModule, HealthModule, SetupModule,
-    MailingListsModule, MailTemplatesModule, RepliesModule, MailArchiveModule, ExportsModule, RolesModule, SubscriptionTiersModule, MembershipApplicationsModule, AffiliatesModule, ContributionsModule, PartnersModule, NotificationsModule, GeoModule, MailSendModule, PaymentsModule,
+    MailingListsModule, MailTemplatesModule, RepliesModule, MailArchiveModule, ExportsModule, RolesModule, SubscriptionTiersModule, MembershipApplicationsModule, AffiliatesModule, ContributionsModule, PartnersModule, NotificationsModule, GeoModule, SocialAnalyticsModule, MailSendModule, PaymentsModule,
     SettingsModule, ShopModule, PluginsModule, FeedModule, SitemapModule,
     ComponentsModule,
     EntitiesModule, EntityTypesModule, ContentBlockTemplatesModule,

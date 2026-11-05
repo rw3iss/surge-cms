@@ -24,3 +24,4 @@ export * from './liveProviders';
 export * from './discussions';
 export * from './forum';
 export * from './forumBlock';
+export * from './socialAnalytics';
