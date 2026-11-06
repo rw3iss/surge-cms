@@ -72,7 +72,14 @@ if [ -x "$BIN/claude-broker" ] || command -v claude-broker >/dev/null 2>&1; then
         claude-broker update || curl -fsSL https://raw.githubusercontent.com/rw3iss/claude-broker/main/install.sh | bash -s -- --update
     fi
     ok "claude-broker $(claude-broker --version 2>/dev/null | head -1)"
-else curl -fsSL https://raw.githubusercontent.com/rw3iss/claude-broker/main/install.sh | bash; ok "claude-broker installed"; fi
+else
+    # A half-finished earlier install (folder but no binary) blocks the installer — move it aside.
+    if [ -d "$HOME/.local/share/claude-broker" ]; then
+        mv "$HOME/.local/share/claude-broker" "$HOME/.local/share/claude-broker.failed-$(date +%Y%m%d%H%M%S)"
+    fi
+    curl -fsSL https://raw.githubusercontent.com/rw3iss/claude-broker/main/install.sh | bash
+    ok "claude-broker installed"
+fi
 
 say "Broker token"
 mkdir -p "$CONF_DIR"
