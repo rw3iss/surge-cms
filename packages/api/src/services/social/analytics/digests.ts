@@ -22,12 +22,14 @@ import type {
     SocialAnalyticsDigest,
     SocialAnalyticsDigestSummary,
     SocialAnalyticsSettings,
+    SocialAudience,
     SocialSeriesPoint,
 } from '@sitesurge/types';
 import { query, } from '../../../db';
 import { NotFoundError, } from '../../../core/errors';
 import { logger, } from '../../../utils/logger';
 import * as ai from '../../ai';
+import { audience, } from './audience';
 import { overview, posts, resolveRange, series, } from './read';
 import { getSettings, } from './settings';
 import { summaryTarget, } from './summary';
@@ -143,6 +145,13 @@ export function cleanInsights(raw: unknown,): DigestAiInsights | null {
     };
 }
 
+/** Is there anything to show for this platform's audience? */
+export function hasAudienceData(a: SocialAudience,): boolean {
+    const d = a.demographics;
+    return Boolean(d.followers || d.engaged || d.reached || a.onlineHours.length || a.benchmarks.length || a.stories.count
+        || Object.values(a.breakdowns,).some((b,) => b.length,));
+}
+
 // ─── Build ────────────────────────────────────────────────────────────────────
 
 const AI_SYSTEM = 'You are a social media analyst for a news/media organisation. Write in plain, short American English. '
@@ -155,6 +164,19 @@ async function aiInsights(data: Omit<DigestData, 'ai'>, pool: string,): Promise<
         period: { from: data.from, to: data.to, previous: { from: data.previousFrom, to: data.previousTo, }, },
         totals: data.totals,
         platforms: data.platforms.map((p,) => ({ platform: p.label, since: p.since, metrics: p.metrics, status: p.statusMessage, })),
+        audience: (data.audience ?? []).map((a,) => ({
+            platform: a.platform,
+            followerAge: a.demographics.followers?.age.slice(0, 4,).map((b,) => `${b.key} ${Math.round(b.share * 100,)}%`,),
+            followerGender: a.demographics.followers?.gender.map((b,) => `${b.key} ${Math.round(b.share * 100,)}%`,),
+            topCountries: a.demographics.followers?.country.slice(0, 5,).map((b,) => `${b.key} ${Math.round(b.share * 100,)}%`,),
+            bestHours: [...a.onlineHours,].sort((x, y,) => y.value - x.value,).slice(0, 3,).map((h,) => h.hour,),
+            viewsByType: a.breakdowns.viewsByType.map((b,) => `${b.key} ${Math.round(b.share * 100,)}%`,),
+            viewsByFollow: a.breakdowns.viewsByFollow.map((b,) => `${b.key} ${Math.round(b.share * 100,)}%`,),
+            contentKinds: a.contentKinds,
+            topHashtags: a.hashtags.slice(0, 8,),
+            stories: a.stories,
+            benchmarks: a.benchmarks.map((b,) => ({ username: b.username, followers: b.followers, engagementRate: b.engagementRate, postsPerWeek: b.postsPerWeek, })),
+        })),
         topPosts: data.topPosts.map((p,) => ({
             id: p.id, platform: p.platform, kind: p.kind, title: p.title, published: p.publishedAt?.slice(0, 10,),
             viewsInPeriod: p.viewsInPeriod, views: p.views, viewsDay7: p.viewsDay7, likes: p.likes, comments: p.comments,
@@ -170,7 +192,7 @@ async function aiInsights(data: Omit<DigestData, 'ai'>, pool: string,): Promise<
         ' "highlights": 3-6 short bullets on what changed and why it matters,',
         ' "platforms": [{"platform": name, "summary": 1-2 sentences}] for platforms with data,',
         ' "topPosts": [{"id": the post id given, "why": one sentence on why it likely worked}] for up to 5 posts,',
-        ' "suggestions": 2-4 concrete next steps}',
+        ' "suggestions": 2-4 concrete next steps (use the audience data — best hours, content types, hashtags, benchmarks — when present)}',
         '',
         'Data:',
         JSON.stringify(digest,),
@@ -230,9 +252,18 @@ export async function buildDigestData(range: { from: string; to: string; }, sett
         topPosts = r.data.filter((p,) => want(p.platform,) && (p.viewsInPeriod ?? 0) > 0,).slice(0, d.topPosts,);
     }
 
+    let audiences: DigestData['audience'];
+    if (has('audience',)) {
+        audiences = [];
+        for (const a of accounts) {
+            const au = await audience(a.platform, range,).catch(() => null);
+            if (au && hasAudienceData(au,)) audiences.push(au,);
+        }
+    }
+
     const base: Omit<DigestData, 'ai'> = {
         v: 1, from: range.from, to: range.to, previousFrom: prev.from, previousTo: prev.to, sections,
-        totals, platforms, topPosts, definitionChanges: cur.definitionChanges,
+        totals, platforms, topPosts, audience: audiences, definitionChanges: cur.definitionChanges,
     };
     const aiPart: DigestData['ai'] = has('ai',)
         ? await aiInsights(base, d.aiPool,).catch((e,) => ({ status: 'failed' as const, insights: null, error: (e as Error).message, provider: null, pool: null, }))

@@ -1,39 +1,65 @@
 /**
- * Instagram analytics collector — Business / Creator accounts (plan §3.2).
+ * Instagram analytics collector — everything the Graph API gives a
+ * Business / Creator account (plan §3.2). Each part runs on its own, so an
+ * account that is refused one family (e.g. account-level insights before it
+ * is a Business account) still collects the rest:
  *
- *  1. Account node: followers_count, follows_count, media_count (snapshot).
- *  2. Account insights, per day for the last 3 days (Meta lags up to 48 h,
- *     so each run rewrites them): views, reach, likes, comments, shares,
- *     saves, total_interactions, accounts_engaged, profile_links_taps
- *     (`metric_type=total_value`, one call per day) + follows_and_unfollows
- *     (breakdown follow_type → followersGained / followersLost), with the
- *     older `follower_count` series as the gains fallback.
- *  3. Media insights for the due posts: views, reach, likes, comments,
- *     shares, saved, total_interactions (+ profile_visits/follows for feed;
- *     Reels add ig_reels_avg_watch_time / ig_reels_video_view_total_time,
- *     which the API returns in MILLISECONDS → stored as seconds).
- *  4. Stories (24 h only, not in social_posts): the `social-analytics-ig-stories`
- *     cron, every 3 hours, stores each live story's numbers as daily points
- *     — metric `storyViews` / `storyReach` / `storyReplies` / `storyShares` /
- *     `storyInteractions` with dimension `story:<id>`, on the story's UTC
- *     posting day — then re-sums that day's per-story rows into the account
- *     total (dimension '') plus `stories` (how many). Re-summing from the
- *     table, not from the current API answer, keeps stories that expired
- *     since the last sweep in the total.
+ *  1. Account node: followers, following, media count (snapshot).
+ *  2. Media discovery: the account's media list (newest first, 90 days and at
+ *     least 25 items, ≤ 300) is upserted into social_posts — so every post,
+ *     reel and carousel is tracked, not only the ones the feed sync captured.
+ *  3. Media insights per item by product type (views, reach, likes, comments,
+ *     shares, saves, interactions, profile visits/activity, follows; Reels +
+ *     watch time, avg watch time, skip rate). Refused → the like/comment
+ *     counters from the media list are still stored.
+ *  4. Account insights, last 3 days (Meta revises ~48 h): views, reach,
+ *     likes, comments, shares, saves, replies, interactions, accounts engaged,
+ *     profile link taps; follows/unfollows; splits by content type and by
+ *     followers vs non-followers; the daily new-followers series.
+ *  5. Audience (daily snapshot): follower / engaged / reached demographics by
+ *     age, gender, country, city, and followers online per hour.
+ *  6. Stories: listed + measured every 3 hours while live (they expire after
+ *     24 h) — stored as hidden social_posts (kind 'story') with per-story
+ *     metrics and navigation (taps forward/back, exits), plus daily totals.
+ *  7. Benchmarks: public Business/Creator accounts from Analytics settings via
+ *     business_discovery (Facebook-Login connections only).
  *
- * Host: a Facebook-Login token (EAA…, from our OAuth) uses graph.facebook.com
- * and the IG business account id; an Instagram-Login token (IG…) uses
- * graph.instagram.com. Every metric group is fetched separately and dead
- * metrics turn into warnings (metaGraph.fetchInsights), never a failed run.
+ * What worked is recorded as `credentials.analyticsCapabilities`, read by
+ * status() and the Audience panel. Host: Facebook-Login token (EAA…) →
+ * graph.facebook.com; Instagram-Login token (IG…) → graph.instagram.com.
  */
 import type { SocialCollectorStatus, } from '@sitesurge/types';
 import { config, } from '../../../../config';
 import { query, } from '../../../../db';
 import { logger, } from '../../../../utils/logger';
 import { registerCollector, } from '../registry';
-import type { AccountSnapshot, CollectContext, CollectResult, DailyPoint, PostMetric, } from '../types';
+import type { AccountSnapshot, CollectContext, CollectResult, DailyPoint, KnownPost, PostMetric, } from '../types';
+import { listMedia, listStories, type IgMedia, upsertInstagramMedia, } from './instagramMedia';
+import {
+    AUDIENCE_BREAKDOWNS,
+    AUDIENCE_METRICS,
+    benchmarkPoints,
+    breakdownPoints,
+    capabilityNotes,
+    demographicPoints,
+    type DiscoveredAccount,
+    followPoints,
+    IG_BREAKDOWNS,
+    IG_DAILY_METRICS,
+    type IgCapabilities,
+    mapInstagramMedia,
+    MEDIA_METRICS,
+    mediaKind,
+    type MediaKind,
+    navigationBreakdown,
+    onlineFollowerPoints,
+    STORY_METRICS,
+    storyPoints,
+    totalValuePoints,
+} from './instagramMapping';
 import {
     addDays,
+    envValue,
     FACEBOOK_GRAPH,
     fetchInsights,
     graphGet,
@@ -42,12 +68,16 @@ import {
     insightNumbers,
     isPermissionError,
     isTokenError,
-    envValue,
     mapLimit,
     timeSeriesPoints,
     unixDay,
     WarningBag,
 } from './metaGraph';
+
+export {
+    breakdownPoints, demographicPoints, followPoints, igPostKind, mapInstagramMedia, mediaKind, navigationBreakdown,
+    onlineFollowerPoints, storyPoints, totalValuePoints, benchmarkPoints,
+} from './instagramMapping';
 
 const DAILY_WINDOW = 3;
 const CONCURRENCY = 4;
@@ -78,14 +108,16 @@ function grantedScopes(credentials: Record<string, unknown>,): string[] | null {
     return null;
 }
 
-/** Last access problem seen by a collect in THIS process (shown by status()). */
-let accessProblem: string | null = null;
-
 const INSIGHTS_DENIED = 'Instagram insights are not allowed for this token. Reconnect Instagram (Social → Configuration) and grant '
     + '"instagram_manage_insights" (Facebook Login) or "instagram_business_manage_insights" (Instagram Login). '
     + 'The account must be a Business or Creator account — personal accounts have no insights.';
 const PERSONAL_ACCOUNT = 'This Instagram account is a personal account — switch it to Business or Creator in the Instagram app, '
     + 'then reconnect, to collect insights.';
+
+function capabilitiesOf(credentials: Record<string, unknown>,): IgCapabilities | null {
+    const c = credentials.analyticsCapabilities;
+    return c && typeof c === 'object' ? c as IgCapabilities : null;
+}
 
 function status(credentials: Record<string, unknown>, connected: boolean,): SocialCollectorStatus {
     const base = { platform: 'instagram' as const, label: 'Instagram', };
@@ -97,211 +129,214 @@ function status(credentials: Record<string, unknown>, connected: boolean,): Soci
     if (Number.isFinite(expires,) && expires < Date.now()) {
         return { ...base, state: 'off', message: 'The Instagram token has expired — reconnect Instagram in Social → Configuration.', collects: [], };
     }
-    const basic = ['Followers, following, post count', 'Per-post likes and comments',];
+    const basic = ['Followers, following, post count', 'Every post, reel and carousel with likes and comments',];
     const scopes = grantedScopes(credentials,);
     if (scopes && !scopes.some((s,) => INSIGHTS_SCOPES.includes(s,))) {
         return { ...base, state: 'partial', message: INSIGHTS_DENIED, collects: basic, };
     }
-    if (accessProblem) return { ...base, state: 'partial', message: accessProblem, collects: basic, };
-    return {
-        ...base,
-        state: 'ready',
-        message: null,
-        collects: [
-            ...basic,
-            'Daily views, reach, likes, comments, shares, saves, interactions, profile link taps',
-            'Daily follows / unfollows',
-            'Per-post views, reach, shares, saves; Reels watch time + avg watch time',
-            'Stories (views, reach, replies, shares) every 3 hours while live',
-        ],
-    };
-}
-
-/** Account total_value metric → our daily metric. */
-export const IG_DAILY_METRICS: Record<string, string> = {
-    views: 'views',
-    reach: 'reach',
-    likes: 'likes',
-    comments: 'comments',
-    shares: 'shares',
-    saves: 'saves',
-    total_interactions: 'engagements',
-    accounts_engaged: 'accountsEngaged',
-    profile_links_taps: 'profileLinkTaps',
-};
-
-/** One day's total_value response → points on that day. */
-export function totalValuePoints(resp: InsightResponse, date: string,): DailyPoint[] {
-    const points: DailyPoint[] = [];
-    for (const [name, value,] of insightNumbers(resp,)) {
-        const metric = IG_DAILY_METRICS[name];
-        if (metric) points.push({ date, metric, value, },);
+    const caps = capabilitiesOf(credentials,);
+    const collects = [
+        ...basic,
+        ...(caps?.mediaInsights ?? true ? ['Per-post views, reach, shares, saves, profile visits; Reels watch time + skip rate',] : []),
+        ...(caps?.accountInsights ?? true ? ['Daily views, reach, interactions, profile link taps; content-type and follower splits',] : []),
+        ...(caps?.newFollowers ?? true ? ['New followers per day',] : []),
+        ...(caps?.demographics ?? true ? ['Audience by age, gender, country, city',] : []),
+        ...(caps?.onlineFollowers ?? true ? ['When followers are online (best time to post)',] : []),
+        'Stories every 3 hours while live',
+        ...(caps?.benchmarks ? ['Benchmark accounts (Analytics → Settings)',] : []),
+    ];
+    if (credentials.accountType === 'PERSONAL') return { ...base, state: 'partial', message: PERSONAL_ACCOUNT, collects: basic, };
+    const missing = capabilityNotes(caps,);
+    if (missing.length) {
+        return {
+            ...base,
+            state: 'partial',
+            message: `Instagram does not give this account: ${missing.join('; ',)}. Switch the account to a Business account `
+                + '(Instagram app → Settings → Account type and tools) and reconnect; demographics also need 100+ followers.',
+            collects,
+        };
     }
-    return points;
+    return { ...base, state: 'ready', message: null, collects, };
 }
 
-/** follows_and_unfollows (breakdown follow_type) → followersGained / followersLost. */
-export function followPoints(resp: InsightResponse, date: string,): DailyPoint[] {
-    const points: DailyPoint[] = [];
-    for (const row of resp.data ?? []) {
-        if (row.name !== 'follows_and_unfollows') continue;
-        for (const b of row.total_value?.breakdowns ?? []) {
-            for (const r of b.results ?? []) {
-                const kind = r.dimension_values?.[0];
-                const value = Number(r.value,);
-                if (!Number.isFinite(value,)) continue;
-                if (kind === 'FOLLOWER') points.push({ date, metric: 'followersGained', value, },);
-                else if (kind === 'NON_FOLLOWER') points.push({ date, metric: 'followersLost', value, },);
-            }
-        }
-    }
-    return points;
-}
+/** Thrown when a family of calls is refused — that family is skipped, the rest goes on. */
+class Refused extends Error {}
 
-type MediaKind = 'REELS' | 'FEED' | 'STORY';
-
-const MEDIA_METRICS: Record<MediaKind, string[]> = {
-    FEED: ['views', 'reach', 'likes', 'comments', 'shares', 'saved', 'total_interactions', 'profile_visits', 'follows',],
-    REELS: ['views', 'reach', 'likes', 'comments', 'shares', 'saved', 'total_interactions', 'ig_reels_avg_watch_time', 'ig_reels_video_view_total_time',],
-    STORY: ['views', 'reach', 'replies', 'shares', 'total_interactions', 'follows', 'profile_visits',],
-};
-
-export function mediaKind(fields: { media_product_type?: string; media_type?: string; },): MediaKind {
-    const t = String(fields.media_product_type ?? '',).toUpperCase();
-    if (t === 'REELS' || t === 'STORY') return t;
-    return 'FEED';
-}
-
-const ms = (v: number | undefined,): number | null => (v === undefined ? null : v / 1000);
-
-/** Media node fields + its insights → our post metric. */
-export function mapInstagramMedia(
-    id: string,
-    fields: { like_count?: number; comments_count?: number; media_product_type?: string; media_type?: string; },
-    insights: Map<string, number>,
-): PostMetric {
-    const g = (k: string,): number | null => insights.get(k,) ?? null;
-    return {
-        externalId: id,
-        views: g('views',),
-        reach: g('reach',),
-        likes: g('likes',) ?? fields.like_count ?? null,
-        comments: g('comments',) ?? fields.comments_count ?? null,
-        shares: g('shares',),
-        saves: g('saved',),
-        watchTimeS: ms(insights.get('ig_reels_video_view_total_time',),),
-        avgWatchS: ms(insights.get('ig_reels_avg_watch_time',),),
-        raw: {
-            mediaProductType: fields.media_product_type ?? null,
-            mediaType: fields.media_type ?? null,
-            totalInteractions: g('total_interactions',),
-            profileVisits: g('profile_visits',),
-            follows: g('follows',),
-        },
-    };
-}
-
-/** Story insights → per-story daily points on the story's posting day. */
-export const STORY_METRICS: Record<string, string> = {
-    views: 'storyViews',
-    reach: 'storyReach',
-    replies: 'storyReplies',
-    shares: 'storyShares',
-    total_interactions: 'storyInteractions',
-};
-
-export function storyPoints(storyId: string, timestamp: string, insights: Map<string, number>,): DailyPoint[] {
-    const t = Date.parse(timestamp.replace(/\+0000$/, 'Z',),);
-    if (!Number.isFinite(t,)) return [];
-    const date = new Date(t,).toISOString().slice(0, 10,);
-    const points: DailyPoint[] = [];
-    for (const [name, metric,] of Object.entries(STORY_METRICS,)) {
-        const v = insights.get(name,);
-        if (v !== undefined) points.push({ date, metric, value: v, dimension: `story:${storyId}`, },);
-    }
-    return points;
-}
-
-/** Thrown out of a phase when insights are refused — the rest is skipped. */
-class InsightsDenied extends Error {}
-
-function guard(e: unknown,): never {
+function classify(e: unknown,): never {
     if (isTokenError(e,)) throw new Error(`Instagram token rejected — reconnect Instagram in Social → Configuration (${(e as Error).message}).`,);
-    if (isPermissionError(e,)) throw new InsightsDenied((e as Error).message,);
+    if (isPermissionError(e,)) throw new Refused((e as Error).message,);
     throw e;
+}
+
+/**
+ * Run one family on its own: a token error fails the run (nothing works), a
+ * permission refusal or any other error leaves this family empty (the latter
+ * also as a warning) so the other families still collect.
+ */
+async function attempt<T,>(fn: () => Promise<T>, fallback: T, warnings?: WarningBag, label?: string,): Promise<{ ok: boolean; value: T; }> {
+    try {
+        return { ok: true, value: await fn(), };
+    } catch (e) {
+        if (isTokenError(e,)) classify(e,);
+        if (!(e instanceof Refused) && !isPermissionError(e,) && warnings && label) warnings.add(`${label}: ${(e as Error).message}`,);
+        return { ok: false, value: fallback, };
+    }
 }
 
 async function accountSnapshot(auth: InstagramAuth,): Promise<AccountSnapshot> {
     const fields = ['followers_count', 'follows_count', 'media_count', 'username',];
     if (auth.instagramLogin) fields.push('account_type',);
     const a = await graphGet<Record<string, unknown>>(auth.base, auth.userId, { fields: fields.join(',',), }, auth.token,);
-    if (a.account_type === 'PERSONAL') accessProblem = PERSONAL_ACCOUNT;
     const n = (v: unknown,): number | null => (typeof v === 'number' ? v : null);
     return { followers: n(a.followers_count,), following: n(a.follows_count,), postsCount: n(a.media_count,), raw: a, };
 }
 
-async function dailyInsights(auth: InstagramAuth, ctx: CollectContext, warnings: WarningBag,): Promise<DailyPoint[]> {
-    const dead = new Set<string>();
-    const points: DailyPoint[] = [];
-    const path = `${auth.userId}/insights`;
+/** Days the daily account insights cover (yesterday back DAILY_WINDOW days). */
+function dailyWindow(today: string,): Array<{ date: string; params: Record<string, string>; }> {
+    const out: Array<{ date: string; params: Record<string, string>; }> = [];
     for (let i = DAILY_WINDOW; i >= 1; i--) {
-        const date = addDays(ctx.today, -i,);
-        const window = { period: 'day', since: String(unixDay(date,),), until: String(unixDay(addDays(date, 1,),),), };
-        try {
-            const totals = await fetchInsights(auth.base, path, Object.keys(IG_DAILY_METRICS,), { ...window, metric_type: 'total_value', }, auth.token, dead, warnings, 'Instagram daily',);
-            points.push(...totalValuePoints(totals, date,),);
-            const follows = await fetchInsights(auth.base, path, ['follows_and_unfollows',], { ...window, metric_type: 'total_value', breakdown: 'follow_type', }, auth.token, dead, warnings, 'Instagram follows',);
-            points.push(...followPoints(follows, date,),);
-        } catch (e) {
-            guard(e,);
-        }
+        const date = addDays(today, -i,);
+        out.push({ date, params: { period: 'day', since: String(unixDay(date,),), until: String(unixDay(addDays(date, 1,),),), metric_type: 'total_value', }, },);
     }
-    // Older daily series of new followers — fills followersGained where the
-    // breakdown returned nothing (under 100 followers, older Graph data…).
-    try {
-        const series = await fetchInsights(auth.base, path, ['follower_count',], {
-            period: 'day',
-            since: String(unixDay(addDays(ctx.today, -DAILY_WINDOW,),),),
-            until: String(unixDay(ctx.today,),),
-        }, auth.token, dead, warnings, 'Instagram follower_count',);
-        const have = new Set(points.filter((p,) => p.metric === 'followersGained').map((p,) => p.date),);
-        for (const p of timeSeriesPoints(series, { follower_count: 'followersGained', },)) {
-            if (!have.has(p.date,)) points.push(p,);
-        }
-    } catch (e) {
-        guard(e,);
+    return out;
+}
+
+async function accountTotals(auth: InstagramAuth, today: string, warnings: WarningBag,): Promise<DailyPoint[]> {
+    const dead = new Set<string>();
+    const path = `${auth.userId}/insights`;
+    const points: DailyPoint[] = [];
+    for (const day of dailyWindow(today,)) {
+        const totals = await fetchInsights(auth.base, path, Object.keys(IG_DAILY_METRICS,), day.params, auth.token, dead, warnings, 'Instagram daily',);
+        points.push(...totalValuePoints(totals, day.date,),);
+        const follows = await fetchInsights(auth.base, path, ['follows_and_unfollows',], { ...day.params, breakdown: 'follow_type', }, auth.token, dead, warnings, 'Instagram follows',);
+        points.push(...followPoints(follows, day.date,),);
     }
     return points;
 }
 
-async function mediaInsights(auth: InstagramAuth, ctx: CollectContext, warnings: WarningBag,): Promise<PostMetric[]> {
-    const dead: Record<MediaKind, Set<string>> = { FEED: new Set(), REELS: new Set(), STORY: new Set(), };
-    let denied: unknown = null;
-    const results = await mapLimit(ctx.posts, CONCURRENCY, async (post,): Promise<PostMetric | null> => {
-        let fields: Record<string, any>;
-        try {
-            fields = await graphGet(auth.base, post.externalId, { fields: 'id,media_type,media_product_type,like_count,comments_count', }, auth.token,);
-        } catch (e) {
-            if (isTokenError(e,)) guard(e,);
-            warnings.add(`Instagram media lookup failed — ${(e as Error).message}`,);
-            return null;
+async function accountBreakdowns(auth: InstagramAuth, today: string, warnings: WarningBag,): Promise<DailyPoint[]> {
+    const path = `${auth.userId}/insights`;
+    const points: DailyPoint[] = [];
+    for (const group of IG_BREAKDOWNS) {
+        // A metric that cannot be split one way may still be split another — one dead set per breakdown.
+        const dead = new Set<string>();
+        for (const day of dailyWindow(today,)) {
+            const resp = await fetchInsights(auth.base, path, group.metrics, { ...day.params, breakdown: group.breakdown, }, auth.token, dead, warnings, `Instagram ${group.breakdown} split`,);
+            points.push(...breakdownPoints(resp, day.date,),);
         }
-        const kind = mediaKind(fields,);
-        let insights = new Map<string, number>();
-        if (!denied) {
+    }
+    return points;
+}
+
+async function newFollowers(auth: InstagramAuth, today: string, warnings: WarningBag,): Promise<DailyPoint[]> {
+    const series = await fetchInsights(auth.base, `${auth.userId}/insights`, ['follower_count',], {
+        period: 'day', since: String(unixDay(addDays(today, -DAILY_WINDOW,),),), until: String(unixDay(today,),),
+    }, auth.token, new Set(), warnings, 'Instagram follower_count',);
+    return timeSeriesPoints(series, { follower_count: 'newFollowers', },);
+}
+
+async function audience(auth: InstagramAuth, today: string, warnings: WarningBag,): Promise<DailyPoint[]> {
+    const path = `${auth.userId}/insights`;
+    const points: DailyPoint[] = [];
+    let anyOk = false;
+    let lastError: unknown = null;
+    for (const metric of Object.keys(AUDIENCE_METRICS,)) {
+        for (const breakdown of AUDIENCE_BREAKDOWNS) {
+            const params: Record<string, string> = { period: 'lifetime', metric_type: 'total_value', breakdown, metric, };
+            // Engaged / reached audiences are per timeframe; followers are as of now.
+            if (metric !== 'follower_demographics') params.timeframe = 'this_month';
             try {
-                const resp = await fetchInsights(auth.base, `${post.externalId}/insights`, MEDIA_METRICS[kind], {}, auth.token, dead[kind], warnings, `Instagram ${kind.toLowerCase()} insights`,);
-                insights = insightNumbers(resp,);
+                const resp = await graphGet<InsightResponse>(auth.base, path, params, auth.token,);
+                points.push(...demographicPoints(resp, today,),);
+                anyOk = true;
             } catch (e) {
-                if (isTokenError(e,)) guard(e,);
-                if (isPermissionError(e,)) denied = e;
-                else warnings.add(`Instagram media insights failed — ${(e as Error).message}`,);
+                if (isTokenError(e,)) classify(e,);
+                lastError = e;
             }
         }
-        return mapInstagramMedia(post.externalId, fields, insights,);
+    }
+    if (!anyOk && lastError) {
+        if (isPermissionError(lastError,)) throw new Refused((lastError as Error).message,);
+        warnings.add(`Instagram demographics: ${(lastError as Error).message}`,);
+    }
+    return points;
+}
+
+async function onlineFollowers(auth: InstagramAuth, today: string,): Promise<DailyPoint[]> {
+    const resp = await graphGet<InsightResponse>(auth.base, `${auth.userId}/insights`, {
+        metric: 'online_followers', period: 'lifetime',
+        since: String(unixDay(addDays(today, -DAILY_WINDOW - 1,),),), until: String(unixDay(today,),),
+    }, auth.token,);
+    return onlineFollowerPoints(resp,);
+}
+
+/** Insights for one media item; `dead` is per product type. */
+async function itemInsights(auth: InstagramAuth, item: IgMedia, dead: Record<MediaKind, Set<string>>, warnings: WarningBag,): Promise<PostMetric> {
+    const kind = mediaKind(item,);
+    const resp = await fetchInsights(auth.base, `${item.id}/insights`, MEDIA_METRICS[kind], {}, auth.token, dead[kind], warnings, `Instagram ${kind.toLowerCase()} insights`,);
+    let extra: Record<string, unknown> = {};
+    if (kind === 'STORY') {
+        try {
+            const nav = await graphGet<InsightResponse>(auth.base, `${item.id}/insights`, { metric: 'navigation', breakdown: 'story_navigation_action_type', }, auth.token,);
+            const n = navigationBreakdown(nav,);
+            if (n) extra = { navigation: n, };
+        } catch {
+            // Navigation is optional (fewer than 5 viewers, older Graph versions).
+        }
+    }
+    return mapInstagramMedia(item.id, item, insightNumbers(resp,), extra,);
+}
+
+/** Media insights for every item; the first permission refusal stops asking (counters stay). */
+async function mediaMetrics(auth: InstagramAuth, items: IgMedia[], warnings: WarningBag,): Promise<{ ok: boolean; posts: PostMetric[]; }> {
+    const dead: Record<MediaKind, Set<string>> = { FEED: new Set(), REELS: new Set(), STORY: new Set(), };
+    let refused = false;
+    const posts = await mapLimit(items, CONCURRENCY, async (item,): Promise<PostMetric> => {
+        if (refused) return mapInstagramMedia(item.id, item, new Map(),);
+        try {
+            return await itemInsights(auth, item, dead, warnings,);
+        } catch (e) {
+            if (isTokenError(e,)) classify(e,);
+            if (isPermissionError(e,)) refused = true;
+            else warnings.add(`Instagram media insights failed — ${(e as Error).message}`,);
+            return mapInstagramMedia(item.id, item, new Map(),);
+        }
     },);
-    if (denied) throw new InsightsDenied((denied as Error).message,);
-    return results.filter((r,): r is PostMetric => r !== null);
+    return { ok: !refused, posts, };
+}
+
+async function benchmarks(auth: InstagramAuth, today: string, warnings: WarningBag,): Promise<{ ok: boolean; points: DailyPoint[]; }> {
+    const { getSettings, } = await import('../settings.js');
+    const usernames = await getSettings().then((s,) => s.benchmarks.instagram,).catch(() => [] as string[],);
+    if (!usernames.length) return { ok: false, points: [], };
+    if (auth.instagramLogin) {
+        warnings.add('Benchmarks need a Facebook-Login Instagram connection (business_discovery is not available with Instagram Login).',);
+        return { ok: false, points: [], };
+    }
+    const points: DailyPoint[] = [];
+    let ok = false;
+    for (const u of usernames) {
+        try {
+            const r = await graphGet<{ business_discovery?: DiscoveredAccount; }>(auth.base, auth.userId, {
+                fields: `business_discovery.username(${u}){username,followers_count,media_count,media.limit(12){like_count,comments_count,timestamp}}`,
+            }, auth.token,);
+            if (r.business_discovery) {
+                points.push(...benchmarkPoints(u, r.business_discovery, today,),);
+                ok = true;
+            }
+        } catch (e) {
+            if (isTokenError(e,)) classify(e,);
+            warnings.add(`Instagram benchmark @${u}: ${(e as Error).message}`,);
+        }
+    }
+    return { ok, points, };
+}
+
+async function saveCapabilities(caps: IgCapabilities, accountType: unknown,): Promise<void> {
+    await query(
+        `UPDATE social_connections SET credentials = COALESCE(credentials, '{}'::jsonb) || $1::jsonb, updated_at = NOW() WHERE provider = 'instagram'`,
+        [JSON.stringify({ analyticsCapabilities: caps, ...(typeof accountType === 'string' ? { accountType, } : {}), },),],
+    ).catch((e,) => logger.warn('instagram: could not save capabilities', { error: (e as Error).message, },),);
 }
 
 async function collect(ctx: CollectContext,): Promise<CollectResult> {
@@ -309,56 +344,59 @@ async function collect(ctx: CollectContext,): Promise<CollectResult> {
     if (!auth) throw new Error('Instagram is not connected (no access token or account id).',);
     const warnings = new WarningBag();
     const result: CollectResult = { daily: [], posts: [], };
-    accessProblem = null;
 
-    try {
-        result.account = await accountSnapshot(auth,);
-    } catch (e) {
-        if (isTokenError(e,)) guard(e,);
-        ctx.warn(`Instagram account: ${(e as Error).message}`,);
+    const snap = await attempt(() => accountSnapshot(auth,), null, warnings, 'Instagram account',);
+    if (snap.value) result.account = snap.value;
+    const accountType = snap.value?.raw?.account_type;
+    if (accountType === 'PERSONAL') ctx.warn(PERSONAL_ACCOUNT,);
+
+    // 2. Every media item (+ the due posts the list no longer reaches, weekly).
+    const listed = await attempt(() => listMedia(auth,), [] as IgMedia[], warnings, 'Instagram media list',);
+    const items = [...listed.value,];
+    if (items.length) await upsertInstagramMedia(items,).catch((e,) => warnings.add(`Instagram posts: ${(e as Error).message}`,),);
+    const known = new Set(items.map((i,) => i.id),);
+    const older = ctx.posts.filter((p: KnownPost,) => !known.has(p.externalId,));
+    if (older.length) {
+        const extra = await mapLimit(older, CONCURRENCY, async (p,) => graphGet<IgMedia>(auth.base, p.externalId, {
+            fields: 'id,media_type,media_product_type,like_count,comments_count,timestamp',
+        }, auth.token,).catch(() => null),);
+        for (const m of extra) if (m) items.push(m,);
     }
 
-    let insightsOk = accessProblem === null;
-    if (insightsOk) {
-        try {
-            result.daily = await dailyInsights(auth, ctx, warnings,);
-        } catch (e) {
-            if (!(e instanceof InsightsDenied)) throw e;
-            insightsOk = false;
-            accessProblem = INSIGHTS_DENIED;
-        }
-    }
+    // 3. Media insights.
+    const media = await mediaMetrics(auth, items, warnings,);
+    result.posts = media.posts;
 
-    if (insightsOk) {
-        try {
-            result.posts = await mediaInsights(auth, ctx, warnings,);
-        } catch (e) {
-            if (!(e instanceof InsightsDenied)) throw e;
-            insightsOk = false;
-            accessProblem = INSIGHTS_DENIED;
-        }
-    }
-    // No insights access: keep the likes / comments counters the basic
-    // permission still returns.
-    if (!insightsOk) result.posts = await basicCounts(auth, ctx, warnings,);
-    if (accessProblem) ctx.warn(accessProblem,);
+    // 4–5. Account insights, splits, new followers, audience — each on its own.
+    const totals = await attempt(() => accountTotals(auth, ctx.today, warnings,), [] as DailyPoint[], warnings, 'Instagram daily',);
+    const splits = await attempt(() => accountBreakdowns(auth, ctx.today, warnings,), [] as DailyPoint[], warnings, 'Instagram splits',);
+    const gains = await attempt(() => newFollowers(auth, ctx.today, warnings,), [] as DailyPoint[], warnings, 'Instagram new followers',);
+    const demo = await attempt(() => audience(auth, ctx.today, warnings,), [] as DailyPoint[], warnings, 'Instagram demographics',);
+    const online = await attempt(() => onlineFollowers(auth, ctx.today,), [] as DailyPoint[], warnings, 'Instagram online followers',);
+    const stories = await attempt(() => collectStoriesWith(auth, warnings,), 0, warnings, 'Instagram stories',);
+    const peers = await benchmarks(auth, ctx.today, warnings,);
+    result.daily = [...totals.value, ...splits.value, ...gains.value, ...demo.value, ...online.value, ...peers.points,];
+
+    const caps: IgCapabilities = {
+        accountInsights: totals.ok && totals.value.length > 0,
+        breakdowns: splits.ok && splits.value.length > 0,
+        newFollowers: gains.ok,
+        demographics: demo.ok && demo.value.length > 0,
+        onlineFollowers: online.ok && online.value.length > 0,
+        mediaInsights: media.ok && items.length > 0,
+        stories: stories.ok,
+        benchmarks: peers.ok,
+        checkedAt: new Date().toISOString(),
+    };
+    await saveCapabilities(caps, accountType,);
+    const missing = capabilityNotes(caps,);
+    if (missing.length) ctx.warn(`Instagram did not provide: ${missing.join('; ',)} — switch to a Business account and reconnect (demographics also need 100+ followers).`,);
+    if (!media.ok && !totals.ok) ctx.warn(INSIGHTS_DENIED,);
     warnings.flush(ctx.warn,);
     return result;
 }
 
-async function basicCounts(auth: InstagramAuth, ctx: CollectContext, warnings: WarningBag,): Promise<PostMetric[]> {
-    const out = await mapLimit(ctx.posts, CONCURRENCY, async (post,): Promise<PostMetric | null> => {
-        try {
-            const f = await graphGet(auth.base, post.externalId, { fields: 'id,media_type,media_product_type,like_count,comments_count', }, auth.token,);
-            return mapInstagramMedia(post.externalId, f, new Map(),);
-        } catch (e) {
-            if (isTokenError(e,)) guard(e,);
-            warnings.add(`Instagram media lookup failed — ${(e as Error).message}`,);
-            return null;
-        }
-    },);
-    return out.filter((r,): r is PostMetric => r !== null);
-}
+// ─── Stories ────────────────────────────────────────────────────────────────
 
 /** Per-story rows for `dates`, re-summed into the account total + a story count. */
 async function storyTotals(dates: string[],): Promise<DailyPoint[]> {
@@ -380,44 +418,52 @@ async function storyTotals(dates: string[],): Promise<DailyPoint[]> {
     return points;
 }
 
-/** Cron: capture live stories' insights before they expire (24 h). */
+/** List live stories, store them as hidden posts with their metrics + the daily story totals. Returns how many. */
+async function collectStoriesWith(auth: InstagramAuth, warnings: WarningBag,): Promise<number> {
+    const stories = await listStories(auth,);
+    if (!stories.length) return 0;
+    await upsertInstagramMedia(stories,);
+    const dead: Record<MediaKind, Set<string>> = { FEED: new Set(), REELS: new Set(), STORY: new Set(), };
+    const metrics: PostMetric[] = [];
+    const points: DailyPoint[] = [];
+    for (const s of stories) {
+        try {
+            const m = await itemInsights(auth, s, dead, warnings,);
+            metrics.push(m,);
+            if (s.timestamp) {
+                const ins = new Map<string, number>();
+                for (const k of Object.keys(STORY_METRICS,)) {
+                    const v = k === 'views' ? m.views : k === 'reach' ? m.reach : k === 'replies' ? m.comments : k === 'shares' ? m.shares : (m.raw?.totalInteractions as number | null);
+                    if (typeof v === 'number') ins.set(k, v,);
+                }
+                points.push(...storyPoints(s.id, s.timestamp, ins,),);
+            }
+        } catch (e) {
+            if (isTokenError(e,) || isPermissionError(e,)) throw e;
+            // "(#10) Not enough viewers" (< 5) → nothing to store yet.
+        }
+    }
+    const { storeResult, utcDay, } = await import('../runner.js');
+    const today = utcDay();
+    await storeResult('instagram', today, { daily: points, posts: metrics, }, [],);
+    const dates = [...new Set(points.map((p,) => p.date),),];
+    if (dates.length) await storeResult('instagram', today, { daily: await storyTotals(dates,), }, [],);
+    return stories.length;
+}
+
+/** Cron: capture live stories before they expire (24 h). */
 export async function collectStories(): Promise<void> {
-    const { loadConnection, storeResult, utcDay, } = await import('../runner.js');
+    const { loadConnection, } = await import('../runner.js');
     const conn = await loadConnection('instagram',);
     if (!conn?.is_connected || !conn.is_enabled) return;
     const auth = resolveInstagramAuth(conn.credentials ?? {},);
     if (!auth) return;
     const warnings = new WarningBag();
-    const dead = new Set<string>();
-    let stories: Array<{ id: string; timestamp?: string; }>;
     try {
-        const r = await graphGet<{ data?: Array<{ id: string; timestamp?: string; }>; }>(auth.base, `${auth.userId}/stories`, { fields: 'id,timestamp,media_type', }, auth.token,);
-        stories = r.data ?? [];
+        await collectStoriesWith(auth, warnings,);
     } catch (e) {
-        logger.warn('social-analytics: Instagram stories fetch failed', { error: (e as Error).message, },);
-        return;
+        logger.warn('social-analytics: Instagram stories sweep failed', { error: (e as Error).message, },);
     }
-    const points: DailyPoint[] = [];
-    for (const s of stories) {
-        if (!s.timestamp) continue;
-        let resp: InsightResponse;
-        try {
-            resp = await fetchInsights(auth.base, `${s.id}/insights`, Object.keys(STORY_METRICS,), {}, auth.token, dead, warnings, 'Instagram story',);
-        } catch (e) {
-            // Under 5 viewers → "(#10) Not enough viewers": nothing to store yet.
-            if (isTokenError(e,) || isPermissionError(e,)) {
-                logger.warn('social-analytics: Instagram story insights refused', { error: (e as Error).message, },);
-                return;
-            }
-            continue;
-        }
-        points.push(...storyPoints(s.id, s.timestamp, insightNumbers(resp,),),);
-    }
-    if (!points.length) return;
-    const today = utcDay();
-    await storeResult('instagram', today, { daily: points, }, [],);
-    const dates = [...new Set(points.map((p,) => p.date),),];
-    await storeResult('instagram', today, { daily: await storyTotals(dates,), }, [],);
     warnings.flush((m,) => logger.warn(`social-analytics: ${m}`,),);
 }
 
@@ -430,7 +476,7 @@ registerCollector({
     crons: [{
         name: 'social-analytics-ig-stories',
         schedule: '25 */3 * * *',
-        description: 'Captures live Instagram Stories insights (views, reach, replies, shares) before the 24-hour expiry.',
+        description: 'Captures live Instagram Stories (views, reach, replies, shares, navigation) before the 24-hour expiry.',
         handler: collectStories,
     },],
 },);

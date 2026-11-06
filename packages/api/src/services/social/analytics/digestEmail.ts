@@ -8,7 +8,7 @@
  * Trends are small bar charts made of table cells (no images — mail clients
  * block them by default, and SVG is not supported).
  */
-import type { DigestData, DigestMetric, SocialAnalyticsDigest, SocialPostAnalytics, } from '@sitesurge/types';
+import type { AudienceBucket, DigestData, DigestMetric, SocialAnalyticsDigest, SocialAudience, SocialPostAnalytics, } from '@sitesurge/types';
 import { escapeHtml as esc, } from '../../../utils/html';
 import { type BrandLayout, brandedEmail, } from '../../mail/branded';
 
@@ -139,6 +139,72 @@ function platformBlock(p: DigestData['platforms'][number], withTrends: boolean, 
         + `</td></tr></table>`;
 }
 
+const TYPE_LABELS: Record<string, string> = {
+    REEL: 'Reels', POST: 'Posts', FEED: 'Posts', STORY: 'Stories', CAROUSEL_CONTAINER: 'Carousels', AD: 'Ads',
+    FOLLOWER: 'Followers', NON_FOLLOWER: 'Non-followers', UNKNOWN: 'Unknown', F: 'Women', M: 'Men', U: 'Unknown',
+};
+const bucketLabel = (k: string,) => TYPE_LABELS[k] ?? k;
+
+/** A labelled bar per bucket (share of the total), email-safe. */
+export function shareBars(buckets: AudienceBucket[], max = 5,): string {
+    return buckets.slice(0, max,).map((b,) => {
+        const pct = Math.round(b.share * 100,);
+        return `<tr>${td(esc(bucketLabel(b.key,),), `padding:3px 8px 3px 0;font-size:12px;color:${TEXT};white-space:nowrap;width:30%`,)}`
+            + `<td style="padding:3px 0;width:55%"><div style="height:10px;width:${Math.max(2, pct,)}%;background:${ACCENT};border-radius:5px;font-size:0;line-height:0">&nbsp;</div></td>`
+            + td(`${pct}%`, `padding:3px 0 3px 8px;font-size:12px;color:${MUTED};text-align:right`,)
+            + `</tr>`;
+    },).join('',);
+}
+
+function miniTable(title: string, rows: string,): string {
+    if (!rows) return '';
+    return `<p style="margin:10px 0 4px;font-family:${FONT};font-size:12px;font-weight:700;color:${MUTED}">${esc(title,)}</p>`
+        + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`;
+}
+
+/** Hour → "7 PM". */
+export function hourLabel(h: number,): string {
+    const am = h < 12;
+    const v = h % 12 === 0 ? 12 : h % 12;
+    return `${v} ${am ? 'AM' : 'PM'}`;
+}
+
+function audienceBlock(a: SocialAudience, label: string,): string {
+    const f = a.demographics.followers ?? a.demographics.engaged ?? a.demographics.reached;
+    const parts: string[] = [];
+    if (f) {
+        parts.push(miniTable('Followers by age', shareBars(f.age, 6,),),);
+        parts.push(miniTable('Gender', shareBars(f.gender, 3,),),);
+        parts.push(miniTable('Top countries', shareBars(f.country, 5,),),);
+    }
+    if (a.onlineHours.length) {
+        const best = [...a.onlineHours,].sort((x, y,) => y.value - x.value,).slice(0, 3,).map((h,) => hourLabel(h.hour,),);
+        parts.push(`<p style="margin:10px 0 0;font-family:${FONT};font-size:13px;color:${TEXT}"><strong>Best time to post:</strong> ${esc(best.join(', ',),)} <span style="color:${MUTED}">(when most followers are online)</span></p>`,);
+    }
+    if (a.breakdowns.viewsByType.length) parts.push(miniTable('Views by content type', shareBars(a.breakdowns.viewsByType,),),);
+    if (a.breakdowns.viewsByFollow.length) parts.push(miniTable('Views: followers vs non-followers', shareBars(a.breakdowns.viewsByFollow, 3,),),);
+    if (a.stories.count) {
+        parts.push(`<p style="margin:10px 0 0;font-family:${FONT};font-size:13px;color:${TEXT}"><strong>Stories:</strong> ${a.stories.count}`
+            + `${a.stories.views !== null ? ` · ${esc(fmtValue('views', a.stories.views,),)} views` : ''}${a.stories.replies !== null ? ` · ${esc(fmtValue('comments', a.stories.replies,),)} replies` : ''}</p>`,);
+    }
+    if (a.hashtags.length) {
+        const tags = a.hashtags.slice(0, 6,).map((h,) => `${esc(h.tag,)}${h.avgViews !== null ? ` <span style="color:${MUTED}">(${esc(fmtValue('views', h.avgViews,),)} avg)</span>` : ''}`,);
+        parts.push(`<p style="margin:10px 0 0;font-family:${FONT};font-size:13px;color:${TEXT}"><strong>Top hashtags:</strong> ${tags.join(', ',)}</p>`,);
+    }
+    if (a.benchmarks.length) {
+        const rows = a.benchmarks.slice(0, 6,).map((b,) => `<tr>${td(`@${esc(b.username,)}`, `padding:5px 0;font-size:13px;border-top:1px solid ${BORDER}`,)}`
+            + td(esc(fmtValue('followers', b.followers,),), `padding:5px 8px;font-size:13px;text-align:right;border-top:1px solid ${BORDER}`,)
+            + td(esc(fmtValue('engagementRate', b.engagementRate,),), `padding:5px 8px;font-size:12px;color:${MUTED};text-align:right;border-top:1px solid ${BORDER}`,)
+            + td(b.postsPerWeek !== null ? `${b.postsPerWeek}/wk` : '—', `padding:5px 0;font-size:12px;color:${MUTED};text-align:right;border-top:1px solid ${BORDER}`,)
+            + `</tr>`,).join('',);
+        parts.push(miniTable('Benchmarks (followers · engagement · posts per week)', rows,),);
+    }
+    if (!parts.length) return '';
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${BORDER};border-radius:8px;margin:0 0 12px"><tr><td style="padding:14px 16px">`
+        + `<p style="margin:0 0 2px;font-family:${FONT};font-size:16px;font-weight:700;color:${TEXT}">${esc(label,)}</p>`
+        + parts.join('',) + `</td></tr></table>`;
+}
+
 function postRow(p: SocialPostAnalytics, why: string | undefined, rank: number,): string {
     const title = esc(p.title || '(no text)',);
     const link = p.url ? `<a href="${esc(p.url,)}" style="color:${TEXT};text-decoration:none;font-weight:700">${title}</a>` : `<strong>${title}</strong>`;
@@ -210,6 +276,12 @@ export function renderDigestEmail(
     if (full && has('platforms',) && data.platforms.length) {
         const notes = new Map((ins?.platforms ?? []).map((p,) => [p.platform.toLowerCase(), p.summary,]),);
         parts.push(row(h2('By platform',) + data.platforms.map((p,) => platformBlock(p, has('trends',), notes.get(p.label.toLowerCase(),) ?? notes.get(p.platform,) ?? null,),).join('',),),);
+    }
+
+    if (full && has('audience',) && data.audience?.length) {
+        const labels = new Map(data.platforms.map((p,) => [p.platform, p.label,]),);
+        const blocks = data.audience.map((a,) => audienceBlock(a, labels.get(a.platform,) ?? a.platform,),).join('',);
+        if (blocks) parts.push(row(h2('Audience',) + blocks,),);
     }
 
     if (has('topPosts',) && data.topPosts.length) {

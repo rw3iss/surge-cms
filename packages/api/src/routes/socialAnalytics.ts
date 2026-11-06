@@ -7,6 +7,7 @@ import { z, } from 'zod';
 import type { Request, Response, } from 'express';
 import type {
     AssertCompatible,
+    SocialAnalyticsAudienceQuery,
     SocialAnalyticsDigestCreateBody,
     SocialAnalyticsDigestsQuery,
     SocialAnalyticsSettingsBody,
@@ -58,7 +59,7 @@ const settingsBody = z.object({
         hour: z.number().int(),
         timezone: z.string().max(64,),
         platforms: z.array(z.string().max(32,),).max(20,),
-        sections: z.array(z.enum(['totals', 'platforms', 'trends', 'topPosts', 'ai',],),).max(5,),
+        sections: z.array(z.enum(['totals', 'platforms', 'trends', 'topPosts', 'audience', 'ai',],),).max(6,),
         topPosts: z.number().int(),
         aiPool: z.string().max(64,),
     },).partial().optional(),
@@ -69,6 +70,7 @@ const settingsBody = z.object({
         recipientMode: z.enum(['augment', 'override',],),
     },).partial().optional(),
     retentionDays: z.number().int().min(1,).nullable().optional(),
+    benchmarks: z.object({ instagram: z.array(z.string().max(64,),).max(20,), },).partial().optional(),
 },) satisfies z.ZodType<SocialAnalyticsSettingsBody>;
 
 const digestsQuery = z.object({
@@ -79,6 +81,9 @@ type _AssertDigests = AssertCompatible<z.infer<typeof digestsQuery>, SocialAnaly
 
 const digestCreateBody = z.object({ from: day.optional(), to: day.optional(), email: z.boolean().optional(), },) satisfies z.ZodType<SocialAnalyticsDigestCreateBody>;
 const idParams = z.object({ id: z.string().uuid(), },);
+
+const audienceQuery = rangeQuery.extend({ platform: z.string().max(32,), },);
+type _AssertAudience = AssertCompatible<z.infer<typeof audienceQuery>, SocialAnalyticsAudienceQuery>;
 
 const VIEW = 'social.analytics:view';
 const MANAGE = 'social.analytics:manage';
@@ -155,6 +160,16 @@ export const socialAnalyticsRoutes = [
         handler: async ({ body, user, },) => {
             await permissions.requirePermission(viewerOf(user,), MANAGE,);
             return analytics.runCollection({ platforms: body.platforms, trigger: 'manual', },);
+        },
+    },),
+
+    defineRoute({
+        method: 'get', path: '/audience', auth: 'staff',
+        summary: 'Audience + content breakdowns for a platform: demographics, online hours, content types, hashtags, stories, benchmarks.',
+        input: { query: audienceQuery, },
+        handler: async ({ query, user, },) => {
+            await permissions.requirePermission(viewerOf(user,), VIEW,);
+            return analytics.audience(query.platform, query,);
         },
     },),
 

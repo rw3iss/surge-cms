@@ -65,18 +65,34 @@ marks that day.
   scopes are stored as `credentials.grantedScopes`.
 - Google Cloud OAuth consent screen must be **In production** (Testing = tokens die after 7 days).
 
-### Instagram (`collectors/instagram.ts`, helpers `metaGraph.ts`)
-- Business/Creator account; our Facebook-Login token (`graph.facebook.com`, scopes `instagram_basic`,
-  `instagram_manage_insights`, `pages_read_engagement`, `pages_show_list`) or an Instagram-Login
-  token (`graph.instagram.com`, `instagram_business_basic` + `instagram_business_manage_insights`).
-- Account: followers, following, media count. Daily (last 3 days rewritten): views, reach, likes,
-  comments, shares, saves, engagements, accounts engaged, profile link taps, followers gained/lost.
-- Posts: views, reach, likes, comments, shares, saves; Reels add watch time + avg watch time
-  (ms → s). A metric Meta refuses is skipped for the run with one warning.
-- **Stories** expire in 24 h, so the `social-analytics-ig-stories` cron (every 3 h) stores each live
-  story's views/reach/replies/shares as daily points (`story:<id>`) and re-totals the day.
-- Unverified on a live account: watch-time units, the `follows_and_unfollows` breakdown labels,
-  and Meta's Pacific-time days vs our UTC days.
+### Instagram (`collectors/instagram.ts` + `instagramMapping.ts` (pure) + `instagramMedia.ts`)
+Everything the Graph API gives a Business/Creator account. Each family runs on its own, so an account
+refused one (e.g. account insights before it is a Business account) still collects the rest; what worked
+is saved as `credentials.analyticsCapabilities` (status message + the Audience panel's notes).
+
+| Family | What | Stored as |
+|---|---|---|
+| Account node | followers, following, media count | snapshot |
+| Media discovery | the media list (90 days / ≥ 25 items, ≤ 300) upserted into `social_posts` (kind reel / carousel / image / video; thumbnails mirrored once) | posts |
+| Media insights | views, reach, likes, comments, shares, saves, interactions, profile visits/activity, follows; Reels + watch time, avg watch (ms → s), skip rate (→ completion) | post metrics (+ raw) |
+| Account daily (3 days rewritten) | views, reach, likes, comments, shares, saves, replies, interactions, accounts engaged, profile link taps; follows/unfollows | daily, dimension '' |
+| Splits | views / reach / interactions by content type; views / reach by followers vs non-followers | daily, `type:<KIND>` / `follow:<KIND>` |
+| New followers | `follower_count` per day | daily `newFollowers` |
+| Audience | follower / engaged / reached demographics by age, gender, country, city (100+ followers) | `audienceFollowers|Engaged|Reached`, `age:` `gender:` `country:` `city:` |
+| Online followers | followers online per hour | `onlineFollowers`, `hour:<0-23>` |
+| Stories (every 3 h + daily) | each live story as a HIDDEN post (kind story) with views, reach, replies, shares, follows, profile visits, navigation (taps forward/back, exits) + daily story totals | post metrics + `story:<id>` |
+| Benchmarks | public Business/Creator accounts from Analytics → Settings → Benchmarks via `business_discovery` (Facebook Login only): followers, media count, avg likes/comments of the last 12 posts, posts per week | `peer*` metrics, `peer:<username>` |
+
+Read side: `GET /social-analytics/audience?platform=` (`audience.ts`) → demographics (latest snapshot),
+online hours (avg), content/follower splits (summed), content kinds + top hashtags (from captions + post
+metrics), stories, benchmarks, capabilities → the dashboard's **Audience & content** panel and the
+digests' **Audience** section (browser + email).
+
+Tested 2026-11-05 on the live connection (Facebook Login, not yet Business): account node, media list,
+per-post insights, `follower_count` and `business_discovery` WORK; account-level insights, demographics
+and online followers are refused (#10 / #200) until the account is a Business account. Unverified on a
+live account: watch-time units, `reels_skip_rate` scale, the `follows_and_unfollows` labels, and
+Meta's Pacific-time days vs our UTC days.
 
 ### Facebook Page (`collectors/facebook.ts`)
 - Page token (`pages_read_engagement`, `read_insights`, `pages_show_list`; ANALYZE role) + Page ID;

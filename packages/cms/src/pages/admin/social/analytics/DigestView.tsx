@@ -14,6 +14,8 @@ import { StableSuspense, } from '../../../../components/common/StableSuspense';
 import { useToast, } from '../../../../components/common/toast';
 import { cms, } from '../../../../services/cmsClient';
 import AnalyticsNav from './AnalyticsNav';
+import AudiencePanel from './audience/AudiencePanel';
+import { audienceHasData, } from './audience/audienceFormat';
 import { StatusBadge, } from './DigestsPage';
 import { deltaText, deltaTone, fmtMetric, fmtNum, fmtPct, metricLabel, orderedMetricKeys, periodLabel, } from './digestFormat';
 
@@ -86,7 +88,13 @@ const PlatformTrends: Component<{ platform: DigestPlatform; data: DigestData; }>
 
 const DigestBody: Component<{ digest: SocialAnalyticsDigest; data: DigestData; }> = (props,) => {
     const has = (s: DigestData['sections'][number],) => props.data.sections.includes(s,);
-    const ids = createMemo(() => ['ai', 'totals', ...props.data.platforms.map((p,) => `p:${p.platform}`), 'topPosts', 'notes',],);
+    // Older snapshots have no `audience`; only platforms that reported something are shown.
+    const audiences = createMemo(() => (props.data.audience ?? []).filter((a,) => audienceHasData(a,)));
+    const labelOf = (platform: string,) => props.data.platforms.find((p,) => p.platform === platform)?.label ?? platform;
+    const ids = createMemo(() => [
+        'ai', 'totals', ...props.data.platforms.map((p,) => `p:${p.platform}`), 'topPosts',
+        ...audiences().map((a,) => `a:${a.platform}`), 'notes',
+    ],);
     const [open, setOpen,] = createSignal<Record<string, boolean>>(Object.fromEntries(ids().map((id,) => [id, true,]),),);
     const isOpen = (id: string,) => open()[id] !== false;
     const toggle = (id: string,) => setOpen((cur,) => ({ ...cur, [id]: !isOpen(id,), }));
@@ -245,6 +253,21 @@ const DigestBody: Component<{ digest: SocialAnalyticsDigest; data: DigestData; }
                         </ol>
                     </Show>
                 </Card>
+            </Show>
+
+            <Show when={has('audience',) && audiences().length}>
+                <For each={audiences()}>
+                    {(a,) => (
+                        <Card
+                            title={`Audience & content · ${labelOf(a.platform,)}`}
+                            aside={<Show when={a.asOf}><span class="form-help-muted">as of {a.asOf}</span></Show>}
+                            open={isOpen(`a:${a.platform}`,)}
+                            onToggle={() => toggle(`a:${a.platform}`,)}
+                        >
+                            <AudiencePanel audience={a} />
+                        </Card>
+                    )}
+                </For>
             </Show>
 
             <Show when={props.data.definitionChanges.length}>

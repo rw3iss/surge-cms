@@ -10525,6 +10525,22 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         "summary": "/social-analytics — collected social account + post analytics (staff). Everything is read from the CMS's own daily snapshots; `collect` runs the platform collectors now.",
         "methods": [
             {
+                "name": "audience",
+                "signature": "audience(query: SocialAnalyticsAudienceQuery): Promise<SocialAnalyticsAudienceResponse>",
+                "summary": "Audience + content breakdowns for a platform: demographics, online hours, content types, hashtags, stories, benchmarks.",
+                "params": [
+                    {
+                        "name": "query",
+                        "type": "SocialAnalyticsAudienceQuery",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<SocialAnalyticsAudienceResponse>",
+                "routes": [
+                    "GET /api/v1/social-analytics/audience"
+                ]
+            },
+            {
                 "name": "collect",
                 "signature": "collect(platforms?: string[]): Promise<SocialAnalyticsCollectResponse>",
                 "summary": "Run the collectors now (all ready ones, or the named platforms).",
@@ -11513,4 +11529,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 58;
-export const SDK_METHOD_COUNT = 678;
+export const SDK_METHOD_COUNT = 679;

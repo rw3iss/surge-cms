@@ -5,6 +5,7 @@ import type {
     SocialAnalyticsDigest,
     SocialAnalyticsDigestSummary,
     SocialAnalyticsSettings,
+    SocialAudience,
     SocialAnalyticsOverview,
     SocialAnalyticsRun,
     SocialCollectorStatus,
@@ -74,6 +75,7 @@ export interface SocialAnalyticsSettingsBody {
     digest?: Partial<SocialAnalyticsSettings['digest']>;
     email?: Partial<SocialAnalyticsSettings['email']>;
     retentionDays?: number | null;
+    benchmarks?: Partial<SocialAnalyticsSettings['benchmarks']>;
 }
 
 export interface SocialAnalyticsDigestsQuery {
@@ -95,3 +97,8 @@ export interface SocialAnalyticsDigestSendResponse {
     sent: number;
     recipients: string[];
 }
+
+export interface SocialAnalyticsAudienceQuery extends SocialAnalyticsRangeQuery {
+    platform: string;
+}
+export type SocialAnalyticsAudienceResponse = SocialAudience;

@@ -20,11 +20,17 @@ import { StableSuspense, } from '../../../../components/common/StableSuspense';
 import { useToast, } from '../../../../components/common/toast';
 import { cms, } from '../../../../services/cmsClient';
 import AnalyticsNav from './AnalyticsNav';
+import { invalidUsernames, MAX_BENCHMARKS, parseUsernames, } from './audience/audienceFormat';
 import { invalidRecipients, parseRecipients, periodDescription, scheduleDescription, WEEKDAYS, } from './digestFormat';
 
 type Settings = SocialAnalyticsSettings;
 
-const clone = (s: Settings,): Settings => JSON.parse(JSON.stringify(s,),) as Settings;
+/** A deep copy, with `benchmarks` filled in for a server that does not send it yet. */
+const clone = (s: Settings,): Settings => {
+    const c = JSON.parse(JSON.stringify(s,),) as Settings;
+    c.benchmarks = { instagram: [...(c.benchmarks?.instagram ?? []),], };
+    return c;
+};
 
 const AnalyticsSettingsPage: Component = () => {
     const toast = useToast();
@@ -46,6 +52,11 @@ const AnalyticsSettingsPage: Component = () => {
     const setEmail = (p: Partial<Settings['email']>,) => setS((cur,) => ({ ...cur, email: { ...cur.email, ...p, }, }));
 
     const badRecipients = () => invalidRecipients(s().email.recipients,);
+    const igBenchmarks = () => s().benchmarks?.instagram ?? [];
+    const badBenchmarks = () => invalidUsernames(igBenchmarks(),);
+    const benchmarkError = () => (badBenchmarks().length
+        ? `Not an Instagram username: ${badBenchmarks().join(', ',)}`
+        : igBenchmarks().length > MAX_BENCHMARKS ? `At most ${MAX_BENCHMARKS} accounts (${igBenchmarks().length} given).` : '');
 
     const togglePlatform = (platform: string, on: boolean,) => {
         const cur = new Set(s().digest.platforms,);
@@ -65,10 +76,16 @@ const AnalyticsSettingsPage: Component = () => {
             setError(`Not an email address: ${badRecipients().join(', ',)}`,);
             return;
         }
+        if (benchmarkError()) {
+            setError(benchmarkError(),);
+            return;
+        }
         setSaving(true,);
         setError('',);
         try {
-            const v = await cms.socialAnalytics.updateSettings({ digest: s().digest, email: s().email, retentionDays: s().retentionDays, },);
+            const v = await cms.socialAnalytics.updateSettings({
+                digest: s().digest, email: s().email, retentionDays: s().retentionDays, benchmarks: { instagram: igBenchmarks(), },
+            },);
             setS(clone(v,),);
             setSaved(JSON.stringify(v,),);
             toast.success('Analytics settings saved',);
@@ -257,6 +274,30 @@ const AnalyticsSettingsPage: Component = () => {
                                 onCommit={(v,) => setEmail({ recipients: parseRecipients(v,), },)}
                                 placeholder="team@example.com"
                                 disabled={!s().email.enabled}
+                            />
+                        </FormField>
+                    </section>
+
+                    {/* ── Benchmarks ── */}
+                    <section class="admin-section">
+                        <header class="admin-section__header">
+                            <h2>Benchmarks</h2>
+                            <p class="form-help-muted">
+                                Other accounts to compare against — followers, posting rate and average engagement, collected daily and shown under
+                                Audience &amp; content on the Dashboard (and in digests with the Audience section).
+                            </p>
+                        </header>
+                        <FormField
+                            label="Instagram accounts"
+                            hint={`Usernames (with or without @), one per line or comma-separated — up to ${MAX_BENCHMARKS}. They must be PUBLIC Business or Creator accounts, and our Instagram connection must use Facebook Login (business discovery).`}
+                            error={benchmarkError() || undefined}
+                        >
+                            <CommitInput
+                                multiline
+                                rows={3}
+                                value={igBenchmarks().join('\n',)}
+                                onCommit={(v,) => setS((cur,) => ({ ...cur, benchmarks: { ...(cur.benchmarks ?? { instagram: [], }), instagram: parseUsernames(v,), }, }))}
+                                placeholder={'nytimes\ncnn'}
                             />
                         </FormField>
                     </section>

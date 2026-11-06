@@ -12,9 +12,12 @@ import Pagination from '../../../components/admin/common/Pagination';
 import SortTh from '../../../components/admin/common/SortTh';
 import Toggle from '../../../components/admin/common/Toggle';
 import Markdown from '../../../components/common/Markdown';
+import { StableSuspense, } from '../../../components/common/StableSuspense';
 import { useToast, } from '../../../components/common/toast';
 import { cms, } from '../../../services/cmsClient';
 import AnalyticsNav from './analytics/AnalyticsNav';
+import AudiencePanel from './analytics/audience/AudiencePanel';
+import { audienceHasData, kindLabel, kindsPresent, } from './analytics/audience/audienceFormat';
 
 /**
  * Social → Analytics. Everything shown is read from the CMS's own daily
@@ -136,7 +139,22 @@ const SocialAnalyticsPanel: Component = () => {
         return list;
     },);
 
+    // ── Audience & content (Instagram first; any platform that reports it) ──
+    const [audiencePlatform, setAudiencePlatform,] = createSignal('',);
+    createEffect(on(withData, (list,) => {
+        if (list.find((a,) => a.platform === audiencePlatform())) return;
+        const ig = list.find((a,) => a.platform === 'instagram');
+        if (ig || list[0]) setAudiencePlatform((ig ?? list[0]).platform,);
+    },),);
+    // An older server without /audience (or a platform with nothing) reads as "no data", not an error.
+    const [audience,] = createResource(
+        () => (audiencePlatform() ? { platform: audiencePlatform(), ...range(), } : null),
+        (q,) => cms.socialAnalytics.audience(q,).catch(() => null),
+    );
+
     // ── Posts table ──
+    let postsSection: HTMLElement | undefined;
+    const [postKind, setPostKind,] = createSignal('',);
     const [postPlatform, setPostPlatform,] = createSignal('',);
     const [search, setSearch,] = createSignal('',);
     const [inPeriod, setInPeriod,] = createSignal(false,);
@@ -148,6 +166,7 @@ const SocialAnalyticsPanel: Component = () => {
         return {
             ...range(),
             platform: postPlatform() || undefined,
+            kind: postKind() || undefined,
             search: search() || undefined,
             publishedInPeriod: inPeriod() || undefined,
             sort: field as SocialAnalyticsPostsQuery['sort'],
@@ -156,8 +175,21 @@ const SocialAnalyticsPanel: Component = () => {
             limit: 25,
         };
     },);
-    createEffect(on([postPlatform, search, inPeriod, sort, days,], () => setPage(1,), { defer: true, },),);
+    createEffect(on([postPlatform, postKind, search, inPeriod, sort, days,], () => setPage(1,), { defer: true, },),);
     const [postList, { refetch: refetchPosts, },] = createResource(postQuery, (q,) => cms.socialAnalytics.posts(q,),);
+
+    // Kinds the posts table can filter by: what this period's posts + the audience report contain.
+    // Reads `.latest` only once each resource has settled, so this toolbar never suspends a region.
+    const kindOptions = createMemo(() => kindsPresent([
+        ...(audience.state === 'ready' || audience.state === 'refreshing' ? audience.latest?.contentKinds ?? [] : []).map((k,) => k.kind),
+        ...(postList.state === 'ready' || postList.state === 'refreshing' ? postList.latest?.data ?? [] : []).map((p,) => p.kind),
+        postKind(),
+    ],),);
+    const showStories = () => {
+        setPostPlatform(audiencePlatform(),);
+        setPostKind('story',);
+        postsSection?.scrollIntoView({ behavior: 'smooth', block: 'start', },);
+    };
 
     // Search-as-you-type: a genuine filter box, debounced here.
     let searchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -365,7 +397,31 @@ const SocialAnalyticsPanel: Component = () => {
                 />
             </section>
 
-            <section class="admin-section">
+            <section class="admin-section social-analytics__audience">
+                <header class="admin-section__header social-analytics__audience-head">
+                    <div>
+                        <h2>Audience &amp; content</h2>
+                        <p class="form-help-muted">Who follows and engages, when they are online, which content types win, hashtags and benchmark accounts.</p>
+                    </div>
+                    <select value={audiencePlatform()} onChange={(e,) => setAudiencePlatform(e.currentTarget.value,)} aria-label="Platform">
+                        <For each={withData()}>{(a,) => <option value={a.platform}>{a.label}</option>}</For>
+                    </select>
+                </header>
+                <StableSuspense fallback={<p class="form-help-muted">Loading audience…</p>}>
+                    <Show
+                        when={audience()}
+                        fallback={<p class="form-help-muted">{audiencePlatform() ? 'No audience data for this platform yet.' : 'No platform has been collected yet — press Collect now.'}</p>}
+                    >
+                        {(a,) => (
+                            <Show when={audienceHasData(a(),) || a().capabilities} fallback={<p class="form-help-muted">No audience or content data for this platform in the period yet.</p>}>
+                                <AudiencePanel audience={a()} onShowStories={showStories} />
+                            </Show>
+                        )}
+                    </Show>
+                </StableSuspense>
+            </section>
+
+            <section class="admin-section" ref={postsSection}>
                 <header class="admin-section__header">
                     <h2>Posts</h2>
                     <p class="form-help-muted">Each post's latest numbers. "In period" = views gained between the period's first and last snapshot; "Day 7" = views a week after publishing.</p>
@@ -378,6 +434,15 @@ const SocialAnalyticsPanel: Component = () => {
                             <For each={withData()}>{(a,) => <option value={a.platform}>{a.label}</option>}</For>
                         </select>
                     </label>
+                    <Show when={kindOptions().length}>
+                        <label class="social-analytics__filter">
+                            <span>Kind</span>
+                            <select value={postKind()} onChange={(e,) => setPostKind(e.currentTarget.value,)}>
+                                <option value="">All</option>
+                                <For each={kindOptions()}>{(k,) => <option value={k}>{kindLabel(k,)}</option>}</For>
+                            </select>
+                        </label>
+                    </Show>
                     <label class="social-analytics__filter">
                         <span>Search</span>
                         <input type="search" placeholder="Text in the post" onInput={(e,) => onSearch(e.currentTarget.value,)} />

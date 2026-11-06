@@ -11,3 +11,4 @@ export {
     deleteDigest, generateDigest, getDigest, listDigests, SOCIAL_ANALYTICS_DIGEST_CRON, sweepRetention,
 } from './social/analytics/digests';
 export { renderEmailFor, sendDigestEmail, } from './social/analytics/digestDelivery';
+export { audience, } from './social/analytics/audience';

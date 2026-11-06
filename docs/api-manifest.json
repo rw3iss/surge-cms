@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-11-06T02:52:55.626Z",
+  "generatedAt": "2026-11-06T03:46:55.577Z",
   "totalModules": 63,
-  "totalRoutes": 682,
+  "totalRoutes": 683,
   "modules": [
     {
       "module": "admin-channel",
@@ -15221,6 +15221,32 @@
         },
         {
           "method": "GET",
+          "path": "/audience",
+          "absolutePath": "/api/v1/social-analytics/audience",
+          "auth": "staff",
+          "summary": "Audience + content breakdowns for a platform: demographics, online hours, content types, hashtags, stories, benchmarks.",
+          "input": {
+            "query": [
+              {
+                "name": "from",
+                "type": "string",
+                "required": false
+              },
+              {
+                "name": "to",
+                "type": "string",
+                "required": false
+              },
+              {
+                "name": "platform",
+                "type": "string",
+                "required": true
+              }
+            ]
+          }
+        },
+        {
+          "method": "GET",
           "path": "/settings",
           "absolutePath": "/api/v1/social-analytics/settings",
           "auth": "staff",
@@ -15247,6 +15273,11 @@
               {
                 "name": "retentionDays",
                 "type": "integer | null",
+                "required": false
+              },
+              {
+                "name": "benchmarks",
+                "type": "object",
                 "required": false
               }
             ]

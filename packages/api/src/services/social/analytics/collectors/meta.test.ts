@@ -132,27 +132,41 @@ describe('instagram mapping', () => {
         ],);
     },);
 
-    it('collect: snapshot, daily, posts; insights refusal → basic counts + one clear warning', async () => {
+    it('collect: each family on its own — account + media list + counters when insights are refused', async () => {
+        const db = await import('../../../../db');
+        vi.mocked(db.query,).mockResolvedValue({ rows: [], rowCount: 0, } as never,);
         stubFetch((u,) => {
             const path = u.pathname.split('/',).slice(2,).join('/',);
             if (path === '178') return { body: { followers_count: 900, follows_count: 10, media_count: 55, }, };
+            if (path === '178/media') return { body: { data: [{ id: 'm1', like_count: 5, comments_count: 1, media_product_type: 'FEED', media_type: 'IMAGE', timestamp: '2026-11-01T10:00:00+0000', },], }, };
+            if (path === '178/stories') return { body: { data: [], }, };
             if (path.endsWith('/insights',)) return graphErr(10, '(#10) Application does not have permission for this action',);
-            if (path === 'm1') return { body: { id: 'm1', like_count: 5, comments_count: 1, media_product_type: 'FEED', }, };
             return graphErr(100, 'unknown',);
         },);
         const warned: string[] = [];
         const c = getCollector('instagram',)!;
         const r = await c.collect({
             today: '2026-11-05',
-            posts: [{ id: 'p1', externalId: 'm1', publishedAt: null, kind: null, },],
+            posts: [],
             credentials: { accessToken: 'EAAx', id: '178', },
             settings: {},
             warn: (m,) => warned.push(m,),
         },);
         expect(r.account,).toMatchObject({ followers: 900, following: 10, postsCount: 55, },);
-        expect(r.posts,).toEqual([expect.objectContaining({ externalId: 'm1', likes: 5, comments: 1, },),],);
-        expect(warned.some((w,) => w.includes('instagram_manage_insights',)),).toBe(true,);
-        expect((await c.status({ accessToken: 'EAAx', id: '178', }, true,)).state,).toBe('partial',);
+        expect(r.posts,).toEqual([expect.objectContaining({ externalId: 'm1', likes: 5, comments: 1, views: null, },),],);
+        expect(warned.some((w,) => w.includes('did not provide',)),).toBe(true,);
+        // The social_posts upsert ran for the listed item.
+        expect(vi.mocked(db.query,).mock.calls.some(([sql,],) => String(sql,).includes('INSERT INTO social_posts',)),).toBe(true,);
+    },);
+
+    it('status: partial with what the account cannot give (capabilities from the last run)', async () => {
+        const c = getCollector('instagram',)!;
+        const caps = { accountInsights: false, breakdowns: false, newFollowers: true, demographics: false, onlineFollowers: false, mediaInsights: true, stories: true, benchmarks: false, checkedAt: 'x', };
+        const st = await c.status({ accessToken: 'EAAx', id: '178', analyticsCapabilities: caps, }, true,);
+        expect(st.state,).toBe('partial',);
+        expect(st.message,).toMatch(/demographics/,);
+        const all = { ...caps, accountInsights: true, demographics: true, onlineFollowers: true, };
+        expect((await c.status({ accessToken: 'EAAx', id: '178', analyticsCapabilities: all, }, true,)).state,).toBe('ready',);
     },);
 
     it('status: off when not connected, partial when the scope is missing', async () => {

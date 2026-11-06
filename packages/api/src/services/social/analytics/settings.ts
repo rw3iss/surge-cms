@@ -23,6 +23,7 @@ export async function getSettings(): Promise<SocialAnalyticsSettings> {
         digest: { ...d.digest, timezone: await defaultTimezone(), ...(raw?.digest ?? {}), },
         email: { ...d.email, ...(raw?.email ?? {}), },
         retentionDays: raw && 'retentionDays' in raw ? raw.retentionDays ?? null : d.retentionDays,
+        benchmarks: { ...d.benchmarks, ...(raw?.benchmarks ?? {}), },
     };
 }
 
@@ -78,7 +79,18 @@ export function normalizeSettings(n: SocialAnalyticsSettings,): SocialAnalyticsS
             recipientMode: n.email.recipientMode === 'override' ? 'override' : 'augment',
         },
         retentionDays: retention,
+        benchmarks: { instagram: igUsernames(n.benchmarks?.instagram ?? [],), },
     };
+}
+
+const IG_USERNAME_RE = /^[A-Za-z0-9._]{1,30}$/;
+
+function igUsernames(list: string[],): string[] {
+    const out = [...new Set(list.map((u,) => String(u,).trim().replace(/^@/, '',).toLowerCase(),).filter(Boolean,),),];
+    const bad = out.find((u,) => !IG_USERNAME_RE.test(u,),);
+    if (bad) throw new ValidationError(`Not an Instagram username: ${bad}`,);
+    if (out.length > 20) throw new ValidationError('At most 20 benchmark accounts.',);
+    return out;
 }
 
 export async function updateSettings(patch: SocialAnalyticsSettingsBody, ctx: AuditContext,): Promise<SocialAnalyticsSettings> {
@@ -87,6 +99,7 @@ export async function updateSettings(patch: SocialAnalyticsSettingsBody, ctx: Au
         digest: { ...cur.digest, ...(patch.digest ?? {}), },
         email: { ...cur.email, ...(patch.email ?? {}), },
         retentionDays: patch.retentionDays === undefined ? cur.retentionDays : patch.retentionDays,
+        benchmarks: { ...cur.benchmarks, ...(patch.benchmarks ?? {}), },
     },);
     await settingsService.set(SETTINGS_KEY, next, ctx,);
     return next;

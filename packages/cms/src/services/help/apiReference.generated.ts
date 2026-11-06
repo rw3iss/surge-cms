@@ -17652,6 +17652,36 @@ export const API_MODULES: ApiModuleDoc[] = [
             },
             {
                 "method": "GET",
+                "path": "/audience",
+                "absolutePath": "/api/v1/social-analytics/audience",
+                "auth": "staff",
+                "summary": "Audience + content breakdowns for a platform: demographics, online hours, content types, hashtags, stories, benchmarks.",
+                "input": {
+                    "query": [
+                        {
+                            "name": "from",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "to",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "platform",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.socialAnalytics.audience"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
                 "path": "/settings",
                 "absolutePath": "/api/v1/social-analytics/settings",
                 "auth": "staff",
@@ -17682,6 +17712,11 @@ export const API_MODULES: ApiModuleDoc[] = [
                         {
                             "name": "retentionDays",
                             "type": "integer | null",
+                            "required": false
+                        },
+                        {
+                            "name": "benchmarks",
+                            "type": "object",
                             "required": false
                         }
                     ]
@@ -19687,4 +19722,4 @@ export const API_MODULES: ApiModuleDoc[] = [
 ];
 
 export const API_MODULE_COUNT = 63;
-export const API_ROUTE_COUNT = 682;
+export const API_ROUTE_COUNT = 683;

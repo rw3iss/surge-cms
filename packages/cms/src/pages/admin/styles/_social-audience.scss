@@ -1,0 +1,255 @@
+// Social → Analytics: "Audience & content" (dashboard + in-browser digest).
+// Plain CSS bars — no chart library. Component: pages/admin/social/analytics/audience/AudiencePanel.tsx.
+@use '../../../styles/variables' as *;
+
+.aud-panel {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+
+  &__asof { margin: 0; }
+}
+
+.aud-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $spacing-md;
+
+  @media (max-width: $breakpoint-lg) { grid-template-columns: minmax(0, 1fr); }
+}
+
+.aud-block {
+  @include admin-card;
+  padding: $spacing-md;
+  min-width: 0;
+
+  &--wide { grid-column: 1 / -1; }
+
+  &__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-sm;
+    margin-bottom: $spacing-sm;
+
+    h3 { margin: 0; font-size: 1rem; }
+  }
+
+  h4 {
+    margin: $spacing-sm 0 $spacing-xs;
+    font-size: $font-size-xs;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+}
+
+.aud-tabs { display: flex; gap: $spacing-xs; }
+
+.aud-demo {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: $spacing-lg;
+
+  @media (max-width: $breakpoint-lg) { grid-template-columns: minmax(0, 1fr); }
+}
+
+.aud-types {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: $spacing-lg;
+  margin-bottom: $spacing-md;
+}
+
+// ── Horizontal bars ──
+.aud-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  &__row {
+    display: grid;
+    grid-template-columns: minmax(80px, 38%) minmax(40px, 1fr) auto 3.2em;
+    align-items: center;
+    gap: $spacing-sm;
+    font-size: $font-size-sm;
+  }
+
+  &__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__track {
+    height: 8px;
+    border-radius: $border-radius-full;
+    background: var(--admin-bg-subtle, #{$bg-muted});
+    overflow: hidden;
+  }
+
+  &__fill {
+    display: block;
+    height: 100%;
+    border-radius: $border-radius-full;
+    background: var(--site-primary, #{$primary-color});
+  }
+
+  &__value {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    text-align: right;
+  }
+
+  &__share {
+    font-variant-numeric: tabular-nums;
+    font-size: $font-size-xs;
+    color: var(--admin-text-muted, #{$text-light});
+    text-align: right;
+  }
+}
+
+// ── Split bar (share of a whole) ──
+.aud-split {
+  margin-bottom: $spacing-sm;
+
+  &__title {
+    font-size: $font-size-xs;
+    font-weight: 700;
+    color: var(--admin-text-muted, #{$text-light});
+    margin-bottom: 4px;
+  }
+
+  &__bar {
+    display: flex;
+    height: 12px;
+    border-radius: $border-radius-full;
+    overflow: hidden;
+    background: var(--admin-bg-subtle, #{$bg-muted});
+  }
+
+  &__seg {
+    height: 100%;
+
+    &--0 { background: var(--site-primary, #{$primary-color}); }
+    &--1 { background: $secondary-color; }
+    &--2 { background: $accent-color; }
+    &--3 { background: $border-color-strong; }
+  }
+
+  &__legend {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px $spacing-md;
+    font-size: $font-size-sm;
+  }
+
+  &__dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+}
+
+// ── Best hours ──
+.aud-hours {
+  &__chart {
+    display: grid;
+    grid-template-columns: repeat(24, minmax(0, 1fr));
+    align-items: end;
+    gap: 3px;
+    height: 140px;
+  }
+
+  &__col {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    height: 100%;
+    min-width: 0;
+  }
+
+  &__bar {
+    width: 100%;
+    border-radius: 3px 3px 0 0;
+    background: var(--admin-border, #{$border-color-strong});
+  }
+
+  &__col.is-best &__bar { background: var(--site-primary, #{$primary-color}); }
+
+  &__tick {
+    height: 1.2em;
+    margin-top: 4px;
+    font-size: 10px;
+    color: var(--admin-text-muted, #{$text-light});
+    white-space: nowrap;
+  }
+
+  &__best { margin: $spacing-sm 0 0; font-size: $font-size-sm; }
+}
+
+// ── Stats + tables ──
+.aud-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: $spacing-sm;
+  margin: 0;
+
+  div { min-width: 0; }
+
+  dt {
+    font-size: $font-size-xs;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  dd {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (max-width: $breakpoint-sm) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.aud-table-wrap { overflow-x: auto; }
+
+.aud-table {
+  td, th { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  .digest-delta { margin-left: 6px; font-size: $font-size-xs; }
+}
+
+.aud-tag { font-weight: 600; }
+
+.aud-missing {
+  font-size: $font-size-sm;
+  color: var(--admin-text-muted, #{$text-light});
+
+  summary { cursor: pointer; }
+
+  ul { margin: $spacing-xs 0 0; padding-left: 1.1rem; }
+
+  li { margin-bottom: 4px; }
+}
+
+// The dashboard section header (platform select)
+.social-analytics__audience-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-sm;
+}

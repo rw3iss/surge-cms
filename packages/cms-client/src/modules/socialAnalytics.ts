@@ -1,5 +1,7 @@
 import type {
     AiResult,
+    SocialAnalyticsAudienceQuery,
+    SocialAnalyticsAudienceResponse,
     SocialAnalyticsDigestCreateBody,
     SocialAnalyticsDigestResponse,
     SocialAnalyticsDigestSendResponse,
@@ -69,6 +71,11 @@ export class SocialAnalyticsModule extends ModuleBase {
     /** Run the collectors now (all ready ones, or the named platforms). */
     collect(platforms?: string[],): Promise<SocialAnalyticsCollectResponse> {
         return this.mutate('POST', '/social-analytics/collect', { body: platforms ? { platforms, } : {}, invalidates: ['social-analytics',], },);
+    }
+
+    /** Audience + content breakdowns for a platform: demographics, online hours, content types, hashtags, stories, benchmarks. */
+    audience(query: SocialAnalyticsAudienceQuery,): Promise<SocialAnalyticsAudienceResponse> {
+        return this.get('/social-analytics/audience', { query: { ...query, }, },);
     }
 
     /** Analytics settings: digest schedule, sections, email, retention. */

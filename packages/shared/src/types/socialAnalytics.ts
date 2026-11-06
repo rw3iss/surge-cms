@@ -161,13 +161,14 @@ export interface SocialPostAnalytics {
 export type DigestFrequency = 'daily' | 'weekly' | 'monthly';
 
 /** The parts a digest can include. */
-export type DigestSection = 'totals' | 'platforms' | 'trends' | 'topPosts' | 'ai';
+export type DigestSection = 'totals' | 'platforms' | 'trends' | 'topPosts' | 'audience' | 'ai';
 
 export const DIGEST_SECTIONS: Array<{ key: DigestSection; label: string; description: string; }> = [
     { key: 'totals', label: 'Totals', description: 'Followers, views and engagement across every platform, with the change against the previous period.', },
     { key: 'platforms', label: 'Per platform', description: 'Each platform\'s numbers and changes.', },
     { key: 'trends', label: 'Trends', description: 'Daily followers and views per platform (charts in the browser, bars in email).', },
     { key: 'topPosts', label: 'Top posts', description: 'The posts that gained the most views in the period.', },
+    { key: 'audience', label: 'Audience', description: 'Who follows and engages (age, gender, top countries), when followers are online, what content type gets the views, and benchmark accounts — where the platform provides it (Instagram today).', },
     { key: 'ai', label: 'AI insights', description: 'A headline, what changed, why the top posts worked and next steps — written by the AI module (claude-broker "analytics" pool).', },
 ];
 
@@ -204,6 +205,8 @@ export interface SocialAnalyticsSettings {
     };
     /** Keep digests (and their snapshots) this many days; null = forever. */
     retentionDays: number | null;
+    /** Other public accounts to track for comparison, per platform (Instagram: Business/Creator usernames). */
+    benchmarks: { instagram: string[]; };
 }
 
 export const DEFAULT_SOCIAL_ANALYTICS_SETTINGS: SocialAnalyticsSettings = {
@@ -215,12 +218,13 @@ export const DEFAULT_SOCIAL_ANALYTICS_SETTINGS: SocialAnalyticsSettings = {
         hour: 9,
         timezone: 'America/New_York',
         platforms: [],
-        sections: ['totals', 'platforms', 'trends', 'topPosts', 'ai',],
+        sections: ['totals', 'platforms', 'trends', 'topPosts', 'audience', 'ai',],
         topPosts: 10,
         aiPool: 'analytics',
     },
     email: { enabled: true, format: 'full', recipients: [], recipientMode: 'augment', },
     retentionDays: 365,
+    benchmarks: { instagram: [], },
 };
 
 /** One number with its previous-period value. */
@@ -263,6 +267,8 @@ export interface DigestData {
     totals: Record<string, DigestMetric>;
     platforms: DigestPlatform[];
     topPosts: SocialPostAnalytics[];
+    /** Per platform that provides it (the `audience` section). */
+    audience?: SocialAudience[];
     definitionChanges: SocialDefinitionChange[];
     ai: { status: 'ok' | 'failed' | 'skipped'; insights: DigestAiInsights | null; error: string | null; provider: string | null; pool: string | null; };
 }
@@ -283,4 +289,61 @@ export interface SocialAnalyticsDigestSummary {
 
 export interface SocialAnalyticsDigest extends SocialAnalyticsDigestSummary {
     data: DigestData | null;
+}
+
+// ─── Audience + content breakdowns (Instagram first; any platform can fill the same shape) ───
+
+/** One bucket of a breakdown: `key` = age band, gender, country code, city, content type… */
+export interface AudienceBucket {
+    key: string;
+    value: number;
+    /** Share of the breakdown's total (0–1). */
+    share: number;
+}
+
+export interface AudienceDemographics {
+    age: AudienceBucket[];
+    gender: AudienceBucket[];
+    country: AudienceBucket[];
+    city: AudienceBucket[];
+}
+
+export interface AudienceBenchmark {
+    username: string;
+    followers: number | null;
+    followerChange: number | null;
+    mediaCount: number | null;
+    avgLikes: number | null;
+    avgComments: number | null;
+    /** (avg likes + avg comments) ÷ followers. */
+    engagementRate: number | null;
+    postsPerWeek: number | null;
+    asOf: string | null;
+}
+
+export interface SocialAudience {
+    platform: string;
+    from: string;
+    to: string;
+    /** Latest snapshot day the demographics come from. */
+    asOf: string | null;
+    /** followers = who follows; engaged = who interacted; reached = who saw (each null when not available). */
+    demographics: { followers: AudienceDemographics | null; engaged: AudienceDemographics | null; reached: AudienceDemographics | null; };
+    /** Average followers online per hour (0–23) over the period; empty when not available. */
+    onlineHours: Array<{ hour: number; value: number; }>;
+    /** Content + audience splits summed over the period. */
+    breakdowns: {
+        viewsByType: AudienceBucket[];
+        reachByType: AudienceBucket[];
+        interactionsByType: AudienceBucket[];
+        viewsByFollow: AudienceBucket[];
+        reachByFollow: AudienceBucket[];
+    };
+    /** Posts / views / engagement per content kind, from our post metrics. */
+    contentKinds: Array<{ kind: string; posts: number; views: number | null; avgViews: number | null; engagementRate: number | null; }>;
+    hashtags: Array<{ tag: string; posts: number; avgViews: number | null; engagementRate: number | null; }>;
+    stories: { count: number; views: number | null; reach: number | null; replies: number | null; };
+    benchmarks: AudienceBenchmark[];
+    /** What the connected account can provide (from the collector's last run). */
+    capabilities: Record<string, boolean> | null;
 }

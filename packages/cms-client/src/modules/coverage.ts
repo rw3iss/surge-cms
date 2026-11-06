@@ -185,6 +185,7 @@ export const ROUTE_COVERAGE: string[] = [
     'GET /api/v1/social-analytics/runs',
     'POST /api/v1/social-analytics/collect',
     'POST /api/v1/social-analytics/summary',
+    'GET /api/v1/social-analytics/audience',
     'GET /api/v1/social-analytics/settings',
     'PUT /api/v1/social-analytics/settings',
     'GET /api/v1/social-analytics/digests',

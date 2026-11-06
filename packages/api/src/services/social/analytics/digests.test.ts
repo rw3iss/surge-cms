@@ -102,4 +102,23 @@ describe('digest email', () => {
         expect(html,).not.toContain('Post more',);
         expect(html,).toContain('See the full digest',);
     },);
+
+    it('renders the audience section with best hours, splits and benchmarks', () => {
+        const withAudience = { ...digest, data: { ...digest.data!, sections: [...digest.data!.sections, 'audience',] as never, audience: [{
+            platform: 'youtube', from: 'a', to: 'b', asOf: 'b',
+            demographics: { followers: { age: [{ key: '25-34', value: 50, share: 0.5, },], gender: [{ key: 'F', value: 60, share: 0.6, },], country: [{ key: 'US', value: 80, share: 0.8, },], city: [], }, engaged: null, reached: null, },
+            onlineHours: [{ hour: 19, value: 40, }, { hour: 9, value: 10, },],
+            breakdowns: { viewsByType: [{ key: 'REEL', value: 7, share: 0.7, },], reachByType: [], interactionsByType: [], viewsByFollow: [], reachByFollow: [], },
+            contentKinds: [], hashtags: [{ tag: '#nyc', posts: 3, avgViews: 1200, engagementRate: 0.05, },], stories: { count: 2, views: 300, reach: 250, replies: 4, },
+            benchmarks: [{ username: 'rival', followers: 5000, followerChange: 10, mediaCount: 300, avgLikes: 100, avgComments: 5, engagementRate: 0.021, postsPerWeek: 3, asOf: 'b', },],
+            capabilities: null,
+        },], }, };
+        const html = renderDigestEmail(withAudience, layout, { format: 'full', viewUrl: 'v', settingsUrl: 's', },);
+        expect(html,).toContain('Best time to post',);
+        expect(html,).toContain('7 PM',);
+        expect(html,).toContain('Reels',);
+        expect(html,).toContain('@rival',);
+        expect(html,).toContain('#nyc',);
+        expect(html,).toContain('Women',);
+    },);
 },);
