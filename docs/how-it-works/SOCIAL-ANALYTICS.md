@@ -119,9 +119,12 @@ marks that day.
 ## AI summary + export
 
 - **AI summary** (`POST /social-analytics/summary`, needs `ai:use` too): a compact JSON digest of the
-  overview + top 10 posts is sent through the AI module (`docs/how-it-works/AI.md` — claude-broker by
-  default, so no API billing); Markdown answer. A long answer comes back `timedOut` and the admin
-  polls `cms.ai.job`.
+  overview + top 10 posts goes through the AI module (`docs/how-it-works/AI.md`). **Where it runs**
+  (`pickSummaryTarget` in `services/social/analytics/summary.ts`): the claude-broker **`analytics` pool**
+  when it has an attached session → else the broker's default pool → else the Anthropic API when set up →
+  else a failed result (`meta.reason: 'no_session'`) whose message says to start the `analytics` pool in
+  Plugins → Claude Broker (the panel links there and to Settings → AI). Markdown answer; a long one comes
+  back `timedOut` and the admin polls `cms.ai.job`.
 - **Export CSV** on the Posts table: every page of the current filter, formula-safe.
 
 ## Not built yet (plan §6 phase 5)

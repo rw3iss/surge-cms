@@ -3,8 +3,9 @@
  * top posts) sent through the AI module (claude-broker by default, so no API
  * billing). The AI only sees numbers we already store.
  */
-import type { AiResult, } from '@sitesurge/types';
+import type { AiResult, AiStatusResponse, } from '@sitesurge/types';
 import * as ai from '../../ai';
+import { failedResult, } from '../../ai/result';
 import { overview, posts, resolveRange, } from './read';
 
 const SYSTEM = 'You are a social media analyst for a news/media organisation. Write in plain, short American English. '
@@ -63,6 +64,40 @@ export async function summarize(range: { from?: string; to?: string; },): Promis
         'Data (JSON):',
         digest,
     ].join('\n',);
+    const target = await summaryTarget();
+    if (!target.ok) return failedResult('broker', target.error, { meta: { reason: 'no_session', }, },);
     // ≤ 50 s over HTTP; a longer answer comes back timedOut and the admin polls the job.
-    return ai.ask(prompt, { system: SYSTEM, kind: 'ANALYTICS SUMMARY', timeoutSec: 50, },);
+    return ai.ask(prompt, { system: SYSTEM, kind: 'ANALYTICS SUMMARY', timeoutSec: 50, ...target.opts, },);
+}
+
+/** The claude-broker pool that serves analytics work (start it in Plugins → Claude Broker). */
+export const ANALYTICS_POOL = 'analytics';
+
+export const NO_SESSION_MESSAGE = 'No AI session is available for the summary. Start the "analytics" pool (or the default pool) in '
+    + 'Plugins → Claude Broker → Setup → Start sessions — or add an Anthropic API key in Settings → AI.';
+
+type Target = { ok: true; opts: { provider: 'broker' | 'anthropic'; pool?: string; }; } | { ok: false; error: string; };
+
+/**
+ * Where the summary runs: the broker's `analytics` pool when it has an attached
+ * session, else the broker's default pool, else the Anthropic API when it is
+ * set up — else a clear "start a session" error instead of a job that would sit
+ * in a queue nobody reads.
+ */
+export function pickSummaryTarget(st: AiStatusResponse,): Target {
+    const pools = st.broker.reachable ? st.pools : [];
+    const live = (name: string | null | undefined,) => Boolean(name) && pools.some((p,) => p.name === name && p.attached > 0);
+    if (live(ANALYTICS_POOL,)) return { ok: true, opts: { provider: 'broker', pool: ANALYTICS_POOL, }, };
+    if (live(st.broker.defaultPool,)) return { ok: true, opts: { provider: 'broker', pool: st.broker.defaultPool!, }, };
+    const anthropic = st.providers.find((p,) => p.key === 'anthropic');
+    if (anthropic?.available) return { ok: true, opts: { provider: 'anthropic', }, };
+    return { ok: false, error: NO_SESSION_MESSAGE, };
+}
+
+async function summaryTarget(): Promise<Target> {
+    try {
+        return pickSummaryTarget(await ai.status(),);
+    } catch (e) {
+        return { ok: false, error: `${NO_SESSION_MESSAGE} (${(e as Error).message})`, };
+    }
 }

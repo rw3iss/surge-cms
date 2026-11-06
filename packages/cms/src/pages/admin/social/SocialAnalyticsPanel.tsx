@@ -1,3 +1,4 @@
+import { A, } from '@solidjs/router';
 import { type Component, createEffect, createMemo, createResource, createSignal, For, on, Show, } from 'solid-js';
 import {
     type AiResult,
@@ -265,7 +266,17 @@ const SocialAnalyticsPanel: Component = () => {
                             <button type="button" class="btn btn--tiny" onClick={() => setSummary(null,)}>Close</button>
                         </header>
                         <Show when={r().status === 'completed'} fallback={
-                            <p class="form-help-muted">{r().error ?? (summarizing() ? 'Waiting for the answer…' : 'No answer yet.')}</p>
+                            <>
+                                <p class={r().status === 'failed' ? 'social-analytics__summary-error' : 'form-help-muted'}>
+                                    {r().error ?? (summarizing() ? 'Waiting for the answer…' : 'No answer yet.')}
+                                </p>
+                                <Show when={r().meta?.reason === 'no_session'}>
+                                    <p class="social-analytics__summary-links">
+                                        <A href="/admin/plugins/claude-broker">Open Claude Broker setup →</A>
+                                        <A href="/admin/settings?tab=ai">AI settings →</A>
+                                    </p>
+                                </Show>
+                            </>
                         }>
                             <Markdown text={r().text} />
                         </Show>

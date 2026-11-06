@@ -34,6 +34,18 @@
 
   &__export { margin-left: auto; }
 
+  &__summary-error {
+    margin: 0;
+    color: var(--admin-danger, #b91c1c);
+  }
+
+  &__summary-links {
+    display: flex;
+    gap: $spacing-md;
+    margin: $spacing-sm 0 0;
+    font-size: $font-size-sm;
+  }
+
   &__summary {
     @include admin-card;
     padding: $spacing-md $spacing-lg;
