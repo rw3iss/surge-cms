@@ -163,6 +163,9 @@ async function aiInsights(data: Omit<DigestData, 'ai'>, pool: string,): Promise<
     };
     const prompt = [
         'Analyse this social media digest (each metric has value, previous period value and change). Return ONLY JSON:',
+        'Note: we collect analytics daily from each platform\'s "since" date. A missing (null) previous value means there was no',
+        'data before that date — mention it at most once and never suggest changing the digest itself. Suggestions are about content',
+        'and channels; when a platform reports a status message (more access needed), you may suggest acting on it.',
         '{"headline": one sentence,',
         ' "highlights": 3-6 short bullets on what changed and why it matters,',
         ' "platforms": [{"platform": name, "summary": 1-2 sentences}] for platforms with data,',

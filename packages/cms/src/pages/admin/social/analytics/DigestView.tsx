@@ -56,12 +56,13 @@ const Card: Component<{ title: JSX.Element; aside?: JSX.Element; open: boolean; 
 );
 
 const PlatformTrends: Component<{ platform: DigestPlatform; data: DigestData; }> = (p,) => {
-    const keys = () => Object.keys(p.platform.series,).filter((k,) => (p.platform.series[k] ?? []).length);
+    // A trend needs at least two days; one point is just the number already in the table.
+    const keys = () => Object.keys(p.platform.series,).filter((k,) => (p.platform.series[k] ?? []).length >= 2);
     const [metric, setMetric,] = createSignal('',);
     const current = () => (keys().includes(metric(),) ? metric() : keys().includes('views',) ? 'views' : keys()[0] ?? '');
     const markers = () => p.data.definitionChanges.filter((c,) => c.platform === p.platform.platform).map((c,) => ({ date: c.date, label: c.note, }));
     return (
-        <Show when={keys().length} fallback={<p class="form-help-muted">No daily series for this period.</p>}>
+        <Show when={keys().length} fallback={<p class="form-help-muted">Trends appear once there are two or more days of data in the period{p.platform.since ? ` (collected since ${p.platform.since})` : ''}.</p>}>
             <div class="digest-trends">
                 <div class="digest-trends__switch" role="tablist">
                     <For each={keys()}>
