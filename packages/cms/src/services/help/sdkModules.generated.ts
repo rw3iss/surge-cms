@@ -1600,6 +1600,16 @@ export const SDK_MODULES: SdkModuleDoc[] = [
         "summary": "/connections namespace (all admin) — social connection credentials + settings, per-provider. The OAuth CALLBACK route is not exposed (raw redirect); only the authorize-URL endpoint is.",
         "methods": [
             {
+                "name": "facebookPages",
+                "signature": "facebookPages(): Promise<FacebookPageOption[]>",
+                "summary": "GET /connections/facebook/pages — Pages the connected Facebook user manages.",
+                "params": [],
+                "returns": "Promise<FacebookPageOption[]>",
+                "routes": [
+                    "GET /api/v1/connections/facebook/pages"
+                ]
+            },
+            {
                 "name": "getByProvider",
                 "signature": "getByProvider(provider: string): Promise<ConnectionGetResponse>",
                 "summary": "GET /connections/:provider — one connection, or null when none yet. Named `getByProvider` (not `get`) so it doesn't clash with the protected `get` request helper on ModuleBase.",
@@ -1692,6 +1702,22 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "returns": "Promise<ConnectionReorderResponse>",
                 "routes": [
                     "PUT /api/v1/connections/:provider/reorder"
+                ]
+            },
+            {
+                "name": "selectFacebookPage",
+                "signature": "selectFacebookPage(pageId: string): Promise<FacebookPageOption>",
+                "summary": "PUT /connections/facebook/page — collect this Page (saves its id, token and granted scopes).",
+                "params": [
+                    {
+                        "name": "pageId",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<FacebookPageOption>",
+                "routes": [
+                    "PUT /api/v1/connections/facebook/page"
                 ]
             },
             {
@@ -11529,4 +11555,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 58;
-export const SDK_METHOD_COUNT = 679;
+export const SDK_METHOD_COUNT = 681;

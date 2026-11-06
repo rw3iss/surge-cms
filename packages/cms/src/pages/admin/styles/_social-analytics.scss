@@ -146,6 +146,14 @@
     margin-top: auto;
   }
 
+  &__collects {
+    font-size: $font-size-xs;
+    color: var(--admin-text-muted, #{$text-light});
+
+    summary { cursor: pointer; }
+    ul { margin: $spacing-xs 0 0; padding-left: 1.1rem; }
+  }
+
   &__notes {
     font-size: $font-size-xs;
     color: var(--admin-text-muted, #{$text-light});

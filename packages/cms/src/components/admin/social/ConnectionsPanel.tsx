@@ -2,6 +2,7 @@ import { useSearchParams, } from '@solidjs/router';
 import { Component, createResource, createSignal, For, type JSX, onMount, Show, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import Toggle from '../common/Toggle';
+import FacebookPagePicker from './FacebookPagePicker';
 import Tooltip from '../common/Tooltip';
 import { CommitInput, FormField, } from '../forms';
 
@@ -66,7 +67,8 @@ function atHandle(name: string | null | undefined,): string {
 const PROVIDERS = [
     { id: 'instagram', name: 'Instagram', icon: 'IG', oauth: true, },
     { id: 'facebook', name: 'Facebook', icon: 'FB', oauth: false, },
-    { id: 'tiktok', name: 'TikTok', icon: 'TT', oauth: false, },
+    // TikTok: Login Kit sign-in (basic analytics) + an optional Business API sign-in (upgraded analytics).
+    { id: 'tiktok', name: 'TikTok', icon: 'TT', oauth: true, },
     { id: 'patreon', name: 'Patreon', icon: 'PA', oauth: false, },
     { id: 'youtube', name: 'YouTube', icon: 'YT', oauth: false, },
     { id: 'twitter', name: 'Twitter/X', icon: 'TW', oauth: false, },
@@ -98,10 +100,16 @@ const ConnectionsPanel: Component = () => {
     const [apiSecret, setApiSecret,] = createSignal('',);
     const [appId, setAppId,] = createSignal('',);
     const [appSecret, setAppSecret,] = createSignal('',);
+    /** TikTok API for Business app (upgraded analytics) — a second app + sign-in on the TikTok card. */
+    const [ttBizAppId, setTtBizAppId,] = createSignal('',);
+    const [ttBizAppSecret, setTtBizAppSecret,] = createSignal('',);
+    const [ttBizAuthUrl, setTtBizAuthUrl,] = createSignal('',);
     const [twitterMode, setTwitterMode,] = createSignal<'free' | 'api'>('free',);
     /** X analytics (paid reads): opt-in + monthly spend cap in USD ('' = server default). */
     const [xAnalytics, setXAnalytics,] = createSignal(false,);
     const [xAnalyticsCap, setXAnalyticsCap,] = createSignal('',);
+    /** The measured X account owns the developer app → own-timeline reads bill at the owned-read rate. */
+    const [xOwnedApp, setXOwnedApp,] = createSignal(false,);
     // "Change" toggles a saved-secret read view back to an editable input.
     const [changingApiKey, setChangingApiKey,] = createSignal(false,);
     const [changingApiSecret, setChangingApiSecret,] = createSignal(false,);
@@ -140,9 +148,13 @@ const ConnectionsPanel: Component = () => {
         setApiSecret('',);
         setAppId(conn?.credentials?.appId || '',);
         setAppSecret('',);
+        setTtBizAppId(String(conn?.credentials?.businessAppId ?? '',),);
+        setTtBizAppSecret('',);
+        setTtBizAuthUrl(String(conn?.credentials?.businessAuthUrl ?? '',),);
         setTwitterMode(conn?.settings?.twitterMode === 'api' ? 'api' : 'free',);
         setXAnalytics(conn?.settings?.analytics?.enabled === true,);
         setXAnalyticsCap(conn?.settings?.analytics?.monthlyCapUsd != null ? String(conn.settings.analytics.monthlyCapUsd,) : '',);
+        setXOwnedApp(conn?.settings?.analytics?.ownedApp === true,);
         setChangingApiKey(false,);
         setChangingApiSecret(false,);
         setChangingAccessToken(false,);
@@ -160,6 +172,43 @@ const ConnectionsPanel: Component = () => {
     const googleChannels = (conn: any,): Array<{ id: string; title: string; handle: string | null; }> =>
         (conn?.credentials?.oauthChannels as Array<{ id: string; title: string; handle: string | null; }> | undefined) ?? [];
     const youtubeCallbackUrl = () => `${window.location.origin}/api/v1/connections/youtube/oauth/callback`;
+
+    // ─── TikTok: Login Kit (basic) + API for Business (upgraded analytics) ───
+    const tiktokCallbackUrl = (key: 'tiktok' | 'tiktok_business',) => `${window.location.origin}/api/v1/connections/${key}/oauth/callback`;
+    /** The Business app fields typed on the card (empty secret = keep the saved one). */
+    const tiktokBusinessCredentials = (): Record<string, unknown> => ({
+        businessAppId: ttBizAppId().trim(),
+        businessAuthUrl: ttBizAuthUrl().trim(),
+        ...(ttBizAppSecret().trim() ? { businessAppSecret: ttBizAppSecret().trim(), } : {}),
+    });
+    const tiktokBusinessConnected = (conn: any,) => Boolean(conn?.credentials?.hasBusinessAccessToken && conn?.credentials?.businessId,);
+    /** Save the Business app, then start its sign-in. */
+    const authorizeTikTokBusiness = async () => {
+        const conn = getConnection('tiktok',);
+        if (!ttBizAppId().trim() || !(ttBizAppSecret().trim() || conn?.credentials?.hasBusinessAppSecret)) {
+            setConnError('Enter the TikTok for Business App ID and Secret first.',);
+            return;
+        }
+        try {
+            const credentials = tiktokBusinessCredentials();
+            if (conn) await cms.connections.update('tiktok', { credentials, } as any,);
+            else await cms.connections.upsert({ provider: 'tiktok', enabled: true, credentials, } as any,);
+        } catch (e) {
+            setConnError(e instanceof Error ? e.message : 'Could not save the Business app',);
+            return;
+        }
+        await handleOAuthConnect('tiktok_business',);
+    };
+    const disconnectTikTokBusiness = async () => {
+        if (!confirm('Remove the TikTok Business API sign-in? Basic TikTok stats keep collecting.',)) return;
+        try {
+            await cms.connections.oauthDisconnect('tiktok_business',);
+            setConnSuccess('TikTok Business API sign-in removed.',);
+            refetch();
+        } catch (e) {
+            setConnError(e instanceof Error ? e.message : 'Could not remove the sign-in',);
+        }
+    };
 
     /** Save the Google client id/secret, then go to Google's sign-in. */
     const signInWithGoogle = async () => {
@@ -205,6 +254,7 @@ const ConnectionsPanel: Component = () => {
         if (isOAuthProvider(provider,)) {
             if (appId()) credentials.appId = appId();
             if (appSecret()) credentials.appSecret = appSecret();
+            if (provider === 'tiktok') Object.assign(credentials, tiktokBusinessCredentials(),);
         } else {
             if (accessToken()) credentials.accessToken = accessToken();
             if (accessSecret()) credentials.accessSecret = accessSecret();
@@ -231,7 +281,7 @@ const ConnectionsPanel: Component = () => {
             const cap = Number.parseFloat(xAnalyticsCap(),);
             data.settings = {
                 twitterMode: twitterMode(),
-                analytics: { enabled: xAnalytics(), ...(Number.isFinite(cap,) && cap >= 0 ? { monthlyCapUsd: cap, } : {}), },
+                analytics: { enabled: xAnalytics(), ownedApp: xOwnedApp(), ...(Number.isFinite(cap,) && cap >= 0 ? { monthlyCapUsd: cap, } : {}), },
             };
         }
 
@@ -418,7 +468,7 @@ const ConnectionsPanel: Component = () => {
                                                         />
                                                         <FormField
                                                             label="Monthly cap (USD)"
-                                                            tooltip="Every X API read costs credits. Collection stops for the month once the estimated spend would pass this cap. Estimate uses X's standard rates ($0.005 per post read, $0.01 per account read); owned reads bill less. Empty = $10."
+                                                            tooltip="Every X API read costs credits. Paid reads stop for the month once the estimated spend would pass this cap (pasted posts keep the free re-read). Estimate: $0.01 per account read, $0.005 per post read — $0.001 per own-timeline post when the app is owned by this account. Each post is read daily for 30 days, then weekly. Empty = $10."
                                                             hint={(() => {
                                                                 const s = conn()?.settings?.analyticsSpend;
                                                                 const month = new Date().toISOString().slice(0, 7,);
@@ -435,6 +485,12 @@ const ConnectionsPanel: Component = () => {
                                                                 onCommit={setXAnalyticsCap}
                                                             />
                                                         </FormField>
+                                                        <Toggle
+                                                            checked={xOwnedApp()}
+                                                            onChange={setXOwnedApp}
+                                                            disabled={!xAnalytics()}
+                                                            label="This account owns the X developer app (owned-read rate)"
+                                                        />
                                                 </Show>
                                             </Show>
                                             <Show when={provider.id === 'youtube'}>
@@ -554,6 +610,9 @@ const ConnectionsPanel: Component = () => {
                                                                 />
                                                             </FormField>
                                                         </Show>
+                                                        <Show when={provider.id === 'facebook' && conn()?.credentials?.hasAccessToken}>
+                                                            <FacebookPagePicker onSaved={(msg,) => { setConnSuccess(msg,); void refetch(); }} />
+                                                        </Show>
                                                     </>
                                                     </Show>
                                                 }
@@ -629,6 +688,89 @@ const ConnectionsPanel: Component = () => {
                                                 and use the <strong>Threads</strong> app ID and secret (Use cases → Threads API → Settings).
                                             </p>
                                         </Show>
+                                        <Show when={provider.id === 'tiktok'}>
+                                            <p class="form-help">
+                                                <strong>Basic analytics</strong> (followers, likes, every video's views, likes, comments, shares).
+                                                At <a href="https://developers.tiktok.com/apps" target="_blank" rel="noopener">developers.tiktok.com</a> create an app,
+                                                add <strong>Login Kit</strong> (Web) and the scopes <code>user.info.basic</code>, <code>user.info.profile</code>,{' '}
+                                                <code>user.info.stats</code>, <code>video.list</code>, set this redirect URI:{' '}
+                                                <code>{tiktokCallbackUrl('tiktok',)}</code>, submit it for review, then paste its Client key and Client secret.
+                                            </p>
+                                            <FormField label="Client key">
+                                                <input
+                                                    type="text"
+                                                    value={appId()}
+                                                    onInput={(e,) => setAppId(e.currentTarget.value,)}
+                                                    placeholder="TikTok client key"
+                                                />
+                                            </FormField>
+                                            <FormField label="Client secret">
+                                                <input
+                                                    type="password"
+                                                    value={appSecret()}
+                                                    onInput={(e,) => setAppSecret(e.currentTarget.value,)}
+                                                    placeholder={conn()?.credentials?.hasAppSecret ? 'Secret saved (enter new to replace)' : 'TikTok client secret'}
+                                                />
+                                            </FormField>
+                                            <Show when={conn()?.credentials?.hasAccessToken}>
+                                                <div class={`alert ${conn()?.credentials?.oauthError ? 'alert--error' : 'alert--success'}`}>
+                                                    <Show
+                                                        when={conn()?.credentials?.oauthError}
+                                                        fallback={<>Signed in as {atHandle(conn()?.displayName,)}. The token renews itself on each collection.</>}
+                                                    >
+                                                        The TikTok sign-in stopped working ({String(conn()?.credentials?.oauthError,)}). Click Reconnect below.
+                                                    </Show>
+                                                </div>
+                                            </Show>
+
+                                            <h4 class="connection-card__subhead">Business API — upgraded analytics (optional)</h4>
+                                            <p class="form-help">
+                                                Adds watch time, completion rate, reach, profile views, follower history, follower age / gender / country / city,
+                                                active hours and traffic sources. Switch the account to a <strong>Business Account</strong> in the TikTok app,
+                                                then at <a href="https://business-api.tiktok.com/portal/apps" target="_blank" rel="noopener">business-api.tiktok.com</a> create
+                                                a developer app with the <strong>TikTok Accounts</strong> permission (<code>user.insights</code>, <code>video.insights</code>,{' '}
+                                                <code>video.list</code>, <code>user.info.*</code>, <code>user.account.type</code>), set its TikTok account holder redirect
+                                                URL to <code>{tiktokCallbackUrl('tiktok_business',)}</code>, and paste its App ID and Secret.
+                                            </p>
+                                            <FormField label="Business App ID">
+                                                <input type="text" value={ttBizAppId()} onInput={(e,) => setTtBizAppId(e.currentTarget.value,)} placeholder="TikTok for Business app ID" />
+                                            </FormField>
+                                            <FormField label="Business App Secret">
+                                                <input
+                                                    type="password"
+                                                    value={ttBizAppSecret()}
+                                                    onInput={(e,) => setTtBizAppSecret(e.currentTarget.value,)}
+                                                    placeholder={conn()?.credentials?.hasBusinessAppSecret ? 'Secret saved (enter new to replace)' : 'TikTok for Business app secret'}
+                                                />
+                                            </FormField>
+                                            <FormField
+                                                label="Authorization URL (optional)"
+                                                hint="The app's &quot;TikTok account holder authorization URL&quot; (My Apps → App Detail → Basic Information). Leave empty to use the standard TikTok sign-in URL."
+                                            >
+                                                <input type="url" value={ttBizAuthUrl()} onInput={(e,) => setTtBizAuthUrl(e.currentTarget.value,)} placeholder="https://www.tiktok.com/v2/auth/authorize?..." />
+                                            </FormField>
+                                            <Show when={tiktokBusinessConnected(conn(),)}>
+                                                <div class={`alert ${conn()?.credentials?.businessOauthError ? 'alert--error' : 'alert--success'}`}>
+                                                    <Show
+                                                        when={conn()?.credentials?.businessOauthError}
+                                                        fallback={<>Business API connected{conn()?.credentials?.businessUsername ? ` as @${String(conn()?.credentials?.businessUsername,)}` : ''}.</>}
+                                                    >
+                                                        The Business API sign-in stopped working ({String(conn()?.credentials?.businessOauthError,)}). Authorize it again.
+                                                    </Show>
+                                                </div>
+                                            </Show>
+                                            <div class="u-flex-row" style={{ gap: '0.5rem', 'margin-bottom': '1rem', }}>
+                                                <button type="button" class="ui-button ui-button--sm ui-button--secondary" disabled={oauthLoading()} onClick={() => void authorizeTikTokBusiness()}>
+                                                    {oauthLoading() ? 'Redirecting…' : tiktokBusinessConnected(conn(),) ? 'Reconnect Business API' : 'Authorize Business API'}
+                                                </button>
+                                                <Show when={tiktokBusinessConnected(conn(),)}>
+                                                    <button type="button" class="ui-button ui-button--sm ui-button--danger" onClick={() => void disconnectTikTokBusiness()}>
+                                                        Remove Business API
+                                                    </button>
+                                                </Show>
+                                            </div>
+                                        </Show>
+                                        <Show when={provider.id !== 'tiktok'}>
                                         <FormField label="App ID" hint="From your Meta Developer App at developers.facebook.com">
                                             <input
                                                 type="text"
@@ -647,7 +789,8 @@ const ConnectionsPanel: Component = () => {
                                                     'Meta App Secret'}
                                             />
                                         </FormField>
-                                        <Show when={isConnected()}>
+                                        </Show>
+                                        <Show when={isConnected() && provider.id !== 'tiktok'}>
                                             <div class="alert alert--success" style={{ 'margin-bottom': '1rem', }}>
                                                 Connected as {atHandle(conn()?.displayName,)}.
                                                 Token auto-refreshes every 7 days.
@@ -720,7 +863,9 @@ const ConnectionsPanel: Component = () => {
                                                 disabled={oauthLoading()}
                                             >
                                                 {oauthLoading() ? 'Redirecting...' :
-                                                    isConnected() ? 'Reconnect' : `Authorize ${provider.name}`}
+                                                    provider.id === 'tiktok'
+                                                    ? (conn()?.credentials?.hasAccessToken ? 'Reconnect TikTok' : 'Authorize with TikTok')
+                                                    : isConnected() ? 'Reconnect' : `Authorize ${provider.name}`}
                                             </button>
                                         </Show>
                                         <button class="ui-button ui-button--secondary ui-button--sm" onClick={cancelEditing}>

@@ -9,6 +9,7 @@ import {
     currentSpend,
     DEFAULT_MONTHLY_CAP_USD,
     friendlyXReadError,
+    paidBlocker,
     planReads,
     readCost,
     tweetMetric,
@@ -22,9 +23,9 @@ describe('twitter analytics collector', () => {
     },);
 
     it('is off unless explicitly enabled; cap defaults when unset or invalid', () => {
-        expect(analyticsSettings({},),).toEqual({ enabled: false, monthlyCapUsd: DEFAULT_MONTHLY_CAP_USD, },);
+        expect(analyticsSettings({},),).toEqual({ enabled: false, monthlyCapUsd: DEFAULT_MONTHLY_CAP_USD, ownedApp: false, },);
         expect(analyticsSettings({ analytics: { enabled: 'yes', }, },).enabled,).toBe(false,);
-        expect(analyticsSettings({ analytics: { enabled: true, monthlyCapUsd: 3.5, }, },),).toEqual({ enabled: true, monthlyCapUsd: 3.5, },);
+        expect(analyticsSettings({ analytics: { enabled: true, monthlyCapUsd: 3.5, }, },),).toEqual({ enabled: true, monthlyCapUsd: 3.5, ownedApp: false, },);
         expect(analyticsSettings({ analytics: { enabled: true, monthlyCapUsd: -1, }, },).monthlyCapUsd,).toBe(DEFAULT_MONTHLY_CAP_USD,);
         expect(analyticsSettings({ analytics: { enabled: true, monthlyCapUsd: '', }, },).monthlyCapUsd,).toBe(DEFAULT_MONTHLY_CAP_USD,);
         expect(analyticsSettings({ analytics: { enabled: true, monthlyCapUsd: 0, }, },).monthlyCapUsd,).toBe(0,);
@@ -98,5 +99,16 @@ describe('twitter analytics collector', () => {
         expect(friendlyXReadError(401, '',),).toMatch(/credentials/,);
         expect(friendlyXReadError(403, '',),).toMatch(/paid X API plan/,);
         expect(friendlyXReadError(429, '',),).toMatch(/rate limit/,);
+    },);
+},);
+
+describe('twitter paid gate', () => {
+    const creds = { apiKey: 'a', apiSecret: 'b', accessToken: 'c', accessSecret: 'd', };
+    it('is "off" until analytics is enabled, then names the missing piece', () => {
+        expect(paidBlocker({}, creds, true,),).toBe('off',);
+        expect(paidBlocker({ analytics: { enabled: true, }, }, creds, true,),).toMatch(/Feed mode API/,);
+        expect(paidBlocker({ analytics: { enabled: true, }, twitterMode: 'api', }, {}, true,),).toMatch(/Access Token/,);
+        expect(paidBlocker({ analytics: { enabled: true, }, twitterMode: 'api', }, creds, false,),).toMatch(/not enabled/,);
+        expect(paidBlocker({ analytics: { enabled: true, }, twitterMode: 'api', }, creds, true,),).toBeNull();
     },);
 },);

@@ -1,96 +1,80 @@
 /**
- * X (Twitter) analytics collector — plan §3.6. OPT-IN and SPEND-CAPPED:
- * every X API read costs credits (pay-per-use since 2026-02-06), so it only
- * runs when the operator turns it on in Social → Configuration → X.
+ * X (Twitter) analytics collector — two tiers, each family on its own.
  *
- * Enabled when ALL hold:
- *  - connection settings `analytics: { enabled: true, monthlyCapUsd? }`,
- *  - `twitterMode: 'api'` (the paid read mode — free mode is paste-by-URL),
- *  - user-context OAuth 1.0a credentials (apiKey/apiSecret/accessToken/accessSecret).
+ * FREE (no X API, always on while we hold X posts):
+ *  - Pasted posts are re-read from the public syndication endpoint
+ *    (`cdn.syndication.twimg.com/tweet-result`, twitterPosts.freeReads): likes,
+ *    replies, video views when X fills them. Daily for 30 days, then weekly
+ *    (Mondays); one request at a time, spaced, ≤ 300 per run. No follower
+ *    count — the payload's user object has none.
  *
- * Reads:
- *  - `GET /2/users/me` (public_metrics) → the account snapshot.
- *  - `GET /2/tweets?ids=` (≤100 per call) for the due posts. Posts < 30 days
- *    old also ask for non_public_metrics + organic_metrics (X only serves
- *    those for recent posts, user context only); older posts public_metrics.
- *    Media metrics (video views, playback quartiles) come with the expansion.
+ * PAID (opt-in + spend-capped; every X API read costs credits):
+ *  enabled when `settings.analytics.enabled`, `twitterMode: 'api'` and the
+ *  four OAuth 1.0a user-context credentials are set.
+ *  1. `GET /2/users/me` → followers / following / post count (daily snapshot).
+ *  2. Own timeline `GET /2/users/:id/tweets` for the last 29 days, retweets
+ *     excluded, with public + non_public + organic metrics and media metrics
+ *     (video quartiles) — upserted into social_posts so EVERY own post is
+ *     tracked, and measured in the same call. Once, a 90-day backfill
+ *     (public metrics) discovers the older posts.
+ *  3. Due posts the timeline did not cover (pasted posts by other accounts,
+ *     own posts older than 29 days — weekly) → `GET /2/tweets?ids=`
+ *     public_metrics, ≤ 100 per call.
+ *  Whatever the cap or a refusal leaves unread falls back to the free re-read.
  *
- * Spend: estimated from `X_READ_COST_USD` and kept month-to-date in
- * `settings.analyticsSpend = { month: 'YYYY-MM', spentUsd }` — a key of its
- * own (not inside `analytics`) because the admin save MERGES settings one
- * level deep, so saving the toggle would otherwise reset the counter.
+ * Spend is estimated per read (twitterMapping.X_READ_COST_USD) and kept
+ * month-to-date in `settings.analyticsSpend = { month, spentUsd }` — a key of
+ * its own because the admin save MERGES settings one level deep. What worked
+ * is saved as `credentials.analyticsCapabilities` (read by status()).
  */
 import type { SocialCollectorStatus, } from '@sitesurge/types';
 import { query, } from '../../../../db';
-import { buildAuthHeader, type TwitterUserCreds, } from '../../twitterOAuth';
+import { logger, } from '../../../../utils/logger';
+import type { TwitterUserCreds, } from '../../twitterOAuth';
 import { registerCollector, } from '../registry';
-import type { AccountSnapshot, CollectContext, CollectResult, PostMetric, } from '../types';
+import type { CollectContext, CollectResult, KnownPost, PostMetric, } from '../types';
+import {
+    accountFrom,
+    analyticsSettings,
+    Budget,
+    capabilityNotes,
+    chunk,
+    currentSpend,
+    dueToday,
+    FREE_COLLECTS,
+    FREE_UPGRADE,
+    money,
+    PAID_COLLECTS,
+    planReads,
+    PRIVATE_METRICS_DAYS,
+    type SpendState,
+    syndicationMetric,
+    tweetMetric,
+    type XCapabilities,
+    X_READ_COST_USD,
+} from './twitterMapping';
+import {
+    type Author,
+    countXPosts,
+    freeReads,
+    signedGet,
+    timelinePage,
+    tweetsByIds,
+    upsertTimelinePosts,
+    XReadError,
+} from './twitterPosts';
 
-const API = 'https://api.twitter.com/2';
+export {
+    accountFrom, analyticsSettings, completionRate, currentSpend, DEFAULT_MONTHLY_CAP_USD, planReads, readCost, syndicationMetric,
+    tweetKind, tweetMetric, X_READ_COST_USD,
+} from './twitterMapping';
+export { friendlyXReadError, } from './twitterPosts';
+
+/** Timeline window that still carries private metrics (a day of margin under X's 30). */
+const TIMELINE_DAYS = PRIVATE_METRICS_DAYS - 1;
+const BACKFILL_DAYS = 90;
+const MAX_TIMELINE_PAGES = 10;
 const BATCH = 100;
-/** X serves non-public / organic metrics only for posts this young. */
-const PRIVATE_METRICS_DAYS = 30;
-/** Cap used when the operator enabled collection without setting one. */
-export const DEFAULT_MONTHLY_CAP_USD = 10;
-
-/**
- * Estimated cost per read (USD). ASSUMPTION: X's STANDARD pay-per-use rates
- * (post read $0.005, user read $0.010). Reading your own account with an app
- * owned by that account bills as an "owned read" ($0.001), so the real bill
- * is usually lower — the counter overestimates, which keeps the cap safe.
- * Same-day re-reads are billed once by X; we count every read we make.
- */
-export const X_READ_COST_USD = {
-    post: 0.005,
-    user: 0.010,
-} as const;
-
-export interface TwitterAnalyticsSettings {
-    enabled: boolean;
-    monthlyCapUsd: number;
-}
-
-export interface SpendState {
-    month: string;
-    spentUsd: number;
-}
-
-export function analyticsSettings(settings: Record<string, unknown>,): TwitterAnalyticsSettings {
-    const a = (settings.analytics ?? {}) as Record<string, unknown>;
-    const cap = Number(a.monthlyCapUsd,);
-    return {
-        enabled: a.enabled === true,
-        monthlyCapUsd: a.monthlyCapUsd !== undefined && a.monthlyCapUsd !== null && a.monthlyCapUsd !== '' && Number.isFinite(cap,) && cap >= 0
-            ? cap
-            : DEFAULT_MONTHLY_CAP_USD,
-    };
-}
-
-/** Month-to-date spend; a new month starts at 0. */
-export function currentSpend(settings: Record<string, unknown>, today: string,): SpendState {
-    const month = today.slice(0, 7,);
-    const s = (settings.analyticsSpend ?? {}) as Record<string, unknown>;
-    const spent = Number(s.spentUsd,);
-    return { month, spentUsd: s.month === month && Number.isFinite(spent,) && spent > 0 ? spent : 0, };
-}
-
-/** Round to a tenth of a cent so float drift never trips the cap. */
-const money = (v: number,): number => Math.round(v * 10000,) / 10000;
-
-/**
- * How many post reads fit under the cap after the account read.
- * Returns `account: false` when not even the account read fits.
- */
-export function planReads(spentUsd: number, capUsd: number, wantedPosts: number,): { account: boolean; posts: number; } {
-    const left = money(capUsd - spentUsd,);
-    if (left < X_READ_COST_USD.user) return { account: false, posts: 0, };
-    const forPosts = money(left - X_READ_COST_USD.user,);
-    return { account: true, posts: Math.min(wantedPosts, Math.floor(money(forPosts / X_READ_COST_USD.post,),),), };
-}
-
-export function readCost(userReads: number, postReads: number,): number {
-    return money(userReads * X_READ_COST_USD.user + postReads * X_READ_COST_USD.post,);
-}
 
 export function userCreds(credentials: Record<string, unknown>,): TwitterUserCreds | null {
     const c = credentials as Record<string, string | undefined>;
@@ -98,111 +82,26 @@ export function userCreds(credentials: Record<string, unknown>,): TwitterUserCre
     return { apiKey: c.apiKey, apiSecret: c.apiSecret, accessToken: c.accessToken, accessSecret: c.accessSecret, };
 }
 
-/** Same wording family as publish.ts's friendlyXError, for reads. */
-export function friendlyXReadError(status: number, body: string,): string {
-    if (status === 402 || /credits[- ]depleted|payment required/i.test(body,)) {
-        return 'X declined the read (402 — out of API credits). Analytics reads consume credits on your X API plan; add credits in Usage & billing at developer.x.com, or turn off "Collect analytics" in Social → Configuration → X.';
-    }
-    if (status === 401) return 'X rejected the credentials (401). Re-check the API Key/Secret + Access Token/Secret in Social → Configuration → X.';
-    if (status === 403) return 'X refused the read (403). The app needs a paid X API plan with read access, and the Access Token must belong to the account being measured.';
-    if (status === 429) return 'X rate limit reached (429). The remaining posts are collected on the next run.';
-    return `X API ${status}: ${body.slice(0, 200,)}`;
+interface XConnection {
+    exists: boolean;
+    /** is_connected AND is_enabled. */
+    connected: boolean;
+    settings: Record<string, unknown>;
+    autoPublish: boolean;
 }
 
-class XReadError extends Error {
-    constructor(public status: number, message: string,) {
-        super(message,);
-    }
-}
-
-async function signedGet(path: string, params: Record<string, string>, creds: TwitterUserCreds,): Promise<any> {
-    const url = `${API}${path}`;
-    const qs = new URLSearchParams(params,).toString();
-    const res = await fetch(qs ? `${url}?${qs}` : url, {
-        headers: { Authorization: buildAuthHeader('GET', url, params, creds,), },
-    },);
-    const body = await res.text();
-    if (!res.ok) throw new XReadError(res.status, friendlyXReadError(res.status, body,),);
-    try {
-        return JSON.parse(body,);
-    } catch {
-        return {};
-    }
-}
-
-const n = (v: unknown,): number | null => (typeof v === 'number' && Number.isFinite(v,) ? v : null);
-const sum = (...vals: Array<number | null>): number | null => {
-    const known = vals.filter((v,): v is number => v !== null);
-    return known.length ? known.reduce((a, b,) => a + b, 0,) : null;
-};
-
-export function accountFrom(user: Record<string, any> | undefined,): AccountSnapshot | null {
-    const m = user?.public_metrics;
-    if (!m) return null;
+async function loadConnection(): Promise<XConnection> {
+    type Row = { settings: Record<string, unknown> | null; auto_publish: boolean | null; is_connected: boolean | null; is_enabled: boolean | null; };
+    const r = await query<Row>(
+        `SELECT settings, auto_publish, is_connected, is_enabled FROM social_connections WHERE provider::text = 'twitter'`,
+    ).catch(() => ({ rows: [] as Row[], }));
+    const row = r.rows[0];
     return {
-        followers: n(m.followers_count,),
-        following: n(m.following_count,),
-        postsCount: n(m.tweet_count,),
-        raw: { ...m, id: user?.id, username: user?.username, },
+        exists: Boolean(row,),
+        connected: Boolean(row?.is_connected && row?.is_enabled,),
+        settings: row?.settings ?? {},
+        autoPublish: row?.auto_publish === true,
     };
-}
-
-/** One tweet (+ its media from `includes.media`) → our post metric. */
-export function tweetMetric(tweet: Record<string, any>, mediaByKey: Map<string, Record<string, any>> = new Map(),): PostMetric {
-    const pub = tweet.public_metrics ?? {};
-    const priv = tweet.non_public_metrics ?? {};
-    const org = tweet.organic_metrics ?? {};
-    const media = ((tweet.attachments?.media_keys ?? []) as string[])
-        .map((k,) => mediaByKey.get(k,))
-        .filter((m,): m is Record<string, any> => Boolean(m,));
-    const views = n(pub.impression_count,) ?? n(priv.impression_count,) ?? n(org.impression_count,);
-    const linkClicks = n(priv.url_link_clicks,) ?? n(org.url_link_clicks,);
-    const profileClicks = n(priv.user_profile_clicks,) ?? n(org.user_profile_clicks,);
-    return {
-        externalId: String(tweet.id,),
-        views,
-        impressions: views,
-        likes: n(pub.like_count,),
-        comments: n(pub.reply_count,),
-        shares: sum(n(pub.retweet_count,), n(pub.quote_count,),),
-        saves: n(pub.bookmark_count,),
-        clicks: sum(linkClicks, profileClicks,),
-        raw: {
-            public_metrics: pub,
-            ...(tweet.non_public_metrics ? { non_public_metrics: priv, } : {}),
-            ...(tweet.organic_metrics ? { organic_metrics: org, } : {}),
-            ...(media.length
-                ? {
-                    media: media.map((m,) => ({
-                        media_key: m.media_key,
-                        type: m.type,
-                        public_metrics: m.public_metrics,
-                        non_public_metrics: m.non_public_metrics,
-                        organic_metrics: m.organic_metrics,
-                    })),
-                }
-                : {}),
-        },
-    };
-}
-
-function isRecent(publishedAt: string | null, today: string,): boolean {
-    if (!publishedAt) return false;
-    const age = Date.parse(`${today}T00:00:00Z`,) - Date.parse(publishedAt,);
-    return Number.isFinite(age,) && age < PRIVATE_METRICS_DAYS * 86400_000;
-}
-
-function chunk<T,>(list: T[], size: number,): T[][] {
-    const out: T[][] = [];
-    for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size,),);
-    return out;
-}
-
-async function loadSettings(): Promise<Record<string, unknown>> {
-    const r = await query<{ settings: Record<string, unknown> | null; }>(
-        `SELECT settings FROM social_connections WHERE provider::text = 'twitter'`,
-    ).catch(() => ({ rows: [] as Array<{ settings: Record<string, unknown> | null; }>, }));
-    return r.rows[0]?.settings ?? {};
 }
 
 async function saveSpend(spend: SpendState,): Promise<void> {
@@ -214,112 +113,245 @@ async function saveSpend(spend: SpendState,): Promise<void> {
     );
 }
 
-const COLLECTS = [
-    'Followers, following, post count (account snapshot)',
-    'Per-post impressions, likes, replies, reposts + quotes, bookmarks',
-    'Link + profile clicks and video playback quartiles (posts < 30 days old)',
-];
+async function saveTimelineState(state: Record<string, unknown>,): Promise<void> {
+    await query(
+        `UPDATE social_connections
+            SET settings = jsonb_set(COALESCE(settings, '{}'::jsonb), '{analyticsTimeline}', $1::jsonb, true)
+          WHERE provider::text = 'twitter'`,
+        [JSON.stringify(state,),],
+    ).catch((e,) => logger.warn('x analytics: could not save timeline state', { error: (e as Error).message, },),);
+}
+
+async function saveCapabilities(caps: XCapabilities,): Promise<void> {
+    await query(
+        `UPDATE social_connections SET credentials = COALESCE(credentials, '{}'::jsonb) || $1::jsonb WHERE provider::text = 'twitter'`,
+        [JSON.stringify({ analyticsCapabilities: caps, },),],
+    ).catch((e,) => logger.warn('x analytics: could not save capabilities', { error: (e as Error).message, },),);
+}
+
+/** Why the paid tier is not active (null = it is). */
+export function paidBlocker(settings: Record<string, unknown>, credentials: Record<string, unknown>, connected: boolean,): string | null {
+    if (!analyticsSettings(settings,).enabled) return 'off';
+    if (!connected) return 'The X connection is not enabled — enable it in Social → Configuration → X.';
+    if (settings.twitterMode !== 'api') return 'Paid X analytics needs Feed mode API in Social → Configuration → X.';
+    if (!userCreds(credentials,)) return 'Paid X analytics needs the API Key/Secret + Access Token/Secret of the measured account in Social → Configuration → X.';
+    return null;
+}
 
 async function status(credentials: Record<string, unknown>, connected: boolean,): Promise<SocialCollectorStatus> {
     const base = { platform: 'twitter' as const, label: 'X', };
-    const settings = await loadSettings();
-    const a = analyticsSettings(settings,);
-    if (!a.enabled) {
-        return {
-            ...base,
-            state: 'off',
-            message: 'X analytics reads are paid (API credits). To collect them, switch X to API mode and turn on "Collect analytics (paid)" in Social → Configuration → X.',
-            collects: [],
-        };
-    }
-    if (!connected || settings.twitterMode !== 'api' || !userCreds(credentials,)) {
-        return {
-            ...base,
-            state: 'off',
-            message: 'X analytics needs API mode and the API Key/Secret + Access Token/Secret of the measured account (paid X API plan) in Social → Configuration → X.',
-            collects: [],
-        };
-    }
-    const spend = currentSpend(settings, new Date().toISOString().slice(0, 10,),);
-    if (planReads(spend.spentUsd, a.monthlyCapUsd, 0,).account === false) {
+    const conn = await loadConnection();
+    const posts = await countXPosts();
+    const blocker = paidBlocker(conn.settings, credentials, connected,);
+    if (blocker !== null) {
+        if (!conn.exists && posts === 0) {
+            return { ...base, state: 'off', message: `Paste X post URLs on Social → Posts to track their likes and replies for free. ${FREE_UPGRADE}`, collects: [], };
+        }
+        const why = blocker === 'off' ? '' : `${blocker} `;
         return {
             ...base,
             state: 'partial',
-            message: `Monthly cap reached (≈$${spend.spentUsd.toFixed(2,)} of $${a.monthlyCapUsd.toFixed(2,)}). Collection resumes next month or when the cap is raised.`,
-            collects: COLLECTS,
+            message: posts === 0
+                ? `${why}Paste X post URLs on Social → Posts to track them for free. ${FREE_UPGRADE}`
+                : `${why}${FREE_UPGRADE}`,
+            collects: FREE_COLLECTS,
         };
     }
-    return { ...base, state: 'ready', message: null, collects: COLLECTS, };
+    const a = analyticsSettings(conn.settings,);
+    const spend = currentSpend(conn.settings, new Date().toISOString().slice(0, 10,),);
+    if (!planReads(spend.spentUsd, a.monthlyCapUsd, 0,).account) {
+        return {
+            ...base,
+            state: 'partial',
+            message: `Monthly cap reached (≈$${spend.spentUsd.toFixed(2,)} of $${a.monthlyCapUsd.toFixed(2,)}). Paid reads resume next month or when the cap is raised; pasted posts keep the free re-read.`,
+            collects: FREE_COLLECTS,
+        };
+    }
+    const caps = (credentials.analyticsCapabilities && typeof credentials.analyticsCapabilities === 'object')
+        ? credentials.analyticsCapabilities as XCapabilities
+        : null;
+    const missing = capabilityNotes(caps,);
+    if (missing.length) {
+        return {
+            ...base,
+            state: 'partial',
+            message: `X did not give: ${missing.join('; ',)}. Check the X API plan has credits and read access, and that the Access Token belongs to the measured account.`,
+            collects: [...PAID_COLLECTS, ...FREE_COLLECTS.slice(0, 1,),],
+        };
+    }
+    return { ...base, state: 'ready', message: null, collects: PAID_COLLECTS, };
+}
+
+/** Is this error one that means "paid reads do not work at all" (stop asking)? */
+const fatalPaid = (e: unknown,): boolean => e instanceof XReadError && [401, 402, 403,].includes(e.status,);
+
+/** Free re-read of the given posts → metrics (+ warnings). */
+async function freeTier(posts: KnownPost[], ctx: CollectContext,): Promise<{ ok: boolean; metrics: PostMetric[]; }> {
+    if (!posts.length) return { ok: true, metrics: [], };
+    const r = await freeReads(posts.map((p,) => p.externalId),);
+    const metrics = r.payloads.map(syndicationMetric,).filter((m,): m is PostMetric => m !== null);
+    if (r.failed) ctx.warn(`X free re-read: ${r.failed} of ${r.attempted} post(s) could not be read (deleted, protected or the endpoint refused).`,);
+    if (r.stopped && r.attempted < posts.length) ctx.warn(`X free re-read stopped after ${r.attempted} of ${posts.length} posts; the rest are read on the next run.`,);
+    return { ok: metrics.length > 0 || r.failed === 0, metrics, };
+}
+
+interface PaidOutcome {
+    metrics: Map<string, PostMetric>;
+    /** Due posts left for the free re-read. */
+    leftover: KnownPost[];
+    caps: XCapabilities;
+    account: CollectResult['account'];
+}
+
+async function paidTier(ctx: CollectContext, creds: TwitterUserCreds, posts: KnownPost[], conn: XConnection,): Promise<PaidOutcome> {
+    const a = analyticsSettings(conn.settings,);
+    const spend = currentSpend(conn.settings, ctx.today,);
+    const budget = new Budget(a.monthlyCapUsd, spend.spentUsd,);
+    const timelineRate = a.ownedApp ? X_READ_COST_USD.owned : X_READ_COST_USD.post;
+    const metrics = new Map<string, PostMetric>();
+    const caps: XCapabilities = { checkedAt: new Date().toISOString(), };
+    const out: PaidOutcome = { metrics, leftover: posts, caps, account: null, };
+
+    if (budget.afford(1, X_READ_COST_USD.user,) < 1) {
+        ctx.warn(`X paid reads skipped: the monthly cap of $${a.monthlyCapUsd.toFixed(2,)} is reached (≈$${spend.spentUsd.toFixed(2,)} spent). Pasted posts use the free re-read.`,);
+        return out;
+    }
+    try {
+        // 1. Account.
+        let me: Record<string, any> | undefined;
+        try {
+            budget.charge(1, X_READ_COST_USD.user,);
+            me = (await signedGet('/users/me', { 'user.fields': 'public_metrics,profile_image_url,username,name', }, creds,)).data;
+            caps.paidReads = true;
+        } catch (e) {
+            caps.paidReads = false;
+            ctx.warn((e as Error).message,);
+            return out;
+        }
+        out.account = accountFrom(me,);
+        caps.accountInsights = Boolean(out.account,);
+        if (!out.account) ctx.warn('X returned no account metrics for /users/me.',);
+        const userId = me?.id ? String(me.id,) : '';
+        const author: Author = { username: me?.username, name: me?.name, avatar: me?.profile_image_url, };
+
+        // 2. Own timeline (discovery + measurement in one read).
+        if (userId) {
+            const state = (conn.settings.analyticsTimeline ?? {}) as Record<string, unknown>;
+            const now = Date.now();
+            const recentStart = new Date(now - TIMELINE_DAYS * 86400_000,).toISOString();
+            const windows: Array<{ startTime: string; endTime?: string; privateMetrics: boolean; }> = [
+                { startTime: recentStart, privateMetrics: true, },
+            ];
+            if (!state.backfilledAt) {
+                windows.push({ startTime: new Date(now - BACKFILL_DAYS * 86400_000,).toISOString(), endTime: recentStart, privateMetrics: false, },);
+            }
+            let discovered = 0;
+            let newest: string | null = null;
+            let complete = true;
+            let privateOk: boolean | undefined;
+            for (const w of windows) {
+                let token: string | undefined;
+                let privateMetrics = w.privateMetrics;
+                for (let page = 0; page < MAX_TIMELINE_PAGES; page++) {
+                    const room = budget.afford(BATCH, timelineRate,);
+                    if (room < 5) {
+                        complete = false;
+                        ctx.warn(`X monthly cap: the timeline was cut short (≈$${budget.spentUsd.toFixed(2,)} of $${a.monthlyCapUsd.toFixed(2,)}).`,);
+                        break;
+                    }
+                    let res;
+                    try {
+                        res = await timelinePage(creds, userId, { ...w, privateMetrics, maxResults: room, paginationToken: token, },);
+                    } catch (e) {
+                        // Private metrics refused (plan / token) → retry this page with public metrics only.
+                        if (privateMetrics && e instanceof XReadError && e.status === 403) {
+                            privateMetrics = false;
+                            privateOk = false;
+                            page--;
+                            continue;
+                        }
+                        throw e;
+                    }
+                    budget.charge(Math.max(res.tweets.length, 1,), timelineRate,);
+                    if (w.privateMetrics && privateMetrics && res.tweets.length) privateOk = privateOk ?? true;
+                    newest = newest ?? res.newestId;
+                    discovered += await upsertTimelinePosts(res.tweets, res.media, author, conn.autoPublish,)
+                        .catch((e,) => {
+                            ctx.warn(`X posts: ${(e as Error).message}`,);
+                            return 0;
+                        },);
+                    for (const t of res.tweets) metrics.set(String(t.id,), tweetMetric(t, res.media,),);
+                    if (res.errors.length) ctx.warn(`X timeline: ${res.errors.length} item(s) not readable — ${res.errors[0]?.detail ?? 'unknown error'}`,);
+                    token = res.nextToken ?? undefined;
+                    if (!token) break;
+                }
+                if (!complete) break;
+            }
+            caps.discovery = true;
+            if (privateOk !== undefined) caps.mediaInsights = privateOk;
+            // Informational, not a warning: a warning marks the run "partial".
+            if (discovered) logger.info(`social-analytics: X — ${discovered} new post(s) found on the timeline and tracked.`,);
+            await saveTimelineState({
+                newestId: newest ?? state.newestId ?? null,
+                backfilledAt: state.backfilledAt ?? (complete ? new Date().toISOString() : null),
+                lastRunAt: new Date().toISOString(),
+            },);
+        }
+
+        // 3. Due posts the timeline did not cover → public metrics by id.
+        const rest = posts.filter((p,) => !metrics.has(p.externalId,));
+        const affordable = budget.afford(rest.length, X_READ_COST_USD.post,);
+        if (affordable < rest.length) {
+            ctx.warn(`X monthly cap: ${rest.length - affordable} post(s) use the free re-read instead (≈$${budget.spentUsd.toFixed(2,)} of $${a.monthlyCapUsd.toFixed(2,)} spent).`,);
+        }
+        const paidIds = rest.slice(0, affordable,).map((p,) => p.externalId);
+        for (const batch of chunk(paidIds, BATCH,)) {
+            budget.charge(batch.length, X_READ_COST_USD.post,);
+            const res = await tweetsByIds(creds, batch,);
+            for (const t of res.tweets) metrics.set(String(t.id,), tweetMetric(t, res.media,),);
+            if (res.errors.length) ctx.warn(`X could not read ${res.errors.length} post(s): ${res.errors[0]?.detail ?? 'unknown error'}`,);
+        }
+    } catch (e) {
+        if (e instanceof XReadError && e.status === 429) ctx.warn(e.message,);
+        else if (fatalPaid(e,)) {
+            ctx.warn((e as Error).message,);
+            if (caps.discovery === undefined) caps.discovery = false;
+        } else ctx.warn(`X paid reads: ${(e as Error).message}`,);
+    } finally {
+        // Count every read we attempted, success or not.
+        await saveSpend({ month: spend.month, spentUsd: budget.spentUsd, },)
+            .catch((e,) => ctx.warn(`Could not record X analytics spend: ${(e as Error).message}`,));
+    }
+    out.leftover = posts.filter((p,) => !metrics.has(p.externalId,));
+    return out;
 }
 
 async function collect(ctx: CollectContext,): Promise<CollectResult> {
-    const creds = userCreds(ctx.credentials,);
-    if (!creds) throw new Error('X user-context credentials are missing (API Key/Secret + Access Token/Secret).',);
-    const a = analyticsSettings(ctx.settings,);
-    if (!a.enabled) throw new Error('X analytics collection is turned off.',);
-
-    // Re-read: the counter may have moved since the runner loaded settings.
-    const spend = currentSpend(await loadSettings(), ctx.today,);
-    const plan = planReads(spend.spentUsd, a.monthlyCapUsd, ctx.posts.length,);
+    const conn = await loadConnection();
+    const settings = { ...ctx.settings, ...conn.settings, };
+    const posts = dueToday(ctx.posts, ctx.today,);
     const result: CollectResult = { posts: [], };
-    if (!plan.account) {
-        ctx.warn(`X analytics skipped: the monthly cap of $${a.monthlyCapUsd.toFixed(2,)} is reached (≈$${spend.spentUsd.toFixed(2,)} spent).`,);
-        return result;
-    }
-    if (plan.posts < ctx.posts.length) {
-        ctx.warn(`X monthly cap: collecting ${plan.posts} of ${ctx.posts.length} due posts (≈$${spend.spentUsd.toFixed(2,)} of $${a.monthlyCapUsd.toFixed(2,)} spent).`,);
+    const creds = userCreds(ctx.credentials,);
+    const paid = creds !== null && paidBlocker(settings, ctx.credentials, conn.connected,) === null;
+
+    let leftover = posts;
+    let caps: XCapabilities = { checkedAt: new Date().toISOString(), };
+    if (paid) {
+        const p = await paidTier(ctx, creds!, posts, { ...conn, settings, },);
+        result.account = p.account;
+        result.posts!.push(...p.metrics.values(),);
+        leftover = p.leftover;
+        caps = p.caps;
     }
 
-    let userReads = 0;
-    let postReads = 0;
-    try {
-        // 1. Account.
-        userReads++;
-        const me = await signedGet('/users/me', { 'user.fields': 'public_metrics', }, creds,);
-        result.account = accountFrom(me.data,);
-        if (!result.account) ctx.warn('X returned no account metrics for /users/me.',);
+    // Free tier for whatever the paid tier did not read (all due posts when unpaid).
+    const free = await freeTier(leftover, ctx,);
+    result.posts!.push(...free.metrics,);
+    if (leftover.length) caps.freeHydration = free.ok;
+    else if (!paid) caps.freeHydration = true;
 
-        // 2. Posts — newest first (the due list is ordered), split by age.
-        const due = ctx.posts.slice(0, plan.posts,);
-        const recent = due.filter((p,) => isRecent(p.publishedAt, ctx.today,)).map((p,) => p.externalId);
-        const older = due.filter((p,) => !isRecent(p.publishedAt, ctx.today,)).map((p,) => p.externalId);
-        const groups: Array<{ ids: string[]; fields: string; }> = [
-            { ids: recent, fields: 'public_metrics,non_public_metrics,organic_metrics', },
-            { ids: older, fields: 'public_metrics', },
-        ];
-        for (const g of groups) {
-            for (const batch of chunk(g.ids, BATCH,)) {
-                postReads += batch.length;
-                let res: any;
-                try {
-                    res = await signedGet('/tweets', {
-                        ids: batch.join(',',),
-                        'tweet.fields': `${g.fields},attachments`,
-                        expansions: 'attachments.media_keys',
-                        'media.fields': g.fields,
-                    }, creds,);
-                } catch (e) {
-                    // Rate limit: keep what we have; the rest are due again tomorrow.
-                    if (e instanceof XReadError && e.status === 429) {
-                        ctx.warn(e.message,);
-                        return result;
-                    }
-                    throw e;
-                }
-                const media = new Map<string, Record<string, any>>(
-                    ((res.includes?.media ?? []) as Array<Record<string, any>>).map((m,) => [String(m.media_key,), m,]),
-                );
-                for (const t of (res.data ?? []) as Array<Record<string, any>>) result.posts!.push(tweetMetric(t, media,),);
-                const errs = (res.errors ?? []) as Array<{ detail?: string; }>;
-                if (errs.length) ctx.warn(`X could not read ${errs.length} post(s): ${errs[0]?.detail ?? 'unknown error'}`,);
-            }
-        }
-        return result;
-    } finally {
-        // Count every read we attempted, success or not.
-        await saveSpend({ month: spend.month, spentUsd: spend.spentUsd + readCost(userReads, postReads,), },)
-            .catch((e,) => ctx.warn(`Could not record X analytics spend: ${(e as Error).message}`,));
-    }
+    await saveCapabilities(caps,);
+    return result;
 }
 
 registerCollector({ platform: 'twitter', label: 'X', connection: 'twitter', status, collect, },);

@@ -206,7 +206,7 @@ export interface SocialAnalyticsSettings {
     /** Keep digests (and their snapshots) this many days; null = forever. */
     retentionDays: number | null;
     /** Other public accounts to track for comparison, per platform (Instagram: Business/Creator usernames). */
-    benchmarks: { instagram: string[]; };
+    benchmarks: { instagram: string[]; facebook: string[]; };
 }
 
 export const DEFAULT_SOCIAL_ANALYTICS_SETTINGS: SocialAnalyticsSettings = {
@@ -224,7 +224,7 @@ export const DEFAULT_SOCIAL_ANALYTICS_SETTINGS: SocialAnalyticsSettings = {
     },
     email: { enabled: true, format: 'full', recipients: [], recipientMode: 'augment', },
     retentionDays: 365,
-    benchmarks: { instagram: [], },
+    benchmarks: { instagram: [], facebook: [], },
 };
 
 /** One number with its previous-period value. */
@@ -338,6 +338,12 @@ export interface SocialAudience {
         interactionsByType: AudienceBucket[];
         viewsByFollow: AudienceBucket[];
         reachByFollow: AudienceBucket[];
+        /** Paid vs organic views (Facebook). */
+        viewsByPaid?: AudienceBucket[];
+        /** Autoplayed vs click-to-play video views (Facebook). */
+        videoViewsByPlay?: AudienceBucket[];
+        /** Reactions by type: like, love, wow, haha, sorry, anger (Facebook). */
+        reactionsByType?: AudienceBucket[];
     };
     /** Posts / views / engagement per content kind, from our post metrics. */
     contentKinds: Array<{ kind: string; posts: number; views: number | null; avgViews: number | null; engagementRate: number | null; }>;

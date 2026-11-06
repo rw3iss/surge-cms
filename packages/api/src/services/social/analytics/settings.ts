@@ -79,11 +79,21 @@ export function normalizeSettings(n: SocialAnalyticsSettings,): SocialAnalyticsS
             recipientMode: n.email.recipientMode === 'override' ? 'override' : 'augment',
         },
         retentionDays: retention,
-        benchmarks: { instagram: igUsernames(n.benchmarks?.instagram ?? [],), },
+        benchmarks: { instagram: igUsernames(n.benchmarks?.instagram ?? [],), facebook: fbPages(n.benchmarks?.facebook ?? [],), },
     };
 }
 
 const IG_USERNAME_RE = /^[A-Za-z0-9._]{1,30}$/;
+const FB_PAGE_RE = /^[A-Za-z0-9.\-]{1,100}$/;
+
+/** Facebook Pages by username or numeric id (a pasted facebook.com URL keeps its last path part). */
+function fbPages(list: string[],): string[] {
+    const out = [...new Set(list.map((u,) => String(u,).trim().replace(/^https?:\/\/(www\.|m\.)?facebook\.com\//i, '',).replace(/[/?#].*$/, '',).replace(/^@/, '',),).filter(Boolean,),),];
+    const bad = out.find((u,) => !FB_PAGE_RE.test(u,),);
+    if (bad) throw new ValidationError(`Not a Facebook Page username or id: ${bad}`,);
+    if (out.length > 20) throw new ValidationError('At most 20 Facebook benchmark Pages.',);
+    return out;
+}
 
 function igUsernames(list: string[],): string[] {
     const out = [...new Set(list.map((u,) => String(u,).trim().replace(/^@/, '',).toLowerCase(),).filter(Boolean,),),];

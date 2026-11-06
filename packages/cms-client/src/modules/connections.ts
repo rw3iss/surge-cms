@@ -2,6 +2,7 @@ import type {
     ConnectionListResponse, ConnectionGetResponse, ConnectionUpsertBody, ConnectionUpsertResponse,
     ConnectionUpdateBody, ConnectionUpdateResponse, ConnectionDeleteResponse,
     ConnectionReorderBody, ConnectionReorderResponse, ConnectionOAuthAuthorizeResponse,
+    FacebookPageOption,
 } from '@sitesurge/types';
 import { ModuleBase, } from './base';
 
@@ -54,5 +55,15 @@ export class ConnectionsModule extends ModuleBase {
     /** GET /connections/:provider/oauth/authorize — OAuth URL + CSRF state. */
     oauthAuthorize(provider: string,): Promise<ConnectionOAuthAuthorizeResponse> {
         return this.get<ConnectionOAuthAuthorizeResponse>('/connections/:provider/oauth/authorize', { params: { provider, }, },);
+    }
+
+    /** GET /connections/facebook/pages — Pages the connected Facebook user manages. */
+    facebookPages(): Promise<FacebookPageOption[]> {
+        return this.get<FacebookPageOption[]>('/connections/facebook/pages',);
+    }
+
+    /** PUT /connections/facebook/page — collect this Page (saves its id, token and granted scopes). */
+    selectFacebookPage(pageId: string,): Promise<FacebookPageOption> {
+        return this.mutate<FacebookPageOption>('PUT', '/connections/facebook/page', { body: { pageId, }, invalidates: ['connections',], },);
     }
 }

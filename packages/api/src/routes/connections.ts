@@ -11,11 +11,13 @@ import { z, } from 'zod';
 import type {
     ConnectionProviderParams,
     ConnectionReorderBody,
+    ConnectionFacebookPageBody,
     ConnectionUpsertBody,
 } from '@sitesurge/types';
 import { config, } from '../config';
 import { defineRoute, } from '../api/defineRoute';
 import * as connections from '../services/connections';
+import * as facebookPages from '../services/social/facebookPages';
 import { logger, } from '../utils/logger';
 
 // ─── Schemas ──────────────────────────────────────────────────────
@@ -74,7 +76,9 @@ export const connectionsRoutes = [
         input: { params: providerParams, },
         handler: async ({ req, res, },) => {
             const provider = req.params.provider as string;
-            const { code, state, error: oauthError, error_description, } = req.query;
+            const { state, error: oauthError, error_description, } = req.query;
+            // TikTok's Business (Accounts) authorization may answer with auth_code instead of code.
+            const code = req.query.code ?? req.query.auth_code;
             // Connections live under Social → Configuration now.
             const frontendUrl = `${config.frontendUrl}/admin/social/configuration`;
 
@@ -102,12 +106,26 @@ export const connectionsRoutes = [
 
     defineRoute({
         method: 'delete', path: '/:provider/oauth', auth: 'admin',
-        summary: 'Remove only the OAuth sign-in (YouTube "Sign in with Google"); keeps app credentials + any API-key setup.',
-        input: { params: providerEnumParams, },
+        summary: 'Remove only the OAuth sign-in (YouTube "Sign in with Google", TikTok Login Kit, or tiktok_business = the TikTok Business API sign-in); keeps app credentials + any API-key setup.',
+        // A plain string: 'tiktok_business' is an OAuth key on the 'tiktok' row; the service validates.
+        input: { params: providerParams, },
         handler: async ({ params, },) => {
             await connections.disconnectOAuth(params.provider,);
             return { message: 'Sign-in removed', };
         },
+    },),
+
+    defineRoute({
+        method: 'get', path: '/facebook/pages', auth: 'admin',
+        summary: 'Pages the connected Facebook user manages (for the Page picker; ANALYZE task flagged).',
+        handler: () => facebookPages.pages(),
+    },),
+
+    defineRoute({
+        method: 'put', path: '/facebook/page', auth: 'admin',
+        summary: 'Choose the Facebook Page to collect: saves its id, Page token and the granted scopes.',
+        input: { body: z.object({ pageId: z.string().min(1,), },) satisfies z.ZodType<ConnectionFacebookPageBody>, },
+        handler: ({ body, },) => facebookPages.selectPage(body.pageId,),
     },),
 
     defineRoute({

@@ -28,7 +28,7 @@ type Settings = SocialAnalyticsSettings;
 /** A deep copy, with `benchmarks` filled in for a server that does not send it yet. */
 const clone = (s: Settings,): Settings => {
     const c = JSON.parse(JSON.stringify(s,),) as Settings;
-    c.benchmarks = { instagram: [...(c.benchmarks?.instagram ?? []),], };
+    c.benchmarks = { instagram: [...(c.benchmarks?.instagram ?? []),], facebook: [...(c.benchmarks?.facebook ?? []),], };
     return c;
 };
 
@@ -53,6 +53,11 @@ const AnalyticsSettingsPage: Component = () => {
 
     const badRecipients = () => invalidRecipients(s().email.recipients,);
     const igBenchmarks = () => s().benchmarks?.instagram ?? [];
+    const fbBenchmarks = () => s().benchmarks?.facebook ?? [];
+    const fbBenchmarkError = () => {
+        const bad = fbBenchmarks().filter((u,) => !/^[A-Za-z0-9.\-]{1,100}$/.test(u,),);
+        return bad.length ? `Not a Facebook Page username or id: ${bad.join(', ',)}` : fbBenchmarks().length > MAX_BENCHMARKS ? `At most ${MAX_BENCHMARKS} Pages.` : '';
+    };
     const badBenchmarks = () => invalidUsernames(igBenchmarks(),);
     const benchmarkError = () => (badBenchmarks().length
         ? `Not an Instagram username: ${badBenchmarks().join(', ',)}`
@@ -84,7 +89,7 @@ const AnalyticsSettingsPage: Component = () => {
         setError('',);
         try {
             const v = await cms.socialAnalytics.updateSettings({
-                digest: s().digest, email: s().email, retentionDays: s().retentionDays, benchmarks: { instagram: igBenchmarks(), },
+                digest: s().digest, email: s().email, retentionDays: s().retentionDays, benchmarks: { instagram: igBenchmarks(), facebook: fbBenchmarks(), },
             },);
             setS(clone(v,),);
             setSaved(JSON.stringify(v,),);
@@ -296,7 +301,26 @@ const AnalyticsSettingsPage: Component = () => {
                                 multiline
                                 rows={3}
                                 value={igBenchmarks().join('\n',)}
-                                onCommit={(v,) => setS((cur,) => ({ ...cur, benchmarks: { ...(cur.benchmarks ?? { instagram: [], }), instagram: parseUsernames(v,), }, }))}
+                                onCommit={(v,) => setS((cur,) => ({ ...cur, benchmarks: { ...(cur.benchmarks ?? { instagram: [], facebook: [], }), instagram: parseUsernames(v,), }, }))}
+                                placeholder={'nytimes\ncnn'}
+                            />
+                        </FormField>
+                        <FormField
+                            label="Facebook Pages"
+                            hint={`Page usernames, ids or facebook.com links, one per line — up to ${MAX_BENCHMARKS}. Reading other Pages needs the Meta app's "Page Public Metadata Access" feature.`}
+                            error={fbBenchmarkError() || undefined}
+                        >
+                            <CommitInput
+                                multiline
+                                rows={3}
+                                value={fbBenchmarks().join('\n',)}
+                                onCommit={(v,) => setS((cur,) => ({
+                                    ...cur,
+                                    benchmarks: {
+                                        ...(cur.benchmarks ?? { instagram: [], facebook: [], }),
+                                        facebook: [...new Set(v.split(/[\s,]+/,).map((x,) => x.trim().replace(/^https?:\/\/(www\.|m\.)?facebook\.com\//i, '',).replace(/[/?#].*$/, '',).replace(/^@/, '',),).filter(Boolean,),),],
+                                    },
+                                }))}
                                 placeholder={'nytimes\ncnn'}
                             />
                         </FormField>

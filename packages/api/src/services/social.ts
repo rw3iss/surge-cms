@@ -19,7 +19,8 @@ const FEED_CACHE_TTL = 900; // 15 minutes
 // after a few days, after which the URL 403s ("URL signature expired"). Storing that
 // raw URL means a synced post's image dies once the signature expires. We instead
 // MIRROR the bytes into our own storage at sync time and persist that permanent URL.
-const EPHEMERAL_MEDIA_HOSTS = /(?:^|\.)(?:cdninstagram\.com|fbcdn\.net)(?::|\/|$)|scontent/i;
+// TikTok covers (tiktokcdn.com / tiktokcdn-us.com) are signed too and expire within hours.
+const EPHEMERAL_MEDIA_HOSTS = /(?:^|\.)(?:cdninstagram\.com|fbcdn\.net|tiktokcdn(?:-[a-z]+)?\.com)(?::|\/|$)|scontent/i;
 
 function mediaExtFromContentType(ct: string | null,): string {
     if (!ct) return 'jpg';

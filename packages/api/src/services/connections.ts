@@ -15,7 +15,7 @@ import { config, } from '../config';
 import { AppError, NotFoundError, } from '../core/errors';
 import { query, transaction, } from '../db';
 import { cache, } from './cache';
-import { getOAuthProvider, isOAuthProvider, } from './oauth';
+import { getOAuthProvider, isOAuthProvider, oauthAppCredentials, oauthConnection, } from './oauth';
 import { GOOGLE_REVOKE_URL, } from './oauth/google';
 import * as youtube from './social/youtube';
 import { logger, } from '../utils/logger';
@@ -48,6 +48,11 @@ export function sanitizeCredentials(
         sanitized.accessToken = '••••••••••' + token.slice(-6,);
         sanitized.hasAccessToken = true;
     }
+    // Facebook: the chosen Page's token (Page picker) is as secret as the user token.
+    if (sanitized.pageAccessToken) {
+        sanitized.pageAccessToken = '••••••••';
+        sanitized.hasPageAccessToken = true;
+    }
     if (sanitized.appSecret) {
         sanitized.appSecret = '••••••••';
         sanitized.hasAppSecret = true;
@@ -69,6 +74,19 @@ export function sanitizeCredentials(
     if (sanitized.accessSecret) {
         sanitized.accessSecret = '••••••••';
         sanitized.hasAccessSecret = true;
+    }
+    // TikTok API for Business (second sign-in on the tiktok row): app secret + token pair.
+    if (sanitized.businessAppSecret) {
+        sanitized.businessAppSecret = '••••••••';
+        sanitized.hasBusinessAppSecret = true;
+    }
+    if (sanitized.businessAccessToken) {
+        sanitized.businessAccessToken = '••••••••••' + String(sanitized.businessAccessToken,).slice(-6,);
+        sanitized.hasBusinessAccessToken = true;
+    }
+    if (sanitized.businessRefreshToken) {
+        sanitized.businessRefreshToken = '••••••••';
+        sanitized.hasBusinessRefreshToken = true;
     }
     return sanitized;
 }
@@ -229,6 +247,9 @@ export async function upsert(data: UpsertConnectionInput, userId: string,): Prom
     // YouTube works either way — an API key, or "Sign in with Google" (refresh token).
     const isConnected = data.provider === 'youtube'
         ? hasUsableCredentials(data.provider, mergedCreds,) || Boolean(mergedCreds.refreshToken,)
+        // TikTok: Authorize (Login Kit / Business) sets it, but a pasted token still counts.
+        : data.provider === 'tiktok'
+        ? Boolean(existing.rows[0]?.is_connected,) || Boolean(mergedCreds.accessToken || mergedCreds.businessAccessToken,)
         : isOAuthProvider(data.provider,)
         ? Boolean(existing.rows[0]?.is_connected,)
         : hasUsableCredentials(data.provider, mergedCreds,);
@@ -294,7 +315,7 @@ export async function disconnect(provider: string,): Promise<void> {
          SET is_connected = false,
              display_name = NULL,
              account_id = NULL,
-             credentials = credentials - 'accessToken' - 'tokenExpiresAt' - 'refreshToken',
+             credentials = credentials - 'accessToken' - 'tokenExpiresAt' - 'refreshToken' - 'pageAccessToken',
              last_synced_at = NULL,
              updated_at = NOW()
          WHERE provider = $1
@@ -318,13 +339,27 @@ export async function disconnect(provider: string,): Promise<void> {
  * app credentials and any API-key setup, which the admin then shows again.
  * The grant is revoked at Google so the token cannot be reused.
  */
-export async function disconnectOAuth(provider: string,): Promise<void> {
+export async function disconnectOAuth(oauthKey: string,): Promise<void> {
+    // 'tiktok_business' removes only the Business API sign-in from the 'tiktok' row.
+    const provider = oauthConnection(oauthKey,);
     assertValidProvider(provider,);
-    const r = await query<{ credentials: Record<string, unknown> | null; }>(
-        `SELECT credentials FROM social_connections WHERE provider = $1`, [provider,],
+    const r = await query<{ credentials: Record<string, unknown> | null; display_name: string | null; account_id: string | null; }>(
+        `SELECT credentials, display_name, account_id FROM social_connections WHERE provider = $1`, [provider,],
     );
     if (!r.rows.length) throw new NotFoundError('Connection',);
     const creds = { ...(r.rows[0].credentials ?? {}), };
+    const oauthProvider = isOAuthProvider(oauthKey,) ? getOAuthProvider(oauthKey, creds, buildCallbackUrl(oauthKey,),) : null;
+    if (oauthProvider?.secondary) {
+        for (const k of oauthProvider.credentialKeys ?? []) delete creds[k];
+        await query(
+            `UPDATE social_connections SET credentials = $2::jsonb, is_connected = $3, updated_at = NOW() WHERE provider = $1`,
+            [provider, JSON.stringify(creds,), hasUsableCredentials(provider, creds,),],
+        );
+        await cache.invalidateSocialCache();
+        logger.info(`OAuth sign-in removed: ${oauthKey}`,);
+        return;
+    }
+    for (const k of oauthProvider?.credentialKeys ?? []) delete creds[k];
     const token = (creds.refreshToken ?? creds.accessToken) as string | undefined;
     if (token && provider === 'youtube') {
         await fetch(`${GOOGLE_REVOKE_URL}?token=${encodeURIComponent(token,)}`, { method: 'POST', },)
@@ -415,11 +450,11 @@ export async function startOAuth(
 
     const connResult = await query(
         `SELECT credentials FROM social_connections WHERE provider = $1`,
-        [provider,],
+        [oauthConnection(provider,),],
     );
 
     const credentials = connResult.rows[0]?.credentials;
-    if (!credentials?.appId || !credentials?.appSecret) {
+    if (!oauthAppCredentials(provider, credentials,)) {
         throw new AppError(
             400,
             'MISSING_CREDENTIALS',
@@ -494,14 +529,15 @@ export async function completeOAuth(
         statePayload as Record<string, unknown>;
     const { userId, } = parsed;
 
-    // Read app credentials
+    // Read app credentials (a second sign-in, e.g. tiktok_business, lives on another row).
+    const row = oauthConnection(provider,);
     const connResult = await query(
         `SELECT credentials FROM social_connections WHERE provider = $1`,
-        [provider,],
+        [row,],
     );
 
     const credentials = connResult.rows[0]?.credentials;
-    if (!credentials?.appId || !credentials?.appSecret) {
+    if (!oauthAppCredentials(provider, credentials,)) {
         return { kind: 'error', query: 'App+credentials+not+found', };
     }
 
@@ -539,8 +575,8 @@ export async function completeOAuth(
              updated_at = NOW()
          WHERE provider = $1`,
         [
-            provider,
-            JSON.stringify({
+            row,
+            JSON.stringify(oauthProvider.tokenCredentials ? { ...credentials, ...oauthProvider.tokenCredentials(tokenResult,), } : {
                 ...credentials,
                 accessToken: tokenResult.accessToken,
                 tokenExpiresAt,
@@ -578,9 +614,17 @@ export async function completeOAuth(
         };
     }
 
-    // Full success — save account info too
+    // Full success — save account info too (a secondary sign-in keeps the row's own name/id).
     await query(
-        `UPDATE social_connections
+        oauthProvider.secondary
+            ? `UPDATE social_connections
+                  SET is_connected = true,
+                      display_name = COALESCE(display_name, $2),
+                      account_id = COALESCE(account_id, $3),
+                      credentials = credentials || $4::jsonb,
+                      updated_at = NOW()
+                WHERE provider = $1`
+            : `UPDATE social_connections
          SET is_connected = true,
              display_name = $2,
              account_id = $3,
@@ -588,7 +632,7 @@ export async function completeOAuth(
              updated_at = NOW()
          WHERE provider = $1`,
         [
-            provider,
+            row,
             userInfo.displayName,
             userInfo.accountId,
             JSON.stringify({

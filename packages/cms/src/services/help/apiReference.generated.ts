@@ -2782,18 +2782,49 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "path": "/:provider/oauth",
                 "absolutePath": "/api/v1/connections/:provider/oauth",
                 "auth": "admin",
-                "summary": "Remove only the OAuth sign-in (YouTube \"Sign in with Google\"); keeps app credentials + any API-key setup.",
+                "summary": "Remove only the OAuth sign-in (YouTube \"Sign in with Google\", TikTok Login Kit, or tiktok_business = the TikTok Business API sign-in); keeps app credentials + any API-key setup.",
                 "input": {
                     "params": [
                         {
                             "name": "provider",
-                            "type": "'instagram' | 'facebook' | 'tiktok' | 'patreon' | 'youtube' | 'twitter' | 'threads'",
+                            "type": "string",
                             "required": true
                         }
                     ]
                 },
                 "sdk": [
                     "cms.connections.oauthDisconnect"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/facebook/pages",
+                "absolutePath": "/api/v1/connections/facebook/pages",
+                "auth": "admin",
+                "summary": "Pages the connected Facebook user manages (for the Page picker; ANALYZE task flagged).",
+                "sdk": [
+                    "cms.connections.facebookPages"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "PUT",
+                "path": "/facebook/page",
+                "absolutePath": "/api/v1/connections/facebook/page",
+                "auth": "admin",
+                "summary": "Choose the Facebook Page to collect: saves its id, Page token and the granted scopes.",
+                "input": {
+                    "body": [
+                        {
+                            "name": "pageId",
+                            "type": "string",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.connections.selectFacebookPage"
                 ],
                 "sdkStatus": "method"
             },
@@ -19722,4 +19753,4 @@ export const API_MODULES: ApiModuleDoc[] = [
 ];
 
 export const API_MODULE_COUNT = 63;
-export const API_ROUTE_COUNT = 683;
+export const API_ROUTE_COUNT = 685;

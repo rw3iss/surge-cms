@@ -289,6 +289,10 @@ export interface AudiencePanelProps {
     settingsHref?: string;
 }
 
+const paidLabel = (k: string,) => (k === 'PAID' ? 'Paid' : k === 'ORGANIC' ? 'Organic' : k);
+const playLabel = (k: string,) => (k === 'AUTO' ? 'Autoplayed' : k === 'CLICK' ? 'Click to play' : k);
+const reactionLabel = (k: string,) => ({ like: 'Like', love: 'Love', wow: 'Wow', haha: 'Haha', sorry: 'Sad', anger: 'Angry', } as Record<string, string>)[k] ?? k;
+
 const AudiencePanel: Component<AudiencePanelProps> = (p,) => {
     const a = () => p.audience;
     const caps = () => a().capabilities;
@@ -298,6 +302,7 @@ const AudiencePanel: Component<AudiencePanelProps> = (p,) => {
     const anyTypes = () => b().viewsByType.length > 0 || b().reachByType.length > 0 || b().interactionsByType.length > 0 || a().contentKinds.length > 0;
     const anyFollow = () => b().viewsByFollow.length > 0 || b().reachByFollow.length > 0;
     const anyStories = () => a().stories.count > 0;
+    const anyFb = () => (b().viewsByPaid?.length ?? 0) > 0 || (b().videoViewsByPlay?.length ?? 0) > 0 || (b().reactionsByType?.length ?? 0) > 0;
     const missing = createMemo(() => {
         const list: Array<{ block: AudienceBlock; title: string; }> = [];
         if (!anyDemo()) list.push({ block: 'demographics', title: 'Demographics', },);
@@ -329,6 +334,14 @@ const AudiencePanel: Component<AudiencePanelProps> = (p,) => {
                     <Block title="Followers vs non-followers">
                         <SplitBar title="Views" items={b().viewsByFollow} label={followLabel} />
                         <SplitBar title="Reach" items={b().reachByFollow} label={followLabel} />
+                    </Block>
+                </Show>
+
+                <Show when={anyFb()}>
+                    <Block title="Paid, autoplay and reactions">
+                        <Show when={b().viewsByPaid?.length}><SplitBar title="Views: paid vs organic" items={b().viewsByPaid ?? []} label={paidLabel} /></Show>
+                        <Show when={b().videoViewsByPlay?.length}><SplitBar title="Video views: autoplay vs click" items={b().videoViewsByPlay ?? []} label={playLabel} /></Show>
+                        <Show when={b().reactionsByType?.length}><SplitBar title="Reactions" items={b().reactionsByType ?? []} label={reactionLabel} /></Show>
                     </Block>
                 </Show>
 

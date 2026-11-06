@@ -1,70 +1,93 @@
 /**
- * TikTok analytics collector (plan §3.5).
+ * TikTok analytics collector — two TIERS on one 'tiktok' connection:
  *
- *  1. Display API v2 (open.tiktokapis.com, the connection's user token):
- *     profile followers / following / likes / video count (`user.info.stats`)
- *     and every video's views, likes, comments, shares (`video.list`).
- *     TikTok has no feed fetcher, so the listed videos are also UPSERTED into
- *     social_posts (`upsertTikTokVideos`) — otherwise the runner could not map
- *     their metrics and the dashboard's post table would stay empty.
- *  2. Business API v1.3 (business-api.tiktok.com) — only when the credentials
- *     carry `businessAccessToken` + `businessId` (a TikTok Business Account and
- *     an approved "Accounts insights" app): per-video total / average watch
- *     time, full-watch rate, reach; daily profile views, video views, net
- *     followers. 24–48 h latency, so the daily window is rewritten each run.
+ *  BASIC — Login Kit token (Display API v2, open.tiktokapis.com; scopes
+ *    user.info.basic, user.info.profile, user.info.stats, video.list):
+ *    followers / following / likes / video count, and every video's views,
+ *    likes, comments, shares. Listed videos are upserted into social_posts
+ *    (tiktokMedia.ts; covers mirrored once).
  *
- * Tokens: a user access token lasts ~2 h and a refresh token ~180 days; each
- * refresh ROTATES the refresh token, so the new pair is saved back to
- * social_connections.credentials before anything else happens.
+ *  UPGRADED — TikTok API for Business "Accounts" token (business-api.tiktok.com
+ *    v1.3; credentials businessAccessToken + businessId = the token's open_id):
+ *    /business/get/ — daily views, reach, profile views, likes, comments,
+ *    shares, follower total, new / lost / net followers, engaged audience,
+ *    profile-button clicks, hourly follower activity, follower age / gender /
+ *    country / city; /business/video/list/ — per video reach, saves, watch
+ *    time, average watch, full-watch rate, new followers, profile views,
+ *    retention + like curves, traffic sources, viewer types, viewer countries /
+ *    genders / cities. Most numbers lag 24–48 h, so the daily window is
+ *    rewritten each run. Many need a Business Account or "Advanced Access"
+ *    and 100+ followers — TikTok returns nothing otherwise.
+ *
+ * Every family runs on its own (attempt): a refused one is recorded in
+ * credentials.analyticsCapabilities and the others still collect. A dead
+ * Business token never fails the basic tier (and vice versa when both exist).
+ *
+ * Tokens: Login Kit access 24 h (older docs: 2 h), refresh 365 days and
+ * ROTATED on each refresh; Business access 1 day, refresh 1 year. Both are
+ * renewed here when due and saved back before anything else happens.
+ * Mapping (pure) lives in tiktokMapping.ts; field lists + doc URLs there too.
  */
 import type { SocialCollectorStatus, } from '@sitesurge/types';
 import { config, } from '../../../../config';
 import { query, } from '../../../../db';
+import { logger, } from '../../../../utils/logger';
+import {
+    businessAppCredentials,
+    businessTokenCredentials,
+    displayTokenCredentials,
+    requestBusinessToken,
+    requestDisplayToken,
+    TIKTOK_BUSINESS_API,
+    TIKTOK_DISPLAY_API,
+} from '../../../oauth/tiktok';
 import { registerCollector, } from '../registry';
 import type { AccountSnapshot, CollectContext, CollectResult, DailyPoint, PostMetric, } from '../types';
+import {
+    activityPoints,
+    BUSINESS_ACCOUNT_TYPE_FIELDS,
+    BUSINESS_ACTION_FIELDS,
+    BUSINESS_ACTIVITY_FIELDS,
+    BUSINESS_ADVANCED_DAILY_FIELDS,
+    BUSINESS_DAILY_FIELDS,
+    BUSINESS_DEMOGRAPHIC_FIELDS,
+    BUSINESS_PROFILE_FIELDS,
+    BUSINESS_VIDEO_BASE_FIELDS,
+    BUSINESS_VIDEO_INSIGHT_FIELDS,
+    businessAccount,
+    businessAsVideo,
+    businessDailyPoints,
+    businessPostMetric,
+    type BusinessProfile,
+    type BusinessVideo,
+    capabilityNotes,
+    followerDemographicPoints,
+    grantedScopes,
+    mergeMetric,
+    type TikTokCapabilities,
+    tiktokAccount,
+    tiktokPostMetric,
+    type TikTokUser,
+    type TikTokVideo,
+    viewWeightedPoints,
+} from './tiktokMapping';
+import { upsertTikTokVideos, } from './tiktokMedia';
 
-const DISPLAY_API = 'https://open.tiktokapis.com/v2';
-const BUSINESS_API = 'https://business-api.tiktok.com/open_api/v1.3';
-const USER_FIELDS = 'open_id,display_name,username,avatar_url,follower_count,following_count,likes_count,video_count';
-const VIDEO_FIELDS = 'id,create_time,cover_image_url,share_url,video_description,title,duration,like_count,comment_count,share_count,view_count';
-const BUSINESS_VIDEO_FIELDS = ['item_id', 'video_views', 'likes', 'comments', 'shares', 'reach', 'total_time_watched', 'average_time_watched', 'full_video_watched_rate',];
-const BUSINESS_DAILY_FIELDS = ['followers_count', 'profile_views', 'video_views', 'likes', 'comments', 'shares',];
-/** 20 videos per page (TikTok's max) × 25 = the 500 newest videos. */
+// Re-exported for callers/tests that imported them from here before the split.
+export { grantedScopes, tiktokAccount, tiktokPostMetric, tiktokPostRow, } from './tiktokMapping';
+export { upsertTikTokVideos, } from './tiktokMedia';
+
+const USER_STATS_FIELDS = 'open_id,display_name,avatar_url,follower_count,following_count,likes_count,video_count';
+const USER_PROFILE_FIELDS = 'username,bio_description,profile_deep_link,is_verified';
+const VIDEO_FIELDS = 'id,create_time,cover_image_url,share_url,embed_link,video_description,title,duration,like_count,comment_count,share_count,view_count';
+/** Display: 20 per page × 25 = the 500 newest videos. Business: 20 × 15 = 300 (two calls per page). */
 const MAX_PAGES = 25;
+const BUSINESS_MAX_PAGES = 15;
 const PAGE_SIZE = 20;
-const DAILY_WINDOW = 7;
-/** Refresh this long before the access token expires. */
+/** Days of daily account data re-read each run (TikTok lags 24–48 h; max look-back 60). */
+const DAILY_WINDOW = 14;
+/** Refresh this long before a token expires. */
 const SKEW_MS = 5 * 60_000;
-
-export interface TikTokVideo {
-    id: string;
-    create_time?: number;
-    cover_image_url?: string;
-    share_url?: string;
-    video_description?: string;
-    title?: string;
-    duration?: number;
-    like_count?: number;
-    comment_count?: number;
-    share_count?: number;
-    view_count?: number;
-}
-
-export interface TikTokUser {
-    open_id?: string;
-    display_name?: string;
-    username?: string;
-    avatar_url?: string;
-    follower_count?: number;
-    following_count?: number;
-    likes_count?: number;
-    video_count?: number;
-}
-
-const n = (v: unknown,): number | null => {
-    const x = Number(v,);
-    return v === undefined || v === null || v === '' || !Number.isFinite(x,) ? null : x;
-};
 
 function addDays(day: string, k: number,): string {
     const d = new Date(`${day}T00:00:00Z`,);
@@ -72,137 +95,7 @@ function addDays(day: string, k: number,): string {
     return d.toISOString().slice(0, 10,);
 }
 
-// ── Pure mappers (unit-tested) ───────────────────────────────────────────
-
-export function tiktokAccount(u: TikTokUser,): AccountSnapshot {
-    return {
-        followers: n(u.follower_count,),
-        following: n(u.following_count,),
-        postsCount: n(u.video_count,),
-        totalLikes: n(u.likes_count,),
-        raw: { ...u, },
-    };
-}
-
-export function tiktokPostMetric(v: TikTokVideo,): PostMetric {
-    return {
-        externalId: v.id,
-        views: n(v.view_count,),
-        likes: n(v.like_count,),
-        comments: n(v.comment_count,),
-        shares: n(v.share_count,),
-        raw: { duration: n(v.duration,), },
-    };
-}
-
-/** Business API per-video row → the extra numbers it adds (merged over the Display metric). */
-export function tiktokBusinessMetric(row: Record<string, unknown>,): PostMetric | null {
-    const id = String(row.item_id ?? '',);
-    if (!id) return null;
-    const rate = n(row.full_video_watched_rate,);
-    return {
-        externalId: id,
-        reach: n(row.reach,),
-        watchTimeS: n(row.total_time_watched,),
-        avgWatchS: n(row.average_time_watched,),
-        // TikTok reports a fraction (0.0237); tolerate a percentage too.
-        completionRate: rate === null ? null : rate > 1 ? rate / 100 : rate,
-    };
-}
-
-/** Business API daily account rows → our daily series. */
-export function tiktokBusinessDaily(rows: Array<Record<string, unknown>>,): DailyPoint[] {
-    const map: Record<string, string> = {
-        followers_count: 'followersNet',
-        profile_views: 'profileViews',
-        video_views: 'views',
-        likes: 'likes',
-        comments: 'comments',
-        shares: 'shares',
-    };
-    const out: DailyPoint[] = [];
-    for (const row of rows) {
-        const date = String(row.date ?? '',).slice(0, 10,);
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(date,)) continue;
-        for (const [field, metric,] of Object.entries(map,)) {
-            const v = n(row[field],);
-            if (v !== null) out.push({ date, metric, value: v, },);
-        }
-    }
-    return out;
-}
-
-/** A listed video → the social_posts row it becomes. */
-export function tiktokPostRow(v: TikTokVideo,): {
-    externalId: string;
-    content: string | null;
-    postUrl: string | null;
-    thumbnailUrl: string | null;
-    publishedAt: string | null;
-    durationSeconds: number | null;
-    likes: number;
-    comments: number;
-    shares: number;
-} {
-    const text = (v.title || v.video_description || '').trim();
-    const created = n(v.create_time,);
-    return {
-        externalId: v.id,
-        content: text || null,
-        postUrl: v.share_url || null,
-        thumbnailUrl: v.cover_image_url || null,
-        publishedAt: created ? new Date(created * 1000,).toISOString() : null,
-        durationSeconds: n(v.duration,),
-        likes: n(v.like_count,) ?? 0,
-        comments: n(v.comment_count,) ?? 0,
-        shares: n(v.share_count,) ?? 0,
-    };
-}
-
-export function grantedScopes(credentials: Record<string, unknown>,): string[] | null {
-    const s = String(credentials.scope ?? credentials.grantedScopes ?? '',).trim();
-    return s ? s.split(/[\s,]+/,).filter(Boolean,) : null;
-}
-
-// ── Storage helpers ──────────────────────────────────────────────────────
-
-/** Insert / refresh TikTok videos in social_posts so the runner can map their metrics. */
-export async function upsertTikTokVideos(videos: TikTokVideo[], authorName: string | null = null,): Promise<number> {
-    let count = 0;
-    for (const v of videos) {
-        if (!v.id) continue;
-        const r = tiktokPostRow(v,);
-        await query(
-            `INSERT INTO social_posts (platform, external_id, content, media_url, thumbnail_url, author_name, likes, comments, shares,
-                    published_at, fetched_at, raw_data, source, post_url, media_kind, duration_seconds)
-             VALUES ('tiktok', $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), $10, 'sync', $3, 'video', $11)
-             ON CONFLICT (platform, external_id) DO UPDATE SET
-               content = COALESCE(EXCLUDED.content, social_posts.content),
-               media_url = COALESCE(EXCLUDED.media_url, social_posts.media_url),
-               post_url = COALESCE(EXCLUDED.post_url, social_posts.post_url),
-               thumbnail_url = COALESCE(EXCLUDED.thumbnail_url, social_posts.thumbnail_url),
-               author_name = COALESCE(EXCLUDED.author_name, social_posts.author_name),
-               likes = EXCLUDED.likes, comments = EXCLUDED.comments, shares = EXCLUDED.shares,
-               published_at = COALESCE(social_posts.published_at, EXCLUDED.published_at),
-               duration_seconds = COALESCE(EXCLUDED.duration_seconds, social_posts.duration_seconds),
-               media_kind = COALESCE(social_posts.media_kind, EXCLUDED.media_kind),
-               raw_data = EXCLUDED.raw_data, fetched_at = NOW()`,
-            [r.externalId, r.content, r.postUrl, r.thumbnailUrl, authorName, r.likes, r.comments, r.shares, r.publishedAt,
-                JSON.stringify({ ...v, mediaKind: 'video', },), r.durationSeconds,],
-        );
-        count++;
-    }
-    return count;
-}
-
-async function saveCreds(patch: Record<string, unknown>,): Promise<void> {
-    await query(
-        `UPDATE social_connections SET credentials = COALESCE(credentials, '{}'::jsonb) || $1::jsonb, updated_at = NOW() WHERE provider = 'tiktok'`,
-        [JSON.stringify(patch,),],
-    );
-}
-
-// ── HTTP ─────────────────────────────────────────────────────────────────
+// ── Errors ───────────────────────────────────────────────────────────────
 
 class TikTokError extends Error {
     constructor(message: string, public status: number, public code: string,) {
@@ -210,8 +103,19 @@ class TikTokError extends Error {
     }
 }
 
+/** A token problem — the tier stops (refresh/reconnect needed). */
+const isTokenError = (e: unknown,): boolean =>
+    e instanceof TikTokError
+    && (e.status === 401 || /access_token|token_invalid|token.*expired|^4010[0-5]$/i.test(e.code,) || /access.?token.*(invalid|expired)/i.test(e.message,));
+
+/** A scope / permission / account-type refusal — this family only. */
+const isRefusal = (e: unknown,): boolean =>
+    e instanceof TikTokError && (e.status === 403 || /scope|permission|not.?authori[sz]ed|40001|40002/i.test(`${e.code} ${e.message}`,));
+
+// ── HTTP ─────────────────────────────────────────────────────────────────
+
 async function displayCall(token: string, path: string, init: RequestInit = {},): Promise<any> {
-    const res = await fetch(`${DISPLAY_API}${path}`, {
+    const res = await fetch(`${TIKTOK_DISPLAY_API}${path}`, {
         ...init,
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init.headers as Record<string, string> | undefined), },
     },);
@@ -223,102 +127,165 @@ async function displayCall(token: string, path: string, init: RequestInit = {},)
     return (body as { data?: unknown; }).data ?? {};
 }
 
-const isAuthError = (e: unknown,): boolean =>
-    e instanceof TikTokError && (e.status === 401 || /access_token|token/i.test(e.code,));
+async function businessCall(token: string, path: string, params: Record<string, string>,): Promise<any> {
+    const res = await fetch(`${TIKTOK_BUSINESS_API}${path}?${new URLSearchParams(params,)}`, { headers: { 'Access-Token': token, }, },);
+    const body = await res.json().catch(() => ({})) as { code?: number; message?: string; data?: unknown; };
+    if (!res.ok || (body.code !== undefined && body.code !== 0)) {
+        throw new TikTokError(body.message || `HTTP ${res.status}`, res.status, String(body.code ?? '',),);
+    }
+    return body.data ?? {};
+}
 
-function appCredentials(creds: Record<string, unknown>,): { key: string; secret: string; } | null {
+async function saveCreds(patch: Record<string, unknown>,): Promise<void> {
+    await query(
+        `UPDATE social_connections SET credentials = COALESCE(credentials, '{}'::jsonb) || $1::jsonb, updated_at = NOW() WHERE provider = 'tiktok'`,
+        [JSON.stringify(patch,),],
+    );
+}
+
+// ── Tokens ───────────────────────────────────────────────────────────────
+
+function displayApp(creds: Record<string, unknown>,): { key: string; secret: string; } | null {
     const key = String(creds.clientKey || creds.appId || config.social.tiktok.clientKey || '',);
     const secret = String(creds.clientSecret || creds.appSecret || config.social.tiktok.clientSecret || '',);
     return key && secret ? { key, secret, } : null;
 }
 
-/** Exchange the refresh token for a new pair and save both (TikTok rotates refresh tokens). */
+const expired = (at: unknown,): boolean => {
+    const t = Date.parse(String(at ?? '',),);
+    return Number.isFinite(t,) && t - SKEW_MS <= Date.now();
+};
+
+/** Exchange the Login Kit refresh token for a new pair and save both (rotated). */
 export async function refreshTikTokToken(creds: Record<string, unknown>,): Promise<string> {
-    const app = appCredentials(creds,);
+    const app = displayApp(creds,);
     const refresh = String(creds.refreshToken ?? '',);
     if (!app || !refresh) throw new Error('TikTok token expired and no refresh token + client key/secret are saved — reconnect TikTok.',);
-    const res = await fetch(`${DISPLAY_API}/oauth/token/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', },
-        body: new URLSearchParams({ client_key: app.key, client_secret: app.secret, grant_type: 'refresh_token', refresh_token: refresh, },),
-    },);
-    const data = await res.json().catch(() => ({})) as Record<string, any>;
-    if (!res.ok || !data.access_token) {
-        const msg = data.error_description || data.error?.message || data.error || `HTTP ${res.status}`;
-        await saveCreds({ oauthError: String(msg,), },).catch(() => {});
-        throw new Error(`TikTok token refresh failed: ${String(msg,)}`,);
+    try {
+        const t = await requestDisplayToken({ client_key: app.key, client_secret: app.secret, grant_type: 'refresh_token', refresh_token: refresh, },);
+        const patch = displayTokenCredentials(t,);
+        await saveCreds(patch,);
+        Object.assign(creds, patch,);
+        return t.accessToken;
+    } catch (e) {
+        await saveCreds({ oauthError: (e as Error).message, },).catch(() => {});
+        throw new Error(`TikTok token refresh failed: ${(e as Error).message}`,);
     }
-    const now = Date.now();
-    const patch: Record<string, unknown> = {
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token || refresh,
-        tokenExpiresAt: new Date(now + (Number(data.expires_in,) || 7200) * 1000,).toISOString(),
-        oauthError: null,
-    };
-    if (data.refresh_expires_in) patch.refreshTokenExpiresAt = new Date(now + Number(data.refresh_expires_in,) * 1000,).toISOString();
-    if (data.scope) patch.scope = data.scope;
-    if (data.open_id) patch.openId = data.open_id;
-    await saveCreds(patch,);
-    Object.assign(creds, patch,);
-    return String(data.access_token,);
 }
 
-function tokenExpired(creds: Record<string, unknown>,): boolean {
-    const at = Date.parse(String(creds.tokenExpiresAt ?? '',),);
-    return Number.isFinite(at,) && at - SKEW_MS <= Date.now();
+/** Renew the Business token (1 day) with its refresh token and save the new pair. */
+export async function refreshTikTokBusinessToken(creds: Record<string, unknown>,): Promise<string> {
+    const app = businessAppCredentials(creds,);
+    const refresh = String(creds.businessRefreshToken ?? '',);
+    if (!app || !refresh) throw new Error('the Business token expired and no refresh token + Business App ID/Secret are saved — click Authorize Business API again.',);
+    try {
+        const t = await requestBusinessToken('refresh_token', {
+            client_id: app.appId, client_secret: app.appSecret, grant_type: 'refresh_token', refresh_token: refresh,
+        },);
+        const patch = businessTokenCredentials(t,);
+        if (!t.openId) delete patch.businessId;
+        await saveCreds(patch,);
+        Object.assign(creds, patch,);
+        return t.accessToken;
+    } catch (e) {
+        await saveCreds({ businessOauthError: (e as Error).message, },).catch(() => {});
+        throw new Error(`TikTok Business token refresh failed: ${(e as Error).message}`,);
+    }
 }
 
-async function businessCall(token: string, path: string, params: Record<string, string>,): Promise<any> {
-    const res = await fetch(`${BUSINESS_API}${path}?${new URLSearchParams(params,)}`, { headers: { 'Access-Token': token, }, },);
-    const body = await res.json().catch(() => ({})) as { code?: number; message?: string; data?: unknown; };
-    if (!res.ok || (body.code !== undefined && body.code !== 0)) throw new Error(body.message || `HTTP ${res.status}`,);
-    return body.data ?? {};
+// ── Status ───────────────────────────────────────────────────────────────
+
+const hasDisplay = (c: Record<string, unknown>,): boolean => Boolean(c.accessToken,);
+const hasBusiness = (c: Record<string, unknown>,): boolean => Boolean(c.businessAccessToken && c.businessId,);
+
+function capabilitiesOf(credentials: Record<string, unknown>,): TikTokCapabilities | null {
+    const c = credentials.analyticsCapabilities;
+    return c && typeof c === 'object' ? c as TikTokCapabilities : null;
 }
 
-// ── Collector ────────────────────────────────────────────────────────────
-
-function hasBusiness(creds: Record<string, unknown>,): boolean {
-    return Boolean(creds.businessAccessToken && creds.businessId,);
-}
+export const UPGRADE_HELP = 'For watch time, completion, reach, profile views, follower history, demographics, active hours and traffic sources: '
+    + 'switch the account to a Business Account in the TikTok app (Profile → ☰ → Settings and privacy → Account → Switch to Business Account), '
+    + 'create a TikTok API for Business app with the TikTok Accounts permission (business-api.tiktok.com → My Apps), '
+    + 'then save its App ID / Secret on the TikTok card in Social → Configuration and click Authorize Business API.';
 
 function status(credentials: Record<string, unknown>, connected: boolean,): SocialCollectorStatus {
     const base = { platform: 'tiktok' as const, label: 'TikTok', };
-    if (!connected || !credentials.accessToken) {
-        return { ...base, state: 'off', message: 'Connect TikTok in Social → Configuration.', collects: [], };
+    if (!connected || (!hasDisplay(credentials,) && !hasBusiness(credentials,))) {
+        return { ...base, state: 'off', message: 'Connect TikTok in Social → Configuration (Authorize with TikTok).', collects: [], };
     }
-    const scopes = grantedScopes(credentials,);
     const collects: string[] = [];
-    const missing: string[] = [];
-    for (const [scope, what,] of [['user.info.stats', 'Followers, following, likes, video count',], ['video.list', 'Per-video views, likes, comments, shares',],] as const) {
-        if (!scopes || scopes.includes(scope,)) collects.push(what,);
-        else missing.push(scope,);
+    const problems: string[] = [];
+
+    if (hasDisplay(credentials,)) {
+        const scopes = grantedScopes(credentials,);
+        const missing: string[] = [];
+        for (const [scope, what,] of [['user.info.stats', 'Followers, following, likes, video count',], ['video.list', 'Every video with views, likes, comments, shares',],] as const) {
+            if (!scopes || scopes.includes(scope,)) collects.push(what,);
+            else missing.push(scope,);
+        }
+        if (missing.length) problems.push(`Reconnect TikTok and allow ${missing.join(' + ',)}.`,);
+        if (expired(credentials.tokenExpiresAt,) && (!credentials.refreshToken || !displayApp(credentials,))) {
+            problems.push('The TikTok token has expired and cannot be renewed — click Authorize with TikTok again.',);
+        } else if (expired(credentials.refreshTokenExpiresAt,)) {
+            problems.push('The TikTok sign-in has lapsed (refresh token expired) — click Authorize with TikTok again.',);
+        } else if (credentials.oauthError) {
+            problems.push(`TikTok sign-in needs renewing: ${String(credentials.oauthError,)}`,);
+        }
     }
-    if (missing.length) {
-        return { ...base, state: 'partial', message: `Reconnect TikTok and allow the ${missing.join(' + ',)} scope(s).`, collects, };
-    }
-    if (tokenExpired(credentials,) && (!credentials.refreshToken || !appCredentials(credentials,))) {
-        return { ...base, state: 'partial', message: 'The TikTok token has expired and cannot be renewed (no refresh token or client key/secret) — reconnect TikTok.', collects, };
-    }
-    if (credentials.oauthError) {
-        return { ...base, state: 'partial', message: `TikTok sign-in needs renewing: ${String(credentials.oauthError,)}`, collects, };
-    }
+
     if (!hasBusiness(credentials,)) {
-        return {
-            ...base,
-            state: 'partial',
-            message: 'Watch time, completion rate, reach and profile views need a TikTok Business Account + Business API token (businessAccessToken, businessId).',
-            collects,
-        };
+        return { ...base, state: 'partial', message: [...problems, UPGRADE_HELP,].join(' ',), collects, };
     }
-    return {
-        ...base,
-        state: 'ready',
-        message: null,
-        collects: [...collects, 'Per-video watch time, avg watch time, full-watch rate, reach (Business API)', 'Daily profile views, video views, net followers (Business API)',],
-    };
+
+    const caps = capabilitiesOf(credentials,);
+    const on = (k: keyof TikTokCapabilities,) => caps ? Boolean(caps[k],) : true;
+    if (!hasDisplay(credentials,)) collects.push('Followers, following, likes, video count (Business API)', 'Every video with views, likes, comments, shares',);
+    if (on('accountInsights',)) collects.push('Daily views, profile views, likes, comments, shares, follower total',);
+    if (on('newFollowers',)) collects.push('Daily new / lost / net followers, reach (unique viewers), engaged audience',);
+    if (on('profileActions',)) collects.push('Profile button clicks (link in bio, email, phone, address, app, leads)',);
+    if (on('demographics',)) collects.push('Follower age, gender, country, city',);
+    if (on('onlineFollowers',)) collects.push('When followers are active (hourly)',);
+    if (on('mediaInsights',)) {
+        collects.push('Per-video reach, saves, watch time, average watch, full-watch rate, retention curve, new followers',);
+        collects.push('Traffic sources, new vs returning viewers, viewer countries / genders / cities',);
+    }
+
+    if (expired(credentials.businessTokenExpiresAt,) && (!credentials.businessRefreshToken || !businessAppCredentials(credentials,))) {
+        problems.push('The TikTok Business token has expired and cannot be renewed — click Authorize Business API again.',);
+    } else if (expired(credentials.businessRefreshTokenExpiresAt,)) {
+        problems.push('The TikTok Business sign-in has lapsed (refresh token expired) — click Authorize Business API again.',);
+    } else if (credentials.businessOauthError) {
+        problems.push(`TikTok Business API: ${String(credentials.businessOauthError,)}`,);
+    }
+    const notes = capabilityNotes(caps,);
+    if (notes.length) {
+        problems.push(`TikTok does not give this account: ${notes.join('; ',)}. Advanced numbers need a Business Account (or Advanced Access) and 100+ followers; `
+            + 'per-video insights need the video.insights scope — re-authorize the Business API after adding it to the app.',);
+    }
+    if (problems.length) return { ...base, state: 'partial', message: problems.join(' ',), collects, };
+    return { ...base, state: 'ready', message: null, collects, };
 }
 
-async function listVideos(token: string,): Promise<TikTokVideo[]> {
+// ── Collection ───────────────────────────────────────────────────────────
+
+/** Thrown inside a family when its tier's token is dead — handled per tier. */
+class TierDown extends Error {}
+
+/**
+ * Run one family on its own: a token error stops that TIER (TierDown), a
+ * refusal leaves the family empty quietly, anything else also warns.
+ */
+async function attempt<T,>(fn: () => Promise<T>, fallback: T, warn: (m: string,) => void, label: string,): Promise<{ ok: boolean; value: T; }> {
+    try {
+        return { ok: true, value: await fn(), };
+    } catch (e) {
+        if (e instanceof TierDown || isTokenError(e,)) throw e instanceof TierDown ? e : new TierDown((e as Error).message,);
+        if (!isRefusal(e,)) warn(`${label}: ${(e as Error).message}`,);
+        return { ok: false, value: fallback, };
+    }
+}
+
+async function listDisplayVideos(token: string,): Promise<TikTokVideo[]> {
     const videos: TikTokVideo[] = [];
     let cursor: number | undefined;
     for (let page = 0; page < MAX_PAGES; page++) {
@@ -333,93 +300,203 @@ async function listVideos(token: string,): Promise<TikTokVideo[]> {
     return videos;
 }
 
-async function businessVideos(creds: Record<string, unknown>,): Promise<Array<Record<string, unknown>>> {
-    const out: Array<Record<string, unknown>> = [];
+async function listBusinessVideos(token: string, businessId: string, fields: string[],): Promise<BusinessVideo[]> {
+    const out: BusinessVideo[] = [];
     let cursor: string | undefined;
-    for (let page = 0; page < MAX_PAGES; page++) {
-        const params: Record<string, string> = {
-            business_id: String(creds.businessId,),
-            fields: JSON.stringify(BUSINESS_VIDEO_FIELDS,),
-            max_count: String(PAGE_SIZE,),
-        };
+    for (let page = 0; page < BUSINESS_MAX_PAGES; page++) {
+        const params: Record<string, string> = { business_id: businessId, fields: JSON.stringify(fields,), max_count: String(PAGE_SIZE,), };
         if (cursor) params.cursor = cursor;
-        const data = await businessCall(String(creds.businessAccessToken,), '/business/video/list/', params,);
-        out.push(...((data.videos ?? []) as Array<Record<string, unknown>>),);
+        const data = await businessCall(token, '/business/video/list/', params,);
+        out.push(...((data.videos ?? []) as BusinessVideo[]),);
         if (!data.has_more || data.cursor === undefined || data.cursor === null) break;
         cursor = String(data.cursor,);
     }
     return out;
 }
 
-async function businessDaily(creds: Record<string, unknown>, today: string,): Promise<DailyPoint[]> {
-    const data = await businessCall(String(creds.businessAccessToken,), '/business/get/', {
-        business_id: String(creds.businessId,),
-        start_date: addDays(today, -DAILY_WINDOW,),
-        end_date: addDays(today, -1,),
-        fields: JSON.stringify(BUSINESS_DAILY_FIELDS,),
-    },);
-    return tiktokBusinessDaily((data.metrics ?? []) as Array<Record<string, unknown>>,);
+interface DisplayOutcome {
+    account: AccountSnapshot | null;
+    authorName: string | null;
+    videos: TikTokVideo[] | null;
+    profileOk: boolean;
 }
 
-async function collect(ctx: CollectContext,): Promise<CollectResult> {
-    const creds = { ...ctx.credentials, };
-    let token = String(creds.accessToken ?? '',);
-    if (!token) throw new Error('TikTok is not connected (no access token).',);
-    if (tokenExpired(creds,)) token = await refreshTikTokToken(creds,);
-
-    // One retry after a refresh when TikTok says the token is dead.
-    const withToken = async <T,>(fn: (t: string,) => Promise<T>,): Promise<T> => {
+async function collectDisplay(creds: Record<string, unknown>, warn: (m: string,) => void,): Promise<DisplayOutcome> {
+    let token = String(creds.accessToken,);
+    if (expired(creds.tokenExpiresAt,)) token = await refreshTikTokToken(creds,);
+    let refreshed = false;
+    // One refresh-and-retry when TikTok says the token is dead mid-run.
+    const call = async <T,>(fn: (t: string,) => Promise<T>,): Promise<T> => {
         try {
             return await fn(token,);
         } catch (e) {
-            if (!isAuthError(e,) || !creds.refreshToken) throw e;
+            if (!isTokenError(e,) || refreshed || !creds.refreshToken) throw e;
+            refreshed = true;
             token = await refreshTikTokToken(creds,);
             return fn(token,);
         }
     };
+    const out: DisplayOutcome = { account: null, authorName: null, videos: null, profileOk: false, };
+    const stats = await attempt(() => call((t,) => displayCall(t, `/user/info/?fields=${USER_STATS_FIELDS}`,)), null, warn, 'TikTok profile stats (user.info.stats)',);
+    if (stats.ok) {
+        const user = (stats.value?.user ?? {}) as TikTokUser;
+        const extra = await attempt(() => call((t,) => displayCall(t, `/user/info/?fields=${USER_PROFILE_FIELDS}`,)), null, () => {}, '',);
+        Object.assign(user, (extra.value?.user ?? {}) as TikTokUser,);
+        out.account = tiktokAccount(user,);
+        out.authorName = user.display_name || user.username || null;
+        out.profileOk = true;
+    }
+    const list = await attempt(() => call(listDisplayVideos,), null as TikTokVideo[] | null, warn, 'TikTok video list (video.list)',);
+    out.videos = list.value;
+    return out;
+}
+
+interface BusinessOutcome {
+    account: AccountSnapshot | null;
+    authorName: string | null;
+    daily: DailyPoint[];
+    videos: BusinessVideo[] | null;
+    posts: PostMetric[];
+    caps: Omit<TikTokCapabilities, 'profile' | 'videoList' | 'checkedAt'>;
+}
+
+async function collectBusiness(creds: Record<string, unknown>, today: string, warn: (m: string,) => void,): Promise<BusinessOutcome> {
+    let token = String(creds.businessAccessToken,);
+    if (expired(creds.businessTokenExpiresAt,)) token = await refreshTikTokBusinessToken(creds,);
+    const id = String(creds.businessId,);
+    const get = (fields: string[], dated: boolean,) =>
+        businessCall(token, '/business/get/', {
+            business_id: id,
+            fields: JSON.stringify(fields,),
+            ...(dated ? { start_date: addDays(today, -DAILY_WINDOW,), end_date: addDays(today, -1,), } : {}),
+        },) as Promise<BusinessProfile>;
+
+    const out: BusinessOutcome = {
+        account: null,
+        authorName: null,
+        daily: [],
+        videos: null,
+        posts: [],
+        caps: {
+            businessAccount: false, accountInsights: false, newFollowers: false, demographics: false, onlineFollowers: false,
+            mediaInsights: false, profileActions: false, advancedAccess: null,
+        },
+    };
+
+    const profile = await attempt(() => get(BUSINESS_PROFILE_FIELDS, false,), null as BusinessProfile | null, warn, 'TikTok Business profile',);
+    if (profile.value) {
+        out.account = businessAccount(profile.value,);
+        out.authorName = String(profile.value.display_name || profile.value.username || '',) || null;
+    }
+    const type = await attempt(() => get(BUSINESS_ACCOUNT_TYPE_FIELDS, false,), null as BusinessProfile | null, warn, 'TikTok account type',);
+    if (type.value) {
+        const adv = type.value.has_advanced_access === true || type.value.is_business_account === true;
+        out.caps.advancedAccess = typeof type.value.has_advanced_access === 'boolean' || typeof type.value.is_business_account === 'boolean' ? adv : null;
+    }
+
+    const daily = await attempt(() => get(BUSINESS_DAILY_FIELDS, true,), null as BusinessProfile | null, warn, 'TikTok daily insights',);
+    const dailyPts = businessDailyPoints(daily.value?.metrics,);
+    out.daily.push(...dailyPts,);
+    out.caps.accountInsights = dailyPts.length > 0;
+
+    const advanced = await attempt(() => get(BUSINESS_ADVANCED_DAILY_FIELDS, true,), null as BusinessProfile | null, warn, 'TikTok follower history',);
+    const advPts = businessDailyPoints(advanced.value?.metrics,);
+    out.daily.push(...advPts,);
+    out.caps.newFollowers = advPts.some((p,) => p.metric === 'newFollowers' || p.metric === 'followersNet',);
+
+    const actions = await attempt(() => get(BUSINESS_ACTION_FIELDS, true,), null as BusinessProfile | null, warn, 'TikTok profile clicks',);
+    const actPts = businessDailyPoints(actions.value?.metrics,);
+    out.daily.push(...actPts,);
+    out.caps.profileActions = actPts.length > 0;
+
+    const activity = await attempt(() => get(BUSINESS_ACTIVITY_FIELDS, true,), null as BusinessProfile | null, warn, 'TikTok follower activity',);
+    const actvPts = activityPoints(activity.value?.metrics,);
+    out.daily.push(...actvPts,);
+    out.caps.onlineFollowers = actvPts.length > 0;
+
+    const demo = await attempt(() => get(BUSINESS_DEMOGRAPHIC_FIELDS, false,), null as BusinessProfile | null, warn, 'TikTok follower demographics',);
+    const demoPts = demo.value ? followerDemographicPoints(demo.value, today,) : [];
+    out.daily.push(...demoPts,);
+    out.caps.demographics = demoPts.length > 0;
+
+    const base = await attempt(() => listBusinessVideos(token, id, BUSINESS_VIDEO_BASE_FIELDS,), null as BusinessVideo[] | null, warn, 'TikTok Business video list',);
+    out.videos = base.value;
+    const insight = await attempt(() => listBusinessVideos(token, id, BUSINESS_VIDEO_INSIGHT_FIELDS,), [] as BusinessVideo[], warn, 'TikTok video insights',);
+    const merged = new Map<string, PostMetric>();
+    for (const v of [...(base.value ?? []), ...insight.value,]) {
+        const m = businessPostMetric(v,);
+        if (m) merged.set(m.externalId, mergeMetric(merged.get(m.externalId,), m,),);
+    }
+    out.posts = [...merged.values(),];
+    out.caps.mediaInsights = insight.ok && out.posts.some((p,) => p.watchTimeS != null || p.completionRate != null || p.avgWatchS != null,);
+
+    out.caps.businessAccount = profile.ok || daily.ok || base.ok;
+    return out;
+}
+
+async function saveCapabilities(caps: TikTokCapabilities,): Promise<void> {
+    await saveCreds({ analyticsCapabilities: caps, },).catch((e,) => logger.warn('tiktok: could not save capabilities', { error: (e as Error).message, },),);
+}
+
+async function collect(ctx: CollectContext,): Promise<CollectResult> {
+    const creds = { ...ctx.credentials, };
+    const display = hasDisplay(creds,);
+    const business = hasBusiness(creds,);
+    if (!display && !business) throw new Error('TikTok is not connected (no access token).',);
 
     const result: CollectResult = { daily: [], posts: [], };
-    let authorName: string | null = null;
-    try {
-        const data = await withToken((t,) => displayCall(t, `/user/info/?fields=${USER_FIELDS}`,));
-        const user = (data.user ?? {}) as TikTokUser;
-        result.account = tiktokAccount(user,);
-        authorName = user.display_name || user.username || null;
-    } catch (e) {
-        if (isAuthError(e,)) throw e;
-        ctx.warn(`TikTok profile stats: ${(e as Error).message} (needs the user.info.stats scope).`,);
-    }
-
     const posts = new Map<string, PostMetric>();
-    try {
-        const videos = await withToken(listVideos,);
-        await upsertTikTokVideos(videos, authorName,);
-        for (const v of videos) posts.set(v.id, tiktokPostMetric(v,),);
-    } catch (e) {
-        if (isAuthError(e,)) throw e;
-        ctx.warn(`TikTok video list: ${(e as Error).message} (needs the video.list scope).`,);
-    }
+    let authorName: string | null = null;
+    let videos: TikTokVideo[] | null = null;
+    let profileOk = false;
+    let displayDown: string | null = null;
 
-    if (hasBusiness(creds,)) {
+    if (display) {
         try {
-            for (const row of await businessVideos(creds,)) {
-                const extra = tiktokBusinessMetric(row,);
-                if (!extra) continue;
-                const p = posts.get(extra.externalId,) ?? { externalId: extra.externalId, };
-                posts.set(extra.externalId, { ...p, ...Object.fromEntries(Object.entries(extra,).filter(([, v,]) => v !== null),), },);
-            }
+            const d = await collectDisplay(creds, ctx.warn,);
+            result.account = d.account;
+            authorName = d.authorName;
+            profileOk = d.profileOk;
+            videos = d.videos;
+            for (const v of d.videos ?? []) posts.set(v.id, tiktokPostMetric(v,),);
         } catch (e) {
-            ctx.warn(`TikTok Business API (videos): ${(e as Error).message}`,);
-        }
-        try {
-            result.daily!.push(...await businessDaily(creds, ctx.today,),);
-        } catch (e) {
-            ctx.warn(`TikTok Business API (daily): ${(e as Error).message}`,);
+            displayDown = (e as Error).message;
+            await saveCreds({ oauthError: displayDown, },).catch(() => {});
+            if (!business) throw new Error(`TikTok token rejected — click Authorize with TikTok again (${displayDown}).`,);
+            ctx.warn(`TikTok Login Kit token: ${displayDown} (Business API still collected).`,);
         }
     }
-    // Without a Business token the status message says what is missing; not a run warning.
 
+    let caps: TikTokCapabilities = {
+        profile: profileOk, videoList: videos !== null, businessAccount: false, accountInsights: false, newFollowers: false,
+        demographics: false, onlineFollowers: false, mediaInsights: false, profileActions: false, advancedAccess: null,
+        checkedAt: new Date().toISOString(),
+    };
+
+    if (business) {
+        try {
+            const b = await collectBusiness(creds, ctx.today, ctx.warn,);
+            if (!result.account && b.account) result.account = b.account;
+            else if (result.account && b.account?.raw) result.account.raw = { ...b.account.raw, ...(result.account.raw ?? {}), };
+            authorName = authorName ?? b.authorName;
+            result.daily!.push(...b.daily,);
+            if (!videos && b.videos) videos = b.videos.map(businessAsVideo,).filter((v,): v is TikTokVideo => v !== null);
+            for (const m of b.posts) posts.set(m.externalId, mergeMetric(posts.get(m.externalId,), m,),);
+            caps = { ...caps, ...b.caps, profile: caps.profile || Boolean(b.account,), videoList: caps.videoList || b.videos !== null, };
+            if (creds.businessOauthError) await saveCreds({ businessOauthError: null, },).catch(() => {});
+        } catch (e) {
+            const msg = (e as Error).message;
+            await saveCreds({ businessOauthError: msg, },).catch(() => {});
+            if (!display || displayDown) throw new Error(`TikTok Business token rejected — click Authorize Business API again (${msg}).`,);
+            ctx.warn(`TikTok Business API token: ${msg} (basic stats still collected).`,);
+        }
+        await saveCapabilities(caps,);
+    }
+
+    if (videos?.length) await upsertTikTokVideos(videos, authorName,);
     result.posts = [...posts.values(),];
+    // Lifetime per-video splits (viewer demographics, sources, viewer types) as a dated snapshot.
+    result.daily!.push(...viewWeightedPoints(result.posts, ctx.today,),);
     return result;
 }
 

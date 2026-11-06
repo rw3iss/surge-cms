@@ -156,3 +156,21 @@ export interface ConnectionUpdateResponse {
 export interface ConnectionDeleteResponse {
     message: string;
 }
+
+// ─── Facebook Page picker ─────────────────────────────────────────
+
+/** A Page the connected Facebook user manages (GET /connections/facebook/pages). */
+export interface FacebookPageOption {
+    id: string;
+    name: string;
+    category: string | null;
+    /** The user's tasks on the Page (ANALYZE unlocks Page insights). */
+    tasks: string[];
+    canAnalyze: boolean;
+    selected: boolean;
+}
+
+/** Body for PUT /connections/facebook/page — the Page to collect. */
+export interface ConnectionFacebookPageBody {
+    pageId: string;
+}

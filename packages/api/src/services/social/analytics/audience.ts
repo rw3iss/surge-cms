@@ -65,7 +65,8 @@ async function splits(platform: string, from: string, to: string,): Promise<Soci
     const r = await query<{ metric: string; dimension: string; total: string; }>(
         `SELECT metric, dimension, SUM(value) AS total
            FROM social_account_daily
-          WHERE platform = $1 AND metric IN ('views', 'reach', 'engagements') AND (dimension LIKE 'type:%' OR dimension LIKE 'follow:%')
+          WHERE platform = $1 AND metric IN ('views', 'reach', 'engagements', 'videoViews', 'reactions')
+            AND (dimension LIKE 'type:%' OR dimension LIKE 'follow:%' OR dimension LIKE 'paid:%' OR dimension LIKE 'play:%' OR dimension LIKE 'reaction:%')
             AND date BETWEEN $2 AND $3
           GROUP BY metric, dimension`,
         [platform, from, to,],
@@ -79,6 +80,12 @@ async function splits(platform: string, from: string, to: string,): Promise<Soci
         interactionsByType: pick('engagements', 'type',),
         viewsByFollow: pick('views', 'follow',),
         reachByFollow: pick('reach', 'follow',),
+        // Facebook: page views split paid/organic (else the video views split), autoplay vs click, reactions by type.
+        viewsByPaid: (() => { const v = pick('views', 'paid',); return v.length ? v : pick('videoViews', 'paid',); })(),
+        videoViewsByPlay: pick('videoViews', 'play',),
+        reactionsByType: r.rows.some((x,) => x.dimension.startsWith('reaction:',),)
+            ? toBuckets(r.rows.filter((x,) => x.dimension.startsWith('reaction:',),).map((x,) => ({ key: x.dimension.slice(9,), value: Number(x.total,), })),)
+            : [],
     };
 }
 

@@ -13,7 +13,7 @@ vi.mock('./cache', () => ({
     cache: { invalidateSocialCache: (...a: unknown[]) => invalidateSocialMock(...a), },
 }),);
 
-import { reorder, upsert, } from './connections';
+import { reorder, sanitizeCredentials, upsert, } from './connections';
 
 /**
  * Bind position of `connected_by` in the INSERT.
@@ -88,5 +88,17 @@ describe('connections.reorder', () => {
         await reorder('instagram', 'up',);
 
         expect(txClientQueryMock,).not.toHaveBeenCalled();
+    },);
+},);
+
+describe('sanitizeCredentials', () => {
+    it('masks the TikTok Business API secret and tokens', () => {
+        const out = sanitizeCredentials({ businessAppId: 'A', businessAppSecret: 'S', businessAccessToken: 'act.abcdefXYZ123', businessRefreshToken: 'rft', businessId: 'o', },);
+        expect(out,).toMatchObject({
+            businessAppId: 'A', businessId: 'o',
+            businessAppSecret: '••••••••', hasBusinessAppSecret: true,
+            businessAccessToken: '••••••••••XYZ123', hasBusinessAccessToken: true,
+            businessRefreshToken: '••••••••', hasBusinessRefreshToken: true,
+        },);
     },);
 },);

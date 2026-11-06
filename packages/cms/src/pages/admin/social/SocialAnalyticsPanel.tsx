@@ -342,6 +342,12 @@ const SocialAnalyticsPanel: Component = () => {
                                         <Show when={a.status.message}>
                                             <p class="social-analytics__message">{a.status.message}</p>
                                         </Show>
+                                        <Show when={a.status.collects.length}>
+                                            <details class="social-analytics__collects">
+                                                <summary>{a.status.state === 'ready' ? 'Collecting everything available' : `Collecting now (${a.status.collects.length})`}</summary>
+                                                <ul><For each={a.status.collects}>{(c,) => <li>{c}</li>}</For></ul>
+                                            </details>
+                                        </Show>
                                         <Show when={a.since || a.lastRun}>
                                             <div class="social-analytics__metrics">
                                                 <For each={CARD_METRICS.filter((m,) => a[m.key] !== null && a[m.key] !== undefined)}>

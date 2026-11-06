@@ -304,6 +304,8 @@ export const ROUTE_COVERAGE: string[] = [
     'DELETE /api/v1/connections/:provider/oauth',
     'PUT /api/v1/connections/:provider/reorder',
     'GET /api/v1/connections/:provider/oauth/authorize',
+    'GET /api/v1/connections/facebook/pages',
+    'PUT /api/v1/connections/facebook/page',
 
     // ── block-styles ──
     'GET /api/v1/block-styles',

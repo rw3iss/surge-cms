@@ -1,33 +1,56 @@
 /**
- * Facebook Page analytics collector (plan §3.3).
+ * Facebook Page analytics collector (plan §3.3) — two tiers, every family on
+ * its own (a refused family leaves the others collecting):
  *
- *  1. Page node: followers_count (fan_count as the fallback) — snapshot.
- *  2. Page insights, period=day, last 3 days (rewritten each run):
- *     page_follows (total followers that day) → followers,
- *     page_daily_follows_unique / page_daily_unfollows_unique → followersGained / followersLost,
- *     page_media_view → views, page_total_media_view_unique → reach,
- *     page_post_engagements → engagements, page_views_total → pageViews,
- *     page_video_views → videoViews, page_video_view_time (ms) → watchTimeMinutes.
- *     Meta removed page_fans / page_impressions* (2025-11-15) and the *_unique
- *     impression variants (2026-06-15); every metric that fails is dropped for
- *     the run with a warning (metaGraph.fetchInsights).
- *  3. Per due post: reactions / comments / shares summaries (no insights
- *     permission needed) + lifetime insights post_media_view → views,
- *     post_total_media_view_unique → reach, post_clicks → clicks,
- *     post_video_view_time (ms) → watchTimeS, post_video_views and
- *     post_reactions_by_type_total → raw.
+ * BASIC (a Page token with pages_read_engagement / pages_show_list):
+ *  1. Page node: followers_count, fan_count, name, link, category, verification (snapshot).
+ *  2. Post discovery: /published_posts (else /posts) + /video_reels, 90 days and
+ *     at least 25 items, upserted into social_posts (kinds post/photo/album/
+ *     video/reel/live/link/event, thumbnails mirrored) — facebookMedia.ts.
+ *  3. Per post: reactions / comments / shares summaries.
  *
+ * INSIGHTS (read_insights + the ANALYZE task on the Page):
+ *  4. Page daily, last 3 days rewritten (Meta revises ~48 h): follows, new /
+ *     lost followers, media views, media viewers, post engagements, page
+ *     views, video views (+ paid/organic, autoplay/click splits), 30-s views,
+ *     repeat views, view time, reactions by type.
+ *  5. page_media_view split by is_from_followers (follow:) and is_from_ads (paid:).
+ *  6. Audience: followers by country / city (page_follows_country / _city).
+ *  7. Post insights: media views, viewers, clicks (+ by type), reactions by
+ *     type; video posts + views split, complete views, view time, average,
+ *     length, retention; reels (video_insights) plays, replays, follows, view time.
+ *
+ * Metric names + removals: see facebookMapping.ts. What worked is saved as
+ * `credentials.analyticsCapabilities`; status() turns it into ready / partial.
  * Credentials (social_connections 'facebook', else FACEBOOK_* env): a Page
- * access token, or a user token with a role on the Page (the Page token is
- * then fetched from `/{page-id}?fields=access_token`), + the Page id
- * (`pageId`; when missing, the first Page of `/me/accounts`, else `/me`).
- * Permissions: pages_read_engagement + read_insights (+ pages_show_list), and
- * the ANALYZE task on the Page.
+ * token, or a user token with a role on the Page (swapped for the Page's
+ * token), + `pageId` (else the first Page of /me/accounts, else /me).
  */
 import type { SocialCollectorStatus, } from '@sitesurge/types';
 import { config, } from '../../../../config';
+import { query, } from '../../../../db';
+import { logger, } from '../../../../utils/logger';
 import { registerCollector, } from '../registry';
 import type { AccountSnapshot, CollectContext, CollectResult, DailyPoint, PostMetric, } from '../types';
+import {
+    audiencePoints,
+    FB_AUDIENCE_METRICS,
+    FB_BREAKDOWNS,
+    FB_DAILY_METRICS,
+    FB_VIDEO_SPLITS,
+    type FbCapabilities,
+    fbCapabilityNotes,
+    type FbPostNode,
+    isBasicTier,
+    isVideoKind,
+    mapFacebookPost,
+    pageBreakdownPoints,
+    pageDailyPoints,
+    POST_METRICS,
+    POST_VIDEO_METRICS,
+    REEL_METRICS,
+} from './facebookMapping';
+import { type FbItem, type FbPage, type FbReel, listPosts, listReels, mergeItems, upsertFacebookPosts, } from './facebookMedia';
 import {
     addDays,
     chunk,
@@ -35,44 +58,30 @@ import {
     FACEBOOK_GRAPH,
     fetchInsights,
     graphGet,
+    type InsightResponse,
     insightNumbers,
     insightObjects,
+    isMetricError,
     isPermissionError,
     isTokenError,
     mapLimit,
-    timeSeriesPoints,
     unixDay,
     WarningBag,
 } from './metaGraph';
 
+export { FB_DAILY_METRICS, fbPostKind, mapFacebookPost, } from './facebookMapping';
+
 const DAILY_WINDOW = 3;
 const CONCURRENCY = 4;
+const INSIGHTS_SCOPE = 'read_insights';
 
-const SETUP = 'Facebook is not connected. In Social → Configuration → Facebook, add a Page access token (permissions '
-    + 'pages_read_engagement, read_insights, pages_show_list — the user must be able to ANALYZE the Page) and the Page ID.';
-
-export const FB_DAILY_METRICS: Record<string, string> = {
-    page_follows: 'followers',
-    page_daily_follows_unique: 'followersGained',
-    page_daily_unfollows_unique: 'followersLost',
-    page_media_view: 'views',
-    page_total_media_view_unique: 'reach',
-    page_post_engagements: 'engagements',
-    page_views_total: 'pageViews',
-    page_video_views: 'videoViews',
-    page_video_view_time: 'watchTimeMinutes',
-};
-/** page_video_view_time is milliseconds; we store minutes. */
-const FB_DAILY_SCALE: Record<string, number> = { page_video_view_time: 1 / 60000, };
-
-const POST_INSIGHTS = [
-    'post_media_view',
-    'post_total_media_view_unique',
-    'post_clicks',
-    'post_video_views',
-    'post_video_view_time',
-    'post_reactions_by_type_total',
-];
+const SETUP = 'Facebook is not connected. In Social → Configuration → Facebook, add a Page access token and the Page ID. '
+    + 'pages_read_engagement + pages_show_list collect followers and every post with reactions, comments and shares; '
+    + 'add read_insights (from a user with the ANALYZE task on the Page) for views, reach, video and audience.';
+const UPGRADE = 'Basic Facebook connection — followers and posts only. To add daily views, reach, follows / unfollows, '
+    + 'video watch time, per-post views and clicks, and followers by country / city: grant read_insights '
+    + '(with pages_read_engagement), make sure the connecting user has the ANALYZE task on the Page '
+    + '(Page settings → Page access), then reconnect Facebook in Social → Configuration.';
 
 interface FacebookCreds {
     token: string;
@@ -86,31 +95,77 @@ export function facebookCreds(credentials: Record<string, unknown>,): FacebookCr
     return { token, pageId, };
 }
 
-let accessProblem: string | null = null;
-const INSIGHTS_DENIED = 'Facebook Page insights were refused. Reconnect with a Page token that has read_insights + '
-    + 'pages_read_engagement, from a user who can ANALYZE the Page (Page settings → Page roles / access).';
+function grantedScopes(credentials: Record<string, unknown>,): string[] | null {
+    const s = credentials.grantedScopes ?? credentials.scope;
+    if (Array.isArray(s,)) return s.map(String,);
+    if (typeof s === 'string' && s.trim()) return s.split(/[\s,]+/,);
+    return null;
+}
+
+function capabilitiesOf(credentials: Record<string, unknown>,): FbCapabilities | null {
+    const c = credentials.analyticsCapabilities;
+    return c && typeof c === 'object' ? c as FbCapabilities : null;
+}
+
+const BASIC_COLLECTS = ['Page followers and likes', 'Every post and reel with reactions, comments, shares',];
 
 function status(credentials: Record<string, unknown>, connected: boolean,): SocialCollectorStatus {
     const base = { platform: 'facebook' as const, label: 'Facebook', };
     const creds = facebookCreds(credentials,);
     if (!connected || !creds) return { ...base, state: 'off', message: SETUP, collects: [], };
-    const basic = ['Page followers', 'Per-post reactions, comments, shares',];
-    if (accessProblem) return { ...base, state: 'partial', message: accessProblem, collects: basic, };
-    return {
-        ...base,
-        state: 'ready',
-        message: creds.pageId ? null : 'No Page ID saved — using the first Page this token manages.',
-        collects: [
-            ...basic,
-            'Daily views, unique viewers, engagements, page visits, follows / unfollows',
-            'Daily video views + watch time',
-            'Per-post views, unique viewers, clicks, video watch time',
-        ],
-    };
+    const expires = Date.parse(String(credentials.tokenExpiresAt ?? '',),);
+    if (Number.isFinite(expires,) && expires < Date.now()) {
+        return { ...base, state: 'off', message: 'The Facebook token has expired — reconnect Facebook in Social → Configuration.', collects: [], };
+    }
+    const scopes = grantedScopes(credentials,);
+    const caps = capabilitiesOf(credentials,);
+    if ((scopes && !scopes.includes(INSIGHTS_SCOPE,)) || isBasicTier(caps,)) {
+        return { ...base, state: 'partial', message: UPGRADE, collects: BASIC_COLLECTS, };
+    }
+    const collects = [
+        ...BASIC_COLLECTS,
+        ...(caps?.accountInsights ?? true ? ['Daily views, viewers, engagements, page visits, reactions by type',] : []),
+        ...(caps?.newFollowers ?? true ? ['Follows / unfollows per day',] : []),
+        ...(caps?.breakdowns ?? true ? ['Views from followers vs non-followers, paid vs organic',] : []),
+        ...(caps?.accountInsights ?? true ? ['Daily video views (paid / organic, autoplay / click), watch time',] : []),
+        ...(caps?.mediaInsights ?? true ? ['Per-post views, viewers, clicks by type, reactions by type',] : []),
+        ...(caps?.videoInsights ?? true ? ['Per-video and reel plays, watch time, average watched, retention',] : []),
+        ...(caps?.demographics ?? true ? ['Followers by country and city',] : []),
+    ];
+    const missing = fbCapabilityNotes(caps,);
+    if (missing.length) {
+        return {
+            ...base,
+            state: 'partial',
+            message: `Facebook does not give this Page: ${missing.join('; ',)}. Grant read_insights and the ANALYZE task on the Page, then reconnect.`,
+            collects,
+        };
+    }
+    return { ...base, state: 'ready', message: creds.pageId ? null : 'No Page ID saved — using the first Page this token manages.', collects, };
+}
+
+/** Thrown when a family of calls is refused — that family is skipped, the rest goes on. */
+class Refused extends Error {}
+
+function classify(e: unknown,): never {
+    if (isTokenError(e,)) throw new Error(`Facebook token rejected — reconnect Facebook in Social → Configuration (${(e as Error).message}).`,);
+    if (isPermissionError(e,)) throw new Refused((e as Error).message,);
+    throw e;
+}
+
+/** Run one family on its own: a token error fails the run; a refusal or other error leaves it empty. */
+async function attempt<T,>(fn: () => Promise<T>, fallback: T, warnings: WarningBag, label: string,): Promise<{ ok: boolean; value: T; }> {
+    try {
+        return { ok: true, value: await fn(), };
+    } catch (e) {
+        if (isTokenError(e,)) classify(e,);
+        if (!(e instanceof Refused) && !isPermissionError(e,)) warnings.add(`${label}: ${(e as Error).message}`,);
+        return { ok: false, value: fallback, };
+    }
 }
 
 /** Resolve the Page id + a Page token (a user token is swapped for the Page's). */
-async function resolvePage(creds: FacebookCreds,): Promise<{ id: string; token: string; }> {
+async function resolvePage(creds: FacebookCreds,): Promise<FbPage> {
     if (creds.pageId) {
         try {
             const p = await graphGet<{ access_token?: string; }>(FACEBOOK_GRAPH, creds.pageId, { fields: 'access_token', }, creds.token,);
@@ -132,114 +187,238 @@ async function resolvePage(creds: FacebookCreds,): Promise<{ id: string; token: 
     return { id: me.id, token: creds.token, };
 }
 
-/** Post node fields (summaries) + lifetime insights → our post metric. */
-export function mapFacebookPost(
-    id: string,
-    node: { reactions?: { summary?: { total_count?: number; }; }; comments?: { summary?: { total_count?: number; }; }; shares?: { count?: number; }; } | null,
-    insights: Map<string, number>,
-    objects: Record<string, unknown> = {},
-): PostMetric {
-    const g = (k: string,): number | null => insights.get(k,) ?? null;
-    const viewMs = insights.get('post_video_view_time',);
-    return {
-        externalId: id,
-        views: g('post_media_view',),
-        reach: g('post_total_media_view_unique',),
-        clicks: g('post_clicks',),
-        likes: node?.reactions?.summary?.total_count ?? null,
-        comments: node?.comments?.summary?.total_count ?? null,
-        shares: node?.shares?.count ?? (node ? 0 : null),
-        watchTimeS: viewMs === undefined ? null : viewMs / 1000,
-        raw: {
-            videoViews: g('post_video_views',),
-            reactionsByType: objects.post_reactions_by_type_total ?? null,
-        },
-    };
+const PAGE_FIELDS = 'followers_count,fan_count,name,link,category,verification_status';
+
+async function pageSnapshot(page: FbPage,): Promise<AccountSnapshot> {
+    let p: Record<string, unknown>;
+    try {
+        p = await graphGet<Record<string, unknown>>(FACEBOOK_GRAPH, page.id, { fields: PAGE_FIELDS, }, page.token,);
+    } catch (e) {
+        if (!isMetricError(e,)) throw e;
+        p = await graphGet<Record<string, unknown>>(FACEBOOK_GRAPH, page.id, { fields: 'followers_count,fan_count,name', }, page.token,);
+    }
+    const n = (v: unknown,): number | null => (typeof v === 'number' ? v : null);
+    return { followers: n(p.followers_count,) ?? n(p.fan_count,), raw: p, };
 }
 
-class InsightsDenied extends Error {}
+/** Page daily totals + video splits + reactions, one time-series call. */
+async function pageDaily(page: FbPage, today: string, warnings: WarningBag,): Promise<DailyPoint[]> {
+    const resp = await fetchInsights(FACEBOOK_GRAPH, `${page.id}/insights`, [...Object.keys(FB_DAILY_METRICS,), ...Object.keys(FB_VIDEO_SPLITS,),], {
+        period: 'day',
+        since: String(unixDay(addDays(today, -DAILY_WINDOW,),),),
+        until: String(unixDay(today,),),
+    }, page.token, new Set(), warnings, 'Facebook Page insights',);
+    return pageDailyPoints(resp,).filter((p,) => p.date < today);
+}
 
-async function collect(ctx: CollectContext,): Promise<CollectResult> {
-    const creds = facebookCreds(ctx.credentials,);
-    if (!creds) throw new Error(SETUP,);
-    accessProblem = null;
-    const warnings = new WarningBag();
-    const fatal = (e: unknown,): never => {
-        if (isTokenError(e,)) throw new Error(`Facebook token rejected — reconnect Facebook in Social → Configuration (${(e as Error).message}).`,);
-        if (isPermissionError(e,)) throw new InsightsDenied((e as Error).message,);
-        throw e;
-    };
-    let page: { id: string; token: string; };
-    try {
-        page = await resolvePage(creds,);
-    } catch (e) {
-        return fatal(e,);
-    }
-    const result: CollectResult = { daily: [], posts: [], };
-
-    // 1. Snapshot.
-    try {
-        const p = await graphGet<{ followers_count?: number; fan_count?: number; name?: string; }>(FACEBOOK_GRAPH, page.id, { fields: 'followers_count,fan_count,name', }, page.token,);
-        const account: AccountSnapshot = { followers: p.followers_count ?? p.fan_count ?? null, raw: p, };
-        result.account = account;
-    } catch (e) {
-        if (isTokenError(e,)) fatal(e,);
-        ctx.warn(`Facebook Page: ${(e as Error).message}`,);
-    }
-
-    // 2. Daily Page insights.
-    let insightsOk = true;
-    try {
-        const resp = await fetchInsights(FACEBOOK_GRAPH, `${page.id}/insights`, Object.keys(FB_DAILY_METRICS,), {
-            period: 'day',
-            since: String(unixDay(addDays(ctx.today, -DAILY_WINDOW,),),),
-            until: String(unixDay(ctx.today,),),
-        }, page.token, new Set(), warnings, 'Facebook Page insights',);
-        result.daily = timeSeriesPoints(resp, FB_DAILY_METRICS, FB_DAILY_SCALE,).filter((p: DailyPoint,) => p.date < ctx.today);
-    } catch (e) {
-        try {
-            fatal(e,);
-        } catch (inner) {
-            if (!(inner instanceof InsightsDenied)) throw inner;
-            insightsOk = false;
-            accessProblem = INSIGHTS_DENIED;
+async function pageBreakdowns(page: FbPage, today: string, warnings: WarningBag,): Promise<DailyPoint[]> {
+    const points: DailyPoint[] = [];
+    for (const group of FB_BREAKDOWNS) {
+        const dead = new Set<string>();
+        for (let i = DAILY_WINDOW; i >= 1; i--) {
+            const date = addDays(today, -i,);
+            const resp = await fetchInsights(FACEBOOK_GRAPH, `${page.id}/insights`, group.metrics, {
+                period: 'day', breakdown: group.breakdown, since: String(unixDay(date,),), until: String(unixDay(addDays(date, 1,),),),
+            }, page.token, dead, warnings, `Facebook ${group.breakdown} split`,);
+            points.push(...pageBreakdownPoints(resp, group.breakdown, date,),);
         }
     }
+    return points;
+}
 
-    // 3. Posts: summaries in batches of 50, insights one post at a time.
-    const nodes = new Map<string, any>();
-    for (const batch of chunk(ctx.posts.map((p,) => p.externalId), 50,)) {
+/** Followers by country / city: period lifetime, else day (Meta lists both forms for the old page_fans_*). */
+async function audience(page: FbPage, today: string, warnings: WarningBag,): Promise<DailyPoint[]> {
+    const points: DailyPoint[] = [];
+    let lastError: unknown = null;
+    let anyOk = false;
+    for (const metric of Object.keys(FB_AUDIENCE_METRICS,)) {
+        for (const period of ['lifetime', 'day',]) {
+            try {
+                const resp = await graphGet<InsightResponse>(FACEBOOK_GRAPH, `${page.id}/insights`, { metric, period, }, page.token,);
+                points.push(...audiencePoints(resp, today,),);
+                anyOk = true;
+                break;
+            } catch (e) {
+                if (isTokenError(e,)) classify(e,);
+                lastError = e;
+                if (!isMetricError(e,)) break;
+            }
+        }
+    }
+    if (!anyOk && lastError) {
+        if (isPermissionError(lastError,)) throw new Refused((lastError as Error).message,);
+        warnings.add(`Facebook followers by country / city: ${(lastError as Error).message}`,);
+    }
+    return points;
+}
+
+/** Metrics found dead this run: post insights (incl. video extras) and reel video_insights. */
+interface PostDeadSets {
+    post: Set<string>;
+    reel: Set<string>;
+}
+
+/** Lifetime insights for one item (post + video / reel extras). */
+async function itemInsights(page: FbPage, item: FbItem, node: FbPostNode | null, dead: PostDeadSets, warnings: WarningBag,): Promise<{ metric: PostMetric; video: boolean; }> {
+    const resp = await fetchInsights(FACEBOOK_GRAPH, `${item.externalId}/insights`, [
+        ...POST_METRICS,
+        // Video extras are asked of video posts only — a photo post refuses them.
+        ...(isVideoKind(item.kind,) && item.kind !== 'reel' ? POST_VIDEO_METRICS : []),
+    ], { period: 'lifetime', }, page.token, dead.post, warnings, 'Facebook post insights',);
+    let reel = new Map<string, number>();
+    let reelObjects: Record<string, unknown> = {};
+    if (item.kind === 'reel' && item.videoId) {
+        const r = await fetchInsights(FACEBOOK_GRAPH, `${item.videoId}/video_insights`, REEL_METRICS, {}, page.token, dead.reel, warnings, 'Facebook reel insights',);
+        reel = insightNumbers(r,);
+        reelObjects = insightObjects(r,);
+    }
+    const nums = insightNumbers(resp,);
+    const objects = { ...reelObjects, ...insightObjects(resp,), };
+    const video = reel.size > 0 || [...nums.keys(),].some((k,) => k.startsWith('post_video_',),);
+    return { metric: mapFacebookPost(item.externalId, node ?? item.node, nums, objects, reel,), video, };
+}
+
+async function postMetrics(page: FbPage, items: FbItem[], warnings: WarningBag,): Promise<{ ok: boolean; video: boolean; posts: PostMetric[]; }> {
+    // Summaries for items the list did not carry (older due posts): 50 per request.
+    const missing = items.filter((i,) => !i.node.reactions && !i.node.comments,);
+    const nodes = new Map<string, FbPostNode>();
+    for (const batch of chunk(missing.map((i,) => i.externalId), 50,)) {
         try {
-            const r = await graphGet<Record<string, any>>(FACEBOOK_GRAPH, '', {
+            const r = await graphGet<Record<string, FbPostNode>>(FACEBOOK_GRAPH, '', {
                 ids: batch.join(',',),
                 fields: 'reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0),shares',
             }, page.token,);
             for (const [id, node,] of Object.entries(r,)) nodes.set(id, node,);
         } catch (e) {
-            if (isTokenError(e,)) fatal(e,);
+            if (isTokenError(e,)) classify(e,);
             warnings.add(`Facebook post summaries failed — ${(e as Error).message}`,);
         }
     }
-    const dead = new Set<string>();
-    let denied = !insightsOk;
-    const posts = await mapLimit(ctx.posts, CONCURRENCY, async (post,): Promise<PostMetric | null> => {
-        const node = nodes.get(post.externalId,) ?? null;
-        if (denied) return node ? mapFacebookPost(post.externalId, node, new Map(),) : null;
+    const nodeOf = (i: FbItem,) => (i.node.reactions || i.node.comments ? i.node : nodes.get(i.externalId,) ?? null);
+    const dead: PostDeadSets = { post: new Set(), reel: new Set(), };
+    let refused = false;
+    let video = false;
+    const posts = await mapLimit(items, CONCURRENCY, async (item,): Promise<PostMetric | null> => {
+        const node = nodeOf(item,);
+        const basic = () => (node ? mapFacebookPost(item.externalId, node, new Map(),) : null);
+        if (refused) return basic();
         try {
-            const resp = await fetchInsights(FACEBOOK_GRAPH, `${post.externalId}/insights`, POST_INSIGHTS, { period: 'lifetime', }, page.token, dead, warnings, 'Facebook post insights',);
-            return mapFacebookPost(post.externalId, node, insightNumbers(resp,), insightObjects(resp,),);
+            const r = await itemInsights(page, item, node, dead, warnings,);
+            if (r.video) video = true;
+            return r.metric;
         } catch (e) {
-            if (isTokenError(e,)) fatal(e,);
-            if (isPermissionError(e,)) {
-                denied = true;
-                accessProblem = INSIGHTS_DENIED;
-            } else warnings.add(`Facebook post insights failed — ${(e as Error).message}`,);
-            return node ? mapFacebookPost(post.externalId, node, new Map(),) : null;
+            if (isTokenError(e,)) classify(e,);
+            if (isPermissionError(e,)) refused = true;
+            else warnings.add(`Facebook post insights failed — ${(e as Error).message}`,);
+            return basic();
         }
     },);
-    result.posts = posts.filter((p,): p is PostMetric => p !== null);
+    return { ok: !refused, video, posts: posts.filter((p,): p is PostMetric => p !== null), };
+}
 
-    if (accessProblem) ctx.warn(accessProblem,);
+async function saveCapabilities(caps: FbCapabilities,): Promise<void> {
+    try {
+        await query(
+            `UPDATE social_connections SET credentials = COALESCE(credentials, '{}'::jsonb) || $1::jsonb, updated_at = NOW() WHERE provider = 'facebook'`,
+            [JSON.stringify({ analyticsCapabilities: caps, },),],
+        );
+    } catch (e) {
+        logger.warn('facebook: could not save capabilities', { error: (e as Error).message, },);
+    }
+}
+
+/**
+ * Benchmark Pages (Analytics → Settings → Benchmarks): public followers of
+ * other Pages, by username or id. Reading another Page needs the app's Page
+ * Public Metadata Access (or Page Public Content Access) feature; refused →
+ * a warning per Page and benchmarks:false.
+ */
+async function benchmarkPages(page: FbPage, today: string, warnings: WarningBag,): Promise<{ ok: boolean; points: DailyPoint[]; }> {
+    const { getSettings, } = await import('../settings.js');
+    const refs = await getSettings().then((s,) => s.benchmarks.facebook ?? [],).catch(() => [] as string[],);
+    const points: DailyPoint[] = [];
+    let ok = false;
+    for (const ref of refs) {
+        try {
+            const p = await graphGet<{ followers_count?: number; fan_count?: number; }>(FACEBOOK_GRAPH, ref, { fields: 'followers_count,fan_count,name', }, page.token,);
+            const followers = typeof p.followers_count === 'number' ? p.followers_count : p.fan_count;
+            if (typeof followers === 'number') {
+                points.push({ date: today, metric: 'peerFollowers', value: followers, dimension: `peer:${ref.toLowerCase()}`, },);
+                ok = true;
+            }
+        } catch (e) {
+            if (isTokenError(e,)) classify(e,);
+            warnings.add(`Facebook benchmark ${ref}: ${(e as Error).message}`,);
+        }
+    }
+    return { ok, points, };
+}
+
+async function collect(ctx: CollectContext,): Promise<CollectResult> {
+    const creds = facebookCreds(ctx.credentials,);
+    if (!creds) throw new Error(SETUP,);
+    const warnings = new WarningBag();
+    let page: FbPage;
+    try {
+        page = await resolvePage(creds,);
+    } catch (e) {
+        if (isTokenError(e,)) classify(e,);
+        throw e;
+    }
+    const result: CollectResult = { daily: [], posts: [], };
+
+    // BASIC — 1. Page node.
+    const snap = await attempt(() => pageSnapshot(page,), null as AccountSnapshot | null, warnings, 'Facebook Page',);
+    if (snap.value) result.account = snap.value;
+
+    // BASIC — 2. Posts + reels → social_posts, plus the due posts the list no longer reaches.
+    const listed = await attempt(() => listPosts(page,), [] as FbPostNode[], warnings, 'Facebook posts list',);
+    const reels = await attempt(() => listReels(page,), [] as FbReel[], warnings, 'Facebook reels list',);
+    const items = mergeItems(page.id, listed.value, reels.value,);
+    if (items.length) {
+        try {
+            await upsertFacebookPosts(items,);
+        } catch (e) {
+            warnings.add(`Facebook posts: ${(e as Error).message}`,);
+        }
+    }
+    const known = new Set(items.map((i,) => i.externalId),);
+    for (const p of ctx.posts) {
+        if (known.has(p.externalId,)) continue;
+        items.push({ externalId: p.externalId, kind: p.kind ?? 'post', videoId: null, node: { id: p.externalId, }, },);
+    }
+
+    // BASIC + INSIGHTS — 3 / 7. Per post.
+    const media = await postMetrics(page, items, warnings,);
+    result.posts = media.posts;
+
+    // INSIGHTS — 4–6.
+    const daily = await attempt(() => pageDaily(page, ctx.today, warnings,), [] as DailyPoint[], warnings, 'Facebook Page insights',);
+    const splits = await attempt(() => pageBreakdowns(page, ctx.today, warnings,), [] as DailyPoint[], warnings, 'Facebook splits',);
+    const demo = await attempt(() => audience(page, ctx.today, warnings,), [] as DailyPoint[], warnings, 'Facebook audience',);
+    const peers = await benchmarkPages(page, ctx.today, warnings,);
+    result.daily = [...daily.value, ...splits.value, ...demo.value, ...peers.points,];
+
+    const caps: FbCapabilities = {
+        pageNode: snap.ok,
+        postsList: listed.ok,
+        reels: reels.ok,
+        accountInsights: daily.ok && daily.value.some((p,) => !p.dimension && p.metric !== 'followersGained' && p.metric !== 'followersLost'),
+        breakdowns: splits.ok && splits.value.length > 0,
+        newFollowers: daily.ok && daily.value.some((p,) => p.metric === 'followersGained' || p.metric === 'followersLost'),
+        demographics: demo.ok && demo.value.length > 0,
+        onlineFollowers: false,
+        mediaInsights: media.ok,
+        videoInsights: media.video,
+        benchmarks: peers.ok,
+        checkedAt: new Date().toISOString(),
+    };
+    await saveCapabilities(caps,);
+    if (isBasicTier(caps,)) ctx.warn(UPGRADE,);
+    else {
+        const missing = fbCapabilityNotes(caps,);
+        if (missing.length) ctx.warn(`Facebook did not provide: ${missing.join('; ',)} — grant read_insights + the ANALYZE task on the Page and reconnect.`,);
+    }
     warnings.flush(ctx.warn,);
     return result;
 }

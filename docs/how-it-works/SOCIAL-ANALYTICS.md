@@ -94,30 +94,88 @@ and online followers are refused (#10 / #200) until the account is a Business ac
 live account: watch-time units, `reels_skip_rate` scale, the `follows_and_unfollows` labels, and
 Meta's Pacific-time days vs our UTC days.
 
-### Facebook Page (`collectors/facebook.ts`)
-- Page token (`pages_read_engagement`, `read_insights`, `pages_show_list`; ANALYZE role) + Page ID;
-  a user token is swapped for the Page token.
-- Account: followers. Daily: follows, follows/unfollows, media views, reach, post engagements, page
-  views, video views, video view time. Posts: reactions, comments, shares (no insights needed) +
-  views, reach, clicks, video view time. Meta keeps removing Page metrics — a removed one becomes a
-  run warning, not a failure.
+### Facebook Page (`collectors/facebook.ts` + `facebookMapping.ts` pure + `facebookMedia.ts` I/O)
+Two tiers; each family of calls runs on its own, so a refused family leaves the others collecting.
+What worked is saved as `credentials.analyticsCapabilities`; `status()` reports ready / partial and
+lists what is collected (shown on the dashboard platform card).
 
-### TikTok (`collectors/tiktok.ts`)
-- Display API (`user.info.stats`, `video.list`): followers, following, total likes, video count;
-  each video's views/likes/comments/shares (newest 500). Videos are upserted into `social_posts`
-  (they have no feed fetcher). Access tokens last ~2 h; the collector refreshes with the refresh
-  token (180 days, rotates) and saves both — the connection must hold `refreshToken` + client
-  key/secret (a TikTok sign-in flow is still to build; a pasted token dies in ~2 h).
-- Business API (watch time, completion rate, reach, profile views) only when `businessAccessToken`
-  + `businessId` are set — endpoints unverified.
-- Cover image URLs expire after ~6 h and are not mirrored yet.
+| Tier | Needs | Collects |
+|------|-------|----------|
+| Basic | Page token with `pages_read_engagement` + `pages_show_list` | Page followers + likes (snapshot); every post and reel (90 days, at least 25) upserted into `social_posts`, thumbnails mirrored; per post reactions / comments / shares |
+| Insights | + `read_insights` and the ANALYZE task on the Page | Daily follows / unfollows, media views + viewers, engagements, page views, video views (paid/organic, autoplay/click), 30-s + repeat views, view time, reactions by type; views split by followers (`follow:`) and ads (`paid:`); followers by country / city; per-post views, viewers, clicks by type, reactions by type; per video / reel plays, watch time, average, retention |
+| Benchmarks | Settings → Analytics → Facebook Pages | Follower counts of other public Pages (`peer:` dims) |
 
-### X (`collectors/twitter.ts`)
-- **Paid and opt-in**: Social → Configuration → X → Feed mode API → "Collect analytics (paid)" +
-  "Monthly cap (USD)" (default $10). Spend is estimated at standard read prices (an over-estimate)
-  in `settings.analyticsSpend`; reads are cut to fit the cap, newest posts first.
-- Account: followers, following, posts. Posts: impressions (= views), likes, replies, reposts +
-  quotes, bookmarks; posts < 30 days old add link/profile clicks + video quartiles (raw).
+- **Page picker:** the connection holds a user token; `GET /connections/facebook/pages` lists the Pages
+  it manages (with the user's tasks — ANALYZE unlocks insights) and `PUT /connections/facebook/page`
+  saves the chosen Page's id + Page token + granted scopes (`/me/permissions`) and clears stale
+  capabilities (`services/social/facebookPages.ts`, SDK `cms.connections.facebookPages/selectFacebookPage`).
+  With no Page chosen, the first Page of `/me/accounts` is used.
+- Meta keeps removing Page metrics — a removed one becomes a run warning, not a failure (names in
+  `facebookMapping.ts`).
+
+### TikTok (`collectors/tiktok.ts`, `tiktokMapping.ts`, `tiktokMedia.ts`)
+
+Two sign-ins on the one TikTok card (Social → Configuration), each its own app and token:
+
+| Tier | Needs | Collects |
+|------|-------|----------|
+| Basic | **Authorize with TikTok** — Login Kit app (developers.tiktok.com), scopes `user.info.basic`, `user.info.profile`, `user.info.stats`, `video.list` | Followers, following, total likes, video count; every video (newest 500) with views, likes, comments, shares, upserted into `social_posts` |
+| Business | **Authorize Business API** — TikTok API for Business app (business-api.tiktok.com) with the **TikTok Accounts** permission (`user.insights`, `video.insights`, `video.list`, `user.info.*`, `user.account.type`) | **Daily** (14-day window re-read; 24–48 h lag; 60-day max look-back): `views`, `profileViews`, `likes`, `comments`, `shares`, `followersTotal`; with **Advanced Access / Verified Business Account**: `reach` (unique viewers), `followersNet`, `newFollowers`, `lostFollowers`, `accountsEngaged`; Verified Business only: `profileLinkTaps`, `emailClicks`, `phoneClicks`, `addressClicks`, `appDownloadClicks`, `leadSubmissions`. **Audience** (100+ followers): `audienceFollowers` age / gender / country / city (percent), `onlineFollowers` `hour:` (UTC). **Per video:** reach, saves (favorites), total + average watch time, full-watch rate, and in `raw` new followers, profile views, profile clicks, retention + like curves, traffic sources, new / returning / follower viewers, viewer countries / genders / cities. **View-weighted snapshot** of those per-video splits on the collection day: `audienceReached` (country / gender / city), `trafficSources` (`source:For You`…), `viewerTypes` (`viewer:NEW_VIEWER`…) — lifetime splits, never sum them across days |
+
+- Every family is its own call (`attempt`): a refused one is recorded in
+  `credentials.analyticsCapabilities` (`profile`, `videoList`, `businessAccount`, `accountInsights`,
+  `newFollowers`, `demographics`, `onlineFollowers`, `mediaInsights`, `profileActions`,
+  `advancedAccess`) and `status()` says what is missing and how to upgrade. A dead Business token
+  never stops the basic tier (and the other way round); the error lands in `businessOauthError` /
+  `oauthError` and on the card.
+- **Tokens:** Login Kit — access 24 h (older docs: 2 h), refresh 365 days, **rotated** on each refresh;
+  Business — access 1 day, refresh 1 year (`POST …/tt_user/oauth2/refresh_token/`). Both are renewed
+  by the collector when due and saved back (`refreshToken`, `tokenExpiresAt`, `refreshTokenExpiresAt`,
+  `scope`, `openId` / `businessAccessToken`, `businessRefreshToken`, `businessTokenExpiresAt`,
+  `businessRefreshTokenExpiresAt`, `businessScope`, `businessId` = the Business token's `open_id`).
+  Secrets and tokens are masked in `GET /connections`.
+- **OAuth:** `services/oauth/tiktok.ts`. The Business sign-in is OAuth key `tiktok_business` stored on
+  the `tiktok` row (`oauthConnection()` in `services/oauth/index.ts`); app = `businessAppId` /
+  `businessAppSecret`; authorize URL = the app's pasted "TikTok account holder authorization URL"
+  (`businessAuthUrl`, state added) or, when empty, the v2 authorize URL with the Business app id as
+  `client_key` (**unverified** — TikTok only documents "copy the URL from App Detail"). The callback
+  accepts `code` or `auth_code`. `DELETE /connections/tiktok_business/oauth` removes only the Business sign-in.
+- Covers (`tiktokcdn*.com`) are signed and expire within hours: mirrored once into our storage
+  (`mirrorRemoteMedia`); a row with a mirrored cover is not downloaded again.
+- Without a Business token the Display API gives no daily history: account numbers grow one
+  snapshot per day from the first run.
+
+**Operator setup**
+1. *Basic:* developers.tiktok.com → Manage apps → Create app → add **Login Kit** (Web) and the
+   **Display API**; scopes `user.info.basic`, `user.info.profile`, `user.info.stats`, `video.list`;
+   redirect URI `https://<site>/api/v1/connections/tiktok/oauth/callback`; submit for review (until
+   approved only the app's sandbox / target users can sign in). Paste Client key + secret on the card,
+   Save, **Authorize with TikTok**.
+2. *Business:* in the TikTok app switch to a Business Account (Settings and privacy → Account →
+   Switch to Business Account). business-api.tiktok.com → My Apps → create a developer app, request the
+   **TikTok Accounts** permission scope (since 2026-03-20 the Accounts API Access Application Form is
+   required), set the TikTok account holder redirect URL to
+   `https://<site>/api/v1/connections/tiktok_business/oauth/callback`; once approved, paste App ID +
+   Secret (and optionally the account-holder authorization URL) on the card → **Authorize Business API**.
+
+### X (`collectors/twitter.ts` + `twitterMapping.ts` pure + `twitterPosts.ts` I/O)
+Two tiers. Status: **off** only with no X connection AND no X posts; free = **partial**; paid = **ready**.
+
+| Tier | Needs | Collects |
+|---|---|---|
+| Free | X posts in `social_posts` (paste URLs on Social → Posts) | Per pasted post: likes (`favorite_count`), replies (`conversation_count`), video views when X fills `video.viewCount` (often 0 = unknown). Source: `cdn.syndication.twimg.com/tweet-result` (unofficial). No reposts/quotes/impressions, **no follower count** (the payload's user object has none). Fills a missing publish date + refreshes the row's counters. |
+| Paid | Feed mode API + "Collect analytics (paid)" + the 4 OAuth 1.0a credentials + API credits | `/2/users/me` follower snapshot; own timeline `/2/users/:id/tweets` (29 days, retweets excluded, replies kept) with public + non_public + organic + media metrics → every own post upserted into `social_posts` (kind `post`/`reply`/`quote`/`video`/`photo`; replies hidden; others hidden unless "Sync posts automatically" is on) and measured in the same call: impressions, likes, replies, reposts + quotes, bookmarks, link + profile clicks, engagements, video quartiles → `completion_rate`. One-time 90-day backfill (public metrics). Due posts not on the timeline (others' pasted posts, own posts > 29 days) → `/2/tweets?ids=` public metrics. |
+
+- **Cadence (both tiers):** posts < 30 days daily, older ones Mondays only. Free reads: one at a
+  time, 400 ms apart, ≤ 300 per run; a 429 or 5 failures in a row stop the pass.
+- **Spend** (`settings.analyticsSpend`, monthly cap `analytics.monthlyCapUsd`, default $10): estimated at
+  docs.x.com rates — account read $0.010, post read $0.005, own-timeline post $0.001 when
+  "This account owns the X developer app" (`analytics.ownedApp`) is on (X's owned-read rate needs the
+  measured account to own the app). X bills a resource once per UTC day; we count every read. Reads are
+  trimmed newest-first to fit; what the cap leaves goes to the free re-read.
+  Example: 90 own posts in 30 days → ≈ $0.10/day owned (~$3/month), ≈ $0.46/day standard (~$14/month).
+- State: `settings.analyticsTimeline` (`newestId`, `backfilledAt`), `credentials.analyticsCapabilities`
+  (`freeHydration`, `paidReads`, `accountInsights`, `discovery`, `mediaInsights`).
 
 ### Patreon (`collectors/patreon.ts`)
 - API v2 `campaigns` + `campaigns.members`: patron count (followers), active / paid / free /
@@ -182,5 +240,5 @@ stored one and opens it in the browser.
 
 ## Not built yet (plan §6 phase 5)
 
-Per-platform CSV import (history/gaps), TikTok sign-in flow + cover mirroring,
+Per-platform CSV import (history/gaps),
 Patreon webhooks.

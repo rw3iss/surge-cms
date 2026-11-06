@@ -70,7 +70,7 @@ const settingsBody = z.object({
         recipientMode: z.enum(['augment', 'override',],),
     },).partial().optional(),
     retentionDays: z.number().int().min(1,).nullable().optional(),
-    benchmarks: z.object({ instagram: z.array(z.string().max(64,),).max(20,), },).partial().optional(),
+    benchmarks: z.object({ instagram: z.array(z.string().max(64,),).max(20,), facebook: z.array(z.string().max(200,),).max(20,), },).partial().optional(),
 },) satisfies z.ZodType<SocialAnalyticsSettingsBody>;
 
 const digestsQuery = z.object({
