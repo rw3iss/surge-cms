@@ -241,6 +241,11 @@ export interface SocialAnalyticsSettings {
         topPosts: number;
         /** The claude-broker pool the AI insights run on. */
         aiPool: string;
+        /**
+         * How the AI insights are written: full = the complete analysis;
+         * brief = the same points as short "cliff notes" (fewer, shorter bullets).
+         */
+        summaryFormat: DigestSummaryFormat;
     };
     email: {
         enabled: boolean;
@@ -260,6 +265,14 @@ export interface SocialAnalyticsSettings {
     benchmarks: { instagram: string[]; facebook: string[]; };
 }
 
+/** AI insights length: full analysis, or brief "cliff notes". */
+export type DigestSummaryFormat = 'brief' | 'full';
+
+export const DIGEST_SUMMARY_FORMATS: Array<{ key: DigestSummaryFormat; label: string; hint: string; }> = [
+    { key: 'full', label: 'Full', hint: 'The complete analysis: headline, 3–6 highlights, a summary per platform, why the top posts worked, 2–4 next steps.', },
+    { key: 'brief', label: 'Brief', hint: 'The same points as short cliff notes: a short headline, 2–3 highlights, one line per platform, up to 3 top posts, 1–2 next steps.', },
+];
+
 export const DEFAULT_SOCIAL_ANALYTICS_SETTINGS: SocialAnalyticsSettings = {
     digest: {
         enabled: false,
@@ -272,6 +285,7 @@ export const DEFAULT_SOCIAL_ANALYTICS_SETTINGS: SocialAnalyticsSettings = {
         sections: ['totals', 'platforms', 'trends', 'topPosts', 'audience', 'ai',],
         topPosts: 10,
         aiPool: 'analytics',
+        summaryFormat: 'full',
     },
     email: { enabled: true, format: 'full', recipients: [], recipientMode: 'augment', },
     retentionDays: 365,
@@ -321,7 +335,11 @@ export interface DigestData {
     /** Per platform that provides it (the `audience` section). */
     audience?: SocialAudience[];
     definitionChanges: SocialDefinitionChange[];
-    ai: { status: 'ok' | 'failed' | 'skipped'; insights: DigestAiInsights | null; error: string | null; provider: string | null; pool: string | null; };
+    ai: {
+        status: 'ok' | 'failed' | 'skipped'; insights: DigestAiInsights | null; error: string | null; provider: string | null; pool: string | null;
+        /** The summary format the insights were written in (absent on digests made before the setting = full). */
+        format?: DigestSummaryFormat;
+    };
 }
 
 export interface SocialAnalyticsDigestSummary {

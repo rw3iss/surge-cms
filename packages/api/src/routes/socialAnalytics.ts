@@ -62,6 +62,7 @@ const settingsBody = z.object({
         sections: z.array(z.enum(['totals', 'platforms', 'trends', 'topPosts', 'audience', 'ai',],),).max(6,),
         topPosts: z.number().int(),
         aiPool: z.string().max(64,),
+        summaryFormat: z.enum(['brief', 'full',],).optional(),
     },).partial().optional(),
     email: z.object({
         enabled: z.boolean(),

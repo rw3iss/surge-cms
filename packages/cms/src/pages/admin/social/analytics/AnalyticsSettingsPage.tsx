@@ -6,7 +6,9 @@
 import {
     DEFAULT_SOCIAL_ANALYTICS_SETTINGS,
     DIGEST_SECTIONS,
+    DIGEST_SUMMARY_FORMATS,
     type DigestSection,
+    type DigestSummaryFormat,
     type SocialAnalyticsSettings,
     type SocialCollectorStatus,
 } from '@sitesurge/types';
@@ -234,6 +236,17 @@ const AnalyticsSettingsPage: Component = () => {
                                 hint="The claude-broker pool that writes the AI insights. If it has no session, the default pool is used, then the Anthropic API."
                             >
                                 <CommitInput value={s().digest.aiPool} onCommit={(v,) => setDigest({ aiPool: v.trim() || 'analytics', },)} placeholder="analytics" />
+                            </FormField>
+                            <FormField
+                                label="Summary format"
+                                hint={DIGEST_SUMMARY_FORMATS.find((f,) => f.key === (s().digest.summaryFormat ?? 'full'),)?.hint}
+                            >
+                                <select
+                                    value={s().digest.summaryFormat ?? 'full'}
+                                    onChange={(e,) => setDigest({ summaryFormat: e.currentTarget.value as DigestSummaryFormat, },)}
+                                >
+                                    <For each={DIGEST_SUMMARY_FORMATS}>{(f,) => <option value={f.key}>{f.label}</option>}</For>
+                                </select>
                             </FormField>
                         </div>
                         <p class="form-help-muted">

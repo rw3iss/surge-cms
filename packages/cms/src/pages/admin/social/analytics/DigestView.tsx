@@ -115,7 +115,7 @@ const DigestBody: Component<{ digest: SocialAnalyticsDigest; data: DigestData; }
                 <Card
                     class="digest-card--ai"
                     title="AI insights"
-                    aside={<Show when={props.data.ai.provider}><span class="form-help-muted">{props.data.ai.provider}{props.data.ai.pool ? ` · ${props.data.ai.pool}` : ''}</span></Show>}
+                    aside={<Show when={props.data.ai.provider}><span class="form-help-muted">{props.data.ai.format === 'brief' ? 'Brief · ' : ''}{props.data.ai.provider}{props.data.ai.pool ? ` · ${props.data.ai.pool}` : ''}</span></Show>}
                     open={isOpen('ai',)}
                     onToggle={() => toggle('ai',)}
                 >

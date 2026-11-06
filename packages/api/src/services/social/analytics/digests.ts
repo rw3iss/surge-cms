@@ -13,6 +13,7 @@
  */
 import type {
     DigestAiInsights,
+    DigestSummaryFormat,
     DigestData,
     DigestFrequency,
     DigestMetric,
@@ -152,7 +153,14 @@ export function totalsOf(accounts: SocialAccountSummary[],): Record<string, numb
     return { ...t, engagementRate: engagementRate(t,), };
 }
 
-export function cleanInsights(raw: unknown,): DigestAiInsights | null {
+/** Per-format caps on what the AI may return (brief = cliff notes). */
+const INSIGHT_LIMITS: Record<DigestSummaryFormat, { highlights: number; platforms: number; topPosts: number; suggestions: number; }> = {
+    full: { highlights: 8, platforms: 10, topPosts: 20, suggestions: 6, },
+    brief: { highlights: 3, platforms: 10, topPosts: 3, suggestions: 2, },
+};
+
+export function cleanInsights(raw: unknown, format: DigestSummaryFormat = 'full',): DigestAiInsights | null {
+    const lim = INSIGHT_LIMITS[format];
     if (!raw || typeof raw !== 'object') return null;
     const o = raw as Record<string, unknown>;
     const strs = (v: unknown, max = 8,) => (Array.isArray(v,) ? v : []).map((x,) => String(x ?? '',).trim(),).filter(Boolean,).slice(0, max,);
@@ -160,16 +168,16 @@ export function cleanInsights(raw: unknown,): DigestAiInsights | null {
     if (!headline) return null;
     return {
         headline: headline.slice(0, 300,),
-        highlights: strs(o.highlights,),
+        highlights: strs(o.highlights, lim.highlights,),
         platforms: (Array.isArray(o.platforms,) ? o.platforms : []).map((p,) => ({
             platform: String((p as Record<string, unknown>)?.platform ?? '',).trim(),
             summary: String((p as Record<string, unknown>)?.summary ?? '',).trim(),
-        }),).filter((p,) => p.platform && p.summary,).slice(0, 10,),
+        }),).filter((p,) => p.platform && p.summary,).slice(0, lim.platforms,),
         topPosts: (Array.isArray(o.topPosts,) ? o.topPosts : []).map((p,) => ({
             id: String((p as Record<string, unknown>)?.id ?? '',).trim(),
             why: String((p as Record<string, unknown>)?.why ?? '',).trim(),
-        }),).filter((p,) => p.id && p.why,).slice(0, 20,),
-        suggestions: strs(o.suggestions, 6,),
+        }),).filter((p,) => p.id && p.why,).slice(0, lim.topPosts,),
+        suggestions: strs(o.suggestions, lim.suggestions,),
     };
 }
 
@@ -185,9 +193,29 @@ export function hasAudienceData(a: SocialAudience,): boolean {
 const AI_SYSTEM = 'You are a social media analyst for a news/media organisation. Write in plain, short American English. '
     + 'Use ONLY the numbers given; never invent figures. Say so when a platform has little or no data.';
 
-async function aiInsights(data: Omit<DigestData, 'ai'>, pool: string,): Promise<DigestData['ai']> {
+/** The JSON shape asked for, per summary format. Same keys either way, so one renderer serves both. */
+const INSIGHT_SHAPE: Record<DigestSummaryFormat, string[]> = {
+    full: [
+        '{"headline": one sentence,',
+        ' "highlights": 3-6 short bullets on what changed and why it matters,',
+        ' "platforms": [{"platform": name, "summary": 1-2 sentences}] for platforms with data,',
+        ' "topPosts": [{"id": the post id given, "why": one sentence on why it likely worked}] for up to 5 posts,',
+        ' "suggestions": 2-4 concrete next steps (use the audience data — best hours, content types, hashtags, benchmarks — when present)}',
+    ],
+    brief: [
+        'BRIEF FORMAT — cliff notes a reader takes in at a glance: the same findings as a full analysis, only the necessary words.',
+        'No filler, no repeated numbers, no hedging; fragments are fine; numbers as figures (e.g. "+12% views").',
+        '{"headline": at most 12 words,',
+        ' "highlights": 2-3 bullets, at most 12 words each — only the changes that matter most,',
+        ' "platforms": [{"platform": name, "summary": ONE line, at most 12 words}] for platforms with data,',
+        ' "topPosts": [{"id": the post id given, "why": at most 8 words}] for up to 3 posts,',
+        ' "suggestions": 1-2 concrete next steps, at most 12 words each}',
+    ],
+};
+
+async function aiInsights(data: Omit<DigestData, 'ai'>, pool: string, format: DigestSummaryFormat = 'full',): Promise<DigestData['ai']> {
     const target = await summaryTarget(pool,);
-    if (!target.ok) return { status: 'failed', insights: null, error: target.error, provider: null, pool: null, };
+    if (!target.ok) return { status: 'failed', insights: null, error: target.error, provider: null, pool: null, format, };
     const digest = {
         period: { from: data.from, to: data.to, previous: { from: data.previousFrom, to: data.previousTo, }, },
         totals: data.totals,
@@ -216,21 +244,17 @@ async function aiInsights(data: Omit<DigestData, 'ai'>, pool: string,): Promise<
         'Note: we collect analytics daily from each platform\'s "since" date. A missing (null) previous value means there was no',
         'data before that date — mention it at most once and never suggest changing the digest itself. Suggestions are about content',
         'and channels; when a platform reports a status message (more access needed), you may suggest acting on it.',
-        '{"headline": one sentence,',
-        ' "highlights": 3-6 short bullets on what changed and why it matters,',
-        ' "platforms": [{"platform": name, "summary": 1-2 sentences}] for platforms with data,',
-        ' "topPosts": [{"id": the post id given, "why": one sentence on why it likely worked}] for up to 5 posts,',
-        ' "suggestions": 2-4 concrete next steps (use the audience data — best hours, content types, hashtags, benchmarks — when present)}',
+        ...INSIGHT_SHAPE[format],
         '',
         'Data:',
         JSON.stringify(digest,),
     ].join('\n',);
     const r = await ai.ask(prompt, { system: AI_SYSTEM, kind: 'ANALYTICS DIGEST', format: 'json', timeoutSec: 600, ...target.opts, },);
-    const insights = r.status === 'completed' ? cleanInsights(r.data,) : null;
+    const insights = r.status === 'completed' ? cleanInsights(r.data, format,) : null;
     if (!insights) {
-        return { status: 'failed', insights: null, error: r.error ?? 'The AI answer had no usable insights.', provider: r.provider, pool: r.pool, };
+        return { status: 'failed', insights: null, error: r.error ?? 'The AI answer had no usable insights.', provider: r.provider, pool: r.pool, format, };
     }
-    return { status: 'ok', insights, error: null, provider: r.provider, pool: r.pool ?? target.opts.pool ?? null, };
+    return { status: 'ok', insights, error: null, provider: r.provider, pool: r.pool ?? target.opts.pool ?? null, format, };
 }
 
 /** Build a digest snapshot for a period. */
@@ -294,7 +318,7 @@ export async function buildDigestData(range: { from: string; to: string; }, sett
         totals, platforms, topPosts, audience: audiences, definitionChanges: cur.definitionChanges,
     };
     const aiPart: DigestData['ai'] = has('ai',)
-        ? await aiInsights(base, d.aiPool,).catch((e,) => ({ status: 'failed' as const, insights: null, error: (e as Error).message, provider: null, pool: null, }))
+        ? await aiInsights(base, d.aiPool, d.summaryFormat ?? 'full',).catch((e,) => ({ status: 'failed' as const, insights: null, error: (e as Error).message, provider: null, pool: null, format: d.summaryFormat ?? 'full', }))
         : { status: 'skipped', insights: null, error: null, provider: null, pool: null, };
     return { ...base, ai: aiPart, };
 }

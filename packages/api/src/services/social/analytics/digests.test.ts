@@ -62,6 +62,24 @@ describe('digest numbers', () => {
         const ok = cleanInsights({ headline: 'Up', highlights: ['a', '',], topPosts: [{ id: 'p1', why: 'hook', }, { id: '', why: 'x', },], suggestions: 'no', },);
         expect(ok,).toEqual({ headline: 'Up', highlights: ['a',], platforms: [], topPosts: [{ id: 'p1', why: 'hook', },], suggestions: [], },);
     },);
+
+    it('caps a brief summary to cliff-note length', () => {
+        const many = (n: number,) => Array.from({ length: n, }, (_, i,) => `item ${i}`,);
+        const raw = {
+            headline: 'Views up',
+            highlights: many(6,),
+            topPosts: many(5,).map((x, i,) => ({ id: `p${i}`, why: x, })),
+            suggestions: many(4,),
+        };
+        const brief = cleanInsights(raw, 'brief',)!;
+        expect(brief.highlights,).toHaveLength(3,);
+        expect(brief.topPosts,).toHaveLength(3,);
+        expect(brief.suggestions,).toHaveLength(2,);
+        const full = cleanInsights(raw, 'full',)!;
+        expect(full.highlights,).toHaveLength(6,);
+        expect(full.topPosts,).toHaveLength(5,);
+        expect(full.suggestions,).toHaveLength(4,);
+    },);
 },);
 
 describe('digest email', () => {

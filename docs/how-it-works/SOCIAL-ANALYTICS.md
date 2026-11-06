@@ -222,6 +222,7 @@ stored one and opens it in the browser.
 | Platforms | which platforms to include (none = all with data) |
 | Sections | totals · per platform · trends · top posts (count) · AI insights |
 | AI pool | the claude-broker pool the insights run on (default `analytics`; falls back to the default pool, then the Anthropic API) |
+| Summary format | how the AI insights are written: **Full** (default — headline, 3–6 highlights, a summary per platform, why the top posts worked, 2–4 next steps) or **Brief** (the same findings as cliff notes: ≤ 12-word headline, 2–3 highlights, one line per platform, up to 3 top posts, 1–2 next steps). Same JSON keys either way (`cleanInsights(raw, format)` caps the counts); the format is stored on the digest (`ai.format`) and shown on its AI card. |
 | Email | on/off · format full or summary · extra recipients · recipient mode |
 | Retention | days to keep digests (1 … any), or keep forever |
 

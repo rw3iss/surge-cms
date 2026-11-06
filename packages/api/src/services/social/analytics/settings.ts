@@ -71,6 +71,7 @@ export function normalizeSettings(n: SocialAnalyticsSettings,): SocialAnalyticsS
             sections,
             topPosts: int(dg.topPosts, 0, 50, 'Top posts',),
             aiPool: pool || 'analytics',
+            summaryFormat: dg.summaryFormat === 'brief' ? 'brief' : 'full',
         },
         email: {
             enabled: Boolean(n.email.enabled,),
