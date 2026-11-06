@@ -148,9 +148,11 @@ export type MediaKind = 'REELS' | 'FEED' | 'STORY';
 
 /** Insight metrics per media product type (a dead one is skipped for the run, see fetchInsights). */
 export const MEDIA_METRICS: Record<MediaKind, string[]> = {
-    FEED: ['views', 'reach', 'likes', 'comments', 'shares', 'saved', 'total_interactions', 'profile_visits', 'profile_activity', 'follows',],
-    REELS: ['views', 'reach', 'likes', 'comments', 'shares', 'saved', 'total_interactions', 'ig_reels_avg_watch_time', 'ig_reels_video_view_total_time', 'reels_skip_rate', 'profile_visits', 'follows',],
-    STORY: ['views', 'reach', 'replies', 'shares', 'total_interactions', 'follows', 'profile_visits', 'profile_activity',],
+    // Verified on a live account 2026-11-05: Reels do not support profile_visits / follows, and
+    // profile_activity needs its own breakdown call (it invalidates a grouped request).
+    FEED: ['views', 'reach', 'likes', 'comments', 'shares', 'saved', 'total_interactions', 'profile_visits', 'follows',],
+    REELS: ['views', 'reach', 'likes', 'comments', 'shares', 'saved', 'total_interactions', 'ig_reels_avg_watch_time', 'ig_reels_video_view_total_time', 'reels_skip_rate',],
+    STORY: ['views', 'reach', 'replies', 'shares', 'total_interactions', 'follows', 'profile_visits',],
 };
 
 export function mediaKind(fields: { media_product_type?: string; media_type?: string; },): MediaKind {
