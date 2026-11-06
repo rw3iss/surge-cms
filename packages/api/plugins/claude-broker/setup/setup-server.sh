@@ -127,8 +127,9 @@ cat <<DONE
 
 $(ok "Server ready.")
 Next, in the CMS admin → Plugins → Claude Broker:
-  1. Broker connection → Token:  $TOKEN
-     (URL http://127.0.0.1:4180) → Save
+  1. Broker connection: URL http://127.0.0.1:4180. The token is read from
+     $ENV_FILE automatically
+     (same server) — or paste it:  $TOKEN
   2. Setup → Sign in to Claude (open the link, paste the code back) — the broker
      saves ONE long-lived token (claude setup-token) that every session uses
   3. Add pools → Save → Setup → Start sessions (the broker starts, watches and

@@ -219,6 +219,7 @@ export default {
             ttlSec: 300, waitSec: 120, framePrompts: true, sessionGapMs: 6000, model: '', effort: '',
             ...(host.config || {}),
         };
+        let initialToken = String(cfg.token || '');
         cfg.pools = Array.isArray(cfg.pools) ? cfg.pools.map((p) => ({ name: p.name || '', count: p.count || 1, description: p.description || '' })) : [];
         root.innerHTML = '';
         const { group, input, toggle, select } = host.ui.form(cfg);
@@ -228,7 +229,7 @@ export default {
         root.appendChild(renderSetup(host));
 
         // ── Connection ──
-        const conn = section('Broker connection', 'The claude-broker daemon (see its README). The token is the daemon\'s CLAUDE_BROKER_TOKEN.');
+        const conn = section('Broker connection', 'The claude-broker daemon (see its README). The token is the daemon\'s CLAUDE_BROKER_TOKEN — leave it empty when the broker runs on this server (set up by the setup script): it is then read from ~/.config/claude-broker/claude-broker.env.');
         const row1 = el('div', { className: 'admin-form-row' },
             group('Broker URL', input('brokerUrl', 'text'), 'Usually http://127.0.0.1:4180 on the same server.'),
             group('Token', input('token', 'password')));
@@ -288,7 +289,12 @@ export default {
                 saveBtn.disabled = true; saveStatus.textContent = 'Saving…';
                 try {
                     const pools = cfg.pools.filter((p) => p.name).map((p) => ({ name: p.name, count: Number(p.count) || 1, description: p.description || '' }));
-                    await host.saveConfig({ ...cfg, pools, ttlSec: Number(cfg.ttlSec) || 300, waitSec: Number(cfg.waitSec) || 120, sessionGapMs: Number(cfg.sessionGapMs) || 0 });
+                    const patch = { ...cfg, pools, ttlSec: Number(cfg.ttlSec) || 300, waitSec: Number(cfg.waitSec) || 120, sessionGapMs: Number(cfg.sessionGapMs) || 0 };
+                    // Send the token only when it was edited here: a page opened before the token was
+                    // set (or a cached copy) would otherwise save an empty value over a working one.
+                    if (String(cfg.token || '') === initialToken) delete patch.token;
+                    await host.saveConfig(patch);
+                    initialToken = String(cfg.token || '');
                     saveStatus.textContent = 'Saved ✓';
                     refresh();
                 } catch (e) { saveStatus.textContent = 'Save failed: ' + ((e && e.message) || e); }

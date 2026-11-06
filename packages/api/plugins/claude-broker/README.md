@@ -14,7 +14,10 @@ In-admin guide: **/admin/help/claude-broker**.
    the daemon as a systemd **user** service (with linger) and prints the broker
    token. Idempotent.
 2. Admin → Plugins → **Claude Broker (AI)** → Install → Enable → Configure:
-   - **Broker connection** — URL (default `http://127.0.0.1:4180`) + the token.
+   - **Broker connection** — URL (default `http://127.0.0.1:4180`) + the token. On the
+     server the setup script prepared, leave the token empty: the plugin reads it from
+     `CLAUDE_BROKER_TOKEN` or `~/.config/claude-broker/claude-broker.env`. Save only sends
+     the token when it was edited on the page (a stale page can't blank it).
    - **Setup → Sign in to Claude** — the BROKER runs `claude setup-token` in its
      private tmux server; open the link, sign in, paste the code back. It saves
      ONE long-lived token (`~/.config/claude-broker/oauth.env`, 0600) that every

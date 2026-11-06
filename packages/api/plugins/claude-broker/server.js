@@ -20,6 +20,24 @@ const MAX_POLL_SEC = 60;
 /** session_id → when its last job settled (ms). Spaces jobs to one session (see lib/README). */
 const lastSettled = new Map();
 
+/**
+ * The broker's own token when the config has none: same-server installs share
+ * it through CLAUDE_BROKER_TOKEN or the setup script's env file
+ * (~/.config/claude-broker/claude-broker.env, readable by the CMS user). So a
+ * missing or blanked token field still works on the box the script set up.
+ * Read per call (cheap) so a rotated token is picked up without a restart.
+ */
+function localBrokerToken() {
+    if (process.env.CLAUDE_BROKER_TOKEN) return String(process.env.CLAUDE_BROKER_TOKEN).trim();
+    try {
+        const file = require('node:path').join(require('node:os').homedir(), '.config', 'claude-broker', 'claude-broker.env');
+        const m = /^CLAUDE_BROKER_TOKEN=(.+)$/m.exec(require('node:fs').readFileSync(file, 'utf8'));
+        return m ? m[1].trim().replace(/^["']|["']$/g, '') : '';
+    } catch {
+        return '';
+    }
+}
+
 function cfg(ctx) {
     const c = ctx.config || {};
     const num = (v, d, min, max) => {
@@ -28,7 +46,7 @@ function cfg(ctx) {
     };
     return {
         url: String(c.brokerUrl || DEFAULT_URL).trim().replace(/\/+$/, ''),
-        token: String(c.token || '').trim(),
+        token: String(c.token || '').trim() || localBrokerToken(),
         pools: lib.normalizePools(c.pools),
         defaultPool: String(c.defaultPool || '').trim(),
         ttlSec: num(c.ttlSec, 300, 10, 86400),
@@ -47,7 +65,7 @@ function fail(status, error) {
 /** One broker call. Returns the httpJson envelope with a readable `error`. */
 async function broker(ctx, method, path, body) {
     const c = cfg(ctx);
-    if (!c.token) return fail(0, 'The broker token is not configured');
+    if (!c.token) return fail(0, 'The broker token is not configured — paste it under Broker connection, or run the setup script on this server (the token is then read from ~/.config/claude-broker/claude-broker.env).');
     const r = await ctx.httpJson(`${c.url}${path}`, {
         method,
         headers: { Authorization: `Bearer ${c.token}` },
