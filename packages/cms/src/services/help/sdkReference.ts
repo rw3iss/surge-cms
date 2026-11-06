@@ -1652,7 +1652,8 @@ export const CLAUDE_BROKER_DOC: SdkDoc = {
                         + 'It receives a job, does the work, and answers through the `complete_job` tool.',
                         'A **pool** is a session label. The plugin config lists your pools with how many sessions each should '
                         + 'have: pool `summary` with count 2 means sessions `summary-1` and `summary-2`. A request to a pool '
-                        + 'goes to its least-busy session.',
+                        + 'goes to its least-busy session. Count is 1–16. Only sessions that can work count as ready — a '
+                        + 'usage-limited or signed-out session is attached but skipped.',
                         'The CMS sends every request through ONE AI module and gets ONE answer shape back (`AiResult`), '
                         + 'whichever provider answered.',
                     ],
@@ -1725,7 +1726,7 @@ curl "…/api/v1/ai/jobs/<id>?wait=50"`,
                     table: [
                         ['Route', 'Does'],
                         ['`GET /ai/status`', 'Providers + whether each is ready, the default provider'],
-                        ['`GET /ai/pools`', 'Configured pools with attached / expected / busy sessions'],
+                        ['`GET /ai/pools`', 'Configured pools: ready / attached / expected / busy / idle sessions'],
                         ['`GET /ai/sessions?pool=`', 'Attached sessions (of one pool)'],
                         ['`POST /ai/query`', '`{ prompt, system?, pool?, session?, provider?, format?: "text"|"json", wait?, timeoutSec?, kind?, meta? }` → `AiResult`'],
                         ['`GET /ai/jobs`, `GET /ai/jobs/:id?wait=`', 'Recent jobs; one job (optionally wait for it)'],

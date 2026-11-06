@@ -1,5 +1,6 @@
 import { describe, expect, it, } from 'vitest';
 import {
+    tiktokPostRow,
     activityPoints,
     businessAsVideo,
     businessDailyPoints,
@@ -83,6 +84,14 @@ describe('tiktok mapping helpers', () => {
     },);
     it('sorts timeline curves', () => {
         expect(timeline(videoFixture.video_view_retention,),).toEqual([[0, 1,], [2, 0.5,],],);
+    },);
+    it('detects the curve scale as a whole (a percent tail under 1 % stays under 1 %)', () => {
+        expect(timeline([{ second: 0, percentage: 100, }, { second: 5, percentage: 40, }, { second: 9, percentage: 0.8, },],),)
+            .toEqual([[0, 1,], [5, 0.4,], [9, 0.008,],],);
+        expect(timeline([{ second: 0, percentage: 1, }, { second: 5, percentage: 0.4, },],),).toEqual([[0, 1,], [5, 0.4,],],);
+    },);
+    it('a social_posts row keeps missing counters null (never overwritten with 0)', () => {
+        expect(tiktokPostRow({ id: '9', },),).toMatchObject({ likes: null, comments: null, shares: null, },);
     },);
 },);
 

@@ -59,6 +59,16 @@ module.exports = {
 ```
 `ctx` = `{ name, dir, version, installedVersion, config, db, storage, logger, http, httpJson }`.
 
+**Access.** Every admin plugin route (list, detail, config, lifecycle, upload,
+marketplace, action RPC) needs the `plugins:manage` permission (default admin +
+sysadmin) on top of the `admin` auth tier; an `ssk_` API key passes on its scope.
+
+**Secrets.** A `type: 'secret'` config value never leaves the server: admin reads
+(the plugin list/detail, every lifecycle response, MCP `get_plugin`) show it as
+`••••••••`, and a save that echoes the mask keeps the stored value (send `''` to
+clear it). `secret: true` on another field type only keeps it out of the PUBLIC
+projection (`GET /plugins/enabled`) — the admin still sees and edits it.
+
 **Action RPC.** `POST /api/v1/plugins/:name/action/:action` (admin) dispatches to
 `server.js` `actions[action](ctx, payload)` and returns its JSON. This is the
 sanctioned way for a plugin to expose backend logic (a plugin can't register its
@@ -89,6 +99,12 @@ export default {
 };
 ```
 `host` = `{ name, config, settings, user, isAdmin, saveConfig(patch), api, mountPoint, onCleanup(fn), ui }`.
+A mount function may be `async` (resolve to its teardown) and may register
+teardown with `host.onCleanup(fn)` at any time: the public host does not mount a
+widget whose mount point was removed while its bundle loaded, and a teardown
+registered after removal runs at once — so an async init that finishes after a
+user switch still tears down. Widgets remount when the signed-in user changes
+(sign in / out / switch); a failed login or a session refresh does not remount.
 `host.ui.form(cfg)` → `{ group, input, select, checkbox }` — admin-styled, config-bound
 DOM builders so a `mountConfig` page doesn't redefine them (`const { input } = host.ui.form(cfg)`).
 Bundles are served **same-origin** (`/api/v1/plugins/<name>/client.js`) and loaded via

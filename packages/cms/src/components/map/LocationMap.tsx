@@ -7,7 +7,11 @@
  *   Picker (event editor):  <LocationMap lat lng draggable onPick={(lat, lng) => …} />
  *                           drag the pin or click the map to move it; zoom freely.
  *   Display (event page):   <LocationMap lat lng onClick={() => open(mapUrl)} />
- *                           static pin; the whole map is one link.
+ *                           static pin; the whole map is one link (Enter / Space too).
+ *
+ * Keyboard: the picker map pans with the arrow keys and Enter drops the pin at
+ * its center. Picked points are wrapped into -180…180 (a click on a repeated
+ * world copy otherwise gives a longitude the server refuses).
  *
  * Leaflet is imported on mount (its own chunk), so pages without a map never
  * load it. The pin is a CSS `divIcon` (Leaflet's default icon images resolve
@@ -18,7 +22,8 @@ import 'leaflet/dist/leaflet.css';
 import { type Component, createEffect, on, onCleanup, onMount, } from 'solid-js';
 import './LocationMap.scss';
 
-const TILES = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+// OSM asks for the single host (the a/b/c subdomains are deprecated).
+const TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors';
 /** Where an empty picker opens (the continental US). */
 export const DEFAULT_MAP_CENTER = { lat: 39.5, lng: -98.35, zoom: 3, };
@@ -61,7 +66,7 @@ const LocationMap: Component<LocationMapProps> = (props,) => {
                 icon: L.divIcon({ className: 'location-map__pin', html: '<span></span>', iconSize: [28, 28,], iconAnchor: [14, 28,], },),
             },).addTo(map,);
             pin.on('dragend', () => {
-                const p = pin!.getLatLng();
+                const p = pin!.getLatLng().wrap();
                 props.onPick?.(p.lat, p.lng,);
             },);
         } else {
@@ -69,9 +74,11 @@ const LocationMap: Component<LocationMapProps> = (props,) => {
         }
     };
 
+    let disposed = false;
     onMount(async () => {
         L = await import('leaflet');
-        if (!el) return;
+        // Unmounted while Leaflet loaded (the map was closed at once): build nothing.
+        if (!el || disposed) return;
         const interactive = Boolean(props.draggable,) || !props.onClick;
         map = L.map(el, {
             zoomControl: interactive,
@@ -88,7 +95,8 @@ const LocationMap: Component<LocationMapProps> = (props,) => {
         else map.setView([DEFAULT_MAP_CENTER.lat, DEFAULT_MAP_CENTER.lng,], DEFAULT_MAP_CENTER.zoom,);
         placePin();
         map.on('click', (e,) => {
-            if (props.draggable) props.onPick?.(e.latlng.lat, e.latlng.lng,);
+            const p = e.latlng.wrap();
+            if (props.draggable) props.onPick?.(p.lat, p.lng,);
             else props.onClick?.();
         },);
         // The container may have been laid out after the map measured it (a modal opening).
@@ -101,15 +109,35 @@ const LocationMap: Component<LocationMapProps> = (props,) => {
         if (map && lat != null && lng != null) map.setView([lat, lng,], Math.max(map.getZoom(), props.zoom ?? 15,),);
     }, { defer: true, },),);
 
-    onCleanup(() => map?.remove(),);
+    onCleanup(() => {
+        disposed = true;
+        map?.remove();
+        map = undefined;
+        pin = undefined;
+    },);
+
+    const isLink = () => Boolean(props.onClick && !props.draggable,);
+    const onKeyDown = (e: KeyboardEvent,) => {
+        if (e.target !== el) return; // keys on the zoom buttons / pin keep their own meaning
+        if (isLink() && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            props.onClick?.();
+        } else if (props.draggable && e.key === 'Enter' && map) {
+            e.preventDefault();
+            const c = map.getCenter().wrap();
+            props.onPick?.(c.lat, c.lng,);
+        }
+    };
 
     return (
         <div
             ref={el}
-            class={`location-map${props.onClick && !props.draggable ? ' location-map--link' : ''}${props.class ? ` ${props.class}` : ''}`}
+            class={`location-map${isLink() ? ' location-map--link' : ''}${props.class ? ` ${props.class}` : ''}`}
             style={{ height: props.height ?? '240px', }}
-            role="region"
+            role={isLink() ? 'link' : 'region'}
+            tabIndex={isLink() ? 0 : undefined}
             aria-label={props.label ?? 'Map'}
+            onKeyDown={onKeyDown}
         />
     );
 };

@@ -127,12 +127,37 @@ pickers). **Disconnect Google** (`DELETE /connections/youtube/oauth`,
 `cms.connections.oauthDisconnect`) revokes the grant and brings the API-key
 fields back.
 
+## Connection credentials
+
+- Secrets leave the server masked (`sanitizeCredentials`: tokens / app secrets as `••••…`, plus
+  `has*` flags). A write that sends a masked value back (SDK, MCP, a form echoing every field) is
+  ignored for that key (`withoutMaskedValues`), so it can never replace the real secret with its mask.
+- OAuth `state` is single-use and bound to the provider that issued it: a state from another
+  provider's sign-in is refused on this provider's callback.
+
 ## Rendering
 
 The public Social block renders stored posts as `SocialEmbed` cards. Manual and
 POSSE posts have the same shape as synced ones, so they render identically.
 Hidden posts (`is_hidden`) are excluded from public feeds but visible to admins
 on the Posts tab for curation.
+
+**YouTube posts render a facade, not a player.** The card shows the thumbnail
+and a play button (`SocialEmbed.tsx` `.social-embed__yt-facade`). The player
+iframe is created only when the visitor taps it (`autoplay=1`). A feed of
+Shorts that mounted ~32 live iframes crashed iOS Safari. Details
+(`components/blocks/social/youtubeFacade.ts`):
+
+- The facade is a real `<button>` with an `<img>` thumbnail. When the stored
+  thumbnail fails or is YouTube's 120px placeholder, it falls back to
+  `hqdefault.jpg`.
+- The player takes keyboard focus when it appears. Its accessible name is the
+  post title (cut to 100 characters).
+- The video id is URL-encoded. The iframe sends
+  `referrerpolicy=strict-origin-when-cross-origin` and is not lazy-loaded (it
+  exists only after a tap).
+- A Social block is pinned only when **Specific posts** is on
+  (`isSocialAutoFeed`); otherwise it shows the latest posts.
 
 ## API surface
 

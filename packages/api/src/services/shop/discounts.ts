@@ -16,7 +16,9 @@
 import type {
     ShopDiscountCheckResponse, ShopDiscountCode, ShopDiscountCodeBody, ShopDiscountListQuery, ShopDiscountRedemption,
 } from '@sitesurge/types';
-import { discountCentsFor, discountSummary, distributeDiscount, merchandiseSubtotal, type DiscountLine, type DiscountRule, } from '@sitesurge/types';
+import {
+    discountCentsFor, discountSummary, distributeDiscount, merchandiseSubtotal, orderBuyerDiscountPercent, type DiscountLine, type DiscountRule,
+} from '@sitesurge/types';
 import type { PoolClient, } from 'pg';
 import { ConflictError, NotFoundError, ValidationError, } from '../../core/errors';
 import { query, } from '../../db';
@@ -218,6 +220,20 @@ export interface AppliedDiscount {
     /** Per cart line (DiscountLine.key) — for tax on discounted amounts. */
     perLine: Map<string, number>;
     summary: string;
+    /** The rule as applied — stored on the order (`discount_snapshot`). */
+    snapshot: DiscountSnapshot;
+}
+
+/**
+ * `shop_orders.discount_snapshot`: the rule an order was placed under, from
+ * the locked re-check at checkout. The commission at payment uses it, so a
+ * code edited between checkout and payment does not change what this order
+ * earns. Older orders have none (the code's current values are used).
+ */
+export interface DiscountSnapshot extends DiscountRule {
+    codeId: string;
+    affiliateUserId: string | null;
+    commissionPercent: number | null;
 }
 
 export interface ApplyOpts {
@@ -261,13 +277,18 @@ async function findRow(code: string, client?: PoolClient,): Promise<CodeRow | nu
 async function countUses(row: CodeRow, userId: string | null, email: string | null, client?: PoolClient,): Promise<{ uses: number; userUses: number; }> {
     const q = <T extends Record<string, unknown>,>(sql: string, p: unknown[],) => (client ? client.query<T>(sql, p,) : query<T>(sql, p,));
     // Paid uses, plus recent unpaid checkouts holding the code (so a limited
-    // code cannot be oversold by several buyers paying at once).
+    // code cannot be oversold by several buyers paying at once). The buyer's
+    // OWN unpaid checkouts are not counted: a card decline or a closed tab
+    // followed by a new attempt used to read "This code has been used up"
+    // for half an hour on a single-use code.
     const total = await q<{ n: string; }>(
         `SELECT (SELECT COUNT(*) FROM shop_discount_redemptions WHERE code_id = $1 AND status = 'paid')
               + (SELECT COUNT(*) FROM shop_orders o WHERE o.discount_code_id = $1 AND o.status = 'pending'
                    AND o.created_at > NOW() - make_interval(mins => $2)
+                   AND NOT ($3::uuid IS NOT NULL AND o.user_id = $3::uuid)
+                   AND NOT ($4::text IS NOT NULL AND lower(o.customer_email) = lower($4::text))
                    AND NOT EXISTS (SELECT 1 FROM shop_discount_redemptions r WHERE r.order_id = o.id)) AS n`,
-        [row.id, PENDING_HOLD_MINUTES,],
+        [row.id, PENDING_HOLD_MINUTES, userId, email,],
     );
     let userUses = 0;
     if (row.max_uses_per_user != null && (userId || email)) {
@@ -318,12 +339,22 @@ export async function applyDiscount(
             discountCents,
             perLine: distributeDiscount(lines, rule, discountCents,),
             summary: discountSummary(rule, opts.currency,),
+            snapshot: {
+                ...rule,
+                codeId: row.id,
+                affiliateUserId: row.affiliate_user_id,
+                commissionPercent: row.affiliate_user_id ? Number(row.commission_percent ?? 0,) : null,
+            },
         },
     };
 }
 
 /** POST /shop/discounts/check — a quick "is this code usable by me" (no cart). */
 export async function check(code: string, viewer: LevelViewer,): Promise<ShopDiscountCheckResponse> {
+    // Same permission as the checkout (`applyDiscount`) — the check must not say "valid" when checkout refuses.
+    if (!await can({ id: viewer?.id ?? null, role: viewer?.role ?? 'anonymous', }, 'shop.discounts:use',).catch(() => true,)) {
+        return { valid: false, message: 'Discount codes are not available for your account.', };
+    }
     const row = await findRow(code,);
     if (!row) return { valid: false, message: 'That code is not valid.', };
     const grants = await viewerGrants(viewer,);
@@ -337,34 +368,63 @@ export async function check(code: string, viewer: LevelViewer,): Promise<ShopDis
 // ─── Fulfilment + refunds ─────────────────────────────────────────────────
 
 /**
+ * Who earns on an order and at what commission: the checkout snapshot when
+ * the order has one, else (older orders) the code's current values.
+ */
+export async function commissionSplitFor(
+    codeId: string,
+    snapshot: Partial<DiscountSnapshot> | null | undefined,
+): Promise<{ affiliateUserId: string; commissionPercent: number; appliesToTickets: boolean; } | null> {
+    if (snapshot && snapshot.codeId === codeId) {
+        return snapshot.affiliateUserId
+            ? { affiliateUserId: snapshot.affiliateUserId, commissionPercent: Number(snapshot.commissionPercent ?? 0,), appliesToTickets: !!snapshot.appliesToTickets, }
+            : null;
+    }
+    const code = (await query<{ affiliate_user_id: string | null; commission_percent: string | null; applies_to_tickets: boolean; }>(
+        `SELECT affiliate_user_id, commission_percent, applies_to_tickets FROM shop_discount_codes WHERE id = $1`, [codeId,],
+    )).rows[0];
+    return code?.affiliate_user_id
+        ? { affiliateUserId: code.affiliate_user_id, commissionPercent: Number(code.commission_percent ?? 0,), appliesToTickets: code.applies_to_tickets, }
+        : null;
+}
+
+/**
  * A paid order that used a code: record the use (idempotent) and, for an
  * affiliate code, the affiliate's commission. Called after the order is
  * marked paid; never throws (the payment already happened).
  */
 export async function recordRedemption(orderId: string,): Promise<void> {
     try {
-        const o = (await query<{ discount_code_id: string | null; discount_cents: number; user_id: string | null; customer_email: string | null; currency: string; created_at: Date; }>(
-            `SELECT discount_code_id, discount_cents, user_id, customer_email, currency, created_at FROM shop_orders WHERE id = $1`, [orderId,],
+        const o = (await query<{
+            discount_code_id: string | null; discount_cents: number; user_id: string | null; customer_email: string | null; currency: string; created_at: Date;
+            discount_snapshot: Partial<DiscountSnapshot> | null;
+        }>(
+            `SELECT discount_code_id, discount_cents, user_id, customer_email, currency, created_at, discount_snapshot FROM shop_orders WHERE id = $1`, [orderId,],
         )).rows[0];
         if (!o?.discount_code_id) return;
         const items = await query<{ subtotal_cents: number; metadata: { kind?: string; } | null; }>(
             `SELECT subtotal_cents, metadata FROM shop_order_items WHERE order_id = $1`, [orderId,],
         );
-        const merch = merchandiseSubtotal(items.rows.map((i, k,) => ({ key: String(k,), subtotalCents: i.subtotal_cents, ticket: i.metadata?.kind === 'event_ticket', })),);
+        const lines = items.rows.map((i, k,) => ({ key: String(k,), subtotalCents: i.subtotal_cents, ticket: i.metadata?.kind === 'event_ticket', }));
+        const merch = merchandiseSubtotal(lines,);
         const ins = await query(
             `INSERT INTO shop_discount_redemptions (code_id, order_id, user_id, email, discount_cents, merch_subtotal_cents)
              VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (order_id) DO NOTHING`,
             [o.discount_code_id, orderId, o.user_id, o.customer_email, o.discount_cents ?? 0, merch,],
         );
         if (!ins.rowCount) return; // already recorded (webhook retry)
-        const code = (await query<{ affiliate_user_id: string | null; commission_percent: string | null; percent: string; }>(
-            `SELECT affiliate_user_id, commission_percent, percent FROM shop_discount_codes WHERE id = $1`, [o.discount_code_id,],
-        )).rows[0];
-        if (code?.affiliate_user_id && await isFeatureEnabledServer('affiliates',)) {
+        const split = await commissionSplitFor(o.discount_code_id, o.discount_snapshot,);
+        if (split && await isFeatureEnabledServer('affiliates',)) {
             const { recordCommission, } = await import('../affiliates/earnings.js');
+            // The buyer's share is what THIS order got off, not the code's current
+            // split (the affiliate may have changed it between checkout and payment).
+            const eligible = lines.filter((l,) => !l.ticket || split.appliesToTickets,).reduce((t, l,) => t + Math.max(0, l.subtotalCents,), 0,);
             await recordCommission({
-                orderId, codeId: o.discount_code_id, userId: code.affiliate_user_id, merchSubtotalCents: merch,
-                commissionPercent: Number(code.commission_percent ?? 0,), buyerDiscountPercent: Number(code.percent ?? 0,), currency: o.currency,
+                orderId, codeId: o.discount_code_id, userId: split.affiliateUserId, merchSubtotalCents: merch, commissionPercent: split.commissionPercent,
+                buyerDiscountPercent: orderBuyerDiscountPercent({
+                    merchSubtotalCents: merch, eligibleSubtotalCents: eligible, discountCents: o.discount_cents ?? 0, commissionPercent: split.commissionPercent,
+                },),
+                currency: o.currency,
             },);
         }
     } catch (err) {
@@ -372,13 +432,23 @@ export async function recordRedemption(orderId: string,): Promise<void> {
     }
 }
 
-/** A refunded order: its use no longer counts, and an affiliate commission is reversed. */
-export async function markOrderRefunded(orderId: string,): Promise<void> {
+/**
+ * A refunded order. FULL refund (no `refund`, or all of the charge): its code
+ * use stops counting and an affiliate commission is reversed. PARTIAL refund:
+ * the use still counts; the commission is reversed in proportion (cumulative
+ * Stripe `amount_refunded`, so repeats are no-ops — `affiliates/reversal.ts`).
+ */
+export async function markOrderRefunded(orderId: string, refund?: { refundedCents: number; chargedCents: number; },): Promise<void> {
     try {
-        await query(`UPDATE shop_discount_redemptions SET status = 'refunded' WHERE order_id = $1`, [orderId,],);
-        if (await isFeatureEnabledServer('affiliates',)) {
+        const full = !refund || refund.chargedCents <= 0 || refund.refundedCents >= refund.chargedCents;
+        if (full) await query(`UPDATE shop_discount_redemptions SET status = 'refunded' WHERE order_id = $1`, [orderId,],);
+        // Reverse whenever commissions exist — not only while the feature is on:
+        // a refund made while the program was switched off must not leave the
+        // commission payable once it is switched back on.
+        const table = (await query<{ t: string | null; }>(`SELECT to_regclass('affiliate_earnings') AS t`,)).rows[0]?.t;
+        if (table) {
             const { reverseCommission, } = await import('../affiliates/earnings.js');
-            await reverseCommission(orderId,);
+            await reverseCommission(orderId, full ? undefined : refund,);
         }
     } catch (err) {
         logger.error('Discount refund bookkeeping failed', { orderId, error: err, },);

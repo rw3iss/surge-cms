@@ -42,10 +42,16 @@ applicant has an account and a card. A signed-in member who closed the dialog be
 adding a card gets **Add my card** in Profile → Membership (the wall and /subscribe say
 "Add your card to finish your application" too).
 
-**Automatic claim.** When an account's email is **proven** — the verification link, or an
-invite link to the same address — every account-less pending/approved application sent
-from that address is attached to it (`claimByVerifiedEmail`). An unverified address never
-claims anything: otherwise anyone could sign up as the applicant and take the application.
+**Automatic claim.** When an account's email is **proven** — the verification link, an
+admin marking it verified, or an invite link to the same address — every account-less
+pending/approved application sent from that address is attached to it
+(`claimByVerifiedEmail`; at most one pending membership application and one pending
+application per program). "Proven" means `users.verified_at` is set: `email_verified`
+alone is NOT proof, because it is true by default for every account created while
+"Require new users to validate their email" is off (and for grandfathered / Patreon
+accounts). Such an account never claims anything automatically — an admin uses **Link to
+this account** instead. Otherwise anyone could sign up as the applicant and take the
+application (and, once approved, a program's role).
 
 ## What the member sees
 
@@ -88,7 +94,24 @@ Then the local subscription is activated, the role synced and the member emailed
 Stripe is called, and the Stripe create carries an idempotency key tied to that claim.
 A second Approve (another admin, another tab, a retried request) gets *"This application
 is being approved by someone else right now"* instead of a second charge. A claim older
-than 5 minutes (a crash mid-approval) may be retaken.
+than 5 minutes (a crash mid-approval) may be retaken. While the claim is held, **Reject**
+and the member's own **withdraw** are refused too ("being approved right now") — before,
+a reject racing an approval could charge the card AND email a rejection.
+
+**Approved = started.** A charged approval sets `activated_at` (migration 210 backfills
+older rows). Before, a normal approved application stayed "approved, not started" with
+no offer expiry, so once that membership lapsed it read as an open offer again and the
+member could re-buy an approval level without applying.
+
+**One membership change at a time.** `change`, `confirm` and `startApprovedMembership`
+hold a per-member advisory lock (`services/membership/lock.ts`); a second call while one
+runs (double click, two tabs, the member paying while an admin approves) answers **409**
+at once instead of creating a second Stripe subscription. An approval bills the customer
+the saved card is attached to (checked to be the member's when it was saved).
+
+**Duplicates are 409s.** Claiming (token, claim link, admin Link) an application into an
+account that already has one of the same kind pending answers 409 with a clear message
+instead of a 500 from the unique index.
 
 **The team is told** when an application arrives, when the applicant adds their card
 ("ready to approve"), and when they withdraw it — all on the *Membership application*
@@ -119,10 +142,11 @@ approval, has no price and takes no card.
 | Question | Answer |
 |---|---|
 | What approval does | Adds the level's **role** to the member's **additional roles** (`users.extra_roles`). Their membership level, main role and billing are unchanged — a paying member stays a member AND becomes a contributor. |
-| Applicant has no linked account | A **verified** account using the application's email is linked and gets the role at once. **No account** → an invitation (`user_invites`, carries the role) — the role is there when they sign up. An **unverified** account → approval is refused with a message: link it in the review panel, or the role is added when that address is verified. |
+| Applicant has no linked account | An account using the application's email whose address was **proven** (`verified_at`) is linked and gets the role at once. **No account** → an invitation (`user_invites`, carries the role) — the role is there when they sign up. An **unverified** account → approval is refused with a message: link it in the review panel, or the role is added when that address is verified. |
 | Where it shows | Not on /subscribe or profile Membership (not a membership). List it with `{{ membershipLevels(levels='slug,…') }}`, e.g. /partner-program. A viewer who already has the role sees "You're in". |
 | Pending | One pending application per program — a member can apply to SEVERAL programs at once, and to a membership too (still one pending membership application). Enforced by two partial unique indexes on `membership_applications` (`program`, migration 188). The member's Approval status stays Pending while any application waits. Each approval adds that program's role. |
 | Buying it | Refused — a program is joined by applying. |
+| Switching a level to / from a program | Refused while the level has members (to a program) or open applications / unstarted offers (either way): those rows were made under the other rules. |
 | Removing it | Remove the role from the user's additional roles (user page). |
 
 ### Members manage their programs (Profile → Membership → Programs)
@@ -141,7 +165,7 @@ The "Application received" email's button reads **Finish my application** only w
 An application sent while signed out is linked to an account when:
 - the applicant opens the claim link from their email while signed in, or
 - an account with the same email is **verified** (sign-up verification, an admin marking it verified, an invite), or
-- a **verified** account with that email **signs in** (`authenticateWithEmail` → `claimByVerifiedEmail`), or
+- an account with that email whose address was **proven** (`verified_at`) **signs in** (`authenticateWithEmail` → `claimByVerifiedEmail`), or
 - an admin clicks **Link to this account** in the review panel, which shows the account already using the application's email (`matchedAccount`; `POST /membership-applications/:id/link`, only that account).
 
 An approved program's role is added the moment it is linked.
@@ -155,6 +179,7 @@ An approved program's role is added the moment it is linked.
 | `membership_applications` | One row per application: status `pending / approved / rejected / withdrawn`, the answers snapshot, `submission_id` (Forms), `stripe_customer_id` + `payment_method_id`, `error`, decision. One pending per member (partial unique index). |
 | `users.approval_status` | The latest application's status — the Users table filter. |
 | `membership_applications.approving_at`, `offer_expires_at` | Approval claim (no double charge) + when an offer ends (migration 167). |
+| `membership_applications.activated_at` (approved) | Set by a charged approval too (migration 210 backfill + `lower(contact_email)` index for account-less lookups). |
 
 API: `POST /payments/membership/apply` (+ `/apply/withdraw`) for members;
 `/api/v1/membership-applications` (`GET /`, `/summary`, `/:id`, `POST /:id/approve`, `/:id/reject`)

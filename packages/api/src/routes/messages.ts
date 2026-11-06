@@ -52,7 +52,8 @@ export const messagesRoutes = [
         summary: 'Submit a contact message. Sanitizes input and notifies admins by email.',
         input: { body: messageSchema, },
         handler: async ({ body, req, userId, },) => {
-            const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',',)[0] || req.ip!;
+            // req.ip honours `trust proxy`; the first X-Forwarded-For entry is client-supplied.
+            const ipAddress = req.ip || req.socket.remoteAddress || '';
             await messages.submit({
                 name: body.name,
                 email: body.email,

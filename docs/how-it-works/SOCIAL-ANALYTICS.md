@@ -15,8 +15,8 @@ marks that day.
 |---|---|---|
 | `social_account_snapshots` | platform × day | followers, following, posts count, total views/likes, raw JSON |
 | `social_account_daily` | platform × day × metric × dimension | the platform's own daily series (YouTube views, watch time, subscribers gained…); dimension `''` = account total, `video:<id>` = per video. Recent days are rewritten on each run (platforms revise them). |
-| `social_post_metrics` | post × day | a post's cumulative views/likes/comments/shares/saves/watch time/avg watch/% viewed/reach/impressions/clicks — daily for its first 90 days, then weekly (Mondays) |
-| `social_analytics_runs` | collector run | status `ok` / `partial` (warnings) / `failed`, counts, warnings, error |
+| `social_post_metrics` | post × day | a post's cumulative views/likes/comments/shares/saves/watch time/avg watch/% viewed/reach/impressions/clicks — daily for its first 90 days, then about weekly (a new row when the newest is 7+ days old) |
+| `social_analytics_runs` | collector run | status `running` / `ok` / `partial` (warnings) / `failed`, counts, warnings, error. ONE `running` row per platform (unique index, migration 204); a run still `running` after 30 min is closed as failed; history older than 180 days is pruned after each daily collection (the newest run per platform is kept) |
 
 ## Code map
 
@@ -25,8 +25,16 @@ marks that day.
   `crons`. A collector only fetches.
 - `runner.ts` — the only writer (`storeResult`), run bookkeeping, the post cadence, and the daily
   cron **`social-analytics`** (06:10 UTC, primary only). One failing platform never stops the others;
-  a single metric that fails becomes a run warning, not a failure.
-- `read.ts` — overview / series / posts / post history, all derived in SQL.
+  a single metric that fails becomes a run warning, not a failure. The claim is atomic (insert against
+  the one-running-run index), so the cron, **Collect now** and other processes never collect the same
+  platform at once. `collectNow()` (the HTTP "Collect now") answers after ≤ 50 s; collectors still
+  working keep going in the background and come back as `running` runs (the admin says so and refreshes
+  a minute later).
+- `read.ts` — overview / series / posts / post history, all derived in SQL. `series` also returns
+  `available`: the account metrics the platform has data for in the range — the Trend chart's metric
+  list (labels, units and how each combines over a period come from `SOCIAL_METRICS` /
+  `socialMetricAggregate` in `@sitesurge/types`: `sum` per-day amounts, `last` levels such as follower
+  totals or Patreon members, `avg` rates).
 - `collectors/<platform>.ts` — one per platform, registered via `collectors/index.ts`.
 - Routes `/api/v1/social-analytics` (`overview`, `series`, `posts`, `posts/:id`, `collectors`,
   `runs`, `POST collect`), SDK `cms.socialAnalytics.*`, admin
@@ -46,6 +54,8 @@ marks that day.
 | Post "In period" | the post's views at the last snapshot − at the last snapshot before the period (0 if published inside it) |
 | Post "Day 7" | the post's views on the snapshot nearest to 7 days after publishing (6–8 days) |
 | Impressions (YouTube) | sum of the daily Reporting API thumbnail impressions for that video in the period |
+| Threads comments / shares | Threads names its daily series `replies` / `reposts` + `quotes`; the overview reads them as comments / shares |
+| TikTok traffic sources / viewer types | Audience & content → "How viewers found the videos": the NEWEST view-weighted snapshot (never summed); viewer types split into new vs returning, and followers vs non-followers stand in for the daily follower split TikTok does not give |
 
 "Views" is not one unit across platforms, and platforms change its meaning. The dates are in
 `SOCIAL_DEFINITION_CHANGES` (`@sitesurge/types`) and shown as chart notes.
@@ -219,7 +229,11 @@ stored one and opens it in the browser.
   month — compared with the same length right before it (`periodFor` / `previousPeriod`).
 - **Schedule:** the hourly `social-analytics-digest` cron (:20, primary only) asks `dueSlot()`; it is due
   from the configured hour on the matching day, once per local date (`schedule_key` is unique, so
-  overlapping runs make one digest). The same cron applies the retention.
+  overlapping runs make one digest). **It waits for the data** (`collectionSettled`): day D is written by
+  the collection of D+1 (06:10 UTC), so a due digest is built only after a run that started on/after
+  `to`+1 00:00 UTC has finished and none is running — or at `to`+1 09:00 UTC at the latest (still the
+  digest's own local day in every time zone). The same cron applies the retention and fails digests
+  stuck in `generating` for 30+ minutes (a process that stopped mid-build).
 - **Snapshot:** `social_analytics_digests` (migration 202) stores the whole report as JSONB
   (`DigestData`: totals and per-platform metrics with previous values and changes, daily series, top
   posts, definition changes, AI insights) — so a digest reads the same months later, whatever the live
@@ -232,7 +246,11 @@ stored one and opens it in the browser.
   goes to the extra recipients, plus — in *augment* mode — the email recipients of the **Social analytics
   digest** notification type (Settings → Notifications); *override* = only the extra recipients. The
   notification type's in-app / desktop / SMS channels get a "digest ready" note linking to the browser
-  view (its email channel is skipped — those people get the digest itself).
+  view (its email channel is skipped — those people get the digest itself). **"Email each digest"** is
+  the AUTOMATIC email; **Send email** on a digest goes to the same recipients whether it is on or off.
+  `POST /digests/:id/send` answers `{ sent, failed, recipients, reason }` (`reason`: `not_ready` /
+  `no_recipients`). Post links and thumbnails in the email are http(s) only; site paths (`/uploads/…`)
+  are made absolute.
 - **API:** `GET/PUT /social-analytics/settings`, `GET /digests`, `GET /digests/:id`, `POST /digests`
   (generate now; returns `generating` at once — poll), `POST /digests/:id/send`, `DELETE /digests/:id`,
   `GET /digests/:id/email?format=` (the email as an HTML page). SDK `cms.socialAnalytics.settings /

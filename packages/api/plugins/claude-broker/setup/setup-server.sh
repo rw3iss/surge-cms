@@ -26,6 +26,14 @@ export PATH="$BIN:$PATH"
 say() { printf '\033[1;36m▶ %s\033[0m\n' "$*"; }
 ok() { printf '\033[1;32m✓ %s\033[0m\n' "$*"; }
 
+# The sessions run as this user and Claude Code refuses to skip permission
+# prompts as root — run it as the (non-root) user the CMS runs as.
+if [ "$(id -u)" -eq 0 ] && [ "${ALLOW_ROOT:-}" != "1" ]; then
+    echo "Run this as the user the CMS runs as, not root (it uses sudo only for system packages and linger)." >&2
+    echo "Set ALLOW_ROOT=1 to override." >&2
+    exit 1
+fi
+
 # Install system packages with whichever package manager the box has.
 pkg_install() {
     if command -v dnf >/dev/null 2>&1; then sudo dnf install -y "$@"
@@ -84,12 +92,17 @@ fi
 say "Broker token"
 mkdir -p "$CONF_DIR"
 chmod 700 "$CONF_DIR"
-if [ ! -f "$ENV_FILE" ] || ! grep -q '^CLAUDE_BROKER_TOKEN=' "$ENV_FILE"; then
-    umask 077
-    printf 'CLAUDE_BROKER_TOKEN=%s\nCLAUDE_BROKER_LOG_SESSIONS=1\n' "$(openssl rand -hex 16)" > "$ENV_FILE"
+if [ ! -f "$ENV_FILE" ]; then
+    (umask 077; printf 'CLAUDE_BROKER_TOKEN=%s\nCLAUDE_BROKER_LOG_SESSIONS=1\n' "$(openssl rand -hex 16)" > "$ENV_FILE")
     ok "created $ENV_FILE"
+elif ! grep -q '^CLAUDE_BROKER_TOKEN=' "$ENV_FILE"; then
+    # Keep the file's other settings — only add the missing token (on its own line).
+    if [ -s "$ENV_FILE" ] && [ -n "$(tail -c1 "$ENV_FILE")" ]; then echo >> "$ENV_FILE"; fi
+    printf 'CLAUDE_BROKER_TOKEN=%s\n' "$(openssl rand -hex 16)" >> "$ENV_FILE"
+    ok "added a token to $ENV_FILE"
 else ok "kept $ENV_FILE"; fi
-TOKEN="$(grep -oP '^CLAUDE_BROKER_TOKEN=\K.*' "$ENV_FILE")"
+chmod 600 "$ENV_FILE"
+TOKEN="$(sed -n 's/^CLAUDE_BROKER_TOKEN=//p' "$ENV_FILE" | head -1)"
 
 say "Broker daemon (systemd user service)"
 mkdir -p "$UNIT_DIR"
@@ -102,7 +115,8 @@ After=network.target
 Type=simple
 EnvironmentFile=$ENV_FILE
 Environment=PATH=$BIN:/usr/local/bin:/usr/bin:/bin
-ExecStartPre=/bin/rm -f /tmp/claude-broker.sock
+# '-': a stale socket owned by another user cannot be removed (sticky /tmp) — don't fail the start on it.
+ExecStartPre=-/bin/rm -f /tmp/claude-broker.sock
 ExecStart=$BIN/claude-broker daemon start
 Restart=always
 RestartSec=3

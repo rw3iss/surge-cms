@@ -17,6 +17,7 @@
 import { A, } from '@solidjs/router';
 import type { MembershipPublicTiersResponse, } from '@sitesurge/types';
 import { Component, createEffect, createSignal, on, Show, } from 'solid-js';
+import MembershipNotices from '../components/membership/MembershipNotices';
 import MembershipTierCards, { membershipUrl, } from '../components/membership/MembershipTierCards';
 import SeoHead from '../components/common/seo/SeoHead';
 import { cms, } from '../services/cmsClient';
@@ -58,21 +59,7 @@ const SubscribePage: Component = () => {
                 canonical={`${window.location.origin}/subscribe`}
             />
 
-            <Show when={pending()}>
-                <div class="subscribe-page__required subscribe-page__pending" role="status">
-                    Your application for <strong>{pending()!.tierName}</strong> is waiting for approval. We will email you when it is reviewed —
-                    {pending()!.noCard
-                        ? ' nothing is charged until you choose your billing after approval.'
-                        : pending()!.hasCard
-                        ? ' your card will not be charged until then.'
-                        : <> but first <A href="/profile?tab=membership">add your card to finish your application</A> (it is not charged unless you are approved).</>}
-                </div>
-            </Show>
-            <Show when={offer()}>
-                <div class="subscribe-page__required subscribe-page__pending" role="status">
-                    You're approved for <strong>{offer()!.tierName}</strong>! Choose your billing below and start your membership.
-                </div>
-            </Show>
+            <MembershipNotices pending={pending()} offer={offer()} />
             <Show when={walled()}>
                 <div class="subscribe-page__required" role="status">
                     {auth.access?.lapsed

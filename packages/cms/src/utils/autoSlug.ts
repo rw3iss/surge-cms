@@ -21,3 +21,12 @@ export function followTitleSlug(
     const next = generateSlug(nextTitle,);
     return next === slug ? null : next;
 }
+
+/**
+ * A typed slug reduced to what the server accepts (`a-z`, `0-9`, `-`): lower
+ * case, spaces / underscores → `-`, other characters dropped. Run on BLUR, not
+ * per keystroke — mid-typing `my-` would lose its trailing dash.
+ */
+export function cleanSlug(value: string,): string {
+    return generateSlug(value,);
+}

@@ -41,16 +41,27 @@ async function readJson(res: Response,): Promise<any> {
     return res.json().catch(() => ({}));
 }
 
+/** Every Threads OAuth call gives up after 30 s (a hung socket must not stall the refresh cron). */
+const TIMEOUT_MS = 30_000;
+const timeout = () => AbortSignal.timeout(TIMEOUT_MS,);
+
+/** An error body for the logs, without any token it might carry. */
+function loggable(data: unknown,): unknown {
+    if (!data || typeof data !== 'object') return data;
+    const { access_token: _a, ...rest } = data as Record<string, unknown>;
+    return rest;
+}
+
 /** Short- → long-lived (60 days). */
 export async function exchangeForLongLived(shortToken: string, appSecret: string,): Promise<ThreadsTokenResponse> {
     const res = await fetch(`${THREADS_GRAPH}/access_token?` + new URLSearchParams({
         grant_type: 'th_exchange_token',
         client_secret: appSecret,
         access_token: shortToken,
-    },),);
+    },), { signal: timeout(), },);
     const data = await readJson(res,);
     if (!res.ok || !data?.access_token) {
-        logger.error('Threads long-lived token exchange failed', { error: data, },);
+        logger.error('Threads long-lived token exchange failed', { error: loggable(data,), },);
         throw new Error(errorMessage(data, 'Failed to exchange for a long-lived Threads token',),);
     }
     return data as ThreadsTokenResponse;
@@ -61,7 +72,7 @@ export async function refreshLongLived(token: string,): Promise<ThreadsTokenResp
     const res = await fetch(`${THREADS_GRAPH}/refresh_access_token?` + new URLSearchParams({
         grant_type: 'th_refresh_token',
         access_token: token,
-    },),);
+    },), { signal: timeout(), },);
     const data = await readJson(res,);
     if (!res.ok || !data?.access_token) {
         throw new Error(errorMessage(data, 'Threads token refresh failed',),);
@@ -94,10 +105,11 @@ export class ThreadsOAuthProvider implements OAuthProvider {
                 redirect_uri: this.config.redirectUri,
                 code,
             },),
+            signal: timeout(),
         },);
         const short = await readJson(res,);
         if (!res.ok || !short?.access_token) {
-            logger.error('Threads code exchange failed', { error: short, },);
+            logger.error('Threads code exchange failed', { error: loggable(short,), },);
             throw new Error(errorMessage(short, 'Failed to exchange the Threads authorization code',),);
         }
         const long = await exchangeForLongLived(short.access_token, this.config.appSecret,);
@@ -113,7 +125,7 @@ export class ThreadsOAuthProvider implements OAuthProvider {
         const res = await fetch(`${THREADS_API}/me?` + new URLSearchParams({
             fields: 'id,username,name,threads_profile_picture_url',
             access_token: accessToken,
-        },),);
+        },), { signal: timeout(), },);
         const me = await readJson(res,);
         if (!res.ok || !me?.id) {
             throw new Error(errorMessage(me, 'Failed to read the Threads profile',),);

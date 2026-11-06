@@ -33,7 +33,7 @@ const AdminNotifications: Component = () => {
     // Filters reset to page 1.
     createEffect(on([view, type,], () => setPage(1,), { defer: true, },),);
 
-    const [data, { refetch, },] = createResource(
+    const [data,] = createResource(
         () => ({ unread: view() === 'unread', type: type(), page: page(), v: notificationsVersion(), }),
         (q,): Promise<UserNotificationsResponse> =>
             cms.notifications.mine({ unread: q.unread, type: q.type || undefined, page: q.page, limit: LIMIT, },),
@@ -43,8 +43,8 @@ const AdminNotifications: Component = () => {
     const unread = () => data()?.unread ?? 0;
 
     const after = async () => {
-        await refreshNotifications(); // bumps the version → refetch
-        void refetch();
+        // Forced: bumps the version → the list re-fetches once.
+        await refreshNotifications({ force: true, },);
     };
     const markRead = async (n: UserNotification, e: Event,) => {
         e.stopPropagation();
@@ -125,7 +125,11 @@ const AdminNotifications: Component = () => {
                                     class={`admin-notifications__item ${n.readAt ? '' : 'is-unread'}`}
                                     tabindex="0"
                                     onClick={() => void actOn(n, navigate,)}
-                                    onKeyDown={(e,) => { if (e.key === 'Enter') void actOn(n, navigate,); }}
+                                    onKeyDown={(e,) => {
+                                        if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+                                        e.preventDefault();
+                                        void actOn(n, navigate,);
+                                    }}
                                 >
                                     <span class="admin-notifications__dot" aria-hidden="true" />
                                     <div class="admin-notifications__text">

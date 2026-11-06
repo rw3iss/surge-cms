@@ -449,13 +449,15 @@ export async function registerMember(
 
     const result = await query(
         `INSERT INTO users (email, password_hash, display_name, role, auth_provider, email_verified, verification_token,
-                            first_name, last_name)
-     VALUES ($1, $2, $3, 'member', 'email', $4, $5, $6, $7)
+                            first_name, last_name, verified_at)
+     VALUES ($1, $2, $3, 'member', 'email', $4, $5, $6, $7, CASE WHEN $8::boolean THEN NOW() END)
      RETURNING id, email`,
         [
             email, passwordHash, name, !requireEmailVerification, token,
             // Split so the profile's First/Last name fields open filled.
             splitFullName(name,).firstName || null, splitFullName(name,).lastName || null,
+            // An invite link proved the address: record it as confirmed.
+            Boolean(opts.verified,),
         ],
     );
 
@@ -580,8 +582,14 @@ export function clientIp(
     headers: Record<string, unknown>,
     fallbackIp?: string,
 ): string | undefined {
+    // `req.ip` (passed as fallbackIp) already honours `trust proxy` (1 hop =
+    // nginx, which sets the real client IP behind Cloudflare). The FIRST
+    // X-Forwarded-For entry is whatever the client sent — spoofable, so it
+    // must not drive login rate limits or IP bans. It is only used when Express
+    // gave no address (tests, unusual transports).
+    if (fallbackIp) return fallbackIp;
     const forwarded = headers['x-forwarded-for'] as string | undefined;
-    return forwarded?.split(',',)[0]?.trim() || fallbackIp;
+    return forwarded?.split(',',)[0]?.trim() || undefined;
 }
 
 /** Localhost IPs accepted by the dev autologin gate. */

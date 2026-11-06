@@ -29,6 +29,15 @@ export async function accountRow(userId: string,): Promise<AccountRow | null> {
     return r.rows[0] ?? null;
 }
 
+/** `accountRow` for many users in one query. */
+export async function accountRows(userIds: string[],): Promise<Map<string, AccountRow>> {
+    if (!userIds.length) return new Map();
+    const r = await query<AccountRow>(
+        `SELECT user_id, stripe_account_id, details_submitted, payouts_enabled FROM affiliate_accounts WHERE user_id = ANY($1::uuid[])`, [userIds,],
+    );
+    return new Map(r.rows.map((a,) => [a.user_id, a,],),);
+}
+
 export function statusOf(row: AccountRow | null,): AffiliateStripeStatus {
     return { connected: !!row?.stripe_account_id, detailsSubmitted: !!row?.details_submitted, payoutsEnabled: !!row?.payouts_enabled, };
 }

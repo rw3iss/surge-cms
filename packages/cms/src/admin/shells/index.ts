@@ -23,11 +23,36 @@ export interface AdminShellConfig {
      * Defaults to the nav items' paths.
      */
     paths?: string[];
+    /**
+     * Paths under an allowed prefix that stay CLOSED (prefix match) — e.g.
+     * `/admin/posts/settings` under `/admin/posts`: its form saves with a
+     * staff-only route, so a contributor would only meet a 403 on Save.
+     */
+    deny?: string[];
 }
 
 export const ROLE_SHELLS: Record<string, AdminShellConfig> = {
-    contributor: { nav: ['posts',], dashboard: 'contributor', paths: ['/admin/posts', '/admin/help', '/admin/notifications',], },
+    contributor: {
+        nav: ['posts',],
+        dashboard: 'contributor',
+        paths: ['/admin/posts', '/admin/help', '/admin/notifications',],
+        deny: ['/admin/posts/settings',],
+    },
 };
+
+const under = (path: string, prefix: string,) => path === prefix || path.startsWith(`${prefix}/`,);
+
+/**
+ * May a shell open this admin path? `/admin` and the user's own notifications
+ * always; else an allowed prefix (`paths`, default the nav items' paths) that
+ * no `deny` prefix closes. Trailing slashes and query strings are ignored.
+ */
+export function shellAllowsPath(shell: AdminShellConfig, path: string, navPaths: string[] = [],): boolean {
+    const p = (path.split(/[?#]/,)[0] || '/').replace(/\/+$/, '',) || '/';
+    if (p === '/admin' || p === '/admin/notifications') return true;
+    if ((shell.deny ?? []).some((d,) => under(p, d,),)) return false;
+    return (shell.paths ?? navPaths).some((a,) => under(p, a,),);
+}
 
 /** The shell for a user: null for staff (full admin) and for users without one. */
 export function adminShellFor(user: Pick<User, 'role' | 'extraRoles'> | null | undefined,): AdminShellConfig | null {

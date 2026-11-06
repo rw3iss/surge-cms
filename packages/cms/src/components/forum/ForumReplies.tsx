@@ -2,7 +2,8 @@
  * The replies under one thread card (list mode), loaded when opened: oldest
  * first, compact rows (ForumMessage), "Show more replies" for the next page.
  * The card reloads it after posting (`api.reload`) and marks the new reply
- * so it animates in.
+ * so it animates in; a polled feed that raises the thread's reply count
+ * reloads it too.
  */
 import type { Comment, ForumFeedThread, } from '@sitesurge/types';
 import { Component, createEffect, createSignal, on, Show, } from 'solid-js';
@@ -62,20 +63,30 @@ const ForumReplies: Component<{
     };
     props.onApi?.({ reload, add, },);
 
+    const [loadingMore, setLoadingMore,] = createSignal(false,);
     const more = async () => {
+        if (loadingMore()) return;
         const next = page() + 1;
+        setLoadingMore(true,);
         try {
             const r = await fetchPage(next,);
             setTops(appendPage(tops(), r.data,),);
             setPage(next,);
             setTotalPages(r.meta?.totalPages ?? next,);
+            setError('',);
         } catch (e) {
             setError(errorText(e,),);
+        } finally {
+            setLoadingMore(false,);
         }
     };
 
     // First load + reload for a new viewer (rights and "mine" change).
     createEffect(on(ctx.viewer, () => void reload(),),);
+    // The feed poll raised the reply count while these are open → show the new ones.
+    createEffect(on(() => props.thread.replyCount, (n, prev,) => {
+        if (prev !== undefined && n > prev) void reload();
+    }, { defer: true, },),);
 
     return (
         <div class="forum-replies">
@@ -87,7 +98,9 @@ const ForumReplies: Component<{
                     <ForumMessageList tops={tops()} isFresh={props.isFresh} canReply={props.canReply} onReply={props.onReply} />
                 </Show>
                 <Show when={page() < totalPages()}>
-                    <button type="button" class="forum-link-btn forum-replies__more" onClick={() => void more()}>Show more replies</button>
+                    <button type="button" class="forum-link-btn forum-replies__more" disabled={loadingMore()} onClick={() => void more()}>
+                        {loadingMore() ? 'Loading…' : 'Show more replies'}
+                    </button>
                 </Show>
             </Show>
         </div>

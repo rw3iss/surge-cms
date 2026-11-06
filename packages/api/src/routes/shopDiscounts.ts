@@ -6,11 +6,26 @@
 import type { ShopDiscountCheckBody, ShopDiscountCodeBody, ShopDiscountListQuery, } from '@sitesurge/types';
 import { z, } from 'zod';
 import { defineRoute, reply, } from '../api/defineRoute';
+import { rateLimit, } from '../services/discussions/spam';
 import * as permissions from '../services/permissions';
 import * as discounts from '../services/shop/discounts';
 
 const manage = (user: { id?: string; role?: string; } | undefined,) =>
     permissions.requirePermission({ id: user?.id, role: user?.role, }, 'shop.discounts:manage',);
+
+/**
+ * One code (read / update / delete): `shop.discounts:manage`, or — for an
+ * AFFILIATE code — `affiliates:manage` (Shop → Affiliates edits the codes it
+ * creates; an affiliates-only admin got a 403 on edit/delete before).
+ */
+async function manageCode(user: { id?: string; role?: string; } | undefined, id: string,): Promise<'all' | 'affiliate'> {
+    const subject = { id: user?.id, role: user?.role, };
+    if (await permissions.can(subject, 'shop.discounts:manage',)) return 'all';
+    const code = await discounts.get(id,);
+    if (code.affiliateUserId && await permissions.can(subject, 'affiliates:manage',)) return 'affiliate';
+    await manage(user,); // throws the standard 403
+    return 'all';
+}
 
 const isoDate = z.string().max(40,).refine((v,) => !Number.isNaN(Date.parse(v,),), 'Expected a date',);
 
@@ -47,7 +62,11 @@ export const shopDiscountRoutes = [
         method: 'post', path: '/check', auth: 'optional',
         summary: 'Check a discount code for the caller (valid + a summary, or why not). Totals come from the checkout preview.',
         input: { body: z.object({ code: z.string().trim().min(1,).max(64,), },) satisfies z.ZodType<ShopDiscountCheckBody>, },
-        handler: ({ body, user, },) => discounts.check(body.code, user ?? null,),
+        handler: async ({ body, user, req, },) => {
+            // Without a limit the endpoint lets anyone guess codes one by one.
+            await rateLimit(user?.id ? `discounts:check:u:${user.id}` : `discounts:check:ip:${req.ip ?? 'unknown'}`, 30, 600,);
+            return discounts.check(body.code, user ?? null,);
+        },
     },),
 
     defineRoute({
@@ -66,24 +85,28 @@ export const shopDiscountRoutes = [
         method: 'get', path: '/:id', auth: 'admin',
         summary: 'One discount code.',
         input: { params: idParams, },
-        handler: async ({ params, user, },) => { await manage(user,); return discounts.get(params.id,); },
+        handler: async ({ params, user, },) => { await manageCode(user, params.id,); return discounts.get(params.id,); },
     },),
     defineRoute({
         method: 'get', path: '/:id/redemptions', auth: 'admin',
         summary: 'Paid orders that used a code (newest first).',
         input: { params: idParams, },
-        handler: async ({ params, user, },) => { await manage(user,); return discounts.redemptions(params.id,); },
+        handler: async ({ params, user, },) => { await manageCode(user, params.id,); return discounts.redemptions(params.id,); },
     },),
     defineRoute({
         method: 'put', path: '/:id', auth: 'admin',
         summary: 'Update a discount code (partial).',
         input: { params: idParams, body: discountCodeBody, },
-        handler: async ({ params, body, user, audit, },) => { await manage(user,); return discounts.update(params.id, body, audit(),); },
+        handler: async ({ params, body, user, audit, },) => {
+            // An affiliates-only admin may not turn an affiliate code into a site-wide one.
+            if (await manageCode(user, params.id,) === 'affiliate' && body.affiliateUserId === null) await manage(user,);
+            return discounts.update(params.id, body, audit(),);
+        },
     },),
     defineRoute({
         method: 'delete', path: '/:id', auth: 'admin',
         summary: 'Delete a discount code (soft — orders keep their history).',
         input: { params: idParams, },
-        handler: async ({ params, user, audit, },) => { await manage(user,); await discounts.remove(params.id, audit(),); return { ok: true, }; },
+        handler: async ({ params, user, audit, },) => { await manageCode(user, params.id,); await discounts.remove(params.id, audit(),); return { ok: true, }; },
     },),
 ];

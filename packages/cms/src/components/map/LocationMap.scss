@@ -9,6 +9,7 @@
   background: #e5e7eb;
 
   &--link { cursor: pointer; }
+  &:focus-visible { outline: 2px solid var(--site-primary, #e63946); outline-offset: 2px; }
   .leaflet-control-attribution { font-size: 10px; }
 }
 

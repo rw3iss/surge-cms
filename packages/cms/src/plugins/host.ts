@@ -65,10 +65,14 @@ export interface PluginFormBuilders {
     roles(key: string, roles: Array<{ key: string; label: string; }>): HTMLElement;
 }
 
+/** What a mount function returns: nothing, a teardown, or a promise of either. */
+export type PluginMountResult = void | (() => void) | Promise<void | (() => void)>;
+
 /** A plugin's browser module (default export). */
 export interface PluginClientModule {
-    mountWidget?(el: HTMLElement, host: PluginHost): void | (() => void);
-    mountConfig?(el: HTMLElement, host: PluginHost): void | (() => void);
+    /** May be async (resolve to the teardown); `host.onCleanup` works either way. */
+    mountWidget?(el: HTMLElement, host: PluginHost): PluginMountResult;
+    mountConfig?(el: HTMLElement, host: PluginHost): PluginMountResult;
 }
 
 const moduleCache = new Map<string, Promise<PluginClientModule>>();
@@ -100,6 +104,8 @@ export function buildHost(opts: {
     mountPoint: HTMLElement;
     cleanups: Array<() => void>;
     saveConfig?: (patch: Record<string, unknown>) => Promise<void>;
+    /** True once the mount was torn down: a teardown registered after that runs at once. */
+    isDisposed?: () => boolean;
 }): PluginHost {
     const base = `/api/v1/plugins/${opts.name}`;
     const call = async (method: string, path: string, body?: unknown): Promise<unknown> => {
@@ -133,7 +139,15 @@ export function buildHost(opts: {
             get: (path) => call('GET', path),
             post: (path, b) => call('POST', path, b),
         },
-        onCleanup: (fn) => opts.cleanups.push(fn),
+        onCleanup: (fn) => {
+            // A plugin that finishes an async init after its mount was removed
+            // (user switched, route left) still gets torn down.
+            if (opts.isDisposed?.()) {
+                try { fn(); } catch { /* ignore teardown errors */ }
+                return;
+            }
+            opts.cleanups.push(fn);
+        },
         ui: { form: makeFormBuilders },
         listRoles: async () => {
             try {

@@ -143,6 +143,20 @@ block and `{{ forum() }}`): heading, title links, author + reply count, excerpt;
 mode shows the one thread. Email links are absolute and end with "Join the discussion →"
 (the first thread's category page, else `/forum`). The feature off → nothing.
 
+**Widget behavior (site)** — `components/forum/`:
+
+| Situation | What the visitor sees |
+|---|---|
+| Feed answers 401 / 403 | "Sign in to view the discussion" (signed out) or the UpgradeTout (signed in); live polling stops |
+| Feed fails otherwise (network, 5xx) | "The discussion could not be loaded" + **Try again**; live polling keeps running, and the first good poll replaces the error with the threads |
+| "Load more" / "Load earlier" fails | the rows stay; an inline error under the button, which reads **Try again** |
+| Thread mode, thread missing / hidden / unreadable | "This discussion is not available." (the block's empty text wins; the admin preview says why) |
+| Live updates | every `refreshSeconds` (10–300 s) while the tab is visible and nobody is typing in the widget; thread mode also re-reads the thread every third poll (a lock reaches an open chat); open reply lists reload when the polled reply count grows |
+
+Composer: Enter sends (inline), Shift+Enter is a new line; a character count shows once the
+text passes 90 % of the engine's maximum length. Reply emails (`forum_reply`) name a guest
+replier by their guest name.
+
 ## Member pages
 
 `/members/:handle` — avatar, name, joined date, activity count, and a **Comments** tab

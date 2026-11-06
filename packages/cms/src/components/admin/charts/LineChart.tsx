@@ -18,6 +18,8 @@ interface LineChartProps {
     height?: number;
     format?: (v: number,) => string;
     emptyText?: string;
+    /** What the chart shows ("Instagram — Views"): its accessible name. */
+    label?: string;
 }
 
 const W = 640;
@@ -25,7 +27,11 @@ const PAD = { top: 12, right: 12, bottom: 24, left: 52, };
 
 const dayMs = (d: string,) => Date.parse(`${d}T00:00:00Z`,);
 
-/** A small dependency-free SVG line chart (one series, hover read-out, date markers). */
+/**
+ * A small dependency-free SVG line chart (one series, hover read-out, date markers).
+ * Accessible: the SVG is named with a text summary (range, latest, high, low),
+ * and is focusable — ←/→ (Home/End) step through the days, read out in a live region.
+ */
 const LineChart: Component<LineChartProps> = (props,) => {
     const h = () => props.height ?? 200;
     const fmt = (v: number,) => (props.format ? props.format(v,) : v.toLocaleString());
@@ -56,6 +62,35 @@ const LineChart: Component<LineChartProps> = (props,) => {
         return { xs, x, y, line, area, ticks, markers, minX, maxX, };
     },);
 
+    const summary = createMemo(() => {
+        const pts = props.points;
+        if (!pts.length) return '';
+        const vals = pts.map((p,) => p.value);
+        const last = pts[pts.length - 1];
+        return `${props.label ? `${props.label}: ` : ''}${pts.length} day${pts.length === 1 ? '' : 's'} from ${pts[0].date} to ${last.date}. `
+            + `Latest ${fmt(last.value,)}, high ${fmt(Math.max(...vals,),)}, low ${fmt(Math.min(...vals,),)}.`;
+    },);
+
+    const onKey = (e: KeyboardEvent,) => {
+        const n = props.points.length;
+        if (!n) return;
+        const cur = hover();
+        let next: number | null = cur;
+        if (e.key === 'ArrowRight') next = cur === null ? 0 : Math.min(n - 1, cur + 1,);
+        else if (e.key === 'ArrowLeft') next = cur === null ? n - 1 : Math.max(0, cur - 1,);
+        else if (e.key === 'Home') next = 0;
+        else if (e.key === 'End') next = n - 1;
+        else if (e.key === 'Escape') next = null;
+        else return;
+        e.preventDefault();
+        setHover(next,);
+    };
+    const readout = () => {
+        const i = hover();
+        const p = i === null ? null : props.points[i];
+        return p ? `${p.date}: ${fmt(p.value,)}` : '';
+    };
+
     const onMove = (e: MouseEvent,) => {
         const g = geo();
         if (!g) return;
@@ -83,7 +118,11 @@ const LineChart: Component<LineChartProps> = (props,) => {
                         class="line-chart__svg"
                         onMouseMove={onMove}
                         onMouseLeave={() => setHover(null,)}
+                        onKeyDown={onKey}
+                        onBlur={() => setHover(null,)}
+                        tabIndex={0}
                         role="img"
+                        aria-label={summary()}
                     >
                         <For each={g().ticks}>
                             {(t,) => (
@@ -108,7 +147,7 @@ const LineChart: Component<LineChartProps> = (props,) => {
                         <path class="line-chart__line" d={g().line} />
                         <Show when={hover() !== null}>
                             {(() => {
-                                const i = hover()!;
+                                const i = Math.min(hover()!, props.points.length - 1,);
                                 const p = props.points[i];
                                 const cx = g().x(g().xs[i],);
                                 const cy = g().y(p.value,);
@@ -127,6 +166,7 @@ const LineChart: Component<LineChartProps> = (props,) => {
                     </svg>
                 )}
             </Show>
+            <span class="line-chart__sr" aria-live="polite">{readout()}</span>
             <Show when={geo()?.markers.length}>
                 <ul class="line-chart__notes">
                     <For each={geo()!.markers}>

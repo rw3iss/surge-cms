@@ -25,11 +25,11 @@ const UserApplicationsPanel: Component<UserApplicationsPanelProps> = (props,) =>
     const [open, setOpen,] = createSignal<string | null>(null,);
 
     return (
-        <Show when={(apps() ?? []).length > 0}>
+        <Show when={(apps.latest ?? []).length > 0}>
             <div class="user-detail__panel user-applications">
                 <h2 class="user-detail__panel-title">Membership application</h2>
                 <ul class="user-applications__list">
-                    <For each={apps()}>
+                    <For each={apps.latest}>
                         {(a,) => (
                             <li class="user-applications__item">
                                 <strong>{a.tierName}</strong>

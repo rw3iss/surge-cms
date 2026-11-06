@@ -45,10 +45,12 @@ export async function status(): Promise<{ provider: AiProviderStatus; raw: Actio
     const raw = await call('status',);
     const pools = raw.ok ? (raw.pools as AiPool[]) : [];
     const attached = pools.reduce((n, p,) => n + p.attached, 0,);
+    const ready = pools.reduce((n, p,) => n + (p.ready ?? p.attached), 0,);
     let reason: string | null = null;
     if (!raw.ok) reason = raw.error ?? 'Broker unavailable';
     else if (!pools.length) reason = 'No pools are configured in the claude-broker plugin';
     else if (!attached) reason = 'No session is attached in any pool';
+    else if (!ready) reason = 'Sessions are attached, but none can take a job now (usage limit, signed out or restarting)';
     return { provider: { key: 'broker', label: 'Claude broker (plugin)', available: !reason, reason, }, raw, };
 }
 
@@ -93,7 +95,7 @@ export async function pools(): Promise<AiPool[]> {
     const cfg = await call('pools',);
     if (!cfg.ok) throw new AppError(r.status && r.status >= 400 ? r.status : 502, 'AI_BROKER_ERROR', r.error ?? 'Broker unavailable',);
     return (cfg.pools as Array<{ name: string; count: number; description: string; }>).map((p,) => ({
-        name: p.name, expected: p.count, description: p.description, attached: 0, busy: 0, idle: 0, healthy: false, sessions: [],
+        name: p.name, expected: p.count, description: p.description, attached: 0, ready: 0, busy: 0, idle: 0, healthy: false, sessions: [],
     }));
 }
 

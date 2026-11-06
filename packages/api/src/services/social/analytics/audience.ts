@@ -89,6 +89,34 @@ async function splits(platform: string, from: string, to: string,): Promise<Soci
     };
 }
 
+/**
+ * Splits written as a SNAPSHOT on each collection day (TikTok traffic sources
+ * and viewer types: lifetime per-video splits) — read the newest day ≤ `to`,
+ * never summed across days.
+ */
+async function snapshotSplits(platform: string, to: string,): Promise<{ trafficSources: AudienceBucket[]; viewerTypes: AudienceBucket[]; viewerFollow: AudienceBucket[]; }> {
+    const r = await query<{ metric: string; dimension: string; value: string; }>(
+        `SELECT d.metric, d.dimension, d.value
+           FROM social_account_daily d
+           JOIN (SELECT metric, MAX(date) AS date FROM social_account_daily
+                  WHERE platform = $1 AND metric IN ('trafficSources', 'viewerTypes') AND date <= $2
+                  GROUP BY metric) l ON l.metric = d.metric AND l.date = d.date
+          WHERE d.platform = $1`,
+        [platform, to,],
+    );
+    const rows = (metric: string, prefix: string,) => r.rows
+        .filter((x,) => x.metric === metric && x.dimension.startsWith(`${prefix}:`,))
+        .map((x,) => ({ key: x.dimension.slice(prefix.length + 1,), value: Number(x.value,), }));
+    const viewer = rows('viewerTypes', 'viewer',);
+    // viewer:* holds TWO splits (new vs returning, followers vs not) — each needs its own shares.
+    const of = (keys: Record<string, string>,) => toBuckets(viewer.filter((v,) => keys[v.key.toUpperCase()],).map((v,) => ({ key: keys[v.key.toUpperCase()], value: v.value, })),);
+    return {
+        trafficSources: toBuckets(rows('trafficSources', 'source',), { limit: 12, },),
+        viewerTypes: of({ NEW_VIEWER: 'NEW', RETURN_VIEWER: 'RETURNING', },),
+        viewerFollow: of({ FOLLOWER_PERCENT: 'FOLLOWER', NON_FOLLOWER_PERCENT: 'NON_FOLLOWER', },),
+    };
+}
+
 async function onlineHours(platform: string, from: string, to: string,): Promise<SocialAudience['onlineHours']> {
     const r = await query<{ dimension: string; avg: string; }>(
         `SELECT dimension, AVG(value) AS avg FROM social_account_daily
@@ -128,7 +156,9 @@ export function contentKinds(rows: PostRow[],): SocialAudience['contentKinds'] {
     const groups = new Map<string, PostRow[]>();
     for (const r of rows) {
         const k = r.media_kind ?? 'post';
-        groups.set(k, [...(groups.get(k,) ?? []), r,],);
+        const list = groups.get(k,);
+        if (list) list.push(r,);
+        else groups.set(k, [r,],);
     }
     return [...groups.entries(),].map(([kind, list,],) => {
         const withViews = list.filter((r,) => r.views !== null);
@@ -139,7 +169,13 @@ export function contentKinds(rows: PostRow[],): SocialAudience['contentKinds'] {
 
 export function hashtagStats(rows: PostRow[],): SocialAudience['hashtags'] {
     const tags = new Map<string, PostRow[]>();
-    for (const r of rows) for (const t of hashtagsOf(r.content,)) tags.set(t, [...(tags.get(t,) ?? []), r,],);
+    for (const r of rows) {
+        for (const t of hashtagsOf(r.content,)) {
+            const list = tags.get(t,);
+            if (list) list.push(r,);
+            else tags.set(t, [r,],);
+        }
+    }
     return [...tags.entries(),].map(([tag, list,],) => {
         const withViews = list.filter((r,) => r.views !== null);
         return {
@@ -188,9 +224,10 @@ async function benchmarks(platform: string, from: string, to: string,): Promise<
 
 export async function audience(platform: string, range: { from?: string; to?: string; },): Promise<SocialAudience> {
     const { from, to, } = resolveRange(range.from, range.to,);
-    const [demo, br, hours, posts, peers, conn,] = await Promise.all([
+    const [demo, br, snap, hours, posts, peers, conn,] = await Promise.all([
         demographics(platform, to,),
         splits(platform, from, to,),
+        snapshotSplits(platform, to,),
         onlineHours(platform, from, to,),
         postsInPeriod(platform, from, to,),
         benchmarks(platform, from, to,),
@@ -211,7 +248,13 @@ export async function audience(platform: string, range: { from?: string; to?: st
         asOf: demo.asOf,
         demographics: demo.result,
         onlineHours: hours,
-        breakdowns: br,
+        breakdowns: {
+            ...br,
+            // TikTok has no daily follower/non-follower view split; its per-video viewer split stands in.
+            viewsByFollow: br.viewsByFollow.length ? br.viewsByFollow : snap.viewerFollow,
+            trafficSources: snap.trafficSources,
+            viewerTypes: snap.viewerTypes,
+        },
         contentKinds: contentKinds(posts,),
         hashtags: hashtagStats(posts.filter((p,) => p.media_kind !== 'story'),),
         stories: { count: storyRows.length, views: sum(storyRows, 'views',), reach: sum(storyRows, 'reach',), replies: sum(storyRows, 'comments',), },

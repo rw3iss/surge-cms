@@ -262,11 +262,11 @@ export default {
                 const badge = el('span', {
                     className: 'form-help-muted',
                     style: { minWidth: '11rem', alignSelf: 'center', color: st ? (st.healthy ? '#15803d' : '#b45309') : '' },
-                    text: st ? `${st.attached}/${st.expected} attached · ${st.busy} busy` : '—',
+                    text: st ? `${st.ready ?? st.attached}/${st.expected} ready${st.attached !== (st.ready ?? st.attached) ? ` (${st.attached} attached)` : ''} · ${st.busy} busy` : '—',
                 });
                 poolList.appendChild(el('div', { className: 'admin-form-row', style: { alignItems: 'flex-start', gap: '0.5rem' } },
                     commitInput(p.name, (v) => { p.name = String(v).trim(); renderDefault(); renderPools(); }, { placeholder: 'name (label)', width: '12rem' }),
-                    commitInput(p.count, (v) => { p.count = Math.max(1, Math.round(v) || 1); renderPools(); }, { type: 'number', width: '5rem' }),
+                    commitInput(p.count, (v) => { p.count = Math.max(1, Math.min(16, Math.round(v) || 1)); renderPools(); }, { type: 'number', width: '5rem' }),
                     commitInput(p.description, (v) => { p.description = v; }, { placeholder: 'What this pool is for' }),
                     badge,
                     el('button', { className: 'btn btn-secondary', type: 'button', text: 'Remove', onclick: () => { cfg.pools.splice(i, 1); renderDefault(); renderPools(); } })));
@@ -325,7 +325,9 @@ export default {
             liveBody.appendChild(el('p', { text: `Broker ${live.broker.version || ''} · ${live.broker.sessionCount} session(s) attached.` }));
             const ul = el('ul', { style: { margin: '0.25rem 0 0', paddingLeft: '1.2rem' } });
             for (const p of live.pools) {
-                ul.appendChild(el('li', { text: `${p.name}: ${p.attached}/${p.expected} attached, ${p.idle} idle, ${p.busy} busy${p.sessions.length ? ' — ' + p.sessions.map((s) => s.label).join(', ') : ''}` }));
+                const ready = p.ready ?? p.attached;
+                const names = p.sessions.map((s) => `${s.label}${s.healthy === false ? ` (${s.state || 'unavailable'})` : ''}`);
+                ul.appendChild(el('li', { text: `${p.name}: ${ready}/${p.expected} ready${p.attached !== ready ? ` (${p.attached} attached)` : ''}, ${p.idle} idle, ${p.busy} busy${names.length ? ' — ' + names.join(', ') : ''}` }));
             }
             if (live.pools.length) liveBody.appendChild(ul);
             if (live.unpooled && live.unpooled.length) {
@@ -352,19 +354,49 @@ export default {
         }
         const testText = el('textarea', { className: 'input', rows: 3, value: 'Reply with the single word: pong' });
         const testOut = el('pre', { style: { whiteSpace: 'pre-wrap', maxHeight: '20rem', overflow: 'auto', fontSize: '0.8rem' } });
+        // Each request waits ≤ 50 s (a proxy such as nginx closes an idle upstream at 60 s);
+        // a job still running is then polled with the `wait` action until it settles.
+        const TEST_WAIT_SEC = 50;
+        let testJobId = null;
+        let testCancelled = false;
+        const showJob = (j) => {
+            testOut.textContent = `${j.status}${j.timedOut ? ' (still running…)' : ''} · ${j.sessionLabel || j.sessionId || ''}\n\n${j.text || j.error || ''}`;
+        };
+        const cancelBtn = el('button', {
+            className: 'btn btn-secondary', type: 'button', text: 'Cancel', style: { display: 'none' },
+            onclick: async () => {
+                testCancelled = true;
+                if (testJobId) {
+                    const r = await action(host, 'cancel', { id: testJobId });
+                    testOut.textContent = r.ok ? 'Cancelled.' : `Could not cancel: ${r.error}`;
+                }
+            },
+        });
         const testBtn = el('button', {
             className: 'btn btn-primary', type: 'button', text: 'Send',
             onclick: async () => {
-                testBtn.disabled = true; testOut.textContent = 'Waiting for the answer…';
-                const r = await action(host, 'submit', { prompt: testText.value, pool: testPool.value || undefined, wait: true, kind: 'TEST' });
+                testBtn.disabled = true; testCancelled = false; testJobId = null;
+                testOut.textContent = 'Waiting for the answer…';
+                // Submit without waiting so the job id (and Cancel) is there at once, then wait.
+                let r = await action(host, 'submit', { prompt: testText.value, pool: testPool.value || undefined, wait: false, kind: 'TEST' });
+                if (r.ok) r.job.timedOut = true;
+                cancelBtn.style.display = '';
+                for (let i = 0; i < 12 && r.ok && r.job.timedOut && !testCancelled; i++) {
+                    testJobId = r.job.id;
+                    showJob(r.job);
+                    const label = r.job.sessionLabel;
+                    r = await action(host, 'wait', { id: r.job.id, timeoutSec: TEST_WAIT_SEC });
+                    if (r.ok && !r.job.sessionLabel) r.job.sessionLabel = label;
+                }
+                cancelBtn.style.display = 'none';
                 testBtn.disabled = false;
-                testOut.textContent = r.ok
-                    ? `${r.job.status}${r.job.timedOut ? ' (still running — timed out waiting)' : ''} · ${r.job.sessionLabel || r.job.sessionId || ''}\n\n${r.job.text || r.job.error || ''}`
-                    : `Error: ${r.error}`;
+                if (testCancelled) return;
+                if (r.ok) showJob(r.job);
+                else testOut.textContent = `Error: ${r.error}`;
             },
         });
         testSec.appendChild(el('div', { className: 'admin-form-row' }, group('Pool', testPool), group('Prompt', testText)));
-        testSec.appendChild(el('div', { className: 'form-actions' }, testBtn));
+        testSec.appendChild(el('div', { className: 'form-actions' }, testBtn, cancelBtn));
         testSec.appendChild(testOut);
         root.appendChild(testSec);
 

@@ -90,3 +90,25 @@ describe('empty states', () => {
         expect(audienceHasData({ ...empty, onlineHours: [{ hour: 3, value: 4, },], },),).toBe(true,);
     },);
 },);
+
+describe('TikTok discovery labels + data check', () => {
+    it('labels traffic sources and viewer types', async () => {
+        const { sourceLabel, viewerLabel, } = await import('./audienceFormat');
+        expect(sourceLabel('For You',),).toBe('For You feed',);
+        expect(sourceLabel('PERSONAL_PROFILE',),).toBe('Personal profile',);
+        expect(viewerLabel('NEW',),).toBe('New viewers',);
+        expect(viewerLabel('RETURNING',),).toBe('Returning viewers',);
+    },);
+    it('counts Facebook / TikTok-only splits as data', async () => {
+        const { audienceHasData, } = await import('./audienceFormat');
+        const empty = { viewsByType: [], reachByType: [], interactionsByType: [], viewsByFollow: [], reachByFollow: [], };
+        const base = {
+            platform: 'tiktok', from: '2026-11-01', to: '2026-11-06', asOf: null,
+            demographics: { followers: null, engaged: null, reached: null, }, onlineHours: [], contentKinds: [], hashtags: [],
+            stories: { count: 0, views: null, reach: null, replies: null, }, benchmarks: [], capabilities: null,
+        };
+        expect(audienceHasData({ ...base, breakdowns: empty, },),).toBe(false,);
+        expect(audienceHasData({ ...base, breakdowns: { ...empty, trafficSources: [{ key: 'search', value: 3, share: 1, },], }, },),).toBe(true,);
+        expect(audienceHasData({ ...base, breakdowns: { ...empty, reactionsByType: [{ key: 'like', value: 3, share: 1, },], }, },),).toBe(true,);
+    },);
+},);

@@ -4,7 +4,7 @@
  */
 import { A, } from '@solidjs/router';
 import type { ShopDiscountCode, } from '@sitesurge/types';
-import { Component, createResource, createSignal, Show, } from 'solid-js';
+import { Component, createResource, createSignal, onCleanup, Show, } from 'solid-js';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
 import LoadingState from '../../../components/admin/common/LoadingState';
 import DiscountCodeModal from '../../../components/admin/discounts/DiscountCodeModal';
@@ -15,7 +15,21 @@ import ShopGuard from './ShopGuard';
 
 const ShopDiscountsInner: Component = () => {
     const [search, setSearch,] = createSignal('',);
-    const [codes, { refetch, },] = createResource(search, (q,) => cms.shop.discounts.list({ type: 'site', search: q || undefined, },),);
+    const [loadError, setLoadError,] = createSignal('',);
+    const [codes, { refetch, },] = createResource(search, (q,) =>
+        cms.shop.discounts.list({ type: 'site', search: q || undefined, },).then((r,) => { setLoadError('',); return r; },).catch((e,) => {
+            setLoadError(e instanceof Error ? e.message : 'The discount codes could not be loaded.',);
+            return [];
+        },)
+    );
+    // Debounced, and read through `.latest` below: a new search must not suspend
+    // the page (which blanked it and took the focus out of this box per keystroke).
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onSearch = (v: string,) => {
+        clearTimeout(timer,);
+        timer = setTimeout(() => setSearch(v.trim(),), 250,);
+    };
+    onCleanup(() => clearTimeout(timer,),);
     const [editing, setEditing,] = createSignal<ShopDiscountCode | null | undefined>(undefined,);
 
     return (
@@ -46,15 +60,17 @@ const ShopDiscountsInner: Component = () => {
                     placeholder="Search codes"
                     aria-label="Search codes"
                     // Search-as-you-type box (the one documented exception to commit-on-blur).
-                    onInput={(e,) => setSearch(e.currentTarget.value.trim(),)}
+                    onInput={(e,) => onSearch(e.currentTarget.value,)}
                 />
-                <Show when={!codes.loading || codes()} fallback={<LoadingState />}>
+                <Show when={!loadError()} fallback={<p class="alert alert--error" role="alert">{loadError()}</p>}>
+                <Show when={codes.state !== 'unresolved' && codes.state !== 'pending'} fallback={<LoadingState />}>
                     <DiscountCodeTable
-                        codes={codes() ?? []}
+                        codes={codes.latest ?? []}
                         onEdit={(c,) => setEditing(c,)}
                         onChanged={() => void refetch()}
-                        emptyText="No discount codes yet — create one with + New code."
+                        emptyText={search() ? 'No codes match this search.' : 'No discount codes yet — create one with + New code.'}
                     />
+                </Show>
                 </Show>
             </section>
 

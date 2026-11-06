@@ -136,11 +136,17 @@ export async function deleteRole(key: string, ctx: AuditContext,): Promise<void>
     if ((existing.userCount ?? 0) > 0) throw new ConflictError(`${existing.userCount} user(s) have this role (main or additional) — move them to another role first.`,);
     const used = await query(`SELECT name FROM subscription_plans WHERE role = $1`, [key,],);
     if (used.rows.length) throw new ConflictError(`The "${used.rows[0].name}" membership level gives this role — change it first.`,);
+    // A pending invite would otherwise create an account carrying a role that no longer exists.
+    const invites = await query<{ n: number; }>(
+        `SELECT COUNT(*)::int AS n FROM user_invites WHERE $1 = ANY(roles) AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > NOW()`, [key,],
+    );
+    if ((invites.rows[0]?.n ?? 0) > 0) throw new ConflictError(`${invites.rows[0]!.n} pending invite(s) give this role — revoke them first (Users → Invites).`,);
     await transaction(async (c,) => {
         await c.query(`DELETE FROM permission_grants WHERE subject_type = 'role' AND subject_id = $1`, [key,],);
         await c.query(`UPDATE roles SET base_role = 'member' WHERE base_role = $1`, [key,],);
         await c.query(`DELETE FROM roles WHERE key = $1`, [key,],);
     },);
+    invalidateLoginRoutes();
     invalidateRoles();
     invalidatePermissionCache();
     await logAudit({ userId: ctx.userId, action: 'delete', entityType: 'role', entityId: key, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
@@ -238,6 +244,23 @@ async function stripePriceFields(priceId: string,): Promise<{ productId: string;
     };
 }
 
+/**
+ * Turning "Add its role only" on or off changes what the level IS (a program
+ * vs a membership). Refused while it has members or open applications: their
+ * subscriptions / pending rows were made under the other rules (a program is
+ * never billed; applications record `program` for the one-pending indexes).
+ */
+async function assertRoleOnlySwitchable(client: { query: typeof query; }, tierId: string, roleOnly: boolean,): Promise<void> {
+    const r = await client.query<{ subs: number; apps: number; }>(
+        `SELECT (SELECT COUNT(*)::int FROM subscriptions WHERE plan_id = $1 AND status = ANY($2)) AS subs,
+                (SELECT COUNT(*)::int FROM membership_applications WHERE plan_id = $1 AND (status = 'pending' OR (status = 'approved' AND activated_at IS NULL))) AS apps`,
+        [tierId, ENTITLED_STATUSES,],
+    );
+    const { subs = 0, apps = 0, } = r.rows[0] ?? {};
+    if (roleOnly && subs > 0) throw new ConflictError(`${subs} member(s) are on this level — it cannot become a program ("Add its role only") while it has members.`,);
+    if (apps > 0) throw new ConflictError(`${apps} application(s) for this level are open — decide them before switching "Add its role only".`,);
+}
+
 async function setTierPermissions(client: { query: typeof query; }, tierId: string, keys: string[], userId: string | null,): Promise<void> {
     await client.query(`DELETE FROM permission_grants WHERE subject_type = 'plan' AND subject_id = $1`, [tierId,],);
     for (const key of [...new Set(keys,),]) {
@@ -329,9 +352,10 @@ export async function saveTier(id: string | null, body: SubscriptionTierBody, ct
             );
             tid = String(r.rows[0].id,);
         } else {
-            const cur = await c.query(`SELECT is_free FROM subscription_plans WHERE id = $1`, [tid,],);
+            const cur = await c.query(`SELECT is_free, COALESCE(role_only, false) AS role_only FROM subscription_plans WHERE id = $1`, [tid,],);
             if (!cur.rows[0]) throw new NotFoundError('Membership',);
             if (cur.rows[0].is_free && body.stripePriceId) throw new ValidationError('The free tier has no Stripe price.',);
+            if (body.roleOnly !== undefined && body.roleOnly !== cur.rows[0].role_only) await assertRoleOnlySwitchable(c as never, tid, body.roleOnly,);
             await c.query(
                 `UPDATE subscription_plans SET
                     slug = COALESCE($2, slug), name = COALESCE($3, name),

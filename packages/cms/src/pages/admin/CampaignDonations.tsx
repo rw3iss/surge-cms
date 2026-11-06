@@ -169,8 +169,8 @@ const CampaignDonations: Component<{ campaignId: string; campaignTitle?: string;
 
                     <Show when={meta()}>
                         <Pagination
-                            page={meta()!.page}
-                            totalPages={meta()!.totalPages}
+                            page={meta()!.page ?? 1}
+                            totalPages={meta()!.totalPages ?? 1}
                             total={meta()!.total}
                             limit={meta()!.limit}
                             onPageChange={setPage}

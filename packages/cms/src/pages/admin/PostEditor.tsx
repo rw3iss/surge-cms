@@ -38,7 +38,7 @@ import type { Contribution, Post, } from '@sitesurge/types';
 import ChangePayoutModal from '../../components/admin/contributions/ChangePayoutModal';
 import { centsToDollarsInput, formatMoney, parseDollars, } from '../../components/admin/contributions/money';
 import '../../components/admin/contributions/contributions.scss';
-import { followTitleSlug, } from '../../utils/autoSlug';
+import { cleanSlug, followTitleSlug, } from '../../utils/autoSlug';
 
 const AdminPostEditor: Component = () => {
     const auth = useAuth();
@@ -353,7 +353,11 @@ const AdminPostEditor: Component = () => {
             seedNewPost();
             return;
         }
-        const d = draft.data as any;
+        applyDraft(draft.data as Record<string, any>,);
+    },);
+
+    /** Put a localStorage draft's fields + blocks over the editor state. */
+    const applyDraft = (d: Record<string, any>,) => {
         setTitle(d.title || '',);
         setSlug(d.slug || '',);
         setExcerpt(d.excerpt || '',);
@@ -379,7 +383,7 @@ const AdminPostEditor: Component = () => {
         setPostType(draftDef.key,);
         setTypeSettings({ ...(draftDef.settingsDefaults ?? {}), ...(d.typeSettings || {}), },);
         editor.setBlocks(d.blocks || [],);
-    },);
+    };
 
     // ─── Hydrate signals from the loaded post ───
     createEffect(() => {
@@ -434,6 +438,28 @@ const AdminPostEditor: Component = () => {
             } as BlockData));
             editor.setBlocks(converted,);
             editor.setSavedBlocks(structuredClone(converted,),);
+        }
+
+        // Draft restore (same rule as the page editor): a local draft NEWER
+        // than the server copy holds unsaved edits from before a reload or a
+        // failed save — put it back. An older one is stale. Without this a
+        // post's draft was written but never read, so Revert showed for edits
+        // that a reload had already dropped.
+        const draft = editor.autoSave.getDraft();
+        if (draft) {
+            const serverUpdated = new Date((p as any).updatedAt || 0,).getTime();
+            if (draft.timestamp > serverUpdated + 1000) {
+                untrack(() => applyDraft(draft.data as Record<string, any>,),);
+                // A live show's type settings are partly written by the server
+                // while it runs (recordings, provider input) — keep the server's.
+                if (loadedDef.editor === 'live' && getPostType((draft.data as any)?.postType || DEFAULT_POST_TYPE,).editor === 'live') {
+                    setTypeSettings({ ...(loadedDef.settingsDefaults ?? {}), ...(p.typeSettings || {}), },);
+                }
+                editor.markDirty();
+                toast.info('Restored your unsaved draft for this post.',);
+            } else {
+                editor.autoSave.clear();
+            }
         }
     },);
 
@@ -526,6 +552,11 @@ const AdminPostEditor: Component = () => {
                             type="text"
                             value={slug()}
                             onInput={(e,) => { setSlug(e.currentTarget.value,); editor.markDirty(); }}
+                            // Same characters the server accepts (a-z, 0-9, -).
+                            onBlur={(e,) => {
+                                const clean = cleanSlug(e.currentTarget.value,);
+                                if (clean !== slug()) setSlug(clean,);
+                            }}
                             placeholder="post-slug"
                         />
                         <small class="form-help">URL: /posts/{slug() || 'post-slug'}</small>

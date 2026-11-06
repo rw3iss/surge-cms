@@ -18,7 +18,7 @@ import { cms, } from '../../../services/cmsClient';
 import { CommitInput, FormField, } from '../../../components/admin/forms';
 import Toggle from '../../../components/admin/common/Toggle';
 import NotificationTypeCard, {
-    type NotificationTypeDraft, phoneListError, splitList,
+    emailListError, type NotificationTypeDraft, phoneListError, splitList,
 } from '../../../components/admin/notifications/NotificationTypeCard';
 import SmsProviderSection from '../../../components/admin/notifications/SmsProviderSection';
 import { isFeatureEnabled, } from '../../../stores/siteSettings';
@@ -56,7 +56,10 @@ const fromDraft = (d: NotificationTypeDraft,): NotificationTypeConfig => ({
 const NotificationsPanel: Component = () => {
     const [drafts, setDrafts,] = createStore<Record<string, NotificationTypeDraft>>({},);
     const [stored, setStored,] = createSignal<NotificationSettings>({},);
-    const [options, setOptions,] = createStore({ inAppEnabled: false, retentionDays: 30, },);
+    // Server defaults (services/notifications/options.ts) until the stored options load.
+    const [options, setOptions,] = createStore({ inAppEnabled: false, retentionDays: 90, },);
+    /** False when the options could not be read — Save then leaves them alone instead of writing the defaults over them. */
+    const [optionsLoaded, setOptionsLoaded,] = createSignal(false,);
     const [smsConfigured, setSmsConfigured,] = createSignal(false,);
     const [loading, setLoading,] = createSignal(true,);
     const [saving, setSaving,] = createSignal(false,);
@@ -74,7 +77,10 @@ const NotificationsPanel: Component = () => {
             const next: Record<string, NotificationTypeDraft> = {};
             for (const t of NOTIFICATION_TYPES) next[t.key] = toDraft(st[t.key],);
             setDrafts(next,);
-            if (o) setOptions({ inAppEnabled: !!o.inAppEnabled, retentionDays: o.retentionDays ?? 30, },);
+            if (o) {
+                setOptions({ inAppEnabled: !!o.inAppEnabled, retentionDays: o.retentionDays ?? 90, },);
+                setOptionsLoaded(true,);
+            }
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to load notification settings',);
         } finally {
@@ -93,10 +99,11 @@ const NotificationsPanel: Component = () => {
     const handleSave = async () => {
         setError('',);
         setSuccess(false,);
-        // Refuse bad phone numbers on an enabled SMS channel before anything is written.
+        // Refuse bad addresses on an enabled channel before anything is written.
         for (const t of shownTypes()) {
             const d = drafts[t.key];
-            const bad = d?.sms.enabled ? phoneListError(d.sms.addresses,) : null;
+            const bad = (d?.email.enabled ? emailListError(d.email.addresses,) : null)
+                ?? (d?.sms.enabled ? phoneListError(d.sms.addresses,) : null);
             if (bad) {
                 setError(`${t.label}: ${bad}`,);
                 return;
@@ -110,11 +117,13 @@ const NotificationsPanel: Component = () => {
             }
             await cms.settings.update({ notifications, } as any,);
             setStored(notifications,);
-            const o = await cms.notifications.setOptions({
-                inAppEnabled: options.inAppEnabled,
-                retentionDays: options.retentionDays,
-            },);
-            setOptions({ inAppEnabled: !!o.inAppEnabled, retentionDays: o.retentionDays ?? options.retentionDays, },);
+            if (optionsLoaded()) {
+                const o = await cms.notifications.setOptions({
+                    inAppEnabled: options.inAppEnabled,
+                    retentionDays: options.retentionDays,
+                },);
+                setOptions({ inAppEnabled: !!o.inAppEnabled, retentionDays: o.retentionDays ?? options.retentionDays, },);
+            }
             setSuccess(true,);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to save notification settings',);

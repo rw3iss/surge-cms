@@ -8,7 +8,7 @@
 | **Additional roles** | `users.extra_roles` | an admin (User detail → Additional roles) or an **invite** | **no** |
 
 So a person can pay for **Membership** (main role `subscriber`) and be an
-**Ambassador** (additional role) at the same time; cancelling the membership
+**Affiliate** (additional role) at the same time; cancelling the membership
 moves the main role back to `member` and keeps `affiliate`.
 
 Permissions combine both: the main role's chain first, then each additional
@@ -27,7 +27,7 @@ in when they have a qualifying membership **or** any of these roles (main or
 additional) — `subscriptionAccess.hasAccessRole`, `access.viaRole`.
 
 Recommended for affiliates: keep the minimum membership at the paid
-level ("Membership or higher") and tick **Ambassador** here. Ambassadors then
+level ("Membership or higher") and switch on **Affiliate** here. Affiliates then
 sign in without paying; everyone else still needs a membership; an affiliate
 who also subscribes simply has both.
 
@@ -37,7 +37,7 @@ plus whatever you grant the `affiliate` role.
 
 ## Invites
 
-Users → **Invite**: email, optional name, roles (default Ambassador).
+Users → **Invite**: email, optional name, roles (default Affiliate).
 
 - The address **already has an account** → the roles are added to it now, and
   the `user_role_added` email tells them.
@@ -52,6 +52,11 @@ Users → **Invite**: email, optional name, roles (default Ambassador).
   Accepting CLAIMS the invite first (one conditional UPDATE), so a double-submit
   cannot create two accounts with the roles; if the account cannot be created
   (e.g. the email is taken) the invite is given back.
+
+A role cannot be deleted while users hold it (main or additional), a level gives it, or
+a pending invite would grant it — otherwise accepting the invite would create an account
+carrying a role that no longer exists. Deleting or saving a role refreshes the sign-in
+routes at once on that process (others within 30 s).
 
 Both emails are editable in Users → Settings → Email templates
 ("Account invite", "Role added"). Permission: `users:invite` (admins).

@@ -28,7 +28,7 @@ reviews before they go live.
 ## The reviewer's flow
 
 - The **Posts** sidebar item shows a badge with the number of posts waiting for review; the Posts list has a **Waiting for review** filter.
-- Opening such a post shows a **Waiting for review** box: an optional note, **Return to author**, **Approve & publish**. Needs `posts:publish` as a plain allow (an approval-mode grant cannot approve).
+- Opening such a post shows a **Waiting for review** box: an optional note, **Return to author**, **Approve & publish**. Needs `posts:publish` as a plain allow (an approval-mode grant cannot approve). A review is CLAIMED per submission (`reviewed_at` after `submitted_at`), so two reviewers cannot both act on the same submission; a failed review releases the claim (and a claim older than 2 minutes on a still-pending post is treated as failed).
 
 ## Routes opened to non-staff (auth tier `userOrKey`)
 

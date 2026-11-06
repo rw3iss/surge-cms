@@ -1,9 +1,9 @@
-import { describe, expect, it, vi, } from 'vitest';
+import { afterEach, describe, expect, it, vi, } from 'vitest';
 
 vi.mock('../../../../db', () => ({ query: vi.fn(), transaction: vi.fn(), }),);
 
 import { getCollector, } from '../registry';
-import './threads';
+import { isThreadsTokenError, } from './threads';
 import {
     dayTotals,
     endTimeToDay,
@@ -104,5 +104,27 @@ describe('threads collector status', () => {
         expect((await c().status({ accessToken: 't', threadsUserId: '1', tokenExpiresAt: '2000-01-01T00:00:00Z', }, true,)).state,).toBe('off',);
         expect((await c().status({ accessToken: 't', threadsUserId: '1', }, true,)).state,).toBe('ready',);
         expect((await c().status({ accessToken: 't', threadsUserId: '1', oauthError: 'x', }, true,)).state,).toBe('partial',);
+    },);
+},);
+
+describe('threads collector errors', () => {
+    afterEach(() => vi.unstubAllGlobals());
+    const ctx = () => ({ today: '2026-11-06', posts: [], credentials: { accessToken: 'tok-secret-123', threadsUserId: '1', }, settings: {}, warn: vi.fn(), });
+
+    it('classifies token errors', () => {
+        expect(isThreadsTokenError(Object.assign(new Error('x',), { code: 190, },),),).toBe(true,);
+        expect(isThreadsTokenError(Object.assign(new Error('x',), { status: 400, code: 100, },),),).toBe(false,);
+    },);
+
+    it('an expired token stops the run with the fix, without echoing the token', async () => {
+        const fn = vi.fn(async () => ({
+            ok: false, status: 400, json: async () => ({ error: { code: 190, message: 'Session expired for tok-secret-123', }, }),
+        }) as unknown as Response,);
+        vi.stubGlobal('fetch', fn,);
+        const err = await getCollector('threads',)!.collect(ctx(),).catch((e,) => e as Error,);
+        expect(err,).toBeInstanceOf(Error,);
+        expect((err as Error).message,).toContain('reconnect',);
+        expect((err as Error).message,).not.toContain('tok-secret-123',);
+        expect(fn,).toHaveBeenCalledTimes(1,);
     },);
 },);

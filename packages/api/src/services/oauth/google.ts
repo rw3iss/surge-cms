@@ -20,6 +20,18 @@ export const YOUTUBE_READONLY_SCOPE = 'https://www.googleapis.com/auth/youtube.r
 /** YouTube Analytics + Reporting APIs (views, watch time, impressions) — the channel OWNER must grant it. */
 export const YT_ANALYTICS_SCOPE = 'https://www.googleapis.com/auth/yt-analytics.readonly';
 const YT_API = 'https://www.googleapis.com/youtube/v3';
+/** A hung Google socket must not hang a sign-in or a collector run. */
+const TIMEOUT_MS = 20_000;
+
+/** fetch with a timeout; a network failure / timeout becomes an Error WITHOUT `code` (= transient, not a revoked grant). */
+async function googleFetch(url: string, init: RequestInit,): Promise<Response> {
+    try {
+        return await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS,), },);
+    } catch (e) {
+        const name = (e as Error)?.name;
+        throw new Error(name === 'TimeoutError' || name === 'AbortError' ? `Google did not answer within ${TIMEOUT_MS / 1000} s` : 'Google is unreachable (network error)',);
+    }
+}
 
 interface GoogleConfig {
     clientId: string;
@@ -36,7 +48,7 @@ export interface YouTubeOAuthChannel {
 }
 
 async function tokenRequest(body: Record<string, string>,): Promise<OAuthTokenResult> {
-    const res = await fetch(GOOGLE_TOKEN_URL, {
+    const res = await googleFetch(GOOGLE_TOKEN_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded', },
         body: new URLSearchParams(body,).toString(),
@@ -64,7 +76,7 @@ export function refreshGoogleToken(clientId: string, clientSecret: string, refre
 
 /** Channels the token can read (`mine=true`). */
 export async function listMyChannels(accessToken: string,): Promise<YouTubeOAuthChannel[]> {
-    const res = await fetch(`${YT_API}/channels?part=snippet&mine=true&maxResults=50`, {
+    const res = await googleFetch(`${YT_API}/channels?part=snippet&mine=true&maxResults=50`, {
         headers: { Authorization: `Bearer ${accessToken}`, },
     },);
     const data = await res.json().catch(() => ({})) as { items?: Array<Record<string, any>>; error?: { message?: string; }; };

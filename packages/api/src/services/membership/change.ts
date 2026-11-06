@@ -16,6 +16,7 @@ import { getPolicy as getSubscriptionPolicy, } from '../subscriptionAccess';
 import { tierOptions, withPrice, } from './catalog';
 import { activeLocalSub, current, loadCurrent, type LocalSub, } from './current';
 import { settleOpenAttempts, } from './attempts';
+import { withMembershipLock, } from './lock';
 import { approvedOfferFor, markApplicationStarted, } from './state';
 
 // ─── Preview ─────────────────────────────────────────────────────────────
@@ -144,7 +145,13 @@ async function email(userId: string, from: MembershipTierOption | null, to: Memb
     },);
 }
 
-export async function change(userId: string, tierId: string, opts: { approved?: boolean; priceId?: string | null; } = {},): Promise<MembershipChangeResponse> {
+/** Change tier — one change per member at a time (`withMembershipLock`: a double click answers 409). */
+export function change(userId: string, tierId: string, opts: { approved?: boolean; priceId?: string | null; } = {},): Promise<MembershipChangeResponse> {
+    return withMembershipLock(userId, () => changeUnlocked(userId, tierId, opts,),);
+}
+
+/** `change` for a caller that already holds the member's lock (`startApprovedMembership`). */
+export async function changeUnlocked(userId: string, tierId: string, opts: { approved?: boolean; priceId?: string | null; } = {},): Promise<MembershipChangeResponse> {
     const { cur, to, from, billingOnly, local, sub: liveSub, } = await targetTier(userId, tierId, opts,);
     const stripe = getStripeClient('default',);
 
@@ -183,7 +190,7 @@ export async function change(userId: string, tierId: string, opts: { approved?: 
     // earlier unpaid attempts (reuse the same level's, cancel the rest).
     if (!local?.stripe_subscription_id) {
         const open = await settleOpenAttempts(userId, { tierId: to.id, priceId, },);
-        if (open.activated) return confirm(userId, open.activated,);
+        if (open.activated) return confirmUnlocked(userId, open.activated,);
         if (open.reuse) {
             return { result: 'payment_required', clientSecret: open.reuse.clientSecret, subscriptionId: open.reuse.subscriptionId, current: cur, };
         }
@@ -196,7 +203,7 @@ export async function change(userId: string, tierId: string, opts: { approved?: 
              VALUES ($1, $2, $3, $4, $5, $6, $7)`,
             [userId, to.id, sub.id, customerId, sub.status, sub.currentPeriodStart, sub.currentPeriodEnd,],
         );
-        if (sub.status === 'active' || sub.status === 'trialing') return confirm(userId, sub.id,);
+        if (sub.status === 'active' || sub.status === 'trialing') return confirmUnlocked(userId, sub.id,);
         // Without the secret the browser cannot pay; never let that read as a change.
         if (!sub.clientSecret) {
             logger.error('membership: Stripe returned no payment secret for a new subscription', { subscriptionId: sub.id, },);
@@ -235,8 +242,17 @@ export async function change(userId: string, tierId: string, opts: { approved?: 
     return { result: 'changed', current: await current(userId,), };
 }
 
-/** After the browser confirmed the first payment of a new subscription. */
-export async function confirm(userId: string, stripeSubscriptionId: string,): Promise<MembershipChangeResponse> {
+/**
+ * After the browser confirmed the first payment of a new subscription. Locked
+ * like `change`: two confirms at once (a retry, two tabs) would both read the
+ * row as not active and email the member twice.
+ */
+export function confirm(userId: string, stripeSubscriptionId: string,): Promise<MembershipChangeResponse> {
+    return withMembershipLock(userId, () => confirmUnlocked(userId, stripeSubscriptionId,),);
+}
+
+/** `confirm` for a caller that already holds the member's lock. */
+export async function confirmUnlocked(userId: string, stripeSubscriptionId: string,): Promise<MembershipChangeResponse> {
     const r = await query<{ id: string; plan_id: string; status: string; }>(
         `SELECT id, plan_id, status FROM subscriptions WHERE user_id = $1 AND stripe_subscription_id = $2`,
         [userId, stripeSubscriptionId,],

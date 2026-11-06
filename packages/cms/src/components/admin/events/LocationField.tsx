@@ -17,11 +17,12 @@
  */
 import type { GeoPlace, } from '@sitesurge/types';
 import { formatLatLng, } from '@sitesurge/types';
-import { type Component, createEffect, createSignal, For, lazy, on, Show, } from 'solid-js';
+import { type Component, createEffect, createSignal, For, lazy, on, Show, Suspense, } from 'solid-js';
 import { cms, } from '../../../services/cmsClient';
 import Toggle from '../common/Toggle';
 import { FormField, } from '../forms';
 import { CommitInput, } from '../forms/CommitInput';
+import type { PendingLookups, } from './pendingLookups';
 import './LocationField.scss';
 
 const LocationMap = lazy(() => import('../../map/LocationMap'),);
@@ -37,6 +38,8 @@ export interface LocationFieldProps {
     onLocation: (text: string,) => void;
     onPoint: (lat: number | null, lng: number | null,) => void;
     onShowMap: (on: boolean,) => void;
+    /** Running lookups are tracked here, so the form's Save can wait for them (see pendingLookups.ts). */
+    lookups?: PendingLookups;
 }
 
 const LocationField: Component<LocationFieldProps> = (props,) => {
@@ -55,22 +58,34 @@ const LocationField: Component<LocationFieldProps> = (props,) => {
         if (lat != null) setUnlocated(false,);
     };
 
+    // Only the LATEST lookup may apply its result: a slow search that answers
+    // after the pin was dragged (or another search) must not move the pin back.
+    let seq = 0;
+    const begin = () => { seq += 1; setBusy(true,); return seq; };
+    const current = (n: number,) => n === seq;
+    const tracked = <T,>(p: Promise<T>,): Promise<T> => props.lookups?.track(p,) ?? p;
+
     /** Search the text and drop the pin on the best match (the text is kept). */
     const searchText = async (text: string,) => {
         const q = text.trim();
         setMatches([],);
         setError('',);
-        if (q.length < 3) return;
-        setBusy(true,);
+        if (q.length < 3) {
+            seq += 1; // cancel any lookup still running
+            setBusy(false,);
+            return;
+        }
+        const n = begin();
         try {
-            const found = await cms.geo.search(q, 5,);
+            const found = await tracked(cms.geo.search(q, 5,),);
+            if (!current(n,)) return;
             setMatches(open() && found.length > 1 ? found : [],);
             if (found[0]) setPoint(found[0].lat, found[0].lng,);
             else setUnlocated(true,);
         } catch (e) {
-            setError((e as Error).message || 'The map search failed.',);
+            if (current(n,)) setError((e as Error).message || 'The map search failed.',);
         } finally {
-            setBusy(false,);
+            if (current(n,)) setBusy(false,);
         }
     };
 
@@ -79,21 +94,31 @@ const LocationField: Component<LocationFieldProps> = (props,) => {
         setPoint(lat, lng,);
         setMatches([],);
         setError('',);
-        setBusy(true,);
+        const n = begin();
+        let text = formatLatLng(lat, lng,);
         try {
-            const place = await cms.geo.reverse(lat, lng,);
-            props.onLocation(place ? (place.shortLabel || place.label) : formatLatLng(lat, lng,),);
+            const place = await tracked(cms.geo.reverse(lat, lng,),);
+            if (place) text = place.shortLabel || place.label;
         } catch {
-            props.onLocation(formatLatLng(lat, lng,),);
-        } finally {
-            setBusy(false,);
+            // Keep the coordinates as the text.
         }
+        if (!current(n,)) return;
+        props.onLocation(text,);
+        setBusy(false,);
     };
 
     const choose = (p: GeoPlace,) => {
+        seq += 1;
+        setBusy(false,);
         props.onLocation(p.shortLabel || p.label,);
         setPoint(p.lat, p.lng,);
         setMatches([],);
+    };
+
+    const clearPin = () => {
+        seq += 1;
+        setBusy(false,);
+        props.onPoint(null, null,);
     };
 
     const toggle = () => {
@@ -150,7 +175,7 @@ const LocationField: Component<LocationFieldProps> = (props,) => {
             <Show when={open()}>
                 <div class="location-field__panel">
                     <Show when={matches().length}>
-                        <div class="location-field__matches" role="listbox" aria-label="Other matches">
+                        <div class="location-field__matches" role="group" aria-label="Other matches">
                             <span class="location-field__hint">Other matches:</span>
                             <For each={matches()}>
                                 {(m,) => (
@@ -161,29 +186,35 @@ const LocationField: Component<LocationFieldProps> = (props,) => {
                             </For>
                         </div>
                     </Show>
-                    <LocationMap
-                        lat={props.lat}
-                        lng={props.lng}
-                        draggable
-                        onPick={(lat, lng,) => void picked(lat, lng,)}
-                        height="280px"
-                        label="Event location map"
-                    />
+                    <Suspense fallback={<div class="location-field__map-loading" style={{ height: '280px', }}>Loading map…</div>}>
+                        <LocationMap
+                            lat={props.lat}
+                            lng={props.lng}
+                            draggable
+                            onPick={(lat, lng,) => void picked(lat, lng,)}
+                            height="280px"
+                            label="Event location map"
+                        />
+                    </Suspense>
                     <div class="location-field__meta">
                         <span class="location-field__hint">
                             {busy() ? 'Looking up…' : hasPoint()
-                                ? <>Pin: {formatLatLng(props.lat!, props.lng!,)} — drag it or click the map to move it.</>
+                                ? <>Pin: {formatLatLng(props.lat!, props.lng!,)} — drag it or click the map to move it (keyboard: arrows pan, Enter drops it at the center).</>
                                 : 'Type an address above, or click the map to drop the pin.'}
                         </span>
                         <Show when={hasPoint()}>
-                            <button type="button" class="ui-button ui-button--sm ui-button--ghost" onClick={() => props.onPoint(null, null,)}>
+                            <button type="button" class="ui-button ui-button--sm ui-button--ghost" onClick={clearPin}>
                                 Clear pin
                             </button>
                         </Show>
                     </div>
-                    <Show when={error()}><p class="location-field__error" role="alert">{error()}</p></Show>
                 </div>
             </Show>
+            {/* Outside the panel: a background lookup (Show a map, a changed address) reports here too. */}
+            <Show when={!open() && busy()}>
+                <p class="location-field__hint" role="status">Looking up the address on the map…</p>
+            </Show>
+            <Show when={error()}><p class="location-field__error" role="alert">{error()}</p></Show>
 
             <Toggle
                 checked={props.showMap}

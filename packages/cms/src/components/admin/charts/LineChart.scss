@@ -8,6 +8,22 @@
     width: 100%;
     height: auto;
     overflow: visible;
+    border-radius: $border-radius-md;
+
+    &:focus-visible {
+      outline: 2px solid var(--admin-focus, #{$primary-color});
+      outline-offset: 2px;
+    }
+  }
+
+  // Screen-reader-only read-out of the focused point.
+  &__sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 
   &__empty {

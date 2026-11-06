@@ -55,3 +55,14 @@ describe('digest formatting', () => {
         expect(daysAgo(7, new Date('2026-11-08T12:00:00Z',),),).toBe('2026-11-01',);
     },);
 },);
+
+describe('send result message', () => {
+    it('says why nothing was sent, or how many failed', async () => {
+        const { sendResultMessage, } = await import('./digestFormat');
+        expect(sendResultMessage({ sent: 0, recipients: [], reason: 'no_recipients', },).kind,).toBe('info',);
+        expect(sendResultMessage({ sent: 0, recipients: ['a@x.co',], reason: 'not_ready', },).text,).toMatch(/not ready/,);
+        expect(sendResultMessage({ sent: 2, failed: 0, recipients: ['a@x.co', 'b@x.co',], reason: null, },),).toEqual({ kind: 'success', text: 'Emailed to 2 recipients.', },);
+        expect(sendResultMessage({ sent: 1, failed: 1, recipients: ['a@x.co', 'b@x.co',], reason: null, },).kind,).toBe('error',);
+        expect(sendResultMessage({ sent: 0, failed: 2, recipients: ['a@x.co', 'b@x.co',], reason: null, },).kind,).toBe('error',);
+    },);
+},);

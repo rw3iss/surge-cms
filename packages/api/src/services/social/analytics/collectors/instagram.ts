@@ -34,7 +34,7 @@ import { query, } from '../../../../db';
 import { logger, } from '../../../../utils/logger';
 import { registerCollector, } from '../registry';
 import type { AccountSnapshot, CollectContext, CollectResult, DailyPoint, KnownPost, PostMetric, } from '../types';
-import { listMedia, listStories, type IgMedia, upsertInstagramMedia, } from './instagramMedia';
+import { listMedia, listStories, MEDIA_DAYS, type IgMedia, upsertInstagramMedia, } from './instagramMedia';
 import {
     AUDIENCE_BREAKDOWNS,
     AUDIENCE_METRICS,
@@ -59,6 +59,7 @@ import {
 } from './instagramMapping';
 import {
     addDays,
+    dueForMetrics,
     envValue,
     FACEBOOK_GRAPH,
     fetchInsights,
@@ -67,8 +68,10 @@ import {
     type InsightResponse,
     insightNumbers,
     isPermissionError,
+    isRateLimitError,
     isTokenError,
     mapLimit,
+    tokenErrorHint,
     timeSeriesPoints,
     unixDay,
     WarningBag,
@@ -163,7 +166,9 @@ function status(credentials: Record<string, unknown>, connected: boolean,): Soci
 class Refused extends Error {}
 
 function classify(e: unknown,): never {
-    if (isTokenError(e,)) throw new Error(`Instagram token rejected — reconnect Instagram in Social → Configuration (${(e as Error).message}).`,);
+    if (isTokenError(e,)) {
+        throw new Error(`Instagram token rejected — ${tokenErrorHint(e,)}. Reconnect Instagram in Social → Configuration (${(e as Error).message}).`,);
+    }
     if (isPermissionError(e,)) throw new Refused((e as Error).message,);
     throw e;
 }
@@ -291,14 +296,18 @@ async function itemInsights(auth: InstagramAuth, item: IgMedia, dead: Record<Med
 async function mediaMetrics(auth: InstagramAuth, items: IgMedia[], warnings: WarningBag,): Promise<{ ok: boolean; posts: PostMetric[]; }> {
     const dead: Record<MediaKind, Set<string>> = { FEED: new Set(), REELS: new Set(), STORY: new Set(), };
     let refused = false;
+    let limited = false;
     const posts = await mapLimit(items, CONCURRENCY, async (item,): Promise<PostMetric> => {
-        if (refused) return mapInstagramMedia(item.id, item, new Map(),);
+        if (refused || limited) return mapInstagramMedia(item.id, item, new Map(),);
         try {
             return await itemInsights(auth, item, dead, warnings,);
         } catch (e) {
             if (isTokenError(e,)) classify(e,);
             if (isPermissionError(e,)) refused = true;
-            else warnings.add(`Instagram media insights failed — ${(e as Error).message}`,);
+            else if (isRateLimitError(e,)) {
+                limited = true;
+                warnings.add(`Instagram rate limit reached — the remaining posts keep only likes / comments this run (${(e as Error).message})`,);
+            } else warnings.add(`Instagram media insights failed — ${(e as Error).message}`,);
             return mapInstagramMedia(item.id, item, new Map(),);
         }
     },);
@@ -307,7 +316,14 @@ async function mediaMetrics(auth: InstagramAuth, items: IgMedia[], warnings: War
 
 async function benchmarks(auth: InstagramAuth, today: string, warnings: WarningBag,): Promise<{ ok: boolean; points: DailyPoint[]; }> {
     const { getSettings, } = await import('../settings.js');
-    const usernames = await getSettings().then((s,) => s.benchmarks.instagram,).catch(() => [] as string[],);
+    const listed = await getSettings().then((s,) => s.benchmarks?.instagram ?? [],).catch(() => [] as string[],);
+    // Instagram usernames only: the name is spliced into a field expression, so
+    // anything else (`)`, `{`, `,`) could rewrite the request.
+    const usernames = listed.map((u,) => String(u ?? '',).trim().replace(/^@/, '',),).filter((u,) => {
+        const ok = /^[A-Za-z0-9._]{1,30}$/.test(u,);
+        if (!ok && u) warnings.add(`Instagram benchmark "${u}": not an Instagram username`,);
+        return ok;
+    },);
     if (!usernames.length) return { ok: false, points: [], };
     if (auth.instagramLogin) {
         warnings.add('Benchmarks need a Facebook-Login Instagram connection (business_discovery is not available with Instagram Login).',);
@@ -352,10 +368,14 @@ async function collect(ctx: CollectContext,): Promise<CollectResult> {
 
     // 2. Every media item (+ the due posts the list no longer reaches, weekly).
     const listed = await attempt(() => listMedia(auth,), [] as IgMedia[], warnings, 'Instagram media list',);
-    const items = [...listed.value,];
-    if (items.length) await upsertInstagramMedia(items,).catch((e,) => warnings.add(`Instagram posts: ${(e as Error).message}`,),);
-    const known = new Set(items.map((i,) => i.id),);
-    const older = ctx.posts.filter((p: KnownPost,) => !known.has(p.externalId,));
+    if (listed.value.length) await upsertInstagramMedia(listed.value,).catch((e,) => warnings.add(`Instagram posts: ${(e as Error).message}`,),);
+    // Metrics for the due posts + newly listed recent ones (not the old tail of the last listed page).
+    const due = new Set(ctx.posts.map((p,) => p.externalId),);
+    const items = listed.value.filter((m,) => dueForMetrics(m.id, m.timestamp, due, ctx.today, MEDIA_DAYS,),);
+    const known = new Set(listed.value.map((i,) => i.id),);
+    // Stories expire after 24 h and are measured by the 3-hourly sweep; asking for
+    // an expired one only fails, every day, for 90 days.
+    const older = ctx.posts.filter((p: KnownPost,) => !known.has(p.externalId,) && p.kind !== 'story');
     if (older.length) {
         const extra = await mapLimit(older, CONCURRENCY, async (p,) => graphGet<IgMedia>(auth.base, p.externalId, {
             fields: 'id,media_type,media_product_type,like_count,comments_count,timestamp',
@@ -383,7 +403,7 @@ async function collect(ctx: CollectContext,): Promise<CollectResult> {
         newFollowers: gains.ok,
         demographics: demo.ok && demo.value.length > 0,
         onlineFollowers: online.ok && online.value.length > 0,
-        mediaInsights: media.ok && items.length > 0,
+        mediaInsights: media.ok && (listed.value.length > 0 || items.length > 0),
         stories: stories.ok,
         benchmarks: peers.ok,
         checkedAt: new Date().toISOString(),

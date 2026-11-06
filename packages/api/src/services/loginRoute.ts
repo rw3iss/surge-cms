@@ -33,8 +33,7 @@ export async function extraRolesOf(userId: string,): Promise<string[]> {
 export async function loginRouteForUser(user: { id: string; role?: string | null; } | null | undefined,): Promise<string> {
     if (!user) return '';
     try {
-        const extra = await query<{ extra_roles: string[] | null; }>(`SELECT extra_roles FROM users WHERE id = $1`, [user.id,],);
-        return loginRouteFor(await roles(), user.role, extra.rows[0]?.extra_roles ?? [],);
+        return loginRouteFor(await roles(), user.role, await extraRolesOf(user.id,),);
     } catch {
         return '';
     }

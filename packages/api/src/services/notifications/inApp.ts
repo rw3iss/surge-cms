@@ -6,13 +6,16 @@
  */
 import type { NotificationInAppConfig, UserNotification, UserNotificationsResponse, } from '@sitesurge/types';
 import { query, } from '../../db';
+import { isUuid, } from '../../utils/uuid';
 import { getNotificationOptions, } from './options';
 
 /** Active user ids for an in-app config (users ∪ role holders). */
 export async function recipientsFor(cfg: NotificationInAppConfig | undefined,): Promise<string[]> {
     if (!cfg?.enabled) return [];
-    const userIds = (cfg.userIds ?? []).filter(Boolean,);
-    const roles = (cfg.roles ?? []).filter(Boolean,);
+    // A stale / hand-edited id that is not a UUID would fail the cast and lose
+    // the alert for EVERY recipient — drop it instead.
+    const userIds = [...new Set((cfg.userIds ?? []).filter(isUuid,),),];
+    const roles = [...new Set((cfg.roles ?? []).filter((r,) => typeof r === 'string' && r.trim() !== '',),),];
     if (!userIds.length && !roles.length) return [];
     const r = await query<{ id: string; }>(
         `SELECT id FROM users

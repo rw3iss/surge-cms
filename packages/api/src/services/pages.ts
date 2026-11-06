@@ -181,35 +181,57 @@ export async function getPublicBySlug(
 // ─── Writes ───────────────────────────────────────────────────────
 
 /**
- * Create a page. Validation lives at the route layer (Zod schema
- * `pageSchema`); this method assumes the input is already shape-
- * checked. Audit-logs the creation, invalidates the page cache.
- */
-/**
  * Resolve the "Use as page" key a write asks for — `systemPage`, or the legacy
- * `isHomepage` flag — into `data.systemPage` + the `is_homepage` mirror, and
- * take that key away from any other page. `undefined` = the write leaves it alone.
- * Returns the page that lost the key, so the save can say so.
+ * `isHomepage` flag — into `data.systemPage` + the `is_homepage` mirror.
+ * Returns the key the write TAKES (null = it takes none), `undefined` when the
+ * write leaves the assignment alone. Mutates `data`.
  */
-async function claimSystemPage(
+export function resolveSystemPageClaim(
     data: Record<string, unknown>,
-    selfId: string | null,
     current: string | null,
-): Promise<{ id: string; title: string; } | null> {
+): string | null | undefined {
     let key: string | null | undefined;
     if ('systemPage' in data) key = (data.systemPage as string | null) || null;
     else if ('isHomepage' in data) key = data.isHomepage ? 'home' : (current === 'home' ? null : current);
     delete data.isHomepage;
-    if (key === undefined) return null;
+    if (key === undefined) return undefined;
     data.systemPage = key;
     data.isHomepage = key === 'home';
-    return key && key !== current ? repo.releaseSystemPage(key, selfId,) : null;
+    return key && key !== current ? key : null;
 }
 
+/**
+ * Write a page and, when it takes a system page key, take that key from the
+ * page that held it — both in one locked transaction (`withSystemPageLock`).
+ * Returns the written page with `systemPageReplaced` = the page that lost the key.
+ */
+async function writeClaiming(
+    data: Record<string, unknown>,
+    selfId: string | null,
+    current: string | null,
+    write: (run?: repo.QueryFn,) => Promise<Page>,
+): Promise<Page> {
+    const claim = resolveSystemPageClaim(data, current,);
+    if (!claim) {
+        const page = await write();
+        page.systemPageReplaced = null;
+        return page;
+    }
+    return repo.withSystemPageLock(claim, async (run,) => {
+        const replaced = await repo.releaseSystemPage(claim, selfId, run,);
+        const page = await write(run,);
+        page.systemPageReplaced = replaced;
+        return page;
+    },);
+}
+
+/**
+ * Create a page. Validation lives at the route layer (Zod schema
+ * `pageSchema`); this method assumes the input is already shape-
+ * checked. Audit-logs the creation, invalidates the page cache.
+ */
 export async function create(data: Record<string, unknown>, ctx: AuditContext,): Promise<Page> {
-    const replaced = await claimSystemPage(data, null, null,);
-    const page = await repo.createPage(data, ctx.userId,);
-    page.systemPageReplaced = replaced;
+    const page = await writeClaiming(data, null, null, (run,) => repo.createPage(data, ctx.userId, run,),);
     await cache.invalidatePageCache();
     // The public settings carry the "open without a subscription" page paths
     // and the "Use as page" assignments.
@@ -232,9 +254,12 @@ export async function update(
     ctx: AuditContext,
 ): Promise<Page> {
     const before = ('systemPage' in patch || 'isHomepage' in patch) ? await getById(id,) : null;
-    const replaced = await claimSystemPage(patch, id, (before?.systemPage as string | null | undefined) ?? null,);
-    const page = await repo.updatePage(id, patch,);
-    page.systemPageReplaced = replaced;
+    const page = await writeClaiming(
+        patch,
+        id,
+        (before?.systemPage as string | null | undefined) ?? null,
+        (run,) => repo.updatePage(id, patch, run,),
+    );
     await cache.invalidatePageCache(id,);
     // Open-page paths + "Use as page" assignments ride on the public settings.
     if ('openAccess' in patch || 'slug' in patch || 'status' in patch || 'systemPage' in patch) await cache.invalidateSettingsCache();
@@ -299,6 +324,8 @@ export async function restoreRevision(
 ): Promise<Page & { restore: revisions.RestoreResult; }> {
     const result = await revisions.restore('page', pageId, version, ctx.userId || null,);
     await cache.invalidatePageCache(pageId,);
+    // A restore can change the slug / status / open access the public settings carry.
+    await cache.invalidateSettingsCache();
     await logAudit({
         userId: ctx.userId,
         action: 'restore',

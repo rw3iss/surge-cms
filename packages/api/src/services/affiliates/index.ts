@@ -15,9 +15,9 @@ import { ForbiddenError, NotFoundError, ValidationError, } from '../../core/erro
 import { query, } from '../../db';
 import * as discounts from '../shop/discounts';
 import type { AuditContext, } from '../types';
-import { balanceFor, earningsFor, payoutsFor, } from './earnings';
+import { balanceFor, balancesFor, earningsFor, payoutsFor, } from './earnings';
 import { getAffiliateSettings, } from './settings';
-import { accountRow, statusOf, } from './stripeConnect';
+import { accountRow, accountRows, statusOf, } from './stripeConnect';
 
 export * from './settings';
 export { payOut, runScheduledPayouts, } from './payouts';
@@ -108,17 +108,20 @@ export async function members(): Promise<AffiliateMember[]> {
         [role,],
     );
     const ids = users.rows.map((u,) => u.id,);
-    const [allCodes, sales,] = await Promise.all([discounts.list({ type: 'affiliate', },), salesByAffiliate(ids,),],);
-    return Promise.all(users.rows.map(async (u,) => ({
+    // Batched (was two queries PER affiliate: Stripe row + balance).
+    const [allCodes, sales, accounts, balances,] = await Promise.all([
+        discounts.list({ type: 'affiliate', },), salesByAffiliate(ids,), accountRows(ids,), balancesFor(ids,),
+    ],);
+    return users.rows.map((u,) => ({
         userId: u.id,
         displayName: u.display_name,
         email: u.email,
-        stripe: statusOf(await accountRow(u.id,),),
-        balance: await balanceFor(u.id,),
+        stripe: statusOf(accounts.get(u.id,) ?? null,),
+        balance: balances.get(u.id,) ?? { pendingCents: 0, availableCents: 0, paidCents: 0, currency: 'usd', },
         codes: allCodes.filter((c,) => c.affiliateUserId === u.id,),
         orders: sales.get(u.id,)?.orders ?? 0,
         salesCents: sales.get(u.id,)?.salesCents ?? 0,
-    })),);
+    }));
 }
 
 export async function member(userId: string,): Promise<AffiliateMemberDetail> {
@@ -136,6 +139,8 @@ export async function member(userId: string,): Promise<AffiliateMemberDetail> {
 
 /** Admin: give an affiliate a code (commission defaults to the program setting). */
 export async function createCode(userId: string, body: ShopDiscountCodeBody, ctx: AuditContext,): Promise<ShopDiscountCode> {
+    const exists = await query(`SELECT 1 FROM users WHERE id = $1`, [userId,],);
+    if (!exists.rows.length) throw new NotFoundError('User',);
     const settings = await getAffiliateSettings();
     return discounts.create({
         ...body,

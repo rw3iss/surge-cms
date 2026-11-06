@@ -24,7 +24,8 @@ SMS; `buildNotification` fills the short form (title, intro, first link).
 
 - Table `user_notifications` (migration 195): one row per recipient — type, title, body, url, read_at, cleared_at.
 - Admin sidebar: **Notifications** (bell + unread badge, above the online users) opens a panel upward: latest items, mark all read, clear, **View all** → `/admin/notifications` (every admin-shell user; only their own). Clicking an item marks it read and opens its target.
-- The unread count is polled (60 s, and on focus) — the admin WebSocket is staff-only, polling works for every role.
+- The unread count is polled (60 s, and on focus / tab show; the two together make ONE request, 2 s gap) — the admin WebSocket is staff-only, polling works for every role. The open list (widget panel, `/admin/notifications`) re-fetches only when the count changed, or after the user's own read / clear.
+- Widget keyboard: opening moves focus into the panel; Escape or a click outside closes it and focus returns to the bell; a row acts on Enter or Space.
 - API (`notifications:self`, members+): `GET /notifications/me[?unread=1&type=&page=]`, `GET /me/count`, `POST /me/read {ids|all}`, `POST /me/clear {ids|all}`. SDK `cms.notifications.*`.
 - Retention: cleared rows go after 7 days, everything after **Keep notifications for N days** (default 90) — daily `notifications-sweep` cron.
 
@@ -32,11 +33,16 @@ SMS; `buildNotification` fills the short form (title, intro, first link).
 
 - `user_push_subscriptions` (one row per browser). `GET /notifications/me/push` (VAPID public key + count), `POST /me/push/subscribe|unsubscribe`.
 - VAPID keys: env `WEB_PUSH_PUBLIC_KEY`/`WEB_PUSH_PRIVATE_KEY`/`WEB_PUSH_SUBJECT` win; otherwise generated once and stored (`web_push_keys`). Uses the `web-push` package.
-- The browser side is `public/push-sw.js`, imported into the PWA service worker (`importScripts`): shows the notification and opens its URL on click. Gone subscriptions (404/410) are pruned.
+- The browser side is `public/push-sw.js`, imported into the PWA service worker (`importScripts`): shows the notification (`tag` = the type, `renotify` so a second alert of a type still alerts) and on click focuses a tab already on that URL, else opens a new window — it never navigates another open tab away (unsaved editor work). Gone subscriptions (404/410) are pruned after each send.
+- Endpoints must be `https` on a public host name (no IP literal, `localhost`, `.local` / `.internal` names, other ports) — the server POSTs to it (`pushEndpointProblem`). A user keeps at most 10 browsers (oldest dropped). Sends run 8 at a time.
+- Each visit to a page with the switch re-sends the browser's subscription (an upsert): the server may have pruned it, or another account on the same browser may have taken it over. A subscription made with an old VAPID key (keys changed) is replaced automatically.
+- Sign-out on a shared computer: `releaseDesktopNotifications()` (`stores/notifications.ts`) removes this browser's subscription from the server — call it before the logout request.
 
 ## SMS
 
-`sms_settings` (token masked): provider `twilio`, Account SID (`AC…`), auth token, From (a number or a Messaging Service SID `MG…`). Sent with Twilio's REST API (`services/notifications/sms.ts`, `SmsProvider` interface — add AWS SNS as another provider). `POST /notifications/sms/test { to }`.
+`sms_settings` (token masked): provider `twilio`, Account SID (`AC…`), auth token, From (a number or a Messaging Service SID `MG…`). Sent with Twilio's REST API (`services/notifications/sms.ts`, `SmsProvider` interface — add AWS SNS as another provider). `POST /notifications/sms/test { to }` — a provider refusal comes back as a 400 with Twilio's own message.
+
+**Send test** refuses (400) when the type has no saved recipient on any enabled channel, instead of reporting success. Settings → Notifications checks every enabled email list and phone list before saving. In-app recipient ids that are not UUIDs are dropped (one bad id used to lose the alert for everyone).
 
 ## Permissions
 

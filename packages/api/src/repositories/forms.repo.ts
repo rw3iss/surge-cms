@@ -1,5 +1,5 @@
 import type { Form, FormQuestion, FormSubmission, } from '@sitesurge/types';
-import { cleanFormSections, isFormContactField, } from '@sitesurge/types';
+import { cleanFormSections, contactFieldAllowed, isFormContactField, } from '@sitesurge/types';
 import { query, transaction, } from '../db';
 import { NotFoundError, ValidationError, } from '../middleware/error';
 import { mapRow, mapRows, } from '../utils/mapRow';
@@ -9,8 +9,9 @@ import { deleteById, findByIdOrThrow, paginatedQuery, PaginatedResult, Paginatio
 // ─── Forms ───
 
 
-/** A question's contact field as stored: a known key, else NULL ("guess"). */
-const contactFieldOf = (v: unknown,): string | null => (isFormContactField(v,) ? v : null);
+/** A question's contact field as stored: a known key on a typed-in question, else NULL ("guess"). */
+const contactFieldOf = (v: unknown, type?: unknown,): string | null =>
+    (isFormContactField(v,) && contactFieldAllowed(typeof type === 'string' ? type : null,) ? v : null);
 
 export interface FormFilters {
     status?: string;
@@ -219,7 +220,7 @@ export async function createQuestion(formId: string, data: Record<string, unknow
             data.allowResize ?? true,
             (data.maxHeight as string | undefined) || null,
             (data.sectionId as string | null | undefined) || null,
-            contactFieldOf(data.contactField,),
+            contactFieldOf(data.contactField, data.type,),
         ],
     );
 
@@ -253,7 +254,11 @@ export async function updateQuestion(
 
     for (const [key, dbCol,] of Object.entries(fieldMap,)) {
         if (data[key] !== undefined) {
-            values.push(data[key],);
+            // '' = no section; a contact field is dropped when the new type cannot carry one.
+            const v = key === 'sectionId' ? (data[key] || null)
+                : key === 'contactField' ? (data.type === undefined ? (isFormContactField(data[key],) ? data[key] : null) : contactFieldOf(data[key], data.type,))
+                : data[key];
+            values.push(v,);
             updates.push(`${dbCol} = $${values.length}`,);
         }
     }
@@ -325,7 +330,7 @@ export async function syncQuestions(
             const allowResize = (raw.allowResize as boolean | undefined) ?? true;
             const maxHeight = (raw.maxHeight as string | undefined) || null;
             const sectionId = (raw.sectionId as string | null | undefined) || null;
-            const contactField = contactFieldOf(raw.contactField,);
+            const contactField = contactFieldOf(raw.contactField, raw.type,);
 
             if (qid && existingIds.has(qid,)) {
                 await client.query(

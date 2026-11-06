@@ -71,6 +71,60 @@ describe('metaGraph', () => {
         expect(dead.size,).toBe(0,);
     },);
 
+    it('fetchInsights: a group refused together but fine one by one is split for the rest of the run', async () => {
+        const fn = stubFetch((u,) => {
+            const m = u.searchParams.get('metric',)!;
+            if (m.includes(',',)) return graphErr(100, 'grouped request refused',);
+            return { body: { data: [{ name: m, total_value: { value: 1, }, },], }, };
+        },);
+        const dead = new Set<string>();
+        await meta.fetchInsights('https://g.test', 'a/insights', ['views', 'reach',], {}, 't', dead, new meta.WarningBag(), 'L',);
+        expect(fn,).toHaveBeenCalledTimes(3,);
+        fn.mockClear();
+        const r = await meta.fetchInsights('https://g.test', 'b/insights', ['reach', 'views',], {}, 't', dead, new meta.WarningBag(), 'L',);
+        expect(fn,).toHaveBeenCalledTimes(2,);
+        expect(meta.insightNumbers(r,).get('reach',),).toBe(1,);
+        expect([...dead,].filter((m,) => m === 'views' || m === 'reach'),).toEqual([],);
+    },);
+
+    it('graphGet never echoes the token, and a network failure is a GraphError', async () => {
+        stubFetch(() => graphErr(190, 'Bad token secret-token-123 in access_token=secret-token-123&x=1',),);
+        const e1 = await meta.graphGet('https://g.test', 'me', {}, 'secret-token-123',).catch((e,) => e,);
+        expect(e1,).toBeInstanceOf(meta.GraphError,);
+        expect(e1.message,).not.toContain('secret-token-123',);
+        expect(meta.isTokenError(e1,),).toBe(true,);
+        vi.stubGlobal('fetch', vi.fn(async () => {
+            throw Object.assign(new Error('timeout',), { name: 'TimeoutError', },);
+        },),);
+        const e2 = await meta.graphGet('https://g.test', 'me', {}, 'secret-token-123',).catch((e,) => e,);
+        expect(e2,).toBeInstanceOf(meta.GraphError,);
+        expect(e2.status,).toBe(0,);
+        expect(e2.message,).toContain('no answer within',);
+        expect(meta.isTokenError(e2,) || meta.isMetricError(e2,) || meta.isPermissionError(e2,),).toBe(false,);
+    },);
+
+    it('redactSecrets strips tokens and credential params', () => {
+        expect(meta.redactSecrets('x abcdefgh1234 y', 'abcdefgh1234',),).toBe('x [redacted] y',);
+        expect(meta.redactSecrets('https://g/x?access_token=EAAB123&client_secret=s3&a=1',),).toBe('https://g/x?access_token=[redacted]&client_secret=[redacted]&a=1',);
+    },);
+
+    it('rate limits and token hints', () => {
+        const e = (code: number, sub: number | null = null,) => new meta.GraphError('x', 400, code, sub,);
+        for (const c of [4, 17, 32, 613, 80001,]) expect(meta.isRateLimitError(e(c,),),).toBe(true,);
+        expect(meta.isRateLimitError(e(100,),),).toBe(false,);
+        expect(meta.isPermissionError(e(4,),),).toBe(false,);
+        expect(meta.tokenErrorHint(e(190, 463,),),).toContain('expired',);
+        expect(meta.tokenErrorHint(e(190,),),).toContain('invalid',);
+    },);
+
+    it('dueForMetrics: due posts always, other listed items only when recent', () => {
+        const due = new Set(['a',],);
+        expect(meta.dueForMetrics('a', '2020-01-01T00:00:00+0000', due, '2026-11-06', 90,),).toBe(true,);
+        expect(meta.dueForMetrics('b', '2020-01-01T00:00:00+0000', due, '2026-11-06', 90,),).toBe(false,);
+        expect(meta.dueForMetrics('c', '2026-11-01T10:00:00+0000', due, '2026-11-06', 90,),).toBe(true,);
+        expect(meta.dueForMetrics('d', undefined, due, '2026-11-06', 90,),).toBe(true,);
+    },);
+
     it('WarningBag counts repeats', () => {
         const bag = new meta.WarningBag();
         bag.add('a',);

@@ -11,7 +11,7 @@ import { NOTIFICATION_TYPES, } from '@sitesurge/types';
 import { z, } from 'zod';
 import { defineRoute, } from '../api/defineRoute';
 import { ValidationError, } from '../core/errors';
-import { notify, } from '../services/notifications';
+import { hasRecipients, notify, } from '../services/notifications';
 import * as inApp from '../services/notifications/inApp';
 import * as options from '../services/notifications/options';
 import * as push from '../services/notifications/push';
@@ -123,7 +123,12 @@ export const notificationRoutes = [
             if (!isPhone(body.to,)) throw new ValidationError('Use international format, e.g. +12155550123.',);
             const provider = await smsProvider();
             if (!provider) throw new ValidationError('Set up the SMS provider first.',);
-            await provider.send(body.to.trim(), 'Test notification from your site — SMS notifications work.',);
+            try {
+                await provider.send(body.to.trim(), 'Test notification from your site — SMS notifications work.',);
+            } catch (e) {
+                // The provider's own answer ("Twilio 401: Authenticate") tells the admin what to fix.
+                throw new ValidationError(`The test SMS failed: ${(e as Error).message}`,);
+            }
             return { ok: true, };
         },
     },),
@@ -135,6 +140,10 @@ export const notificationRoutes = [
             await manage(user,);
             const meta = NOTIFICATION_TYPES.find((t,) => t.key === body.type,);
             if (!meta) throw new ValidationError('Unknown notification type.',);
+            // Say so instead of answering "sent" when the test would reach nobody.
+            if (!await hasRecipients(body.type,)) {
+                throw new ValidationError('No saved recipients for this notification — turn a channel on, add recipients and save first.',);
+            }
             await notify(body.type, {
                 subject: `Test: ${meta.label}`,
                 title: `Test: ${meta.label}`,

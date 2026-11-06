@@ -40,6 +40,7 @@ import {
     requestDisplayToken,
     TIKTOK_BUSINESS_API,
     TIKTOK_DISPLAY_API,
+    tiktokFetch,
 } from '../../../oauth/tiktok';
 import { registerCollector, } from '../registry';
 import type { AccountSnapshot, CollectContext, CollectResult, DailyPoint, PostMetric, } from '../types';
@@ -115,7 +116,7 @@ const isRefusal = (e: unknown,): boolean =>
 // ── HTTP ─────────────────────────────────────────────────────────────────
 
 async function displayCall(token: string, path: string, init: RequestInit = {},): Promise<any> {
-    const res = await fetch(`${TIKTOK_DISPLAY_API}${path}`, {
+    const res = await tiktokFetch(`${TIKTOK_DISPLAY_API}${path}`, {
         ...init,
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init.headers as Record<string, string> | undefined), },
     },);
@@ -128,7 +129,7 @@ async function displayCall(token: string, path: string, init: RequestInit = {},)
 }
 
 async function businessCall(token: string, path: string, params: Record<string, string>,): Promise<any> {
-    const res = await fetch(`${TIKTOK_BUSINESS_API}${path}?${new URLSearchParams(params,)}`, { headers: { 'Access-Token': token, }, },);
+    const res = await tiktokFetch(`${TIKTOK_BUSINESS_API}${path}?${new URLSearchParams(params,)}`, { headers: { 'Access-Token': token, }, },);
     const body = await res.json().catch(() => ({})) as { code?: number; message?: string; data?: unknown; };
     if (!res.ok || (body.code !== undefined && body.code !== 0)) {
         throw new TikTokError(body.message || `HTTP ${res.status}`, res.status, String(body.code ?? '',),);
@@ -156,8 +157,44 @@ const expired = (at: unknown,): boolean => {
     return Number.isFinite(t,) && t - SKEW_MS <= Date.now();
 };
 
+/** The connection's credentials as saved right now ({} when unreadable). */
+async function savedCreds(): Promise<Record<string, unknown>> {
+    try {
+        const r = await query<{ credentials: Record<string, unknown> | null; }>(`SELECT credentials FROM social_connections WHERE provider = 'tiktok'`,);
+        return r.rows?.[0]?.credentials ?? {};
+    } catch {
+        return {};
+    }
+}
+
+/**
+ * Another process (a manual run beside the cron, the feed sync) may have
+ * renewed the token since this run read its credentials. TikTok ROTATES the
+ * refresh token, so refreshing again with our stale copy would fail and
+ * record a bogus "reconnect" error. Adopt the saved pair when it is newer
+ * and still valid. Returns the adopted access token or null.
+ */
+export function adoptNewerToken(
+    creds: Record<string, unknown>,
+    saved: Record<string, unknown>,
+    keys: { access: string; refresh: string; expires: string; },
+    now = Date.now(),
+): string | null {
+    const access = saved[keys.access];
+    if (typeof access !== 'string' || !access || access === creds[keys.access]) return null;
+    const at = Date.parse(String(saved[keys.expires] ?? '',),);
+    if (Number.isFinite(at,) && at - SKEW_MS <= now) return null;
+    for (const k of [keys.access, keys.refresh, keys.expires,]) if (saved[k] !== undefined) creds[k] = saved[k];
+    return access;
+}
+
+const DISPLAY_KEYS = { access: 'accessToken', refresh: 'refreshToken', expires: 'tokenExpiresAt', };
+const BUSINESS_KEYS = { access: 'businessAccessToken', refresh: 'businessRefreshToken', expires: 'businessTokenExpiresAt', };
+
 /** Exchange the Login Kit refresh token for a new pair and save both (rotated). */
 export async function refreshTikTokToken(creds: Record<string, unknown>,): Promise<string> {
+    const adopted = adoptNewerToken(creds, await savedCreds(), DISPLAY_KEYS,);
+    if (adopted) return adopted;
     const app = displayApp(creds,);
     const refresh = String(creds.refreshToken ?? '',);
     if (!app || !refresh) throw new Error('TikTok token expired and no refresh token + client key/secret are saved — reconnect TikTok.',);
@@ -168,6 +205,9 @@ export async function refreshTikTokToken(creds: Record<string, unknown>,): Promi
         Object.assign(creds, patch,);
         return t.accessToken;
     } catch (e) {
+        // Lost a race with another refresher? Use its token instead of recording an error.
+        const late = adoptNewerToken(creds, await savedCreds(), DISPLAY_KEYS,);
+        if (late) return late;
         await saveCreds({ oauthError: (e as Error).message, },).catch(() => {});
         throw new Error(`TikTok token refresh failed: ${(e as Error).message}`,);
     }
@@ -175,6 +215,8 @@ export async function refreshTikTokToken(creds: Record<string, unknown>,): Promi
 
 /** Renew the Business token (1 day) with its refresh token and save the new pair. */
 export async function refreshTikTokBusinessToken(creds: Record<string, unknown>,): Promise<string> {
+    const adopted = adoptNewerToken(creds, await savedCreds(), BUSINESS_KEYS,);
+    if (adopted) return adopted;
     const app = businessAppCredentials(creds,);
     const refresh = String(creds.businessRefreshToken ?? '',);
     if (!app || !refresh) throw new Error('the Business token expired and no refresh token + Business App ID/Secret are saved — click Authorize Business API again.',);
@@ -188,6 +230,8 @@ export async function refreshTikTokBusinessToken(creds: Record<string, unknown>,
         Object.assign(creds, patch,);
         return t.accessToken;
     } catch (e) {
+        const late = adoptNewerToken(creds, await savedCreds(), BUSINESS_KEYS,);
+        if (late) return late;
         await saveCreds({ businessOauthError: (e as Error).message, },).catch(() => {});
         throw new Error(`TikTok Business token refresh failed: ${(e as Error).message}`,);
     }
@@ -295,7 +339,10 @@ async function listDisplayVideos(token: string,): Promise<TikTokVideo[]> {
         },);
         videos.push(...((data.videos ?? []) as TikTokVideo[]),);
         if (!data.has_more || !data.cursor) break;
-        cursor = Number(data.cursor,);
+        const next = Number(data.cursor,);
+        // A cursor that does not move would re-read the same page until MAX_PAGES (duplicates).
+        if (!Number.isFinite(next,) || next === cursor) break;
+        cursor = next;
     }
     return videos;
 }
@@ -309,6 +356,7 @@ async function listBusinessVideos(token: string, businessId: string, fields: str
         const data = await businessCall(token, '/business/video/list/', params,);
         out.push(...((data.videos ?? []) as BusinessVideo[]),);
         if (!data.has_more || data.cursor === undefined || data.cursor === null) break;
+        if (String(data.cursor,) === cursor) break;
         cursor = String(data.cursor,);
     }
     return out;
@@ -493,7 +541,10 @@ async function collect(ctx: CollectContext,): Promise<CollectResult> {
         await saveCapabilities(caps,);
     }
 
-    if (videos?.length) await upsertTikTokVideos(videos, authorName,);
+    if (videos?.length) {
+        // Metrics are still returned when the social_posts upsert fails (the runner maps what exists).
+        await upsertTikTokVideos(videos, authorName,).catch((e,) => ctx.warn(`TikTok videos could not be saved to Social posts: ${(e as Error).message}`,),);
+    }
     result.posts = [...posts.values(),];
     // Lifetime per-video splits (viewer demographics, sources, viewer types) as a dated snapshot.
     result.daily!.push(...viewWeightedPoints(result.posts, ctx.today,),);

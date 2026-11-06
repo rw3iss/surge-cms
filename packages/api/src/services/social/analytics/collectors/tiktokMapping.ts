@@ -153,9 +153,10 @@ export interface TikTokPostRow {
     thumbnailUrl: string | null;
     publishedAt: string | null;
     durationSeconds: number | null;
-    likes: number;
-    comments: number;
-    shares: number;
+    /** null = the API did not send it (keep the stored value; never overwrite with 0). */
+    likes: number | null;
+    comments: number | null;
+    shares: number | null;
 }
 
 export function tiktokPostRow(v: TikTokVideo,): TikTokPostRow {
@@ -168,9 +169,9 @@ export function tiktokPostRow(v: TikTokVideo,): TikTokPostRow {
         thumbnailUrl: v.cover_image_url || null,
         publishedAt: created ? new Date(created * 1000,).toISOString() : null,
         durationSeconds: num(v.duration,),
-        likes: num(v.like_count,) ?? 0,
-        comments: num(v.comment_count,) ?? 0,
-        shares: num(v.share_count,) ?? 0,
+        likes: num(v.like_count,),
+        comments: num(v.comment_count,),
+        shares: num(v.share_count,),
     };
 }
 
@@ -318,13 +319,20 @@ const RAW_COUNTERS: Record<string, string> = {
     address_clicks: 'addressClicks',
 };
 
-/** Timeline curves [{ second, percentage }] → [[second, fraction]] sorted by second. */
+/**
+ * Timeline curves [{ second, percentage }] → [[second, fraction]] sorted by
+ * second. The scale is detected for the WHOLE curve (any value > 1 → percent),
+ * like distribution(): per point, a percent curve's tail (0.8 = 0.8 %) would
+ * read as 80 %.
+ */
 export function timeline(rows: unknown,): Array<[number, number]> {
     if (!Array.isArray(rows,)) return [];
-    return (rows as Array<Record<string, unknown>>)
-        .map((r,) => [num(r.second,), fraction(r.percentage,),] as const)
-        .filter((p,): p is readonly [number, number] => p[0] !== null && p[1] !== null)
-        .map(([s, p,],) => [s, p,] as [number, number])
+    const pairs = (rows as Array<Record<string, unknown>>)
+        .map((r,) => [num(r.second,), num(r.percentage,),] as const)
+        .filter((p,): p is readonly [number, number] => p[0] !== null && p[1] !== null);
+    const percentScale = pairs.some(([, v,],) => v > 1,);
+    return pairs
+        .map(([s, p,],) => [s, percentScale ? p / 100 : p,] as [number, number])
         .sort((a, b,) => a[0] - b[0],);
 }
 

@@ -21,7 +21,11 @@ export interface JoinPrefill {
 }
 
 export function saveJoinPrefill(p: JoinPrefill,): void {
-    if (!p.name && !p.email && !p.phone) return;
+    if (!p.name && !p.email && !p.phone) {
+        // Nothing to hand over: drop an older hand-off so it can't fill /join later.
+        try { sessionStorage.removeItem(KEY,); } catch { /* storage off */ }
+        return;
+    }
     try {
         sessionStorage.setItem(KEY, JSON.stringify({ ...p, at: Date.now(), },),);
     } catch { /* private mode / storage off */ }
@@ -33,9 +37,12 @@ export function takeJoinPrefill(): JoinPrefill | null {
         const raw = sessionStorage.getItem(KEY,);
         if (!raw) return null;
         sessionStorage.removeItem(KEY,);
-        const v = JSON.parse(raw,) as JoinPrefill & { at?: number; };
-        if (!v || typeof v !== 'object' || !v.at || Date.now() - v.at > TTL_MS) return null;
-        return { name: v.name ?? null, email: v.email ?? null, phone: v.phone ?? null, };
+        const v = JSON.parse(raw,) as Record<string, unknown> | null;
+        if (!v || typeof v !== 'object' || typeof v.at !== 'number' || Date.now() - v.at > TTL_MS) return null;
+        // Strings only (the value came from storage; anything else is ignored).
+        const str = (x: unknown,): string | null => (typeof x === 'string' && x.trim() ? x.trim().slice(0, 300,) : null);
+        const out = { name: str(v.name,), email: str(v.email,), phone: str(v.phone,), };
+        return out.name || out.email || out.phone ? out : null;
     } catch {
         return null;
     }

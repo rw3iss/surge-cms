@@ -47,7 +47,6 @@ import {
     PAID_COLLECTS,
     planReads,
     PRIVATE_METRICS_DAYS,
-    type SpendState,
     syndicationMetric,
     tweetMetric,
     type XCapabilities,
@@ -104,12 +103,24 @@ async function loadConnection(): Promise<XConnection> {
     };
 }
 
-async function saveSpend(spend: SpendState,): Promise<void> {
+/**
+ * Record this run's spend as a DELTA added to the stored month-to-date total
+ * (in SQL, one statement): writing back the absolute value read at the start
+ * of the run would lose the spend of a run (or an admin settings save) that
+ * overlapped it. A stored total from an older month is dropped (rollover).
+ */
+async function saveSpend(month: string, deltaUsd: number,): Promise<void> {
+    const delta = money(deltaUsd,);
+    if (!(delta > 0)) return;
     await query(
         `UPDATE social_connections
-            SET settings = jsonb_set(COALESCE(settings, '{}'::jsonb), '{analyticsSpend}', $1::jsonb, true)
+            SET settings = jsonb_set(COALESCE(settings, '{}'::jsonb), '{analyticsSpend}',
+                jsonb_build_object('month', $1::text, 'spentUsd', round(
+                    CASE WHEN settings->'analyticsSpend'->>'month' = $1::text
+                              AND (settings->'analyticsSpend'->>'spentUsd') ~ '^[0-9]+(\\.[0-9]+)?$'
+                         THEN (settings->'analyticsSpend'->>'spentUsd')::numeric ELSE 0 END + $2::numeric, 4)), true)
           WHERE provider::text = 'twitter'`,
-        [JSON.stringify({ month: spend.month, spentUsd: money(spend.spentUsd,), },),],
+        [month, delta,],
     );
 }
 
@@ -224,7 +235,8 @@ async function paidTier(ctx: CollectContext, creds: TwitterUserCreds, posts: Kno
             me = (await signedGet('/users/me', { 'user.fields': 'public_metrics,profile_image_url,username,name', }, creds,)).data;
             caps.paidReads = true;
         } catch (e) {
-            caps.paidReads = false;
+            // Only a refusal (401/402/403) means "paid reads do not work"; a timeout / 5xx is transient.
+            if (fatalPaid(e,)) caps.paidReads = false;
             ctx.warn((e as Error).message,);
             return out;
         }
@@ -319,7 +331,7 @@ async function paidTier(ctx: CollectContext, creds: TwitterUserCreds, posts: Kno
         } else ctx.warn(`X paid reads: ${(e as Error).message}`,);
     } finally {
         // Count every read we attempted, success or not.
-        await saveSpend({ month: spend.month, spentUsd: budget.spentUsd, },)
+        await saveSpend(spend.month, budget.spentUsd - spend.spentUsd,)
             .catch((e,) => ctx.warn(`Could not record X analytics spend: ${(e as Error).message}`,));
     }
     out.leftover = posts.filter((p,) => !metrics.has(p.externalId,));

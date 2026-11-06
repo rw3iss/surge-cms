@@ -2,7 +2,7 @@
   "name": "claude-broker",
   "label": "Claude Broker (AI)",
   "description": "Send AI prompts to Claude Code sessions on a local claude-broker daemon. Sign in to Claude and run the session pools from the admin (claude-broker ≥ 0.6 manages, watches and restarts them).",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "author": "Surge CMS",
   "homepage": "https://github.com/rw3iss/claude-broker",
   "apiVersion": 1,

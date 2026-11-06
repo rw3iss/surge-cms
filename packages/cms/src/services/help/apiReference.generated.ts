@@ -5739,7 +5739,7 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "path": "/",
                 "absolutePath": "/api/v1/forms",
                 "auth": "optional",
-                "summary": "List forms. Public published-only by default; admins passing all=true/status get the paginated admin list.",
+                "summary": "List forms. Public published-only by default; staff passing all=true/status get the paginated admin list.",
                 "input": {
                     "query": [
                         {
@@ -5889,7 +5889,7 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "path": "/:id",
                 "absolutePath": "/api/v1/forms/:id",
                 "auth": "optional",
-                "summary": "Fetch a form by id (with questions). Admins see any status; anonymous callers see published forms only.",
+                "summary": "Fetch a form by id (with questions). Staff see any status; everyone else sees published forms only.",
                 "input": {
                     "params": [
                         {
@@ -17666,7 +17666,7 @@ export const API_MODULES: ApiModuleDoc[] = [
                 "path": "/collect",
                 "absolutePath": "/api/v1/social-analytics/collect",
                 "auth": "staff",
-                "summary": "Run the collectors now (all ready ones, or the named platforms).",
+                "summary": "Run the collectors now (all ready ones, or the named platforms). Waits ≤ 50 s; runs still going come back with status \"running\".",
                 "input": {
                     "body": [
                         {

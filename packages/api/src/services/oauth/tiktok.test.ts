@@ -59,6 +59,14 @@ describe('TikTok Business (Accounts API) OAuth', () => {
         expect(built.searchParams.get('scope',),).toBe(TIKTOK_BUSINESS_SCOPES.join(',',),);
     },);
 
+    it('never appends the state to a pasted URL off TikTok (falls back to the built URL)', () => {
+        for (const bad of ['https://evil.test/auth?x=1', 'http://www.tiktok.com/v2/auth/authorize', 'https://tiktok.com.evil.test/a', 'not a url',]) {
+            const u = new URL(businessAuthorizeUrl('APP', 'https://x.test/cb', 'st', bad,),);
+            expect(u.hostname,).toBe('www.tiktok.com',);
+            expect(u.searchParams.get('client_key',),).toBe('APP',);
+        }
+    },);
+
     it('parses { code, data } answers and stores business* credentials', () => {
         const t = parseBusinessToken({
             code: 0, message: 'OK', data: { access_token: 'b1', expires_in: 86400, refresh_token: 'br', refresh_token_expires_in: 31536000, open_id: 'biz', scope: 'user.insights', token_type: 'Bearer', },

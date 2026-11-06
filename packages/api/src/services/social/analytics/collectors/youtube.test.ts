@@ -3,7 +3,7 @@ import { describe, expect, it, vi, } from 'vitest';
 vi.mock('../../../../db', () => ({ query: vi.fn(), transaction: vi.fn(), }),);
 
 import { getCollector, } from '../registry';
-import { hasAnalyticsScope, parseCsv, reachPoints, reportRows, } from './youtube';
+import { hasAnalyticsScope, latestPoints, parseCsv, reachPoints, reportRows, } from './youtube';
 
 describe('youtube analytics collector', () => {
     it('registers itself', () => {
@@ -36,8 +36,16 @@ describe('youtube analytics collector', () => {
         expect(find('impressions', 'video:a',),).toBe(150,);
         expect(find('impressions', 'video:b',),).toBe(10,);
         expect(find('impressions',),).toBe(160,);
-        expect(find('impressionsCtr', 'video:a',),).toBe(0.04,);
+        expect(find('impressionsCtr', 'video:a',),).toBeCloseTo((100 * 0.05 + 50 * 0.04) / 150, 6,); // impression-weighted
         expect(pts.every((p,) => p.date === '2026-11-01'),).toBe(true,);
+    },);
+
+    it('keeps one value per day/metric/dimension across report files (later file wins, never summed)', () => {
+        const a = reachPoints([{ date: '20261101', video_id: 'a', video_thumbnail_impressions: '100', video_thumbnail_impressions_ctr: '0.05', },],);
+        const b = reachPoints([{ date: '20261101', video_id: 'a', video_thumbnail_impressions: '120', video_thumbnail_impressions_ctr: '0.06', },],);
+        const pts = latestPoints([...a, ...b,],);
+        expect(pts.filter((p,) => p.metric === 'impressions' && !p.dimension),).toEqual([{ date: '2026-11-01', metric: 'impressions', value: 120, },],);
+        expect(pts,).toHaveLength(3,);
     },);
 
     it('status: off without a connection, partial in key mode, ready with the scope', async () => {

@@ -80,6 +80,13 @@ export interface EntityEditorController<TEntity,> {
     saved: () => TEntity | null;
     // dirty tracking
     isDirty: Accessor<boolean>;
+    /** In-app navigation away from an editor with unsaved edits waits here
+     *  for the operator (the shell renders the confirmation). */
+    leaveGuard: {
+        pending: () => boolean;
+        confirmLeave: () => void;
+        cancelLeave: () => void;
+    };
     markDirty: () => void;
     markClean: () => void;
     // save state
@@ -134,7 +141,7 @@ export function useEntityEditor<TEntity,>(
     const toast = useToast();
     const isNew = () => !params.id || params.id === 'new';
 
-    const { isDirty, markDirty, markClean, } = useUnsavedChanges();
+    const { isDirty, markDirty, markClean, pending, confirmLeave, cancelLeave, } = useUnsavedChanges();
 
     const [entity,] = createResource(
         () => isNew() ? null : params.id,
@@ -201,7 +208,22 @@ export function useEntityEditor<TEntity,>(
      *  without the operator reloading the page. */
     const [savedTick, setSavedTick,] = createSignal(0,);
 
+    /** Set for the WHOLE save (incl. the blur wait below), so a second Ctrl+S
+     *  or a click during a save cannot start a parallel one — two parallel
+     *  saves of a NEW entity created it twice. */
+    let saveInFlight = false;
+
     const handleSave = async () => {
+        if (saveInFlight) return;
+        saveInFlight = true;
+        try {
+            await runSave();
+        } finally {
+            saveInFlight = false;
+        }
+    };
+
+    const runSave = async () => {
         // Rich Text / HTML blocks flush their edits to the block store on BLUR,
         // not per keystroke (keeps caret focus while typing). If the operator
         // clicks Save (or hits Ctrl+S) while a block is still focused, blur it
@@ -232,19 +254,31 @@ export function useEntityEditor<TEntity,>(
         autoSave.cancel();
 
         beginSave();
+        // What THIS save sends. Edits made while it is in flight are not in it,
+        // so they must not be recorded as saved (nor their dirty flag cleared).
+        const sentFields = config.autoSaveState();
+        const sentBlocks = blocks();
+        const sentKey = JSON.stringify({ ...sentFields, blocks: sentBlocks, },);
+        const wasNew = isNew();
         try {
             const id = await config.save({
-                isNew: isNew(),
+                isNew: wasNew,
                 id: params.id,
-                blocks: blocks(),
+                blocks: sentBlocks,
                 savedBlocks: savedBlocks(),
                 originalBlockIds: originalBlockIds(),
             },);
-            setSavedBlocks(structuredClone(blocks(),),);
+            setSavedBlocks(structuredClone(sentBlocks,),);
             // What the server now holds (slug, status, …) — the View link reads it.
-            setSavedFields({ ...(savedFields() ?? {}), ...config.autoSaveState(), },);
-            autoSave.clear();
-            markClean();
+            setSavedFields({ ...(savedFields() ?? {}), ...sentFields, },);
+            const editedDuringSave = !wasNew
+                && JSON.stringify({ ...config.autoSaveState(), blocks: blocks(), },) !== sentKey;
+            if (editedDuringSave) {
+                autoSave.flush(); // keep the newer edits as the local draft
+            } else {
+                autoSave.clear();
+                markClean();
+            }
             config.onSaved?.();
             toast.success(config.messages.saved(),);
             const savedId = id || params.id;
@@ -259,7 +293,7 @@ export function useEntityEditor<TEntity,>(
             }
             // Brand-new entities navigate to the persisted id so the next
             // save PUTs instead of POSTing; existing entities stay put.
-            if (isNew() && id) {
+            if (wasNew && id) {
                 navigate(`${config.listPath}/${id}`, { replace: true, },);
             }
         } catch (err) {
@@ -311,6 +345,7 @@ export function useEntityEditor<TEntity,>(
         entity,
         saved,
         isDirty,
+        leaveGuard: { pending, confirmLeave, cancelLeave, },
         markDirty,
         markClean,
         error,

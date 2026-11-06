@@ -1,5 +1,4 @@
 @use '../../../styles/variables' as *;
-@use '../../membership/status' as *;
 
 // Discount code modal + table (Shop → Discount codes, Shop → Affiliates).
 .discount-modal {
@@ -20,7 +19,7 @@
 
   &__error {
     margin: 0;
-    color: var(--admin-danger, #b91c1c);
+    color: var(--admin-danger, #{$error-fg});
     font-size: 0.9rem;
   }
 
@@ -85,15 +84,5 @@
     gap: $spacing-md;
 
     h2 { margin: 0; font-size: 1.15rem; }
-  }
-  &__badge {
-    display: inline-block;
-    padding: 1px 8px;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    background: var(--admin-bg-subtle, #f3f4f6);
-
-    &--ok { @include status-fill(success); }
-    &--warn { @include status-fill(warning); }
   }
 }

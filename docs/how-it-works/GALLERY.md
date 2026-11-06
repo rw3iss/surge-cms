@@ -231,7 +231,14 @@ Settings (Gallery → Settings → Behavior):
   collection, the collection's items (the same listing as Previous / Next, up to
   200) as thumbnails: a sticky right column on desktop, as tall as the window
   below the header and scrollable; on mobile a horizontal strip under the
-  media, before the comments. The current item is outlined.
+  media, before the comments. The current item is outlined and scrolled into
+  view inside the column / strip only (the page does not move). Thumbnails keep
+  their DOM (and focus) across item switches; each link is named by the item
+  title, else its alt text, else "Item N".
+
+Keyboard: on an item page, **←** / **→** open the previous / next item (same
+listing as the links), except while focus is in a text field, the video
+player, a slider or a menu, or with a modifier key held.
 
 ## Comments
 

@@ -3,8 +3,11 @@
  * analytics tables (migration 201).
  *
  * Post cadence: a post gets a metrics row every day for its first 90 days,
- * then once a week (Mondays) — enough for "views at day 7" comparisons
- * without a row per post per day forever.
+ * then about once a week (when its newest row is 7+ days old) — enough for
+ * "views at day 7" comparisons without a row per post per day forever.
+ * Locking: one 'running' run per platform (unique index, migration 204), so
+ * the cron, "Collect now" and other processes never collect a platform twice
+ * at the same time.
  */
 import type { SocialAnalyticsRun, } from '@sitesurge/types';
 import { query, transaction, } from '../../../db';
@@ -14,9 +17,13 @@ import type { CollectResult, KnownPost, SocialAnalyticsCollector, } from './type
 import './collectors';
 
 const DAILY_POST_DAYS = 90;
+/** Older posts: a new row when the newest one is this many days old. */
+const WEEKLY_POST_DAYS = 7;
 const MAX_POSTS_PER_RUN = 1000;
 /** A run still "running" after this long is treated as dead. */
-const STALE_RUN_MINUTES = 30;
+export const STALE_RUN_MINUTES = 30;
+/** Run history kept for the admin (older rows are deleted after each daily collection). */
+const RUN_HISTORY_DAYS = 180;
 
 export function utcDay(d = new Date(),): string {
     return d.toISOString().slice(0, 10,);
@@ -37,18 +44,25 @@ export async function loadConnection(provider: string,): Promise<ConnectionRow |
     return r.rows[0] ?? null;
 }
 
-/** Posts of a platform due a snapshot today (no row for today yet). */
+/**
+ * Posts of a platform due a snapshot today (no row for today yet): every post
+ * of the last 90 days, plus older ones whose newest row is a week old. (This
+ * used to be "older posts on Mondays only", so a missed Monday cron skipped
+ * them for a whole week.)
+ */
 async function duePosts(platform: string, today: string,): Promise<KnownPost[]> {
-    const monday = new Date(`${today}T00:00:00Z`,).getUTCDay() === 1;
     const r = await query<{ id: string; external_id: string; published_at: Date | null; media_kind: string | null; }>(
         `SELECT p.id, p.external_id, p.published_at, p.media_kind
            FROM social_posts p
           WHERE p.platform::text = $1
-            AND (p.published_at >= $2::date - $3::int OR $4::boolean OR p.published_at IS NULL)
             AND NOT EXISTS (SELECT 1 FROM social_post_metrics m WHERE m.social_post_id = p.id AND m.date = $2::date)
+            AND (p.published_at IS NULL
+                 OR p.published_at >= $2::date - $3::int
+                 OR NOT EXISTS (SELECT 1 FROM social_post_metrics m
+                                 WHERE m.social_post_id = p.id AND m.date > $2::date - $4::int))
           ORDER BY p.published_at DESC NULLS LAST
           LIMIT $5`,
-        [platform, today, DAILY_POST_DAYS, monday, MAX_POSTS_PER_RUN,],
+        [platform, today, DAILY_POST_DAYS, WEEKLY_POST_DAYS, MAX_POSTS_PER_RUN,],
     );
     return r.rows.map((row,) => ({
         id: row.id,
@@ -96,7 +110,7 @@ export async function storeResult(
                    posts_count = COALESCE(EXCLUDED.posts_count, social_account_snapshots.posts_count),
                    total_views = COALESCE(EXCLUDED.total_views, social_account_snapshots.total_views),
                    total_likes = COALESCE(EXCLUDED.total_likes, social_account_snapshots.total_likes),
-                   raw = EXCLUDED.raw, collected_at = NOW()`,
+                   raw = social_account_snapshots.raw || EXCLUDED.raw, collected_at = NOW()`,
                 [platform, today, int(a.followers,), int(a.following,), int(a.postsCount,), int(a.totalViews,), int(a.totalLikes,), JSON.stringify(a.raw ?? {},),],
             );
             counts.account = 1;
@@ -173,6 +187,30 @@ export async function lastRuns(): Promise<Map<string, SocialAnalyticsRun>> {
     return new Map(r.rows.map((row,) => [row.platform as string, mapRun(row,),]),);
 }
 
+/** Mark runs still 'running' after STALE_RUN_MINUTES as failed (the process stopped). */
+export async function expireStaleRuns(platform?: string,): Promise<number> {
+    const r = await query(
+        `UPDATE social_analytics_runs
+            SET status = 'failed', finished_at = NOW(), error = COALESCE(error, 'The run did not finish (the process stopped or timed out).')
+          WHERE status = 'running' AND started_at < NOW() - ($1 || ' minutes')::interval
+            AND ($2::text IS NULL OR platform = $2)`,
+        [String(STALE_RUN_MINUTES,), platform ?? null,],
+    );
+    return r.rowCount ?? 0;
+}
+
+/** Drop run history older than RUN_HISTORY_DAYS (the newest run per platform is always kept). */
+export async function pruneRuns(): Promise<number> {
+    const r = await query(
+        `DELETE FROM social_analytics_runs r
+          WHERE r.started_at < NOW() - ($1 || ' days')::interval
+            AND r.status <> 'running'
+            AND EXISTS (SELECT 1 FROM social_analytics_runs n WHERE n.platform = r.platform AND n.started_at > r.started_at)`,
+        [String(RUN_HISTORY_DAYS,),],
+    );
+    return r.rowCount ?? 0;
+}
+
 /** Run one collector now; null when it cannot collect (or is already running). */
 export async function runCollector(c: SocialAnalyticsCollector, trigger: string,): Promise<SocialAnalyticsRun | null> {
     const conn = await loadConnection(c.connection,);
@@ -181,16 +219,16 @@ export async function runCollector(c: SocialAnalyticsCollector, trigger: string,
     const status = await Promise.resolve(c.status(credentials, connected,),).catch(() => null);
     if (!status || status.state === 'off') return null;
 
-    const busy = await query(
-        `SELECT 1 FROM social_analytics_runs WHERE platform = $1 AND status = 'running' AND started_at > NOW() - ($2 || ' minutes')::interval`,
-        [c.platform, String(STALE_RUN_MINUTES,),],
-    );
-    if (busy.rowCount) return null;
-
+    // Close runs a crashed process left 'running', then claim the platform: the
+    // unique index (migration 204) lets only ONE caller insert a running row.
+    await expireStaleRuns(c.platform,);
     const run = await query<{ id: string; }>(
-        `INSERT INTO social_analytics_runs (platform, trigger) VALUES ($1, $2) RETURNING id`,
+        `INSERT INTO social_analytics_runs (platform, trigger) VALUES ($1, $2)
+         ON CONFLICT (platform) WHERE status = 'running' DO NOTHING
+         RETURNING id`,
         [c.platform, trigger,],
     );
+    if (!run.rows[0]) return null;
     const runId = run.rows[0].id;
     const warnings: string[] = [];
     const today = utcDay();
@@ -235,6 +273,34 @@ export async function runCollection(opts: { platforms?: string[]; trigger?: stri
     return runs;
 }
 
+/** How long an HTTP "Collect now" waits before answering (proxies cut requests at ~60–100 s). */
+const COLLECT_NOW_WAIT_MS = 50_000;
+
+/**
+ * "Collect now" over HTTP: start the collection, answer with the finished runs
+ * after ≤ 50 s. Collectors still working keep going in the background and are
+ * returned as their 'running' rows, so the admin can say so and refresh later.
+ */
+export async function collectNow(opts: { platforms?: string[]; } = {}, waitMs = COLLECT_NOW_WAIT_MS,): Promise<SocialAnalyticsRun[]> {
+    const startedAt = new Date();
+    const work = runCollection({ platforms: opts.platforms, trigger: 'manual', },);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<null>((resolve,) => {
+        timer = setTimeout(() => resolve(null,), waitMs,);
+    },);
+    const done = await Promise.race([work, timedOut,],).finally(() => clearTimeout(timer,),);
+    if (done) return done;
+    work.catch((e,) => logger.warn('social-analytics: background collection failed', { error: (e as Error).message, },));
+    // Every run this request started (finished or still running), newest per platform.
+    const r = await query(
+        `SELECT DISTINCT ON (platform) * FROM social_analytics_runs
+          WHERE trigger = 'manual' AND started_at >= $1 AND ($2::text[] IS NULL OR platform = ANY($2::text[]))
+          ORDER BY platform, started_at DESC`,
+        [startedAt, opts.platforms?.length ? opts.platforms : null,],
+    );
+    return r.rows.map(mapRun,);
+}
+
 /** Cron: daily at 06:10 UTC (platforms finish yesterday's numbers overnight). */
 export const SOCIAL_ANALYTICS_CRON = {
     name: 'social-analytics',
@@ -242,5 +308,6 @@ export const SOCIAL_ANALYTICS_CRON = {
     description: 'Collects daily social analytics (accounts, daily series, post metrics) from every connected platform.',
     handler: async (): Promise<void> => {
         await runCollection({ trigger: 'cron', },);
+        await pruneRuns().catch((e,) => logger.warn('social-analytics: run pruning failed', { error: (e as Error).message, },));
     },
 };

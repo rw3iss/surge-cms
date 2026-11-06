@@ -10,7 +10,7 @@ import { Checkbox, } from '../../ui/Checkbox';
 import ConfirmModal from '../common/ConfirmModal';
 import { useToast, } from '../../common/toast';
 import { cms, } from '../../../services/cmsClient';
-import { formatMoney, } from './money';
+import { formatMoney, stripeState, } from './money';
 
 const ContributorPayouts: Component<{
     contributors: ContributorBalance[];
@@ -21,7 +21,8 @@ const ContributorPayouts: Component<{
 }> = (props,) => {
     const toast = useToast();
     const [selected, setSelected,] = createSignal<Set<string>>(new Set(),);
-    const [confirmAll, setConfirmAll,] = createSignal(false,);
+    /** The payout waiting for confirmation: everyone payable, or the ticked rows. */
+    const [confirming, setConfirming,] = createSignal<'all' | 'selected' | null>(null,);
     const [busy, setBusy,] = createSignal(false,);
     const [results, setResults,] = createSignal<ContributionPayoutsResponse['results']>([],);
 
@@ -33,8 +34,12 @@ const ContributorPayouts: Component<{
     const allSelected = () => props.contributors.length > 0 && props.contributors.every((c,) => selected().has(c.userId,),);
     const toggleAll = (on: boolean,) => setSelected(on ? new Set(props.contributors.map((c,) => c.userId,),) : new Set<string>(),);
     const payableTotal = () => props.contributors.reduce((t, c,) => t + c.availableCents, 0,);
+    /** Ticked rows that can actually be paid (payable balance + Stripe ready). */
+    const selectedPayable = () => props.contributors.filter((c,) => selected().has(c.userId,) && c.availableCents > 0 && c.stripe.payoutsEnabled,);
+    const selectedTotal = () => selectedPayable().reduce((t, c,) => t + c.availableCents, 0,);
 
     const pay = async (userIds?: string[],) => {
+        if (busy()) return;
         setBusy(true,);
         try {
             const r = await cms.contributions.payOut(userIds,);
@@ -49,7 +54,7 @@ const ContributorPayouts: Component<{
             toast.error(e instanceof Error ? e.message : 'The payout failed.',);
         } finally {
             setBusy(false,);
-            setConfirmAll(false,);
+            setConfirming(null,);
         }
     };
 
@@ -92,9 +97,7 @@ const ContributorPayouts: Component<{
                                         <td><strong>{formatMoney(c.availableCents, props.currency,)}</strong></td>
                                         <td>{formatMoney(c.paidCents, props.currency,)}</td>
                                         <td>
-                                            <span class={`badge ${c.stripe.payoutsEnabled ? 'badge--success' : c.stripe.connected ? 'badge--warning' : 'badge--muted'}`}>
-                                                {c.stripe.payoutsEnabled ? 'Ready' : c.stripe.connected ? 'Not finished' : 'Not connected'}
-                                            </span>
+                                            <span class={`badge badge--${stripeState(c.stripe,).tone}`}>{stripeState(c.stripe,).label}</span>
                                         </td>
                                     </tr>
                                 )}
@@ -107,12 +110,13 @@ const ContributorPayouts: Component<{
                     <button
                         type="button"
                         class="ui-button ui-button--secondary"
-                        disabled={busy() || selected().size === 0}
-                        onClick={() => void pay([...selected(),],)}
+                        disabled={busy() || selectedPayable().length === 0}
+                        title={selected().size > 0 && selectedPayable().length === 0 ? 'None of the selected contributors has a payable balance and a ready Stripe account.' : undefined}
+                        onClick={() => setConfirming('selected',)}
                     >
-                        {busy() ? 'Paying…' : `Pay selected (${selected().size})`}
+                        {busy() && confirming() === 'selected' ? 'Paying…' : `Pay selected (${selected().size})`}
                     </button>
-                    <button type="button" class="ui-button ui-button--primary" disabled={busy() || payableTotal() <= 0} onClick={() => setConfirmAll(true,)}>
+                    <button type="button" class="ui-button ui-button--primary" disabled={busy() || payableTotal() <= 0} onClick={() => setConfirming('all',)}>
                         Pay everyone payable
                     </button>
                 </div>
@@ -131,14 +135,16 @@ const ContributorPayouts: Component<{
             </Show>
 
             <ConfirmModal
-                open={confirmAll()}
-                title="Pay every contributor?"
-                message={`This transfers ${formatMoney(payableTotal(), props.currency,)} — every contributor's payable balance — to their connected Stripe accounts.`}
-                confirmLabel="Pay everyone"
+                open={confirming() !== null}
+                title={confirming() === 'all' ? 'Pay every contributor?' : `Pay ${selectedPayable().length} contributor${selectedPayable().length === 1 ? '' : 's'}?`}
+                message={confirming() === 'all'
+                    ? `This transfers ${formatMoney(payableTotal(), props.currency,)} — every contributor's payable balance — to their connected Stripe accounts. Contributors without a ready Stripe account are skipped.`
+                    : `This transfers ${formatMoney(selectedTotal(), props.currency,)} to ${selectedPayable().map((c,) => c.name || c.email,).join(', ',)}. A transfer cannot be undone here.`}
+                confirmLabel={confirming() === 'all' ? 'Pay everyone' : 'Pay now'}
                 busyLabel="Paying…"
                 loading={busy()}
-                onConfirm={() => void pay()}
-                onCancel={() => setConfirmAll(false,)}
+                onConfirm={() => void pay(confirming() === 'selected' ? selectedPayable().map((c,) => c.userId,) : undefined,)}
+                onCancel={() => { if (!busy()) setConfirming(null,); }}
             />
         </section>
     );

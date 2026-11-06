@@ -107,12 +107,16 @@ const ConfigArea: Component<{
     const [mode, setMode,] = createSignal<'loading' | 'custom' | 'declarative'>('loading',);
     let el: HTMLDivElement | undefined;
     const cleanups: Array<() => void> = [];
+    // Set on unmount: a bundle that finishes loading after that must not mount
+    // (it would never be torn down).
+    let disposed = false;
 
     onMount(async () => {
         const clientUrl = props.plugin.manifest?.client ? `/api/v1/plugins/${props.plugin.name}/client.js` : null;
         if (!clientUrl) { setMode('declarative',); return; }
         try {
             const mod = await loadPluginModule(clientUrl,);
+            if (disposed) return;
             if (mod.mountConfig && el) {
                 setMode('custom',);
                 const host = buildHost({
@@ -125,9 +129,10 @@ const ConfigArea: Component<{
                     mountPoint: el,
                     cleanups,
                     saveConfig: props.saveConfig,
+                    isDisposed: () => disposed,
                 });
-                const teardown = mod.mountConfig(el, host,);
-                if (typeof teardown === 'function') cleanups.push(teardown,);
+                const teardown = await mod.mountConfig(el, host,);
+                if (typeof teardown === 'function') host.onCleanup(teardown,);
             } else {
                 setMode('declarative',);
             }
@@ -136,7 +141,10 @@ const ConfigArea: Component<{
         }
     },);
 
-    onCleanup(() => { for (const fn of cleanups) { try { fn(); } catch { /* noop */ } } },);
+    onCleanup(() => {
+        disposed = true;
+        for (const fn of cleanups) { try { fn(); } catch { /* noop */ } }
+    },);
 
     return (
         <>

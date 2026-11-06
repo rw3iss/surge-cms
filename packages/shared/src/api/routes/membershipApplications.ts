@@ -50,7 +50,11 @@ export interface MembershipApplication {
     tierRoleOnly?: boolean;
     /** The role a program approval adds. */
     tierRole?: string | null;
-    /** Account-less application: the account that already uses its email, if any (admin can link it). */
+    /**
+     * Account-less only: the account that already uses the application's email.
+     * `emailVerified` = that address was PROVEN (`users.verified_at` set) — not
+     * merely `email_verified`, which defaults to true while email validation is off.
+     */
     matchedAccount?: { id: string; email: string; displayName: string; emailVerified: boolean; } | null;
     /** When the approved member started (paid for) the level. */
     activatedAt?: string | null;

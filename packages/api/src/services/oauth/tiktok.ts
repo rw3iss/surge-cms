@@ -135,13 +135,40 @@ export function tiktokAuthorizeUrl(clientKey: string, redirectUri: string, state
  * one registered on the app, i.e. ours), else a built v2 URL. (pure)
  */
 export function businessAuthorizeUrl(appId: string, redirectUri: string, state: string, pasted?: string | null,): string {
-    if (pasted && /^https:\/\//i.test(pasted.trim(),)) {
-        const u = new URL(pasted.trim(),);
+    const u = pasted ? tiktokUrl(pasted,) : null;
+    if (u) {
         u.searchParams.set('state', state,);
         if (!u.searchParams.get('redirect_uri',)) u.searchParams.set('redirect_uri', redirectUri,);
         return u.toString();
     }
     return tiktokAuthorizeUrl(appId, redirectUri, state, TIKTOK_BUSINESS_SCOPES,);
+}
+
+/**
+ * A pasted authorize URL, only when it is https on a TikTok host — the CSRF
+ * state is appended to it, so it must never be handed to another site. (pure)
+ */
+export function tiktokUrl(raw: string,): URL | null {
+    try {
+        const u = new URL(raw.trim(),);
+        const host = u.hostname.toLowerCase();
+        return u.protocol === 'https:' && (host === 'tiktok.com' || host.endsWith('.tiktok.com',)) ? u : null;
+    } catch {
+        return null;
+    }
+}
+
+/** A hung TikTok socket must not hang a sign-in or a collector run. */
+export const TIKTOK_TIMEOUT_MS = 30_000;
+
+/** fetch with a timeout; network errors become a plain message (never the URL). */
+export async function tiktokFetch(url: string, init: RequestInit = {},): Promise<Response> {
+    try {
+        return await fetch(url, { ...init, signal: AbortSignal.timeout(TIKTOK_TIMEOUT_MS,), },);
+    } catch (e) {
+        const name = (e as Error)?.name;
+        throw new Error(name === 'TimeoutError' || name === 'AbortError' ? `TikTok did not answer within ${TIKTOK_TIMEOUT_MS / 1000} s` : 'TikTok is unreachable (network error)',);
+    }
 }
 
 async function readJson(res: Response,): Promise<unknown> {
@@ -150,7 +177,7 @@ async function readJson(res: Response,): Promise<unknown> {
 
 /** POST the Login Kit token endpoint (code exchange or refresh). */
 export async function requestDisplayToken(params: Record<string, string>,): Promise<TikTokToken> {
-    const res = await fetch(TIKTOK_TOKEN_URL, {
+    const res = await tiktokFetch(TIKTOK_TOKEN_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Cache-Control': 'no-cache', },
         body: new URLSearchParams(params,),
@@ -166,7 +193,7 @@ export async function requestDisplayToken(params: Record<string, string>,): Prom
 
 /** POST a Business tt_user OAuth endpoint ('token' | 'refresh_token'). */
 export async function requestBusinessToken(endpoint: 'token' | 'refresh_token', body: Record<string, string>,): Promise<TikTokToken> {
-    const res = await fetch(`${TIKTOK_BUSINESS_API}/tt_user/oauth2/${endpoint}/`, {
+    const res = await tiktokFetch(`${TIKTOK_BUSINESS_API}/tt_user/oauth2/${endpoint}/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', },
         body: JSON.stringify(body,),
@@ -233,7 +260,7 @@ export class TikTokOAuthProvider implements OAuthProvider, OAuthProviderOptions 
     }
 
     async getUserInfo(accessToken: string,): Promise<OAuthUserInfo> {
-        const res = await fetch(`${TIKTOK_DISPLAY_API}/user/info/?fields=open_id,display_name,username,avatar_url`, {
+        const res = await tiktokFetch(`${TIKTOK_DISPLAY_API}/user/info/?fields=open_id,display_name,username,avatar_url`, {
             headers: { Authorization: `Bearer ${accessToken}`, },
         },);
         const body = await readJson(res,) as { data?: { user?: Record<string, unknown>; }; error?: { code?: string; message?: string; }; };
@@ -308,7 +335,7 @@ export class TikTokBusinessOAuthProvider implements OAuthProvider, OAuthProvider
 
     async getUserInfo(accessToken: string,): Promise<OAuthUserInfo> {
         // The open_id from the token answer is the business_id; the profile call proves it works.
-        const infoRes = await fetch(`${TIKTOK_BUSINESS_API}/tt_user/token_info/get/`, {
+        const infoRes = await tiktokFetch(`${TIKTOK_BUSINESS_API}/tt_user/token_info/get/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', },
             body: JSON.stringify({ app_id: this.config.appId, access_token: accessToken, },),
@@ -316,7 +343,7 @@ export class TikTokBusinessOAuthProvider implements OAuthProvider, OAuthProvider
         const tokenInfo = (infoRes ? await readJson(infoRes,) : {}) as { data?: { creator_id?: string; scope?: string; }; };
         const businessId = tokenInfo.data?.creator_id;
         if (!businessId) throw new Error('Could not read the TikTok Business account (token_info)',);
-        const res = await fetch(`${TIKTOK_BUSINESS_API}/business/get/?` + new URLSearchParams({
+        const res = await tiktokFetch(`${TIKTOK_BUSINESS_API}/business/get/?` + new URLSearchParams({
             business_id: businessId,
             fields: JSON.stringify(['display_name', 'username', 'profile_image',],),
         },), { headers: { 'Access-Token': accessToken, }, },);

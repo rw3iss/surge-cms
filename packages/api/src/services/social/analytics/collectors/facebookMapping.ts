@@ -113,7 +113,8 @@ export function pageDailyPoints(resp: InsightResponse,): DailyPoint[] {
 }
 
 /**
- * One day of a boolean breakdown (is_from_followers / is_from_ads) → points.
+ * One day of a boolean breakdown (is_from_followers / is_from_ads) → points
+ * (`date` = the day asked for; a `values[]` answer is dated by its end_time).
  * Meta does not document the Page answer's shape, so both are read: the
  * `total_value.breakdowns` form (as Instagram) and a `values[].value` object
  * keyed by bucket. A plain number (no breakdown applied) yields nothing.
@@ -130,12 +131,16 @@ export function pageBreakdownPoints(resp: InsightResponse, breakdown: string, da
                 if (dim && value !== null) points.push({ date, metric, value, dimension: dim, },);
             }
         }
-        const last = row.values?.[row.values.length - 1];
-        if (last?.value && typeof last.value === 'object') {
-            for (const [bucket, n,] of Object.entries(last.value as Record<string, unknown>,)) {
+        // values[] form: each value is dated by its own end_time (the END of the
+        // day it covers → the day before), exactly like pageDailyPoints, so the
+        // split lands on the same day as the Page total it splits.
+        for (const v of row.values ?? []) {
+            if (!v.value || typeof v.value !== 'object') continue;
+            const day = (v.end_time ? endTimeToDate(v.end_time,) : null) ?? date;
+            for (const [bucket, n,] of Object.entries(v.value as Record<string, unknown>,)) {
                 const dim = breakdownDimension(breakdown, bucket,);
                 const value = num(n,);
-                if (dim && value !== null) points.push({ date, metric, value, dimension: dim, },);
+                if (dim && value !== null) points.push({ date: day, metric, value, dimension: dim, },);
             }
         }
     }
@@ -267,7 +272,9 @@ export function mapFacebookPost(
         clicks: g('post_clicks',),
         likes: node?.reactions?.summary?.total_count ?? null,
         comments: node?.comments?.summary?.total_count ?? null,
-        shares: node?.shares?.count ?? (node ? 0 : null),
+        // Graph omits `shares` on a post nobody shared — 0, but only when the node
+        // really was read with its summaries (a bare `{ id }` knows nothing).
+        shares: node?.shares?.count ?? (node && (node.reactions || node.comments) ? 0 : null),
         watchTimeS: sec(viewMs,),
         avgWatchS: sec(avgMs,),
         // Average watched ÷ length.

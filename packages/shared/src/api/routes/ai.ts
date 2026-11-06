@@ -43,10 +43,22 @@ export interface AiPool {
     expected: number;
     description: string;
     attached: number;
+    /** Attached sessions that can take a job (not usage-limited, signed out, stuck…). */
+    ready: number;
     busy: number;
+    /** Ready sessions with no active job. */
     idle: number;
+    /** `ready >= expected`. */
     healthy: boolean;
-    sessions: Array<{ id: string; label: string; busy: number; }>;
+    sessions: Array<{
+        id: string;
+        label: string;
+        busy: number;
+        /** False when the broker reports a state in which the session cannot work. */
+        healthy?: boolean;
+        /** The broker's TUI state (claude-broker ≥ 0.6), e.g. `ready`, `usage_limited`. */
+        state?: string | null;
+    }>;
 }
 
 export interface AiSession {

@@ -4,6 +4,9 @@
  * sidebar: the latest notifications (click = mark read + go to its target,
  * × = clear), Mark all read, View all (/admin/notifications), and the user's
  * desktop-notifications switch. Shown only while in-app notifications are on.
+ *
+ * Keyboard: opening moves focus into the panel; Escape or a click outside
+ * closes it, and focus returns to the bell. Rows act on Enter / Space.
  */
 import { A, useNavigate, } from '@solidjs/router';
 import type { UserNotification, } from '@sitesurge/types';
@@ -36,10 +39,30 @@ const NotificationWidget: Component<{ collapsed?: boolean; /** Expands the colla
     // Reload the open list whenever the count is refreshed (poll / focus / actions).
     createEffect(on(() => [open(), notificationsVersion(),] as const, ([o,],) => { if (o) void load(); },),);
 
-    // Escape closes.
-    const onKey = (e: KeyboardEvent,) => { if (e.key === 'Escape' && open()) setOpen(false,); };
+    let rootEl: HTMLDivElement | undefined;
+    let bellEl: HTMLButtonElement | undefined;
+    let panelEl: HTMLDivElement | undefined;
+    const close = (returnFocus = false,) => {
+        setOpen(false,);
+        if (returnFocus) bellEl?.focus();
+    };
+
+    // Escape closes (focus back on the bell); a click outside closes.
+    const onKey = (e: KeyboardEvent,) => { if (e.key === 'Escape' && open()) close(true,); };
+    const onPointer = (e: PointerEvent,) => {
+        if (open() && rootEl && !rootEl.contains(e.target as Node,)) close();
+    };
     document.addEventListener('keydown', onKey,);
-    onCleanup(() => document.removeEventListener('keydown', onKey,),);
+    document.addEventListener('pointerdown', onPointer,);
+    onCleanup(() => {
+        document.removeEventListener('keydown', onKey,);
+        document.removeEventListener('pointerdown', onPointer,);
+    },);
+
+    // Opening moves focus into the panel (screen readers announce it; Tab starts there).
+    createEffect(on(() => open() && !props.collapsed, (shown,) => {
+        if (shown) requestAnimationFrame(() => panelEl?.focus({ preventScroll: true, },),);
+    }, { defer: true, },),);
 
     const go = async (n: UserNotification,) => {
         setOpen(false,);
@@ -49,24 +72,24 @@ const NotificationWidget: Component<{ collapsed?: boolean; /** Expands the colla
         e.stopPropagation();
         setItems(items().filter((x,) => x.id !== n.id,),);
         await cms.notifications.clear([n.id,],).catch(() => undefined,);
-        void refreshNotifications();
+        void refreshNotifications({ force: true, },);
     };
     const markAll = async () => {
         await cms.notifications.markRead('all',).catch(() => undefined,);
-        void refreshNotifications();
+        void refreshNotifications({ force: true, },);
     };
 
     const badge = () => (unreadNotifications() > 99 ? '99+' : String(unreadNotifications(),));
 
     return (
-        <div class={`notification-widget ${open() ? 'notification-widget--open' : ''}`}>
+        <div ref={rootEl} class={`notification-widget ${open() ? 'notification-widget--open' : ''}`}>
             {/* Collapsed sidebar: the panel stays shut — only the bell + count show. */}
             <Show when={open() && !props.collapsed}>
-                <div class="notification-widget__panel" role="dialog" aria-label="Notifications">
+                <div ref={panelEl} class="notification-widget__panel" id="notification-widget-panel" role="dialog" aria-label="Notifications" tabindex="-1">
                     <div class="notification-widget__head">
                         <div class="notification-widget__head-row">
                             <strong>Notifications</strong>
-                            <button type="button" class="notification-widget__close" aria-label="Close notifications" onClick={() => setOpen(false,)}>×</button>
+                            <button type="button" class="notification-widget__close" aria-label="Close notifications" onClick={() => close(true,)}>×</button>
                         </div>
                         {/* Actions on their own row — the sidebar is too narrow for title + two links. */}
                         <div class="notification-widget__head-actions">
@@ -83,7 +106,11 @@ const NotificationWidget: Component<{ collapsed?: boolean; /** Expands the colla
                                         role="listitem"
                                         tabindex="0"
                                         onClick={() => void go(n,)}
-                                        onKeyDown={(e,) => { if (e.key === 'Enter') void go(n,); }}
+                                        onKeyDown={(e,) => {
+                                            if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+                                            e.preventDefault();
+                                            void go(n,);
+                                        }}
                                     >
                                         <span class="notification-widget__dot" aria-hidden="true" />
                                         <div class="notification-widget__text">
@@ -91,7 +118,7 @@ const NotificationWidget: Component<{ collapsed?: boolean; /** Expands the colla
                                             <Show when={n.body}><span class="notification-widget__body">{n.body}</span></Show>
                                             <span class="notification-widget__time">{timeAgo(n.createdAt,)}</span>
                                         </div>
-                                        <button type="button" class="notification-widget__clear" aria-label="Clear" title="Clear" onClick={(e,) => void clearOne(n, e,)}>×</button>
+                                        <button type="button" class="notification-widget__clear" aria-label={`Clear: ${n.title}`} title="Clear" onClick={(e,) => void clearOne(n, e,)}>×</button>
                                     </div>
                                 )}
                             </For>
@@ -105,7 +132,9 @@ const NotificationWidget: Component<{ collapsed?: boolean; /** Expands the colla
             <button
                 type="button"
                 class="notification-widget__header"
+                ref={bellEl}
                 aria-expanded={open() && !props.collapsed}
+                aria-controls="notification-widget-panel"
                 title={props.collapsed ? `Notifications${unreadNotifications() ? ` (${unreadNotifications()} unread)` : ''}` : undefined}
                 onClick={() => {
                     // Collapsed: expand the sidebar and open the panel in one click.

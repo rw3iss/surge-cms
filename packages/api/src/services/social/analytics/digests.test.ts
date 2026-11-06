@@ -3,8 +3,8 @@ import { describe, expect, it, vi, } from 'vitest';
 vi.mock('../../../db', () => ({ query: vi.fn(), transaction: vi.fn(), }),);
 
 import { DEFAULT_SOCIAL_ANALYTICS_SETTINGS, type SocialAnalyticsDigest, } from '@sitesurge/types';
-import { cleanInsights, dueSlot, localParts, metric, periodFor, previousPeriod, totalsOf, } from './digests';
-import { changeBadge, fmtValue, periodLabel, renderDigestEmail, } from './digestEmail';
+import { cleanInsights, collectionSettledAt, dueSlot, localParts, metric, periodFor, previousPeriod, totalsOf, } from './digests';
+import { changeBadge, fmtValue, periodLabel, renderDigestEmail, safeUrl, } from './digestEmail';
 
 const digestCfg = (over: Partial<typeof DEFAULT_SOCIAL_ANALYTICS_SETTINGS.digest>,) => ({ ...DEFAULT_SOCIAL_ANALYTICS_SETTINGS.digest, enabled: true, ...over, });
 
@@ -120,5 +120,32 @@ describe('digest email', () => {
         expect(html,).toContain('@rival',);
         expect(html,).toContain('#nyc',);
         expect(html,).toContain('Women',);
+    },);
+},);
+
+describe('scheduled digest waits for the collection', () => {
+    const at = (iso: string,) => new Date(iso,);
+    it('waits until a run finished after the period (UTC day after `to`)', () => {
+        const s = { running: false, finishedSince: false, anyRecent: true, };
+        expect(collectionSettledAt('2026-11-05', at('2026-11-06T05:00:00Z',), s,),).toBe(false,);
+        expect(collectionSettledAt('2026-11-05', at('2026-11-06T06:20:00Z',), { ...s, finishedSince: true, },),).toBe(true,);
+    },);
+    it('waits while a run is in progress', () => {
+        expect(collectionSettledAt('2026-11-05', at('2026-11-06T06:20:00Z',), { running: true, finishedSince: true, anyRecent: true, },),).toBe(false,);
+    },);
+    it('does not wait when nothing collects, and stops waiting at 09:00 UTC', () => {
+        expect(collectionSettledAt('2026-11-05', at('2026-11-06T01:00:00Z',), { running: false, finishedSince: false, anyRecent: false, },),).toBe(true,);
+        expect(collectionSettledAt('2026-11-05', at('2026-11-06T09:00:00Z',), { running: true, finishedSince: false, anyRecent: true, },),).toBe(true,);
+    },);
+},);
+
+describe('digest email URLs', () => {
+    it('keeps http(s), makes site paths absolute, drops everything else', () => {
+        expect(safeUrl('https://x.com/a',),).toBe('https://x.com/a',);
+        expect(safeUrl('/uploads/social/a.jpg', 'https://site.test/',),).toBe('https://site.test/uploads/social/a.jpg',);
+        expect(safeUrl('/uploads/a.jpg',),).toBeNull();
+        expect(safeUrl('javascript:alert(1)', 'https://site.test',),).toBeNull();
+        expect(safeUrl('//evil.test/a', 'https://site.test',),).toBeNull();
+        expect(safeUrl(null,),).toBeNull();
     },);
 },);

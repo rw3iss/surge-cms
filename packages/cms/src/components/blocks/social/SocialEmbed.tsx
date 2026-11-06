@@ -8,6 +8,7 @@ import {
 } from '@sitesurge/types';
 import { Component, createSignal, Match, onCleanup, Show, Switch, } from 'solid-js';
 import { attachYouTubePlayer, } from './playbackCoordinator';
+import { needsThumbFallback, youtubeEmbedSrc, youtubeFacadeLabel, youtubeFallbackThumb, } from './youtubeFacade';
 import './SocialEmbed.scss';
 
 interface SocialEmbedProps {
@@ -39,8 +40,8 @@ interface SocialEmbedProps {
     showAuthor?: boolean;
     /** Show the post's publish date, right-aligned beside the title. */
     showDate?: boolean;
-    /** ISO publish date, when known. */
-    publishedAt?: string;
+    /** Publish date, when known (ISO string on the wire; a Date is accepted). */
+    publishedAt?: string | Date;
 }
 
 const PLATFORM_COLORS: Record<SocialPlatform, string> = {
@@ -76,16 +77,27 @@ const SocialEmbed: Component<SocialEmbedProps> = (props,) => {
     // of script, its own process) — a Shorts feed mounted ~30 at once and
     // crashed iOS Safari. Every other provider is a thumbnail card that links out.
     const [playing, setPlaying,] = createSignal(false,);
-    const ytThumb = () => props.thumbnailUrl || `https://i.ytimg.com/vi/${encodeURIComponent(props.externalId,)}/hqdefault.jpg`;
-    /** The player, once created: joins the page-wide one-plays-at-a-time coordinator. */
+    const ytFallback = () => youtubeFallbackThumb(props.externalId,);
+    // The stored thumbnail may be maxresdefault, which many videos lack (404 /
+    // a 120px grey placeholder) — swap to hqdefault, which always exists.
+    const [thumbFailed, setThumbFailed,] = createSignal(false,);
+    const ytThumb = () => (!thumbFailed() && props.thumbnailUrl) || ytFallback();
+    const onThumb = (img: HTMLImageElement, failed: boolean,) => {
+        if (needsThumbFallback(img.currentSrc || img.src, ytFallback(), failed ? null : img.naturalWidth,)) setThumbFailed(true,);
+    };
+    const ytLabel = () => youtubeFacadeLabel(props.content,);
+    /** The player, once created: joins the page-wide one-plays-at-a-time
+     *  coordinator, and takes focus — the facade button the visitor activated
+     *  is gone, and focus must not fall back to the page top. */
     const bindPlayer = (el: HTMLIFrameElement,) => {
         onCleanup(attachYouTubePlayer(el,),);
+        queueMicrotask(() => el.isConnected && el.focus({ preventScroll: true, },),);
     };
 
     const platformUrl = () => {
         switch (props.platform) {
             case 'youtube':
-                return `https://www.youtube.com/watch?v=${props.externalId}`;
+                return `https://www.youtube.com/watch?v=${encodeURIComponent(props.externalId,)}`;
             case 'instagram':
                 return props.mediaUrl || `https://www.instagram.com/p/${props.externalId}/`;
             case 'twitter':
@@ -138,10 +150,18 @@ const SocialEmbed: Component<SocialEmbedProps> = (props,) => {
                                     <button
                                         type="button"
                                         class="social-embed__yt-facade"
-                                        style={{ 'background-image': `url("${ytThumb().replace(/["\\]/g, '',)}")`, }}
-                                        aria-label={`Play: ${props.content || 'YouTube video'}`}
+                                        aria-label={`Play video: ${ytLabel()}`}
                                         onClick={() => setPlaying(true,)}
                                     >
+                                        <img
+                                            class="social-embed__yt-thumb"
+                                            src={ytThumb()}
+                                            alt=""
+                                            loading="lazy"
+                                            decoding="async"
+                                            onLoad={(e,) => onThumb(e.currentTarget, false,)}
+                                            onError={(e,) => onThumb(e.currentTarget, true,)}
+                                        />
                                         <span class="social-embed__yt-play" aria-hidden="true" />
                                     </button>
                                 }
@@ -152,8 +172,9 @@ const SocialEmbed: Component<SocialEmbedProps> = (props,) => {
                                 // the frame ignores postMessage entirely. See
                                 // playbackCoordinator: only one social post plays at a
                                 // time, page-wide. autoplay=1: the tap that created
-                                // the player should start it.
-                                src={`https://www.youtube.com/embed/${props.externalId}?enablejsapi=1&autoplay=1&playsinline=1`}
+                                // the player should start it. Not lazy: it exists only
+                                // because the visitor asked for it.
+                                src={youtubeEmbedSrc(props.externalId,)}
                                 ref={bindPlayer}
                                 width="100%"
                                 frameborder="0"
@@ -161,8 +182,10 @@ const SocialEmbed: Component<SocialEmbedProps> = (props,) => {
                                 // it the player drops its share affordance.
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                                 allowfullscreen
-                                loading="lazy"
-                                title={props.content || 'YouTube video'}
+                                // YouTube needs the referring origin (embeds without it can
+                                // refuse to play); this is its documented policy.
+                                referrerpolicy="strict-origin-when-cross-origin"
+                                title={ytLabel()}
                             />
                             </Show>
                         </div>

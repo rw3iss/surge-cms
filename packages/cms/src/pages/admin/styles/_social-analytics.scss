@@ -34,6 +34,28 @@
 
   &__export { margin-left: auto; }
 
+  &__error {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    padding: $spacing-sm $spacing-md;
+    border: 1px solid var(--admin-danger, #b91c1c);
+    border-radius: $border-radius-md;
+    color: var(--admin-danger, #b91c1c);
+    font-size: $font-size-sm;
+
+    button { margin-left: auto; }
+  }
+
+  &__empty {
+    margin: 0;
+    padding: $spacing-md $spacing-lg;
+    border: 1px dashed var(--admin-border, #{$border-color});
+    border-radius: $border-radius-md;
+    color: var(--admin-text-muted, #{$text-light});
+    font-size: $font-size-sm;
+  }
+
   &__summary-error {
     margin: 0;
     color: var(--admin-danger, #b91c1c);
@@ -182,7 +204,16 @@
     td:not(.social-analytics__post), th { white-space: nowrap; font-variant-numeric: tabular-nums; }
   }
 
-  &__row { cursor: pointer; }
+  &__row {
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: 2px solid var(--admin-focus, #{$primary-color});
+      outline-offset: -2px;
+    }
+
+    &[aria-expanded='true'] td { background: var(--admin-bg-subtle, #f9fafb); }
+  }
 
   &__detail td { background: var(--admin-bg-subtle, #f9fafb); }
 

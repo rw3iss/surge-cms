@@ -9,8 +9,9 @@ import { A, useParams, } from '@solidjs/router';
 import type { UserInvitePublic, } from '@sitesurge/types';
 import { Component, createResource, createSignal, Show, } from 'solid-js';
 import SeoHead from '../components/common/seo/SeoHead';
-import { cms, } from '../services/cmsClient';
+import { cms, suppressUnauthorized, } from '../services/cmsClient';
 import { siteName, } from '../stores/siteSettings';
+import { loginRoutePath, } from './loginTarget';
 import './Join.scss';
 
 const AcceptInvite: Component = () => {
@@ -24,26 +25,37 @@ const AcceptInvite: Component = () => {
     },);
     const ok = () => { const v = invite(); return v && !('error' in v) ? v : null; };
 
-    const [name, setName,] = createSignal('',);
-    const [email, setEmail,] = createSignal('',);
+    // null = untouched (shows the invite's value); '' = cleared by the visitor.
+    const [name, setName,] = createSignal<string | null>(null,);
+    const [email, setEmail,] = createSignal<string | null>(null,);
     const [password, setPassword,] = createSignal('',);
     const [confirm, setConfirm,] = createSignal('',);
     const [error, setError,] = createSignal('',);
     const [busy, setBusy,] = createSignal(false,);
     const [done, setDone,] = createSignal(false,);
+    /** The new account is signed in (false: it must verify a changed email first). */
+    const [signedIn, setSignedIn,] = createSignal(true,);
+    /** Where Continue goes: the account's "page after sign-in", else the homepage. */
+    const [nextPath, setNextPath,] = createSignal('/',);
 
-    // Pre-fill once the invite has loaded (the fields stay editable).
-    const nameValue = () => name() || ok()?.name || '';
-    const emailValue = () => email() || ok()?.email || '';
+    // Pre-fill once the invite has loaded (the fields stay editable, and may be cleared).
+    const nameValue = () => name() ?? ok()?.name ?? '';
+    const emailValue = () => email() ?? ok()?.email ?? '';
 
     const submit = async (e: Event,) => {
         e.preventDefault();
         setError('',);
         if (password() !== confirm()) return setError('Passwords do not match.',);
         if (password().length < 8) return setError('Password must be at least 8 characters.',);
+        if (busy()) return;
         setBusy(true,);
         try {
-            await cms.auth.acceptInvite(params.token, { name: nameValue().trim(), email: emailValue().trim(), password: password(), },);
+            const res = await cms.auth.acceptInvite(params.token, { name: nameValue().trim(), email: emailValue().trim(), password: password(), },);
+            setSignedIn(res.signedIn !== false,);
+            if (res.signedIn !== false) {
+                const me = await suppressUnauthorized(() => cms.auth.me(),).catch(() => null,);
+                setNextPath(loginRoutePath(me?.loginRoute,) ?? '/',);
+            }
             setDone(true,);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Your account could not be created.',);
@@ -73,8 +85,22 @@ const AcceptInvite: Component = () => {
                             fallback={
                                 <div class="join__success">
                                     <h2>Welcome to {siteName()}!</h2>
-                                    <p>Your account is ready{ok()!.roles ? <> — you're signed in as a <strong>{ok()!.roles}</strong></> : ''}.</p>
-                                    <button type="button" class="join__btn join__btn--primary" onClick={() => window.location.assign('/',)}>Continue</button>
+                                    <Show
+                                        when={signedIn()}
+                                        fallback={
+                                            <>
+                                                <p>
+                                                    Your account is ready. We sent a verification link to <strong>{emailValue().trim()}</strong> —
+                                                    open it to confirm your email, then sign in.
+                                                </p>
+                                                <A href="/login" class="join__btn join__btn--primary">Go to Sign In</A>
+                                            </>
+                                        }
+                                    >
+                                        <p>Your account is ready{ok()!.roles ? <> — you're signed in as a <strong>{ok()!.roles}</strong></> : ''}.</p>
+                                        {/* Full-page navigation so the AuthProvider picks up the new session. */}
+                                        <button type="button" class="join__btn join__btn--primary" onClick={() => window.location.assign(nextPath(),)}>Continue</button>
+                                    </Show>
                                 </div>
                             }
                         >

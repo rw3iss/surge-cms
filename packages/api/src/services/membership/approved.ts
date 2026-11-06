@@ -8,7 +8,8 @@ import { subscriptionPeriod, } from '../payment/stripeCompat';
 import { settleOpenAttempts, } from './attempts';
 import { customerFor, } from './card';
 import { activeLocalSub, current, } from './current';
-import { change, confirm, targetTier, } from './change';
+import { changeUnlocked, confirmUnlocked, targetTier, } from './change';
+import { withMembershipLock, } from './lock';
 
 // ─── Approved application → start billing ────────────────────────────────
 
@@ -23,12 +24,21 @@ import { change, confirm, targetTier, } from './change';
  * Then `confirm` activates the local row, syncs the role and emails the member.
  * Throws ValidationError with Stripe's reason on a failed charge.
  */
-export async function startApprovedMembership(
+export function startApprovedMembership(
     userId: string, tierId: string, paymentMethodId: string | null, priceId?: string | null,
     opts: { idempotencyKey?: string; } = {},
 ): Promise<MembershipChangeResponse> {
+    // Same per-member lock as `change`: the member's own Pay click and an
+    // admin's approval must not both start a subscription.
+    return withMembershipLock(userId, () => startApprovedUnlocked(userId, tierId, paymentMethodId, priceId, opts,),);
+}
+
+async function startApprovedUnlocked(
+    userId: string, tierId: string, paymentMethodId: string | null, priceId: string | null | undefined,
+    opts: { idempotencyKey?: string; },
+): Promise<MembershipChangeResponse> {
     const local = await activeLocalSub(userId,);
-    if (local?.stripe_subscription_id) return change(userId, tierId, { approved: true, priceId, },);
+    if (local?.stripe_subscription_id) return changeUnlocked(userId, tierId, { approved: true, priceId, },);
 
     const { to, from, } = await targetTier(userId, tierId, { approved: true, priceId, },);
     if (to.isCurrent) return { result: 'unchanged', current: await current(userId,), };
@@ -37,11 +47,16 @@ export async function startApprovedMembership(
     const stripe = getStripeClient('default',);
     if (!stripe) throw new ValidationError('Payments are not configured.',);
     const chosenPrice = to.selectedPriceId!;
-    const customer = await customerFor(userId,);
+    let customer = await customerFor(userId,);
     let pm = paymentMethodId;
     if (pm) {
         const p = await stripe.paymentMethods.retrieve(pm,);
-        if (!p.customer) await stripe.paymentMethods.attach(pm, { customer, },);
+        const pmCustomer = typeof p.customer === 'string' ? p.customer : p.customer?.id ?? null;
+        // The card was checked to be on one of THIS member's customers when it was
+        // saved (`verifyCard`); bill that customer. A subscription on another
+        // customer than the card's fails in Stripe ("not attached").
+        if (pmCustomer) customer = pmCustomer;
+        else await stripe.paymentMethods.attach(pm, { customer, },);
         await stripe.customers.update(customer, { invoice_settings: { default_payment_method: pm, }, },);
     } else {
         const c = await stripe.customers.retrieve(customer,);
@@ -69,6 +84,6 @@ export async function startApprovedMembership(
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [userId, to.id, sub.id, customer, sub.status, new Date(period.start * 1000,), new Date(period.end * 1000,),],
     );
-    return confirm(userId, sub.id,);
+    return confirmUnlocked(userId, sub.id,);
 }
 

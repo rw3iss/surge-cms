@@ -1,5 +1,5 @@
 import { A, useSearchParams, } from '@solidjs/router';
-import AffiliateProgramSettings from './AffiliateProgramSettings';
+import AffiliateProgramSettings, { type AffiliateSettingsApi, } from './AffiliateProgramSettings';
 import { Component, createSignal, For, Show, } from 'solid-js';
 import LoadingState from '../../../components/admin/common/LoadingState';
 import { createSafeResource, } from '../../../hooks/createSafeResource';
@@ -147,14 +147,21 @@ const ShopSettingsInner: Component = () => {
         }
     };
 
+    // Affiliate tab: its settings are their own row, so the header Save saves THOSE there.
+    const [aff, setAff,] = createSignal<AffiliateSettingsApi | null>(null,);
+    const onAffiliates = () => tab() === 'affiliates';
+    const headerSave = () => (onAffiliates() ? void aff()?.save() : void save());
+    const headerBusy = () => (onAffiliates() ? !!aff()?.saving() : saving());
+    const headerDisabled = () => (onAffiliates() ? !aff()?.ready() || headerBusy() : saving());
+
     return (
         <div class="shop-admin shop-settings">
             <AdminTitle>Shop Settings</AdminTitle>
             <div class="admin-header">
                 <A href="/admin/shop" class="admin-header__back">← Shop</A>
                 <h1>Shop Settings</h1>
-                <button class="ui-button ui-button--primary" onClick={save} disabled={saving()}>
-                    {saving() ? 'Saving...' : 'Save'}
+                <button class="ui-button ui-button--primary" onClick={headerSave} disabled={headerDisabled()}>
+                    {headerBusy() ? 'Saving…' : 'Save'}
                 </button>
             </div>
             <ShopifyManagedBanner note="Storefront, checkout, and payment settings are controlled in Shopify while the plugin is enabled. These internal settings are inactive." />
@@ -413,7 +420,7 @@ const ShopSettingsInner: Component = () => {
             </Show>
 
             <Show when={tab() === 'affiliates'}>
-                <AffiliateProgramSettings />
+                <AffiliateProgramSettings bindSave={setAff} />
             </Show>
         </div>
     );

@@ -7,7 +7,7 @@
  */
 import { A, } from '@solidjs/router';
 import type { AffiliateMember, AffiliateMemberDetail, ShopDiscountCode, } from '@sitesurge/types';
-import { formatCurrency, } from '@sitesurge/types';
+import { formatPercent, } from '@sitesurge/types';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import AdminTitle from '../../../components/admin/common/AdminTitle';
 import ConfirmModal from '../../../components/admin/common/ConfirmModal';
@@ -19,15 +19,13 @@ import '../../../components/admin/discounts/discounts.scss';
 import { useToast, } from '../../../components/common/toast';
 import { cms, } from '../../../services/cmsClient';
 import { isFeatureEnabled, } from '../../../stores/siteSettings';
+import { formatDay as day, formatMoney as money, payoutStatusForAdmin, SCHEDULE_LABEL, stripeState, } from '../../../components/admin/contributions/money';
 import ShopGuard from './ShopGuard';
 
-const money = (c: number, cur = 'usd',) => formatCurrency(c, cur.toUpperCase(),);
-const day = (iso: string,) => new Date(iso,).toLocaleDateString(undefined, { dateStyle: 'medium', },);
-
+/** Same Stripe badge as Posts → Contributions → Payouts. */
 function stripeBadge(s: AffiliateMember['stripe'],) {
-    if (s.payoutsEnabled) return <span class="affiliate-admin__badge affiliate-admin__badge--ok">Payouts ready</span>;
-    if (s.connected) return <span class="affiliate-admin__badge affiliate-admin__badge--warn">Onboarding</span>;
-    return <span class="affiliate-admin__badge">Not connected</span>;
+    const st = stripeState(s,);
+    return <span class={`badge badge--${st.tone}`}>{st.label}</span>;
 }
 
 const STATUS_LABEL: Record<string, string> = { pending: 'In refund window', available: 'Payable', paid: 'Paid', reversed: 'Reversed', };
@@ -36,12 +34,16 @@ const STATUS_LABEL: Record<string, string> = { pending: 'In refund window', avai
 const MemberModal: Component<{ userId: string; defaultCommission: number; onClose: () => void; onChanged: () => void; }> = (props,) => {
     const toast = useToast();
     const [m, { refetch, },] = createResource(() => props.userId, (id,) => cms.affiliates.adminMember(id,),);
+    // Read only once resolved (`.latest`): a refetch after a change must not
+    // suspend the admin page behind this modal.
+    const member = () => (m.state === 'ready' || m.state === 'refreshing' ? m.latest : undefined);
     const [editing, setEditing,] = createSignal<ShopDiscountCode | null | undefined>(undefined,);
     const [confirmPay, setConfirmPay,] = createSignal(false,);
     const [paying, setPaying,] = createSignal(false,);
     const changed = () => { void refetch(); props.onChanged(); };
 
     const payOut = async () => {
+        if (paying()) return;
         setPaying(true,);
         try {
             const r = await cms.affiliates.adminPayout(props.userId,);
@@ -58,7 +60,16 @@ const MemberModal: Component<{ userId: string; defaultCommission: number; onClos
 
     return (
         <ModalShell open onClose={props.onClose} size="lg" showClose ariaLabel="Affiliate">
-            <Show when={m()} fallback={<div class="affiliate-admin__member"><LoadingState /></div>}>
+            <Show
+                when={member()}
+                fallback={
+                    <div class="affiliate-admin__member">
+                        <Show when={m.state === 'errored'} fallback={<LoadingState />}>
+                            <p class="alert alert--error" role="alert">This affiliate could not be loaded{m.error instanceof Error ? `: ${m.error.message}` : '.'}</p>
+                        </Show>
+                    </div>
+                }
+            >
                 {(d: () => AffiliateMemberDetail,) => (
                     <div class="affiliate-admin__member">
                         <div class="affiliate-admin__member-head">
@@ -108,7 +119,7 @@ const MemberModal: Component<{ userId: string; defaultCommission: number; onClos
                                                         <td><A href={`/admin/shop/orders?search=${encodeURIComponent(e.orderNumber,)}`}>{e.orderNumber}</A></td>
                                                         <td>{e.code ?? '—'}</td>
                                                         <td>{e.kind === 'reversal' ? '—' : money(e.merchSubtotalCents, e.currency,)}</td>
-                                                        <td>{e.kind === 'reversal' ? 'Refund' : `${e.sharePercent}%`}</td>
+                                                        <td>{e.kind === 'reversal' ? 'Refund' : `${formatPercent(e.sharePercent,)}%`}</td>
                                                         <td>{money(e.amountCents, e.currency,)}</td>
                                                         <td>{STATUS_LABEL[e.status] ?? e.status}</td>
                                                     </tr>
@@ -133,7 +144,7 @@ const MemberModal: Component<{ userId: string; defaultCommission: number; onClos
                                                         <td>{day(p.createdAt,)}</td>
                                                         <td>{money(p.amountCents, p.currency,)}</td>
                                                         <td>{p.trigger === 'auto' ? 'Automatic' : 'Manual'}</td>
-                                                        <td>{p.status}{p.error ? <span class="form-help-muted"> — {p.error}</span> : ''}</td>
+                                                        <td>{payoutStatusForAdmin(p.status,)}{p.error ? <span class="form-help-muted"> — {p.error}</span> : ''}</td>
                                                     </tr>
                                                 )}
                                             </For>
@@ -161,7 +172,7 @@ const MemberModal: Component<{ userId: string; defaultCommission: number; onClos
                             busyLabel="Paying…"
                             loading={paying()}
                             onConfirm={() => void payOut()}
-                            onCancel={() => setConfirmPay(false,)}
+                            onCancel={() => { if (!paying()) setConfirmPay(false,); }}
                         />
                     </div>
                 )}
@@ -171,9 +182,16 @@ const MemberModal: Component<{ userId: string; defaultCommission: number; onClos
 };
 
 const ShopAffiliatesInner: Component = () => {
-    const [members, { refetch, },] = createResource(() => cms.affiliates.adminMembers(),);
-    const [stats, { refetch: refetchStats, },] = createResource(() => cms.affiliates.adminStats(),);
-    const [settings,] = createResource(() => cms.affiliates.settings(),);
+    const [loadError, setLoadError,] = createSignal('',);
+    const [members, { refetch, },] = createResource(() =>
+        cms.affiliates.adminMembers().then((r,) => { setLoadError('',); return r; },).catch((e,) => {
+            setLoadError(e instanceof Error ? e.message : 'The affiliates could not be loaded.',);
+            return [] as AffiliateMember[];
+        },)
+    );
+    // Stats + settings only decorate the page: a failure leaves their defaults.
+    const [stats, { refetch: refetchStats, },] = createResource(() => cms.affiliates.adminStats().catch(() => null,),);
+    const [settings,] = createResource(() => cms.affiliates.settings().catch(() => null,),);
     const [open, setOpen,] = createSignal<string | null>(null,);
 
     return (
@@ -187,7 +205,7 @@ const ShopAffiliatesInner: Component = () => {
                 </div>
             </div>
 
-            <Show when={stats()}>
+            <Show when={stats.latest}>
                 {(s,) => (
                     <div class="affiliate-admin__stats">
                         <div class="affiliate-admin__stat"><span>Affiliates</span><strong>{s().members}</strong></div>
@@ -203,17 +221,18 @@ const ShopAffiliatesInner: Component = () => {
                 <header class="admin-section__header">
                     <h2>Members</h2>
                     <p class="form-help-muted">
-                        Users with the <code>{settings()?.role ?? 'affiliate'}</code> role. Give them codes, see their sales and pay them out.
-                        Automatic payouts: <strong>{settings()?.payoutSchedule ?? 'off'}</strong>; commissions become payable {settings()?.refundWindowDays ?? 30} days after payment.
+                        Users with the <code>{settings.latest?.role ?? 'affiliate'}</code> role. Give them codes, see their sales and pay them out.
+                        Automatic payouts: <strong>{SCHEDULE_LABEL[settings.latest?.payoutSchedule ?? 'off'] ?? settings.latest?.payoutSchedule}</strong>; commissions become payable {settings.latest?.refundWindowDays ?? 30} days after payment.
                     </p>
                 </header>
-                <Show when={!members.loading || members()} fallback={<LoadingState />}>
-                    <Show when={(members() ?? []).length} fallback={<p class="form-help-muted">No affiliates yet. Give a user the affiliate role (or approve their Affiliate program application).</p>}>
+                <Show when={!members.loading || members.latest} fallback={<LoadingState />}>
+                    <Show when={!loadError()} fallback={<p class="alert alert--error" role="alert">{loadError()}</p>}>
+                    <Show when={(members.latest ?? []).length} fallback={<p class="form-help-muted">No affiliates yet. Give a user the affiliate role (or approve their Affiliate program application).</p>}>
                         <div class="admin-table-container">
                             <table class="admin-table">
                                 <thead><tr><th>Affiliate</th><th>Stripe</th><th>Codes</th><th>Orders</th><th>Sales</th><th>Payable</th><th>In refund window</th><th /></tr></thead>
                                 <tbody>
-                                    <For each={members()}>
+                                    <For each={members.latest}>
                                         {(m,) => (
                                             <tr>
                                                 <td><strong>{m.displayName}</strong><div class="form-help-muted">{m.email}</div></td>
@@ -231,13 +250,14 @@ const ShopAffiliatesInner: Component = () => {
                             </table>
                         </div>
                     </Show>
+                    </Show>
                 </Show>
             </section>
 
             <Show when={open()}>
                 <MemberModal
                     userId={open()!}
-                    defaultCommission={settings()?.defaultCommissionPercent ?? 10}
+                    defaultCommission={settings.latest?.defaultCommissionPercent ?? 10}
                     onClose={() => setOpen(null,)}
                     onChanged={() => { void refetch(); void refetchStats(); }}
                 />

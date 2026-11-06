@@ -102,7 +102,9 @@ export function formAnswersText(
     const lines: string[] = [];
     for (const it of formLayoutItems(sortQuestions(questions,), form.sections,)) {
         if (it.kind === 'question') lines.push(line(it.question,),);
-        else lines.push('', `== ${it.section.title || 'Section'} ==`, ...it.questions.map(line,),);
+        // A blank line before AND after a section, so a question that follows
+        // it does not read as part of it.
+        else lines.push('', `== ${it.section.title || 'Section'} ==`, ...it.questions.map(line,), '',);
     }
-    return lines.join('\n',).trim();
+    return lines.join('\n',).replace(/\n{3,}/g, '\n\n',).trim();
 }

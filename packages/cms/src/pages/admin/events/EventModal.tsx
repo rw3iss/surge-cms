@@ -30,6 +30,7 @@ import RegistrantsTable from './RegistrantsTable';
 import { registrantDateChoices, } from './registrantDates';
 import './EventModal.scss';
 import LocationField from '../../../components/admin/events/LocationField';
+import { createPendingLookups, } from '../../../components/admin/events/pendingLookups';
 
 export interface EventModalProps {
     /** Existing event to edit, or null for a new one. */
@@ -129,6 +130,11 @@ const EventModal: Component<EventModalProps> = (props,) => {
     const [tiers, setTiers,] = createSignal<Array<Partial<EventTicketTier>>>([],);
 
     const [saving, setSaving,] = createSignal(false,);
+    // Map lookups still running in the Location field. Save waits for them, so
+    // the stored point matches the address (the click on Save is the blur that
+    // starts the search for a just-typed address).
+    const [locating, setLocating,] = createSignal(0,);
+    const lookups = createPendingLookups(setLocating,);
     const [error, setError,] = createSignal('',);
 
     // Site defaults (Settings → Events) + subscription tiers, for the access pickers.
@@ -263,6 +269,8 @@ const EventModal: Component<EventModalProps> = (props,) => {
         setSaving(true,);
         setError('',);
         try {
+            // Reads below see the point the lookup set (signals, read after the wait).
+            await lookups.settled();
             const startsAt = joinIso(startDate(), startTime(), allDay(),);
             if (!startsAt) throw new Error('A start date is required.',);
             // Multi-day uses the end DATE; a same-day event with an end time uses the start date.
@@ -428,6 +436,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
                             onLocation={setLocation}
                             onPoint={(lat, lng,) => { setLocationLat(lat,); setLocationLng(lng,); }}
                             onShowMap={setShowMap}
+                            lookups={lookups}
                         />
                         <FormField label="Description" hint="Markdown: **bold**, *italic*, [links](/x), lists, > quotes, `code`.">
                             <textarea rows={4} value={description()} onInput={(e,) => setDescription(e.currentTarget.value,)} />
@@ -651,7 +660,7 @@ const EventModal: Component<EventModalProps> = (props,) => {
                 </Show>
                 <button type="button" class="ui-button ui-button--secondary" onClick={props.onClose}>Cancel</button>
                 <button type="button" class="ui-button ui-button--primary" onClick={save} disabled={!canSave() || saving()}>
-                    {saving() ? 'Saving…' : isNew() ? 'Create Event' : 'Save Event'}
+                    {saving() ? (locating() ? 'Locating…' : 'Saving…') : isNew() ? 'Create Event' : 'Save Event'}
                 </button>
             </footer>
         </ModalShell>

@@ -57,6 +57,7 @@ const ForumComposer: Component<ForumComposerProps> = (props,) => {
     let input: HTMLTextAreaElement | undefined;
 
     const max = () => props.maxLength ?? 10_000;
+    const nearLimit = () => body().length > max() * 0.9;
     const ready = () => !busy() && !props.disabled && body().trim() !== '' && (!props.withTitle || title().trim() !== '');
 
     /** Inline: grow with the text up to ~6 lines, then scroll. */
@@ -180,12 +181,16 @@ const ForumComposer: Component<ForumComposerProps> = (props,) => {
                     </button>
                 </Show>
             </div>
+            {/* Inline: the box has no footer, so the count shows here once the limit is near (the textarea stops at it silently). */}
+            <Show when={props.variant === 'inline' && nearLimit()}>
+                <p class="forum-composer__count" aria-live="polite">{body().length}/{max()}</p>
+            </Show>
             <Show when={error()}>
                 <p class="forum-composer__error" role="alert">{error()}</p>
             </Show>
             <Show when={props.variant === 'form'}>
                 <div class="forum-composer__actions">
-                    <span class="forum-composer__hint">Markdown supported{body().length > max() * 0.9 ? ` · ${body().length}/${max()}` : ''}</span>
+                    <span class="forum-composer__hint">Markdown supported{nearLimit() ? ` · ${body().length}/${max()}` : ''}</span>
                     <Show when={props.onCancel}>
                         <button type="button" class="forum-composer__btn forum-composer__btn--ghost" onClick={() => props.onCancel?.()}>Cancel</button>
                     </Show>

@@ -14,7 +14,7 @@
     .btn { align-self: flex-start; }
   }
 
-  &__error { color: var(--site-danger-fg, #b91c1c); }
+  &__error { color: var(--site-danger-fg, #{$error-fg}); }
 
   &__balance {
     display: grid;
@@ -26,10 +26,10 @@
       flex-direction: column;
       gap: 0.15rem;
       padding: 0.8rem 1rem;
-      border: 1px solid var(--site-border, #e5e7eb);
+      border: 1px solid var(--site-border, #{$border-color});
       border-radius: var(--site-radius, 10px);
     }
-    span { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--site-text-muted, #6b7280); }
+    span { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--site-text-muted, #{$text-light}); }
     strong { font-size: 1.25rem; }
   }
   &__note { margin: -0.5rem 0 0; font-size: 0.88rem; }
@@ -39,7 +39,7 @@
     flex-direction: column;
     gap: 0.6rem;
     padding: 0.9rem 1rem;
-    border: 1px solid var(--site-border, #e5e7eb);
+    border: 1px solid var(--site-border, #{$border-color});
     border-radius: var(--site-radius, 10px);
 
     &--off { opacity: 0.65; }
@@ -55,11 +55,11 @@
       flex: 1 1 auto;
       min-width: 0;
       padding: 0.45rem 0.6rem;
-      border: 1px solid var(--site-border, #e5e7eb);
+      border: 1px solid var(--site-border, #{$border-color});
       border-radius: var(--site-radius, 6px);
       font: inherit;
       font-size: 0.9rem;
-      background: var(--site-bg, #fff);
+      background: var(--site-bg, #{$background});
       color: inherit;
     }
   }
@@ -70,7 +70,7 @@
     gap: 0.35rem;
     font-size: 0.92rem;
 
-    input[type='range'] { width: 100%; accent-color: var(--site-primary, #e63946); }
+    input[type='range'] { width: 100%; accent-color: var(--site-primary, #{$primary-color}); }
   }
   &__split-actions { display: flex; align-items: center; gap: 0.75rem; }
 
@@ -80,7 +80,7 @@
     border-collapse: collapse;
     font-size: 0.9rem;
 
-    th, td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--site-border, #e5e7eb); text-align: left; white-space: nowrap; }
-    th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--site-text-muted, #6b7280); }
+    th, td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--site-border, #{$border-color}); text-align: left; white-space: nowrap; }
+    th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--site-text-muted, #{$text-light}); }
   }
 }

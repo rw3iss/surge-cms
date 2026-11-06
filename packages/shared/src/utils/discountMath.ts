@@ -76,6 +76,29 @@ export function affiliateShareCents(merchSubtotalCents: number, commissionPercen
     return Math.max(0, Math.round(Math.max(0, merchSubtotalCents,) * share / 100,),);
 }
 
+/**
+ * The buyer discount an order ACTUALLY got on its merchandise, as a percent
+ * (0–commission). Commission is computed from this — not from the code's
+ * current split, which the affiliate may have changed between checkout and
+ * payment (the shop would then pay the discount AND the full commission).
+ * With `appliesToTickets` the discount was spread over merchandise + tickets
+ * in proportion (`distributeDiscount`); only the merchandise part counts.
+ */
+export function orderBuyerDiscountPercent(o: {
+    merchSubtotalCents: number;
+    /** Merchandise + (when the code covered them) ticket subtotal the discount was spread over. */
+    eligibleSubtotalCents: number;
+    discountCents: number;
+    commissionPercent: number;
+},): number {
+    const merch = Math.max(0, o.merchSubtotalCents,);
+    const eligible = Math.max(merch, o.eligibleSubtotalCents,);
+    if (merch <= 0 || eligible <= 0 || o.discountCents <= 0) return 0;
+    const merchDiscount = Math.min(merch, Math.round(o.discountCents * merch / eligible,),);
+    const pct = Math.round(merchDiscount * 10_000 / merch,) / 100;
+    return Math.min(Math.max(0, o.commissionPercent,), pct,);
+}
+
 /** Percent with up to 2 decimals, trailing zeros dropped ("12.5"). */
 export function formatPercent(p: number,): string {
     return String(Math.round(p * 100,) / 100,);

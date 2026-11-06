@@ -59,7 +59,8 @@ async function sendReplyEmails(row: CommentRow,): Promise<void> {
     if (row.is_opening || row.status !== 'visible') return;
     const thread = await threadOf(row.target_id,);
     if (!thread) return;
-    const authorName = await nameOf(row.author_id,);
+    // A guest reply carries its own name (else it read "Someone replied").
+    const authorName = row.author_id ? await nameOf(row.author_id,) : (row.guest_name?.trim() || 'A guest');
     for (const to of await recipients(row, thread,)) {
         await sendPurposeMail('forum_reply', {
             to: to.email,

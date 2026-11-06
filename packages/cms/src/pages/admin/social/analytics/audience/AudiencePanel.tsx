@@ -23,8 +23,10 @@ import {
     kindLabel,
     missingNote,
     sortHashtags,
+    sourceLabel,
     topN,
     typeLabel,
+    viewerLabel,
     withShares,
 } from './audienceFormat';
 
@@ -302,6 +304,7 @@ const AudiencePanel: Component<AudiencePanelProps> = (p,) => {
     const anyTypes = () => b().viewsByType.length > 0 || b().reachByType.length > 0 || b().interactionsByType.length > 0 || a().contentKinds.length > 0;
     const anyFollow = () => b().viewsByFollow.length > 0 || b().reachByFollow.length > 0;
     const anyStories = () => a().stories.count > 0;
+    const anyDiscovery = () => (b().trafficSources?.length ?? 0) > 0 || (b().viewerTypes?.length ?? 0) > 0;
     const anyFb = () => (b().viewsByPaid?.length ?? 0) > 0 || (b().videoViewsByPlay?.length ?? 0) > 0 || (b().reactionsByType?.length ?? 0) > 0;
     const missing = createMemo(() => {
         const list: Array<{ block: AudienceBlock; title: string; }> = [];
@@ -342,6 +345,13 @@ const AudiencePanel: Component<AudiencePanelProps> = (p,) => {
                         <Show when={b().viewsByPaid?.length}><SplitBar title="Views: paid vs organic" items={b().viewsByPaid ?? []} label={paidLabel} /></Show>
                         <Show when={b().videoViewsByPlay?.length}><SplitBar title="Video views: autoplay vs click" items={b().videoViewsByPlay ?? []} label={playLabel} /></Show>
                         <Show when={b().reactionsByType?.length}><SplitBar title="Reactions" items={b().reactionsByType ?? []} label={reactionLabel} /></Show>
+                    </Block>
+                </Show>
+
+                <Show when={anyDiscovery()}>
+                    <Block title="How viewers found the videos">
+                        <Show when={b().trafficSources?.length}><BarList items={b().trafficSources ?? []} label={sourceLabel} /></Show>
+                        <Show when={b().viewerTypes?.length}><SplitBar title="New vs returning viewers" items={b().viewerTypes ?? []} label={viewerLabel} /></Show>
                     </Block>
                 </Show>
 

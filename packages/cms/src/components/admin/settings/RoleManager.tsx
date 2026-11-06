@@ -12,7 +12,8 @@ import { isStaffRole, } from '@sitesurge/types';
 import { cms, } from '../../../services/cmsClient';
 import { useToast, } from '../../common/toast';
 import ConfirmModal from '../common/ConfirmModal';
-import { FormField, } from '../forms';
+import { CommitInput, FormField, } from '../forms';
+import Toggle from '../common/Toggle';
 import '../subscriptions/Subscriptions.scss';
 
 /** "Page after sign-in" as typed → stored: no leading slash. */
@@ -23,15 +24,21 @@ const routeLabel = (r: RoleDef,) => (r.loginRoute == null ? 'inherits' : r.login
 const RoleManager: Component<{ onChanged?: () => void; onOpenPermissions?: () => void; }> = (props,) => {
     let formEl: HTMLElement | undefined;
     const toast = useToast();
-    const [roles, { refetch, },] = createResource(() => cms.roles.list().catch(() => [] as RoleDef[]),);
-    const [draft, setDraft,] = createStore({ key: '', label: '', description: '', baseRole: 'member', loginRoute: '', loginPriority: 0, },);
+    const [loadFailed, setLoadFailed,] = createSignal(false,);
+    const [roles, { refetch, },] = createResource(() =>
+        cms.roles.list().then((r,) => { setLoadFailed(false,); return r; },).catch(() => { setLoadFailed(true,); return [] as RoleDef[]; },)
+    );
+    /** `inheritRoute`: no page of its own — use the base role's (stored as null). */
+    const EMPTY = { key: '', label: '', description: '', baseRole: 'member', loginRoute: '', loginPriority: 0, inheritRoute: true, };
+    const [draft, setDraft,] = createStore({ ...EMPTY, },);
     /** Editing a built-in role: only its page after sign-in may change. */
     const [editingSystem, setEditingSystem,] = createSignal(false,);
     const [editingKey, setEditingKey,] = createSignal<string | null>(null,);
     const [deleting, setDeleting,] = createSignal<RoleDef | null>(null,);
     const [busy, setBusy,] = createSignal(false,);
+    const [deletingBusy, setDeletingBusy,] = createSignal(false,);
 
-    const baseOptions = () => (roles() ?? []).filter((r,) => !isStaffRole(r.key,) && r.key !== editingKey(),);
+    const baseOptions = () => (roles.latest ?? []).filter((r,) => !isStaffRole(r.key,) && r.key !== editingKey(),);
     const changed = async () => {
         await refetch();
         props.onChanged?.();
@@ -40,13 +47,20 @@ const RoleManager: Component<{ onChanged?: () => void; onOpenPermissions?: () =>
     const reset = () => {
         setEditingKey(null,);
         setEditingSystem(false,);
-        setDraft({ key: '', label: '', description: '', baseRole: 'member', loginRoute: '', loginPriority: 0, },);
+        setDraft({ ...EMPTY, },);
     };
 
     const submit = async () => {
+        if (busy()) return;
+        if (!editingKey() && (!draft.key.trim() || !draft.label.trim())) return toast.error('A key and a label are required.',);
         setBusy(true,);
         try {
-            const login = { loginRoute: cleanRoute(draft.loginRoute,), loginPriority: Number(draft.loginPriority,) || 0, };
+            // Inheriting = null (before, an edit always saved '' = the homepage, so
+            // an inheriting role silently stopped following its base role).
+            const login = {
+                loginRoute: draft.inheritRoute && draft.baseRole ? null : cleanRoute(draft.loginRoute,),
+                loginPriority: Number(draft.loginPriority,) || 0,
+            };
             if (editingKey() && editingSystem()) {
                 await cms.roles.update(editingKey()!, login,);
                 toast.success('Role updated.',);
@@ -68,7 +82,8 @@ const RoleManager: Component<{ onChanged?: () => void; onOpenPermissions?: () =>
 
     const doDelete = async () => {
         const r = deleting();
-        if (!r) return;
+        if (!r || deletingBusy()) return;
+        setDeletingBusy(true,);
         try {
             await cms.roles.remove(r.key,);
             toast.success('Role deleted.',);
@@ -76,6 +91,7 @@ const RoleManager: Component<{ onChanged?: () => void; onOpenPermissions?: () =>
         } catch (e) {
             toast.error(e instanceof Error ? e.message : 'Could not delete the role.',);
         } finally {
+            setDeletingBusy(false,);
             setDeleting(null,);
         }
     };
@@ -90,11 +106,17 @@ const RoleManager: Component<{ onChanged?: () => void; onOpenPermissions?: () =>
                     staff (admin/editor) access.
                 </p>
             </header>
+            <Show when={loadFailed()}>
+                <p class="form-help-muted" role="alert">
+                    The roles could not be loaded.{' '}
+                    <button type="button" class="role-manager__link" onClick={() => void refetch()}>Try again</button>
+                </p>
+            </Show>
             <div class="admin-table-container">
                 <table class="admin-table">
                     <thead><tr><th>Role</th><th>Based on</th><th>Users</th><th>After sign-in</th><th>Description</th><th /></tr></thead>
                     <tbody>
-                        <For each={roles() ?? []}>
+                        <For each={roles.latest ?? []}>
                             {(r,) => (
                                 <tr>
                                     <td><strong>{r.label}</strong> <code>{r.key}</code>{r.isSystem ? ' · built-in' : ''}</td>
@@ -117,6 +139,7 @@ const RoleManager: Component<{ onChanged?: () => void; onOpenPermissions?: () =>
                                                 setDraft({
                                                     key: r.key, label: r.label, description: r.description ?? '', baseRole: r.baseRole ?? '',
                                                     loginRoute: r.loginRoute ?? '', loginPriority: r.loginPriority ?? 0,
+                                                    inheritRoute: r.loginRoute == null,
                                                 },);
                                             }}
                                         >
@@ -143,10 +166,10 @@ const RoleManager: Component<{ onChanged?: () => void; onOpenPermissions?: () =>
 
                 <div class="role-manager__grid role-manager__grid--3">
                     <FormField label="Key" hint={editingKey() ? 'Fixed once created.' : 'Lowercase, e.g. premium_member.'}>
-                        <input type="text" value={draft.key} disabled={Boolean(editingKey(),)} onBlur={(e,) => setDraft('key', e.currentTarget.value.trim().toLowerCase(),)} />
+                        <CommitInput value={draft.key} disabled={Boolean(editingKey(),)} onCommit={(v,) => setDraft('key', v.toLowerCase(),)} />
                     </FormField>
                     <FormField label="Label" hint="Shown in the admin.">
-                        <input type="text" value={draft.label} disabled={editingSystem()} onBlur={(e,) => setDraft('label', e.currentTarget.value,)} />
+                        <CommitInput value={draft.label} disabled={editingSystem()} onCommit={(v,) => setDraft('label', v,)} />
                     </FormField>
                     <FormField label="Based on" hint="Inherits everything this role can do.">
                         {/* `selected` per option, not just the select's value: clicking Edit
@@ -161,7 +184,7 @@ const RoleManager: Component<{ onChanged?: () => void; onOpenPermissions?: () =>
 
                 <div class="role-manager__grid">
                     <FormField label="Description">
-                        <input type="text" value={draft.description} disabled={editingSystem()} onBlur={(e,) => setDraft('description', e.currentTarget.value,)} />
+                        <CommitInput value={draft.description} disabled={editingSystem()} onCommit={(v,) => setDraft('description', v,)} />
                     </FormField>
                 </div>
 
@@ -171,24 +194,32 @@ const RoleManager: Component<{ onChanged?: () => void; onOpenPermissions?: () =>
                         tooltip="Where users with this role land after signing in. Among a user's roles (main and additional), the one with the highest priority decides."
                         hint="A site path without the leading slash — e.g. admin, profile?tab=membership. Empty = the homepage."
                     >
-                        <input
-                            type="text"
-                            value={draft.loginRoute}
-                            placeholder="(homepage)"
-                            onBlur={(e,) => { const v = cleanRoute(e.currentTarget.value,); e.currentTarget.value = v; setDraft('loginRoute', v,); }}
+                        <CommitInput
+                            value={draft.inheritRoute && draft.baseRole ? '' : draft.loginRoute}
+                            placeholder={draft.inheritRoute && draft.baseRole ? '(same as the base role)' : '(homepage)'}
+                            disabled={Boolean(draft.inheritRoute && draft.baseRole,)}
+                            onCommit={(v,) => setDraft('loginRoute', cleanRoute(v,),)}
                         />
                     </FormField>
                     <FormField label="Priority" hint="Higher wins.">
-                        <input type="number" step="1" value={draft.loginPriority} onBlur={(e,) => setDraft('loginPriority', Number(e.currentTarget.value,) || 0,)} />
+                        <CommitInput type="number" step="1" value={draft.loginPriority} onCommit={(v,) => setDraft('loginPriority', Number(v,) || 0,)} />
                     </FormField>
                 </div>
+                <Show when={draft.baseRole}>
+                    <Toggle
+                        checked={draft.inheritRoute}
+                        onChange={(v,) => setDraft('inheritRoute', v,)}
+                        label="Use the base role's page after sign-in"
+                        hint="When on, this role lands where its base role does (and with its priority)."
+                    />
+                </Show>
 
                 <div class="role-manager__actions-row">
                     <Show when={editingKey()}>
                         <button type="button" class="ui-button ui-button--ghost ui-button--sm" onClick={reset}>Cancel</button>
                     </Show>
                     <button type="button" class="ui-button ui-button--primary ui-button--sm" onClick={submit} disabled={busy()}>
-                        {editingKey() ? 'Save role' : '+ Add role'}
+                        {busy() ? 'Saving…' : editingKey() ? 'Save role' : '+ Add role'}
                     </button>
                 </div>
             </section>
@@ -203,6 +234,8 @@ const RoleManager: Component<{ onChanged?: () => void; onOpenPermissions?: () =>
                 title="Delete role"
                 message={`Delete the "${deleting()?.label ?? ''}" role? Refused while users have it or a membership level gives it.`}
                 confirmLabel="Delete"
+                busyLabel="Deleting…"
+                loading={deletingBusy()}
                 danger
                 onConfirm={doDelete}
                 onCancel={() => setDeleting(null,)}

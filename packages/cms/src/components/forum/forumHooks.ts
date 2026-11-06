@@ -43,6 +43,8 @@ export function useForumFeed(opts: {
     const [loadingMore, setLoadingMore,] = createSignal(false,);
     const [loaded, setLoaded,] = createSignal(false,);
     const [error, setError,] = createSignal<ForumFeedError | null>(null,);
+    /** A failed "Load more" — shown next to the button; the rows already shown stay. */
+    const [moreError, setMoreError,] = createSignal('',);
     /** Latest request wins — a slow response never overwrites a newer one. */
     let seq = 0;
 
@@ -62,6 +64,7 @@ export function useForumFeed(opts: {
             setMeta(metaOf(r,),);
             setPage(1,);
             setError(null,);
+            setMoreError('',);
         } catch (e) {
             if (mine !== seq) return;
             setItems([],);
@@ -87,7 +90,11 @@ export function useForumFeed(opts: {
             const commit = () => {
                 setItems(merged.items,);
                 setMeta(metaOf(r,),);
+                // A good poll heals a failed first load, and stands in for a load it overtook
+                // (`seq` dropped that one's answer — without this "loading" never ended).
                 setError(null,);
+                setLoading(false,);
+                setLoaded(true,);
             };
             if (wrap) wrap(commit,);
             else commit();
@@ -100,6 +107,7 @@ export function useForumFeed(opts: {
     const loadMore = async (wrap?: (change: () => void,) => void,) => {
         if (loadingMore()) return;
         setLoadingMore(true,);
+        setMoreError('',);
         try {
             const next = page() + 1;
             const r = await cms.forum.feed(query(next,),);
@@ -110,7 +118,8 @@ export function useForumFeed(opts: {
             if (wrap) wrap(commit,);
             else commit();
         } catch (e) {
-            setError(errorOf(e,),);
+            // Not `error`: that replaces the whole widget, losing every row shown.
+            setMoreError(errorText(e,),);
         } finally {
             setLoadingMore(false,);
         }
@@ -129,7 +138,7 @@ export function useForumFeed(opts: {
         },
     ),);
 
-    return { items, setItems, meta, loading, loadingMore, loaded, error, hasMore, load, refresh, loadMore, };
+    return { items, setItems, meta, loading, loadingMore, loaded, error, moreError, hasMore, load, refresh, loadMore, };
 }
 
 /** Run `fn` every `interval()` ms while active, the tab is visible and not paused. */

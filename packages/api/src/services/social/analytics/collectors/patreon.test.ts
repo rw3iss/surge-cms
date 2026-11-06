@@ -4,7 +4,7 @@ vi.mock('../../../../db', () => ({ query: vi.fn(async () => ({ rows: [], rowCoun
 vi.mock('../../../../config', () => ({ config: { patreon: { clientId: '', clientSecret: '', campaignId: '', creatorAccessToken: '', }, }, }),);
 
 import { getCollector, } from '../registry';
-import { patreonAccount, patreonDaily, summarizeMembers, } from './patreon';
+import { newerSavedToken, patreonAccount, patreonDaily, summarizeMembers, } from './patreon';
 
 const members = [
     { patron_status: 'active_patron' as const, currently_entitled_amount_cents: 500, campaign_lifetime_support_cents: 3000, pledge_relationship_start: '2026-11-04T10:00:00.000+00:00', },
@@ -20,19 +20,27 @@ describe('patreon mappers', () => {
         const s = summarizeMembers(members,);
         expect(s,).toMatchObject({
             activePatrons: 3, paidMembers: 1, declinedPatrons: 1, formerPatrons: 1, freeMembers: 1,
-            monthlyIncomeCents: 1500, lifetimeSupportCents: 3700,
+            monthlyIncomeCents: 500, lifetimeSupportCents: 3700,
         },);
         expect(s.newByDay,).toEqual({ '2026-11-04': 2, '2025-01-01': 1, },);
+    },);
+    it('uses a token another process renewed instead of the stale rotated one', () => {
+        const now = Date.parse('2026-11-05T00:00:00Z',);
+        const creds: Record<string, unknown> = { accessToken: 'a1', refreshToken: 'r1', };
+        expect(newerSavedToken(creds, { accessToken: 'a1', }, now,),).toBeNull();
+        expect(newerSavedToken(creds, { accessToken: 'a2', tokenExpiresAt: '2026-11-01T00:00:00Z', }, now,),).toBeNull();
+        expect(newerSavedToken(creds, { accessToken: 'a2', refreshToken: 'r2', tokenExpiresAt: '2026-12-01T00:00:00Z', }, now,),).toBe('a2',);
+        expect(creds,).toMatchObject({ accessToken: 'a2', refreshToken: 'r2', },);
     },);
     it('builds the account snapshot and daily points', () => {
         const s = summarizeMembers(members,);
         const a = patreonAccount({ patron_count: 42, currency: 'USD', }, s, 'c1',);
         expect(a.followers,).toBe(42,);
-        expect(a.raw,).toMatchObject({ campaignId: 'c1', monthlyIncomeCents: 1500, paidMembers: 1, },);
+        expect(a.raw,).toMatchObject({ campaignId: 'c1', monthlyIncomeCents: 500, paidMembers: 1, },);
         expect(patreonAccount({}, s, 'c1',).followers,).toBe(3,);
         const d = patreonDaily('2026-11-05', { patron_count: 42, }, s,);
         expect(d,).toContainEqual({ date: '2026-11-05', metric: 'patrons', value: 42, },);
-        expect(d,).toContainEqual({ date: '2026-11-05', metric: 'monthlyIncomeCents', value: 1500, },);
+        expect(d,).toContainEqual({ date: '2026-11-05', metric: 'monthlyIncomeCents', value: 500, },);
         expect(d,).toContainEqual({ date: '2026-11-04', metric: 'newPatrons', value: 2, },);
         expect(d,).toContainEqual({ date: '2026-10-29', metric: 'newPatrons', value: 0, },);
         expect(d.filter((p,) => p.metric === 'newPatrons'),).toHaveLength(8,);

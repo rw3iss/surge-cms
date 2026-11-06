@@ -32,6 +32,18 @@
     color: var(--admin-text-muted, #{$text-light});
   }
 
+  // A form section: its title as a small heading above its answers.
+  &__section {
+    margin-top: $spacing-md;
+  }
+
+  &__section-title {
+    margin: 0 0 $spacing-sm;
+    padding-bottom: 4px;
+    font-size: 0.95rem;
+    border-bottom: 1px solid var(--admin-border, #{$border-color});
+  }
+
   &__body {
     // Long submissions scroll inside the panel rather than pushing the
     // footer's Delete button off-screen.

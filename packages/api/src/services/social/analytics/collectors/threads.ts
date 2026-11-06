@@ -18,6 +18,7 @@ import { query, } from '../../../../db';
 import { logger, } from '../../../../utils/logger';
 import { refreshLongLived, THREADS_API, } from '../../../oauth/threads';
 import { upsertThreadsPosts, } from '../../threads';
+import { GRAPH_TIMEOUT_MS, redactSecrets, } from './metaGraph';
 import { registerCollector, } from '../registry';
 import type { CollectContext, CollectResult, DailyPoint, PostMetric, } from '../types';
 import {
@@ -43,20 +44,40 @@ const MEDIA_FIELDS = 'id,media_type,media_product_type,text,permalink,timestamp,
 const DAY_METRICS = 'likes,replies,reposts,quotes,clicks';
 const MEDIA_METRICS = 'views,likes,replies,reposts,quotes,shares';
 
+const LIST_MAX_PAGES = 10;
+
 type ThreadsError = Error & { status?: number; code?: number; };
 
+/** GET a Threads URL (it carries the token): 30 s timeout, and no error text ever repeats the token. */
 async function getJson(url: string,): Promise<any> {
-    const res = await fetch(url,);
+    const token = new URL(url,).searchParams.get('access_token',);
+    let res: Response;
+    try {
+        res = await fetch(url, { signal: AbortSignal.timeout(GRAPH_TIMEOUT_MS,), },);
+    } catch (e) {
+        const timedOut = (e as Error)?.name === 'TimeoutError' || (e as Error)?.name === 'AbortError';
+        const err = new Error(`Threads request failed: ${timedOut ? `no answer within ${GRAPH_TIMEOUT_MS / 1000} s` : redactSecrets((e as Error)?.message || 'network error', token,)}`,) as ThreadsError;
+        err.status = 0;
+        throw err;
+    }
     const data: any = await res.json().catch(() => ({}));
     if (!res.ok || data?.error) {
         const e = data?.error ?? {};
-        const err = new Error(e.message || data?.error_message || `HTTP ${res.status}`,) as ThreadsError;
+        const err = new Error(redactSecrets(e.message || data?.error_message || `HTTP ${res.status}`, token,),) as ThreadsError;
         err.status = res.status;
         err.code = e.code;
         throw err;
     }
     return data;
 }
+
+/** The token is expired / revoked — every further call would fail the same way. */
+export function isThreadsTokenError(e: unknown,): boolean {
+    const err = e as ThreadsError;
+    return err?.code === 190 || err?.code === 102 || err?.status === 401;
+}
+
+const RECONNECT = 'the Threads token is invalid or expired; reconnect in Social → Configuration → Threads.';
 
 function api(path: string, token: string, params: Record<string, string | number> = {},): string {
     const q = new URLSearchParams({ ...Object.fromEntries(Object.entries(params,).map(([k, v,]) => [k, String(v,),]),), access_token: token, },);
@@ -66,7 +87,7 @@ function api(path: string, token: string, params: Record<string, string | number
 /** Permission errors (code 10 / 200 / 190) need the operator, not a retry. */
 function guidance(e: unknown,): string {
     const err = e as ThreadsError;
-    if (err.code === 190) return `${err.message} — the Threads token is invalid or expired; reconnect in Social → Configuration → Threads.`;
+    if (isThreadsTokenError(err,)) return `${err.message} — ${RECONNECT}`;
     if (err.code === 10 || err.code === 200) return `${err.message} — reconnect Threads and allow insights (threads_manage_insights).`;
     return err.message;
 }
@@ -80,7 +101,8 @@ async function listThreads(userId: string, token: string, today: string,): Promi
     const cutoff = Date.parse(`${addDays(today, -LIST_DAYS,)}T00:00:00Z`,);
     const out: ThreadsMedia[] = [];
     let url: string | null = api(`/${userId}/threads`, token, { fields: MEDIA_FIELDS, limit: LIST_PAGE, },);
-    while (url && out.length < LIST_MAX) {
+    // Bounded by pages too: a page of items without timestamps never trips `older`.
+    for (let n = 0; url && out.length < LIST_MAX && n < LIST_MAX_PAGES; n++) {
         const page: { data?: ThreadsMedia[]; paging?: { next?: string; }; } = await getJson(url,);
         const items = page.data ?? [];
         let older = false;
@@ -132,7 +154,7 @@ async function mediaInsights(id: string, token: string,): Promise<PostMetric> {
         return mediaMetric(id, (r.data ?? []) as ThreadsInsight[],);
     } catch (e) {
         // `shares` is marked "in development" — retry without it before giving up.
-        if ((e as ThreadsError).status !== 400) throw e;
+        if ((e as ThreadsError).status !== 400 || isThreadsTokenError(e,)) throw e;
         const r = await getJson(api(`/${id}/insights`, token, { metric: MEDIA_METRICS.replace(',shares', '',), },),);
         return mediaMetric(id, (r.data ?? []) as ThreadsInsight[],);
     }
@@ -177,6 +199,8 @@ async function collect(ctx: CollectContext,): Promise<CollectResult> {
         const i = ((f.data ?? []) as ThreadsInsight[]).find((x,) => x.name === 'followers_count');
         result.account = { followers: i ? insightValue(i,) : null, raw: { followers_count: i ? insightValue(i,) : null, }, };
     } catch (e) {
+        // An expired / revoked token fails every call — stop here with the fix, not 300 warnings.
+        if (isThreadsTokenError(e,)) throw new Error(`Threads: ${guidance(e,)}`,);
         ctx.warn(`Threads followers: ${guidance(e,)}`,);
     }
 
@@ -199,6 +223,7 @@ async function collect(ctx: CollectContext,): Promise<CollectResult> {
         try {
             result.posts!.push(await mediaInsights(id, token,),);
         } catch (e) {
+            if (isThreadsTokenError(e,)) throw new Error(`Threads: ${guidance(e,)}`,);
             failures++;
             if (failures <= 3) ctx.warn(`Threads insights for ${id}: ${guidance(e,)}`,);
         }
@@ -225,7 +250,7 @@ async function refreshThreadsToken(): Promise<void> {
         );
         logger.info('Threads token refreshed', { expiresIn: data.expires_in, },);
     } catch (e) {
-        const message = (e as Error).message;
+        const message = redactSecrets((e as Error).message, String(token,),);
         logger.warn('Threads token refresh failed', { error: message, },);
         await query(
             `UPDATE social_connections SET credentials = credentials || $1::jsonb, updated_at = NOW() WHERE provider::text = 'threads'`,

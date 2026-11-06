@@ -22,9 +22,21 @@ const SCHEDULES: { value: AffiliatePayoutSchedule; label: string; }[] = [
     { value: 'monthly', label: 'Monthly (1st of the month)', },
 ];
 
-const ContributorSettingsPanel: Component = () => {
+/** What the host page needs to drive this panel from its sticky header Save. */
+export interface ContributorSettingsApi {
+    save: () => Promise<void>;
+    saving: () => boolean;
+    /** False until the settings loaded — saving defaults over real settings is refused. */
+    ready: () => boolean;
+}
+
+const ContributorSettingsPanel: Component<{
+    /** Host page with a header Save: receives the save API and the panel hides its own button. */
+    bindSave?: (api: ContributorSettingsApi,) => void;
+}> = (props,) => {
     const toast = useToast();
     const [loaded, setLoaded,] = createSignal(false,);
+    const [loadError, setLoadError,] = createSignal('',);
     const [saving, setSaving,] = createSignal(false,);
     const [draft, setDraft,] = createStore<ContributorSettings>({
         enabled: false, defaultPayoutCents: 4000, currency: 'usd', holdDays: 0, payoutSchedule: 'off', lastAutoPayoutAt: null, connectWebhookSecret: '',
@@ -34,13 +46,15 @@ const ContributorSettingsPanel: Component = () => {
         try {
             setDraft(await cms.contributions.settings(),);
         } catch (e) {
-            toast.error(`Could not load the contributor settings: ${(e as Error).message}`,);
+            // Keep the form locked: saving the placeholder defaults would overwrite real settings.
+            setLoadError(`The contributor settings could not be loaded: ${(e as Error).message}`,);
         } finally {
             setLoaded(true,);
         }
     },);
 
     const save = async () => {
+        if (saving() || !loaded() || loadError()) return;
         setSaving(true,);
         try {
             const s = await cms.contributions.updateSettings({
@@ -60,6 +74,8 @@ const ContributorSettingsPanel: Component = () => {
         }
     };
 
+    props.bindSave?.({ save, saving, ready: () => loaded() && !loadError(), },);
+
     return (
         <section class="admin-section contributor-settings">
             <header class="admin-section__header">
@@ -70,6 +86,7 @@ const ContributorSettingsPanel: Component = () => {
                 </p>
             </header>
             <Show when={loaded()} fallback={<p class="form-help-muted">Loading…</p>}>
+              <Show when={!loadError()} fallback={<p class="alert alert--error" role="alert">{loadError()}</p>}>
                 <Toggle
                     checked={draft.enabled}
                     onChange={(v,) => setDraft('enabled', v,)}
@@ -131,11 +148,14 @@ const ContributorSettingsPanel: Component = () => {
                         <p class="form-help-muted">Payouts come out of the shop's Stripe balance. <A href="/admin/posts?view=contributions">See contributions →</A></p>
                     </div>
                 </Show>
-                <div>
-                    <button type="button" class="ui-button ui-button--primary" onClick={() => void save()} disabled={saving()}>
-                        {saving() ? 'Saving…' : 'Save contributor settings'}
-                    </button>
-                </div>
+                <Show when={!props.bindSave}>
+                    <div>
+                        <button type="button" class="ui-button ui-button--primary" onClick={() => void save()} disabled={saving()}>
+                            {saving() ? 'Saving…' : 'Save contributor settings'}
+                        </button>
+                    </div>
+                </Show>
+              </Show>
             </Show>
         </section>
     );

@@ -10,6 +10,7 @@ import ReplyHistoryModal from '../../components/admin/reply/ReplyHistoryModal';
 import ReplyModal from '../../components/admin/reply/ReplyModal';
 import { useReplySummaries, } from '../../components/admin/reply/useReplySummaries';
 import AdminTitle from '../../components/admin/common/AdminTitle';
+import Checkbox from '../../components/ui/Checkbox';
 
 /** Number-summary tiles (Min/Max/Avg/Median) — shared styles, tokenized
  *  (were four identical inline objects). */
@@ -45,7 +46,8 @@ function columnLabel(question: string,): string {
 }
 
 const FormSubmissions: Component = () => {
-    const params = useParams();
+    const toast = useToast();
+    const params = useParams<{ id: string; }>();
 
     const [form,] = createResource(() => params.id, async (id,) => {
         try {
@@ -57,19 +59,43 @@ const FormSubmissions: Component = () => {
 
     // Fetch the submissions (up to the API's per-page cap) — feeds both the
     // summary aggregation and the client-paginated table below.
+    /** Submissions loaded at once (the API's per-page cap); the CSV export has them all. */
+    const LOAD_LIMIT = 500;
+    /** Total on the server — more than `LOAD_LIMIT` means this page shows only the newest. */
+    const [serverTotal, setServerTotal,] = createSignal(0,);
     const [submissions, { refetch: refetchSubs, },] = createResource(() => params.id, async (id,) => {
         try {
             // `cache: false`: submissions arrive from the public site at any
             // time, so a cached read shows an admin an inbox that is already
             // out of date — and a stale empty list after a delete.
-            const res = await cms.forms.listSubmissions(id, { limit: 500, } as any, { cache: false, },);
+            const res = await cms.forms.listSubmissions(id, { page: 1, limit: LOAD_LIMIT, }, { cache: false, },);
+            setServerTotal(res.meta?.total ?? res.data.length,);
             return res.data;
         } catch {
             return [];
         }
     },);
 
-    const toast = useToast();
+    // CSV of EVERY submission (not only the loaded ones) — the export route is
+    // a raw text response, saved through a Blob so the session cookie applies.
+    const [exporting, setExporting,] = createSignal(false,);
+    const exportCsv = async () => {
+        setExporting(true,);
+        try {
+            const csv = await cms.forms.exportSubmissions(params.id,);
+            const url = URL.createObjectURL(new Blob([csv,], { type: 'text/csv;charset=utf-8', },),);
+            const a = document.createElement('a',);
+            a.href = url;
+            a.download = `form-${form()?.slug || params.id}-submissions.csv`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url,), 1000,);
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Export failed.',);
+        } finally {
+            setExporting(false,);
+        }
+    };
+
     const formatDate = (d: string,) => new Date(d,).toLocaleString();
 
     // ── Table pagination (20/page) + selection + delete ────────────────
@@ -93,7 +119,7 @@ const FormSubmissions: Component = () => {
     const toggle = (id: string,) =>
         setSelected((prev,) => { const n = new Set(prev,); n.has(id,) ? n.delete(id,) : n.add(id,); return n; },);
     const selectAll = () => setSelected(new Set(allSubs().map((s,) => s.id,),),);
-    const deselectAll = () => setSelected(new Set(),);
+    const deselectAll = () => setSelected(new Set<string>(),);
     const exitSelect = () => { setSelectMode(false,); deselectAll(); };
 
     const performDelete = async () => {
@@ -190,6 +216,11 @@ const FormSubmissions: Component = () => {
                     </Show>
                 </h1>
                 <div class="admin-header__actions">
+                    <Show when={allSubs().length > 0}>
+                        <button type="button" class="ui-button ui-button--secondary ui-button--sm" disabled={exporting()} onClick={() => void exportCsv()}>
+                            {exporting() ? 'Exporting…' : 'Export CSV'}
+                        </button>
+                    </Show>
                     <A href={`/admin/forms/${params.id}`} class="ui-button ui-button--secondary ui-button--sm">Edit Form</A>
                     <A href="/admin/forms" class="ui-button ui-button--ghost ui-button--sm">Back to Forms</A>
                 </div>
@@ -255,6 +286,11 @@ const FormSubmissions: Component = () => {
             <Show when={allSubs().length > 0} fallback={
                 <div class="empty-state">No submissions yet.</div>
             }>
+                <Show when={serverTotal() > allSubs().length}>
+                    <p class="form-help-muted" style={{ 'margin-bottom': '0.5rem', }}>
+                        Showing the newest {allSubs().length} of {serverTotal()} submissions (and the summary counts only those). Export CSV for all of them.
+                    </p>
+                </Show>
                 {/* Toolbar — bulk-select toggle + bulk actions */}
                 <div class="u-flex-row u-gap-sm u-flex-wrap" style={{ 'align-items': 'center', 'margin-bottom': '0.5rem', }}>
                     <Show
@@ -279,10 +315,9 @@ const FormSubmissions: Component = () => {
                             <tr>
                                 <Show when={selectMode()}>
                                     <th style={{ width: '32px', }}>
-                                        <input
-                                            type="checkbox"
+                                        <Checkbox
                                             checked={selected().size > 0 && selected().size === allSubs().length}
-                                            onChange={(e,) => e.currentTarget.checked ? selectAll() : deselectAll()}
+                                            onChange={(on,) => on ? selectAll() : deselectAll()}
                                         />
                                     </th>
                                 </Show>
@@ -300,7 +335,7 @@ const FormSubmissions: Component = () => {
                                     <tr>
                                         <Show when={selectMode()}>
                                             <td>
-                                                <input type="checkbox" checked={selected().has(sub.id,)} onChange={() => toggle(sub.id,)} />
+                                                <Checkbox checked={selected().has(sub.id,)} onChange={() => toggle(sub.id,)} />
                                             </td>
                                         </Show>
                                         <td>{(page() - 1) * PAGE_SIZE + idx() + 1}</td>
@@ -401,7 +436,9 @@ const FormSubmissions: Component = () => {
                 message={pending()?.type === 'bulk'
                     ? `Permanently delete ${selected().size} selected submission${selected().size !== 1 ? 's' : ''}? This cannot be undone.`
                     : 'Permanently delete this submission? This cannot be undone.'}
-                confirmLabel={deleting() ? 'Deleting…' : 'Delete'}
+                confirmLabel="Delete"
+                busyLabel="Deleting…"
+                loading={deleting()}
                 danger
                 onConfirm={performDelete}
                 onCancel={() => setPending(null,)}

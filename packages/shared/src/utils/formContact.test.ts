@@ -9,6 +9,10 @@ describe('guessContactField', () => {
         ['Last name', null, 'last_name',], ['Surname', null, 'last_name',],
         ['Name', null, 'name',], ['Your name', null, 'name',], ['Full name', null, 'name',],
         ['Company name', null, null,], ['Occupation', null, null,], ['Name of your organization', null, null,],
+        // Labels ABOUT email / phone, and choice / date questions, are not contact fields.
+        ['Email preferences', 'text', null,], ['Preferred contact method: email or phone', 'radio', null,],
+        ['Email', 'checkbox', null,], ['Phone type', 'select', null,], ['Newsletter by email?', 'text', null,],
+        ['Name', 'date', null,], ['Phone', 'number', 'phone',], ['Name', 'number', null,], ['Email', 'textarea', 'email',],
     ] as const)('%s → %s', (label, type, want,) => {
         expect(guessContactField(label, type,),).toBe(want,);
     },);
@@ -40,3 +44,22 @@ describe('snapshotContactValues', () => {
         expect(snapshotContactValues([{ label: 'Occupation', value: 'Writer', },],).name,).toBeNull();
     },);
 },);
+
+describe('formContactValues — email must be an address', () => {
+    it('a non-address answer to the email question is no email', () => {
+        expect(formContactValues([{ id: 'a', question: 'Email', },], [{ questionId: 'a', value: 'call me', },],).email,).toBeNull();
+    },);
+    it('a choice question labelled Email does not shadow the real email question', () => {
+        const q = [{ id: 'p', question: 'Email preferences', type: 'radio', }, { id: 'a', question: 'Your email', type: 'text', },];
+        expect(formContactValues(q, [{ questionId: 'p', value: 'Weekly', }, { questionId: 'a', value: 'ann@x.com', },],).email,).toBe('ann@x.com',);
+    },);
+},);
+
+describe('contactQuestions — explicit field on a choice question', () => {
+    it('is ignored (a legacy backfill could set one)', async () => {
+        const { contactQuestions, } = await import('./formContact');
+        const q = [{ id: 'p', question: 'Email preferences', type: 'radio', contactField: 'email' as const, }, { id: 'a', question: 'Email', type: 'email', },];
+        expect(contactQuestions(q,).email?.id,).toBe('a',);
+    },);
+},);
+

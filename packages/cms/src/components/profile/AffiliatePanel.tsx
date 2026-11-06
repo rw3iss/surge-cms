@@ -7,14 +7,13 @@
  * once for every program.
  */
 import type { AffiliateCode, AffiliateMeResponse, } from '@sitesurge/types';
-import { formatCurrency, formatPercent, } from '@sitesurge/types';
+import { formatPercent, } from '@sitesurge/types';
 import { useSearchParams, } from '@solidjs/router';
-import { Component, createResource, createSignal, For, onMount, Show, } from 'solid-js';
+import { Component, createResource, createSignal, For, onCleanup, onMount, Show, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
+import { formatDay as day, formatMoney as money, payoutStatusForPartner, } from '../admin/contributions/money';
 import './AffiliatePanel.scss';
 
-const money = (c: number, cur = 'usd',) => formatCurrency(c, cur.toUpperCase(),);
-const day = (iso: string,) => new Date(iso,).toLocaleDateString(undefined, { dateStyle: 'medium', },);
 const STATUS: Record<string, string> = { pending: 'Pending', available: 'Payable', paid: 'Paid', reversed: 'Refunded', };
 const SCHEDULE: Record<string, string> = { off: 'paid out by our team', weekly: 'paid out weekly', biweekly: 'paid out every 2 weeks', monthly: 'paid out monthly', };
 
@@ -25,15 +24,19 @@ const CodeRow: Component<{ code: AffiliateCode; onSaved: () => void; }> = (props
     const [msg, setMsg,] = createSignal('',);
     const [copied, setCopied,] = createSignal(false,);
     const keep = () => Math.max(0, props.code.commissionPercent - split(),);
+    let copiedTimer: ReturnType<typeof setTimeout> | undefined;
+    onCleanup(() => clearTimeout(copiedTimer,),);
 
     const copy = async () => {
         try {
             await navigator.clipboard.writeText(props.code.shareUrl,);
             setCopied(true,);
-            setTimeout(() => setCopied(false,), 1500,);
+            clearTimeout(copiedTimer,);
+            copiedTimer = setTimeout(() => setCopied(false,), 1500,);
         } catch { /* clipboard blocked: the link is shown anyway */ }
     };
     const save = async () => {
+        if (busy()) return;
         setBusy(true,);
         setMsg('',);
         try {
@@ -71,7 +74,8 @@ const CodeRow: Component<{ code: AffiliateCode; onSaved: () => void; }> = (props
                     max={props.code.commissionPercent}
                     step="0.5"
                     value={split()}
-                    onInput={(e,) => setSplit(Number(e.currentTarget.value,),)}
+                    disabled={busy()}
+                    onInput={(e,) => { setSplit(Number(e.currentTarget.value,),); setMsg('',); }}
                 />
                 <div class="affiliate-panel__split-actions">
                     <button type="button" class="btn btn--primary" disabled={busy() || split() === props.code.buyerDiscountPercent} onClick={() => void save()}>
@@ -87,6 +91,8 @@ const CodeRow: Component<{ code: AffiliateCode; onSaved: () => void; }> = (props
 const AffiliatePanel: Component<{ embedded?: boolean; }> = (props,) => {
     const [params, setParams,] = useSearchParams();
     const [data, { refetch, mutate, },] = createResource<AffiliateMeResponse>(() => cms.affiliates.me(),);
+    /** The loaded data, read without suspending (`.latest` once resolved) — a refetch after a save keeps the page. */
+    const loaded = () => (data.state === 'ready' || data.state === 'refreshing' ? data.latest : undefined);
     const [linking, setLinking,] = createSignal(false,);
     const [error, setError,] = createSignal('',);
 
@@ -95,7 +101,7 @@ const AffiliatePanel: Component<{ embedded?: boolean; }> = (props,) => {
         if (props.embedded) return; // the Partner Program page handles the Stripe return
         if (params.stripe === 'return' || params.stripe === 'refresh') {
             void cms.affiliates.stripeRefresh().then((stripe,) => {
-                const d = data();
+                const d = loaded();
                 if (d) mutate({ ...d, stripe, },);
                 else void refetch();
             },).catch(() => {},);
@@ -117,8 +123,15 @@ const AffiliatePanel: Component<{ embedded?: boolean; }> = (props,) => {
 
     return (
         <div class="affiliate-panel" classList={{ profile__card: !props.embedded, 'affiliate-panel--embedded': !!props.embedded, }}>
-            <Show when={!data.loading || data()} fallback={<p class="profile__muted">Loading your affiliate account…</p>}>
-                <Show when={data()} fallback={<p class="profile__muted">Your affiliate details could not be loaded.</p>}>
+            <Show when={data.state !== 'unresolved' && data.state !== 'pending'} fallback={<p class="profile__muted">Loading your affiliate account…</p>}>
+                <Show
+                    when={loaded()}
+                    fallback={
+                        <p class="profile__muted">
+                            Your affiliate details could not be loaded{data.error instanceof Error && data.error.message ? `: ${data.error.message}` : '.'}
+                        </p>
+                    }
+                >
                     {(d,) => (
                         <>
                             <Show when={!props.embedded}>
@@ -153,9 +166,6 @@ const AffiliatePanel: Component<{ embedded?: boolean; }> = (props,) => {
                                 <div><span>Paid to you</span><strong>{money(d().balance.paidCents, d().balance.currency,)}</strong></div>
                             </div>
                             </Show>
-                            <p class="profile__muted affiliate-panel__note">
-                                Pending commissions become payable {d().refundWindowDays} days after the order is paid (a refund before then cancels it).
-                            </p>
                             <Show when={props.embedded}>
                                 <div class="affiliate-panel__balance affiliate-panel__balance--sub">
                                     <div><span>Affiliate payable</span><strong>{money(d().balance.availableCents, d().balance.currency,)}</strong></div>
@@ -163,6 +173,9 @@ const AffiliatePanel: Component<{ embedded?: boolean; }> = (props,) => {
                                     <div><span>Affiliate paid</span><strong>{money(d().balance.paidCents, d().balance.currency,)}</strong></div>
                                 </div>
                             </Show>
+                            <p class="profile__muted affiliate-panel__note">
+                                Pending commissions become payable {d().refundWindowDays} day{d().refundWindowDays === 1 ? '' : 's'} after the order is paid (a refund before then cancels it).
+                            </p>
 
                             <section class="affiliate-panel__section">
                                 <h3>Your codes</h3>
@@ -211,7 +224,7 @@ const AffiliatePanel: Component<{ embedded?: boolean; }> = (props,) => {
                                                         <tr>
                                                             <td>{day(p.createdAt,)}</td>
                                                             <td>{money(p.amountCents, p.currency,)}</td>
-                                                            <td>{p.status === 'paid' ? 'Sent' : p.status === 'failed' ? 'Failed — our team will retry' : 'Processing'}</td>
+                                                            <td>{payoutStatusForPartner(p.status,)}</td>
                                                         </tr>
                                                     )}
                                                 </For>

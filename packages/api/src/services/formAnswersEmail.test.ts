@@ -51,3 +51,27 @@ describe('brandedMessage', () => {
         expect(brandedMessage('x', { siteName: 'Surge', siteUrl: '', logoUrl: null, },),).toContain('>Surge</a>',);
     },);
 },);
+
+describe('formAnswersText — after a section', () => {
+    it('a root question after a section is set apart by a blank line', () => {
+        const qs = [q('a', 0, { sectionId: 's1', },), q('b', 1,),];
+        const text = formAnswersText({ sections: [{ id: 's1', title: 'S', position: 0, } as never,], }, qs, [],);
+        expect(text,).toBe('== S ==\nQ a: —\n\nQ b: —',);
+    },);
+},);
+
+describe('brandedEmail escaping', () => {
+    it('escapes the site name, address and preheader', () => {
+        const html = brandedMessage('x', { siteName: '<Evil & Co>', siteUrl: 'https://e.us/"x', logoUrl: null, }, { preheader: '<img src=x onerror=1>', },);
+        expect(html,).not.toContain('<Evil',);
+        expect(html,).toContain('&lt;Evil &amp; Co&gt;',);
+        expect(html,).not.toContain('<img src=x',);
+        expect(html,).not.toContain('"x"',);
+    },);
+    it('an unnamed site shows its address once', () => {
+        const html = brandedMessage('x', { siteName: '', siteUrl: 'https://s.us/', logoUrl: null, },);
+        expect(html,).toContain('>s.us</a>',);
+        expect(html,).not.toContain('s.us · ',);
+    },);
+},);
+

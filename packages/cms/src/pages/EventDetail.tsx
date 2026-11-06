@@ -11,7 +11,7 @@ import type { CalendarEvent, EventTicketTier, } from '@sitesurge/types';
 import { describeRecurrence, parseRecurrenceRule, renderMarkdown, stripMarkdown, } from '@sitesurge/types';
 import { Title, } from '@solidjs/meta';
 import { A, useParams, useSearchParams, } from '@solidjs/router';
-import { Component, createMemo, createResource, lazy, Show, } from 'solid-js';
+import { Component, createMemo, createResource, lazy, Show, Suspense, } from 'solid-js';
 import UpgradeTout from '../components/content/UpgradeTout';
 import { useAuth, } from '../stores/auth';
 import { accessErrorOf, tierRequirement, upgradeHref, type AccessRequired, } from '../utils/accessRequired';
@@ -227,17 +227,20 @@ const EventDetailPage: Component = () => {
                             <aside class="event-detail__aside">
                                 {/* The location map (when the event shows one): one link to Google Maps. */}
                                 <Show when={ev().showMap && ev().locationLat != null && ev().locationLng != null}>
-                                    <LocationMap
-                                        class="event-detail__map"
-                                        lat={ev().locationLat}
-                                        lng={ev().locationLng}
-                                        height="200px"
-                                        label={`Map: ${eventLocationText(ev(),) ?? ev().title}`}
-                                        onClick={() => {
-                                            const href = mapLinkFor({ location: ev().location, lat: ev().locationLat, lng: ev().locationLng, },);
-                                            if (href) window.open(href, '_blank', 'noopener',);
-                                        }}
-                                    />
+                                    {/* Own boundary: loading the map chunk must not suspend the whole page. */}
+                                    <Suspense fallback={<div class="location-map event-detail__map" style={{ height: '200px', }} aria-hidden="true" />}>
+                                        <LocationMap
+                                            class="event-detail__map"
+                                            lat={ev().locationLat}
+                                            lng={ev().locationLng}
+                                            height="200px"
+                                            label={`Open map: ${eventLocationText(ev(),) ?? ev().title}`}
+                                            onClick={() => {
+                                                const href = mapLinkFor({ location: ev().location, lat: ev().locationLat, lng: ev().locationLng, },);
+                                                if (href) window.open(href, '_blank', 'noopener',);
+                                            }}
+                                        />
+                                    </Suspense>
                                 </Show>
                                 {/* Tickets OR registration — see EventSignup. */}
                                 <EventSignup

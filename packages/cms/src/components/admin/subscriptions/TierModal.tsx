@@ -14,7 +14,7 @@ import { roleAllows, roleChainOf, } from '../../../utils/permissionInheritance';
 import { useToast, } from '../../common/toast';
 import ModalShell from '../common/ModalShell';
 import Toggle from '../common/Toggle';
-import { FormField, } from '../forms';
+import { CommitInput, FormField, } from '../forms';
 
 export interface TierModalProps {
     tier: SubscriptionTier | null; // null = new
@@ -79,7 +79,7 @@ const TierModal: Component<TierModalProps> = (props,) => {
 
     /** The other recurring prices on the selected price's Stripe product. */
     const otherPricesOf = (priceId: string,) => {
-        const all = stripe()?.prices ?? [];
+        const all = stripe.latest?.prices ?? [];
         const sel = all.find((p,) => p.priceId === priceId,);
         return sel ? all.filter((p,) => p.productId === sel.productId && p.priceId !== priceId,) : [];
     };
@@ -92,7 +92,7 @@ const TierModal: Component<TierModalProps> = (props,) => {
      */
     const products = createMemo(() => {
         const byProduct = new Map<string, StripeSubscriptionPrice[]>();
-        for (const p of stripe()?.prices ?? []) {
+        for (const p of stripe.latest?.prices ?? []) {
             const list = byProduct.get(p.productId,) ?? [];
             list.push(p,);
             byProduct.set(p.productId, list,);
@@ -103,7 +103,7 @@ const TierModal: Component<TierModalProps> = (props,) => {
         const prices = products().find((x,) => x.productId === productId,)?.prices ?? [];
         return prices.find((p,) => p.priceId === form.stripePriceId,) ?? prices.find((p,) => p.isProductDefault,) ?? prices[0];
     };
-    const selectedProductId = () => (stripe()?.prices ?? []).find((p,) => p.priceId === form.stripePriceId,)?.productId ?? '';
+    const selectedProductId = () => (stripe.latest?.prices ?? []).find((p,) => p.priceId === form.stripePriceId,)?.productId ?? '';
     const productLabel = (x: { productId: string; name: string; prices: StripeSubscriptionPrice[]; },) => {
         const d = defaultPriceFor(x.productId,);
         const more = x.prices.length - 1;
@@ -127,7 +127,10 @@ const TierModal: Component<TierModalProps> = (props,) => {
     },);
 
     const save = async () => {
+        if (saving()) return;
         if (!form.name.trim()) return toast.error('A name is required.',);
+        // A program's whole effect is adding its role.
+        if (form.roleOnly && !t?.isFree && !form.role) return toast.error('Choose the role this program adds.',);
         setSaving(true,);
         try {
             const body = {
@@ -173,23 +176,21 @@ const TierModal: Component<TierModalProps> = (props,) => {
                 <h2>{t ? `Edit membership level: ${t.name}` : 'New membership level'}</h2>
                 <div class="tier-modal__grid">
                     <FormField label="Name">
-                        <input
-                            type="text"
+                        <CommitInput
                             value={form.name}
-                            onBlur={(e,) => {
-                                setForm('name', e.currentTarget.value,);
-                                if (!slugTouched()) setForm('slug', slugify(e.currentTarget.value,),);
+                            onCommit={(v,) => {
+                                setForm('name', v,);
+                                if (!slugTouched()) setForm('slug', slugify(v,),);
                             }}
                         />
                     </FormField>
                     <FormField label="Slug" hint="Stable id used in code and URLs.">
-                        <input
-                            type="text"
+                        <CommitInput
                             value={form.slug}
                             disabled={t?.isFree}
-                            onBlur={(e,) => {
+                            onCommit={(v,) => {
                                 setSlugTouched(true,);
-                                setForm('slug', slugify(e.currentTarget.value,),);
+                                setForm('slug', slugify(v,),);
                             }}
                         />
                     </FormField>
@@ -198,16 +199,17 @@ const TierModal: Component<TierModalProps> = (props,) => {
                     label="Description"
                     hint="Markdown supported — **bold**, *italic*, [links](https://…), and lists (lines starting with “- ”). Shown on the plan cards (/subscribe, profile → Membership). Empty = the Stripe product's description."
                 >
-                    <textarea
+                    <CommitInput
+                        multiline
                         class="tier-modal__description"
                         rows={4}
                         value={form.description}
-                        onBlur={(e,) => setForm('description', e.currentTarget.value,)}
+                        onCommit={(v,) => setForm('description', v,)}
                     />
                 </FormField>
 
                 <div class="admin-form-row">
-                    <FormField label="Role" tooltip="The role members of this tier are given. Its permissions are included below; staff are never moved off their role.">
+                    <FormField label="Role" tooltip="The role members of this level are given (for a program: the role approval adds). Its permissions are included below; staff are never moved off their role.">
                         <select value={form.role} onChange={(e,) => setForm('role', e.currentTarget.value,)}>
                             <option value="">— none (keep their role) —</option>
                             <For each={roleOptions()}>{(r,) => <option value={r.key}>{r.label} ({r.key})</option>}</For>
@@ -254,7 +256,7 @@ const TierModal: Component<TierModalProps> = (props,) => {
                         >
                             <select value={form.applicationFormId} onChange={(e,) => setForm('applicationFormId', e.currentTarget.value,)}>
                                 <option value="">Built-in form (Name, Email, Phone, Occupation)</option>
-                                <For each={formsList() ?? []}>
+                                <For each={formsList.latest ?? []}>
                                     {(f,) => (
                                         <option value={f.id}>
                                             {f.title}{f.status !== 'published' ? ' (draft — publish it to use)' : ''}
@@ -268,7 +270,7 @@ const TierModal: Component<TierModalProps> = (props,) => {
                     {/* A program has no price: no Stripe product and no custom display. */}
                     <Show when={!form.roleOnly}>
                     <FormField label="Stripe membership product">
-                        <Show when={!stripe.loading || stripe()} fallback={<p class="form-help-muted">Loading Stripe prices…</p>}>
+                        <Show when={!stripe.loading || stripe.latest} fallback={<p class="form-help-muted">Loading Stripe prices…</p>}>
                             <div class="tier-modal__price-row">
                             <select onChange={(e,) => setForm('stripePriceId', e.currentTarget.value ? (defaultPriceFor(e.currentTarget.value,)?.priceId ?? '') : '',)}>
                                 <option value="" selected={!form.stripePriceId}>-</option>
@@ -290,14 +292,14 @@ const TierModal: Component<TierModalProps> = (props,) => {
                                 {stripe.loading ? 'Loading…' : 'Refresh'}
                             </button>
                             </div>
-                            <Show when={!stripe()?.connected}>
+                            <Show when={!stripe.latest?.connected}>
                                 <p class="tier-modal__note">
                                     Membership products are defined in Stripe, and Stripe must be connected in the{' '}
                                     <A href="/admin/settings?tab=payments">Payments</A> tab.
                                 </p>
                             </Show>
-                            <Show when={stripe()?.error}>
-                                <p class="tier-modal__note">Stripe: {stripe()!.error}</p>
+                            <Show when={stripe.latest?.error}>
+                                <p class="tier-modal__note">Stripe: {stripe.latest!.error}</p>
                             </Show>
                         </Show>
                     </FormField>
@@ -328,23 +330,24 @@ const TierModal: Component<TierModalProps> = (props,) => {
                         <Show when={form.displayOn}>
                             <div class="tier-modal__grid tier-modal__display">
                                 <FormField label="Display price" hint="In the price's currency, e.g. 3000.00">
-                                    <input
+                                    <CommitInput
                                         type="number"
                                         min={0}
                                         step="0.01"
                                         value={form.displayPrice}
-                                        onBlur={(e,) => setForm('displayPrice', e.currentTarget.value,)}
+                                        onCommit={(v,) => setForm('displayPrice', v,)}
                                     />
                                 </FormField>
                                 <FormField label="Display frequency">
                                     <div class="tier-modal__freq">
                                         <span>every</span>
-                                        <input
+                                        <CommitInput
                                             type="number"
                                             min={1}
                                             max={52}
+                                            aria-label="Display frequency count"
                                             value={form.displayIntervalCount}
-                                            onBlur={(e,) => setForm('displayIntervalCount', e.currentTarget.value,)}
+                                            onCommit={(v,) => setForm('displayIntervalCount', v,)}
                                         />
                                         <select
                                             value={form.displayInterval}

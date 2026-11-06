@@ -34,7 +34,8 @@ import {
     resolveActiveStyleRef,
     styleRefToPersistedStyle,
 } from '../../services/blockStyleRef';
-import { followTitleSlug, } from '../../utils/autoSlug';
+import { cleanSlug, followTitleSlug, } from '../../utils/autoSlug';
+import { publicSettingsChanged, } from '../../utils/pagePublicSettings';
 
 function pageBlockToBlockData(block: any,): BlockData {
     return {
@@ -218,14 +219,15 @@ const AdminPageEditor: Component = () => {
                 customCss: customCss(),
             };
             let pageId = ctx.id;
-            const before = (editor.saved() as Page | null)?.systemPage ?? null;
+            const prev = editor.saved() as Page | null;
             const saved = (ctx.isNew ? await cms.pages.create(data as any,) : await cms.pages.update(ctx.id, data as any,)) as Page;
             if (ctx.isNew) pageId = saved.id;
             if (saved?.systemPageReplaced) {
                 toast.info(`'${saved.systemPageReplaced.title}' was the ${systemPageLabel(systemPage(),)} page — it is set back to None.`,);
             }
-            // The public settings carry the assignments (previews + the public routes).
-            if ((data.systemPage ?? null) !== before || data.status !== editor.saved()?.status) void reloadSiteSettings();
+            // The public settings carry the assignments (key → slug, published
+            // only) and the open-access paths, read by previews + public routes.
+            if (publicSettingsChanged(prev, data,)) void reloadSiteSettings();
             // On a brand-new page nothing is saved yet, so diff against an
             // empty snapshot → every block is created.
             if (pageId) {
@@ -311,6 +313,8 @@ const AdminPageEditor: Component = () => {
             const serverUpdated = new Date((p as any).updatedAt || 0,).getTime();
             if (draft.timestamp > serverUpdated + 1000) {
                 applyDraft(draft.data as Record<string, any>,);
+                // The restored edits are unsaved: show them as such and guard leaving.
+                editor.markDirty();
                 toast.info('Restored your unsaved draft for this page.',);
             } else {
                 editor.autoSave.clear(); // stale draft — page was saved since
@@ -377,6 +381,11 @@ const AdminPageEditor: Component = () => {
                             onInput={(e,) => {
                                 setSlug(e.currentTarget.value,);
                                 editor.markDirty();
+                            }}
+                            // Same characters the server accepts (a-z, 0-9, -).
+                            onBlur={(e,) => {
+                                const clean = cleanSlug(e.currentTarget.value,);
+                                if (clean !== slug()) setSlug(clean,);
                             }}
                             placeholder="page-slug"
                         />

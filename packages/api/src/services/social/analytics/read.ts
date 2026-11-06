@@ -4,9 +4,11 @@
  */
 import {
     SOCIAL_DEFINITION_CHANGES,
+    socialMetricAggregate,
     type SocialAccountSummary,
     type SocialAnalyticsOverview,
     type SocialAnalyticsPostsQuery,
+    type SocialCollectorStatus,
     type SocialAnalyticsPostSeriesResponse,
     type SocialPostAnalytics,
     type SocialSeries,
@@ -31,10 +33,15 @@ export function resolveRange(from?: string, to?: string,): { from: string; to: s
 
 const num = (v: unknown,): number | null => (v === null || v === undefined ? null : Number(v,));
 
-/** Sum of a daily metric (account total) per platform in the range. */
+/**
+ * Each daily metric (account total) per platform over the range, combined the
+ * way SOCIAL_METRICS says: `sum` per-day amounts, `last` levels (a follower
+ * total — summing it would multiply it by the day count), `avg` rates.
+ */
 async function dailySums(from: string, to: string,): Promise<Map<string, Record<string, number>>> {
-    const r = await query<{ platform: string; metric: string; total: string; weighted: string | null; }>(
-        `SELECT platform, metric, SUM(value) AS total
+    const r = await query<{ platform: string; metric: string; total: string; avg: string; last: string; }>(
+        `SELECT platform, metric, SUM(value) AS total, AVG(value) AS avg,
+                (ARRAY_AGG(value ORDER BY date DESC))[1] AS last
            FROM social_account_daily
           WHERE dimension = '' AND date BETWEEN $1 AND $2
           GROUP BY platform, metric`,
@@ -43,7 +50,8 @@ async function dailySums(from: string, to: string,): Promise<Map<string, Record<
     const out = new Map<string, Record<string, number>>();
     for (const row of r.rows) {
         const m = out.get(row.platform,) ?? {};
-        m[row.metric] = Number(row.total,);
+        const how = socialMetricAggregate(row.metric,);
+        m[row.metric] = Number(how === 'last' ? row.last : how === 'avg' ? row.avg : row.total,);
         out.set(row.platform, m,);
     }
     // Average view duration: weight each day's average by its views.
@@ -116,10 +124,10 @@ async function postAggregates(from: string, to: string,): Promise<Map<string, Re
                SUM(GREATEST(l_end - l_start, 0)) FILTER (WHERE l_end IS NOT NULL AND l_start IS NOT NULL) AS likes,
                SUM(GREATEST(c_end - c_start, 0)) FILTER (WHERE c_end IS NOT NULL AND c_start IS NOT NULL) AS comments,
                SUM(GREATEST(s_end - s_start, 0)) FILTER (WHERE s_end IS NOT NULL AND s_start IS NOT NULL) AS shares,
-               AVG(v_end) FILTER (WHERE published_at BETWEEN $1::date AND $2::date + 1) AS avg_views,
+               AVG(v_end) FILTER (WHERE published_at >= $1::date AND published_at < $2::date + 1) AS avg_views,
                SUM(COALESCE(l_end,0) + COALESCE(c_end,0) + COALESCE(s_end,0) + COALESCE(sv_end,0))
-                   FILTER (WHERE published_at BETWEEN $1::date AND $2::date + 1) AS engagement,
-               SUM(v_end) FILTER (WHERE published_at BETWEEN $1::date AND $2::date + 1) AS pub_views
+                   FILTER (WHERE published_at >= $1::date AND published_at < $2::date + 1) AS engagement,
+               SUM(v_end) FILTER (WHERE published_at >= $1::date AND published_at < $2::date + 1) AS pub_views
           FROM m GROUP BY platform`,
         [from, to,],
     );
@@ -154,10 +162,10 @@ export async function overview(range: { from?: string; to?: string; },): Promise
     const { from, to, } = resolveRange(range.from, range.to,);
     const [daily, snaps, postAgg, runs,] = await Promise.all([dailySums(from, to,), snapshotEnds(from, to,), postAggregates(from, to,), lastRuns(),],);
     const accounts: SocialAccountSummary[] = [];
-    for (const c of listCollectors()) {
-        const conn = await loadConnection(c.connection,);
-        const status = await Promise.resolve(c.status(conn?.credentials ?? {}, Boolean(conn?.is_connected && conn?.is_enabled,),),)
-            .catch(() => ({ platform: c.platform, label: c.label, state: 'off' as const, message: 'Status unavailable', collects: [], }));
+    const collectors = listCollectors();
+    const statuses = await Promise.all(collectors.map(statusOf,),);
+    for (const [i, c,] of collectors.entries()) {
+        const status = statuses[i];
         const d = daily.get(c.platform,) ?? {};
         const s = snaps.get(c.platform,);
         const p = postAgg.get(c.platform,) ?? {};
@@ -182,8 +190,9 @@ export async function overview(range: { from?: string; to?: string; },): Promise
             watchTimeMinutes: d.watchTimeMinutes ?? null,
             avgViewDuration: d.avgViewDuration ?? null,
             likes: d.likes ?? p.likes ?? null,
-            comments: d.comments ?? p.comments ?? null,
-            shares: d.shares ?? p.shares ?? null,
+            // Threads names its daily series replies / reposts (+ quotes) — the same things as comments / shares.
+            comments: d.comments ?? (c.platform === 'threads' ? d.replies : undefined) ?? p.comments ?? null,
+            shares: d.shares ?? (c.platform === 'threads' && d.reposts !== undefined ? d.reposts + (d.quotes ?? 0) : undefined) ?? p.shares ?? null,
             posts: Number(p.posts ?? 0,),
             avgViewsPerPost: p.avgViewsPerPost ?? null,
             engagementRate: p.engagementRate ?? null,
@@ -251,7 +260,33 @@ export async function series(platform: string, metric: string, range: { from?: s
         platform,
         metric,
         points: rows.map((r,) => ({ date: new Date(r.date,).toISOString().slice(0, 10,), value: Number(r.value,), })),
+        available: await availableMetrics(platform, from, to,),
     };
+}
+
+/**
+ * The account-level metrics this platform has data for in the range (snapshot
+ * columns + daily series), so the chart offers only what can be drawn.
+ */
+export async function availableMetrics(platform: string, from: string, to: string,): Promise<string[]> {
+    const [snap, daily,] = await Promise.all([
+        query<Record<string, boolean>>(
+            `SELECT bool_or(followers IS NOT NULL) AS followers, bool_or(following IS NOT NULL) AS following,
+                    bool_or(total_views IS NOT NULL) AS "totalViews", bool_or(total_likes IS NOT NULL) AS "totalLikes",
+                    bool_or(posts_count IS NOT NULL) AS "postsCount"
+               FROM social_account_snapshots WHERE platform = $1 AND date BETWEEN $2 AND $3`,
+            [platform, from, to,],
+        ),
+        query<{ metric: string; }>(
+            `SELECT DISTINCT metric FROM social_account_daily WHERE platform = $1 AND dimension = '' AND date BETWEEN $2 AND $3 ORDER BY metric`,
+            [platform, from, to,],
+        ),
+    ],);
+    const out = Object.entries(snap.rows[0] ?? {},).filter(([, v,],) => v === true,).map(([k,],) => k,);
+    // Snapshot views give a day-to-day series even without a platform daily one.
+    if (out.includes('totalViews',)) out.push('views',);
+    for (const r of daily.rows) out.push(r.metric,);
+    return [...new Set(out,),];
 }
 
 const SORTS: Record<NonNullable<SocialAnalyticsPostsQuery['sort']>, string> = {
@@ -265,6 +300,11 @@ const SORTS: Record<NonNullable<SocialAnalyticsPostsQuery['sort']>, string> = {
     engagementRate: 'engagement_rate',
     impressions: 'impressions',
 };
+
+/** Escape LIKE wildcards so a search for "50%" or "a_b" matches the text. */
+export function likeEscape(s: string,): string {
+    return s.replace(/[\\%_]/g, (c,) => `\\${c}`,);
+}
 
 function postUrl(platform: string, externalId: string, url: string | null,): string | null {
     if (url) return url;
@@ -339,7 +379,7 @@ export async function posts(q: SocialAnalyticsPostsQuery,): Promise<{ data: Soci
         where.push(`p.media_kind = $${params.length}`,);
     }
     if (q.search) {
-        params.push(`%${q.search}%`,);
+        params.push(`%${likeEscape(q.search,)}%`,);
         where.push(`p.content ILIKE $${params.length}`,);
     }
     if (q.publishedInPeriod) where.push(`p.published_at >= $1::date AND p.published_at < $2::date + 1`,);
@@ -373,11 +413,16 @@ export async function postSeries(id: string, range: { from?: string; to?: string
     };
 }
 
-export async function collectorStatuses() {
-    const out = [];
-    for (const c of listCollectors()) {
+/** A collector's status; a failing status() reads as "off" instead of failing the whole page. */
+async function statusOf(c: ReturnType<typeof listCollectors>[number],): Promise<SocialCollectorStatus> {
+    try {
         const conn = await loadConnection(c.connection,);
-        out.push(await Promise.resolve(c.status(conn?.credentials ?? {}, Boolean(conn?.is_connected && conn?.is_enabled,),),),);
+        return await Promise.resolve(c.status(conn?.credentials ?? {}, Boolean(conn?.is_connected && conn?.is_enabled,),),);
+    } catch {
+        return { platform: c.platform, label: c.label, state: 'off', message: 'Status unavailable', collects: [], };
     }
-    return out;
+}
+
+export async function collectorStatuses(): Promise<SocialCollectorStatus[]> {
+    return Promise.all(listCollectors().map(statusOf,),);
 }

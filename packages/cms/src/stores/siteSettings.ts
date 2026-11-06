@@ -51,9 +51,21 @@ export function loadSiteSettings(): Promise<SiteSettings | null> {
  * from `loadSiteSettings()` so the lazy-load fast path stays cheap.
  */
 export async function reloadSiteSettings(): Promise<SiteSettings | null> {
-    fetchPromise = null;
-    setSiteSettings(null,);
-    return loadSiteSettings();
+    // Keep the current value until the new one lands: blanking it first made
+    // every reader (system page routes, feature checks) fall back to defaults
+    // for one request after each save.
+    fetchPromise = (async () => {
+        try {
+            const data = (await cms.settings.getPublic()) as unknown as SiteSettings;
+            if (data) setSiteSettings(data,);
+            return data ?? siteSettings();
+        } catch {
+            return siteSettings();
+        } finally {
+            fetchPromise = null;
+        }
+    })();
+    return fetchPromise;
 }
 
 /** Current site settings — null until loaded. */

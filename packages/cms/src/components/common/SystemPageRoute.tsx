@@ -1,5 +1,5 @@
 import { getSystemPage, } from '@sitesurge/types';
-import { Component, JSX, lazy, onMount, Show, } from 'solid-js';
+import { Component, createSignal, JSX, lazy, onMount, Show, } from 'solid-js';
 import { isFeatureEnabled, loadSiteSettings, siteSettings, } from '../../stores/siteSettings';
 
 const DynamicPage = lazy(() => import('../../pages/DynamicPage'));
@@ -21,9 +21,13 @@ export function systemPageSlug(key: string,): string | null {
  * settings so the built-in screen never flashes before the page.
  */
 const SystemPageRoute: Component<{ pageKey: string; children: JSX.Element; }> = (props,) => {
-    onMount(() => { void loadSiteSettings(); },);
+    // Settled = the settings load finished, with or without data. A failed load
+    // (API down, network blip) must still show the built-in screen — waiting on
+    // `siteSettings()` alone left the route blank for good.
+    const [settled, setSettled,] = createSignal(false,);
+    onMount(() => { void loadSiteSettings().finally(() => setSettled(true,),); },);
     return (
-        <Show when={siteSettings()}>
+        <Show when={siteSettings() || settled()}>
             <Show when={systemPageSlug(props.pageKey,)} keyed fallback={props.children}>
                 {(slug,) => <DynamicPage slugOverride={slug} canonicalPath={getSystemPage(props.pageKey,)?.path} />}
             </Show>

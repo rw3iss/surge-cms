@@ -102,3 +102,13 @@ describe('sanitizeCredentials', () => {
         },);
     },);
 },);
+
+describe('withoutMaskedValues', () => {
+    it('drops echoed masks and has* flags, keeps real values', async () => {
+        const { withoutMaskedValues, } = await import('./connections');
+        expect(withoutMaskedValues({
+            appId: 'abc', appSecret: '••••••••', accessToken: '••••••••••Zgoh9H', hasAppSecret: true, channelId: 'UC1', refreshToken: 'real',
+        },),).toEqual({ appId: 'abc', channelId: 'UC1', refreshToken: 'real', },);
+        expect(withoutMaskedValues(undefined,),).toEqual({},);
+    },);
+},);

@@ -42,7 +42,11 @@ CREATE TABLE IF NOT EXISTS affiliate_earnings (
     available_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     payout_id             UUID REFERENCES affiliate_payouts(id) ON DELETE SET NULL,
     created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (order_id, user_id, kind)
+    updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- One commission per order + affiliate; several partial-refund `reversal`
+-- rows may follow (migration 213 converts tables created before this).
+CREATE UNIQUE INDEX IF NOT EXISTS uq_affiliate_earnings_commission
+    ON affiliate_earnings (order_id, user_id) WHERE kind = 'commission';
+CREATE INDEX IF NOT EXISTS idx_affiliate_earnings_order ON affiliate_earnings (order_id);
 CREATE INDEX IF NOT EXISTS idx_affiliate_earnings_user ON affiliate_earnings (user_id, status, available_at);

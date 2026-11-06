@@ -48,9 +48,11 @@ function answerText(v: unknown,): string {
 
 interface TierRow { id: string; name: string; is_free: boolean; requires_approval: boolean; application_form_id: string | null; stripe_price_id: string | null; hide_price: boolean; role_only: boolean; role: string | null; }
 
+const TIER_COLUMNS = `id, name, is_free, requires_approval, application_form_id, stripe_price_id, COALESCE(hide_price, false) AS hide_price, COALESCE(role_only, false) AS role_only, role`;
+
 async function loadTier(tierId: string,): Promise<TierRow> {
     const r = await query<TierRow>(
-        `SELECT id, name, is_free, requires_approval, application_form_id, stripe_price_id, COALESCE(hide_price, false) AS hide_price, role_only, role FROM subscription_plans WHERE id = $1 AND is_active IS NOT FALSE`,
+        `SELECT ${TIER_COLUMNS} FROM subscription_plans WHERE id = $1 AND is_active IS NOT FALSE`,
         [tierId,],
     );
     const t = r.rows[0];
@@ -59,6 +61,16 @@ async function loadTier(tierId: string,): Promise<TierRow> {
     // A "Hide price" level takes no card when applying, so it may have no price yet.
     if (!t.stripe_price_id && !t.hide_price) throw new ValidationError(`${t.name} is not available yet.`,);
     return t;
+}
+
+/** A second pending application for the same slot (one membership, one per program) → 409, not 500. */
+function duplicatePending(e: unknown, program: boolean,): never {
+    if ((e as { code?: string; }).code === '23505') {
+        throw new ConflictError(program
+            ? 'You already have an application for this program waiting for review.'
+            : 'You already have an application waiting for review.',);
+    }
+    throw e;
 }
 
 /**
@@ -210,7 +222,7 @@ async function applicationNotice(
     userId: string | null,
     email: string | null,
 ) {
-    const name = answers.find((a,) => /^(full )?name$/i.test(a.label.trim(),),)?.value || null;
+    const name = applicantName({ answers, },) || null;
     const person = await notifyUser({ userId, email, name, },);
     let price = '';
     const pid = priceId || tier.stripe_price_id;
@@ -334,14 +346,7 @@ export async function submit(body: MembershipApplySubmitBody, ctx: ApplyContext,
         `INSERT INTO membership_applications (user_id, plan_id, form_id, submission_id, answers, contact_email, price_id, program)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, created_at`,
         [ctx.userId, tier.id, c.formId, c.submissionId, JSON.stringify(c.answers,), c.email, body.priceId ?? null, tier.role_only,],
-    ).catch((e,) => {
-        if ((e as { code?: string; }).code === '23505') {
-            throw new ConflictError(tier.role_only
-                ? 'You already have an application for this program waiting for review.'
-                : 'You already have an application waiting for review.',);
-        }
-        throw e;
-    },);
+    ).catch((e,) => duplicatePending(e, tier.role_only,),);
     const id = ins.rows[0].id;
     if (ctx.userId) await setUserApproval(ctx.userId, 'pending',);
     const token = ctx.userId ? null : applicationToken(id,);
@@ -357,12 +362,12 @@ export async function submit(body: MembershipApplySubmitBody, ctx: ApplyContext,
         text: `New membership application for ${tier.name}${c.email ? ` — ${c.email}` : ''}.`,
     },);
     if (c.email) {
-        const hide = (await query<{ hide_price: boolean; }>(`SELECT hide_price FROM subscription_plans WHERE id = $1`, [tier.id,],)).rows[0]?.hide_price === true;
+        const hide = tier.hide_price === true;
         // Operator-editable: Users → Settings → Email templates → "Membership application received".
         void sendPurposeMail('membership_application_received', {
             to: c.email,
             context: {
-                user: { name: c.answers.find((x,) => /^(full )?name$/i.test(x.label.trim(),),)?.value ?? '', email: c.email, },
+                user: { name: applicantName({ answers: c.answers, },), email: c.email, },
                 tier: { name: tier.name, },
                 application: {
                     next: receiptNext({ signedIn: !!ctx.userId, noCard: hide || tier.role_only, },),
@@ -385,32 +390,67 @@ export async function submit(body: MembershipApplySubmitBody, ctx: ApplyContext,
 
 /**
  * Attach account-less applications to a user whose email is now PROVEN
- * (verified by the verification link, or by an invite link). Only then: with
- * an unverified address anyone could sign up as the applicant and take over
- * their application. One pending row at most (one pending per user), plus
- * any approved, unstarted offers.
+ * (verified by the verification link, by an invite link, or marked verified by
+ * an admin). Only then: with an unproven address anyone could sign up as the
+ * applicant and take over their application (and, once approved, a program's
+ * role). One pending MEMBERSHIP row at most, one pending row per program, plus
+ * approved, unstarted offers / programs.
+ *
+ * "Proven" = `users.verified_at` is set, or the account was created from an
+ * invite sent to its own address. `email_verified` alone is not proof: it
+ * defaults to true for every account created while "Require new users to
+ * validate their email" is OFF (and for grandfathered/Patreon accounts), so a
+ * sign-in claim keyed on it let anyone who registered with someone else's
+ * address pick up that person's applications. A caller with proof of its own
+ * may pass `{ proven: true }`.
  */
-export async function claimByVerifiedEmail(userId: string, email: string,): Promise<number> {
+export async function claimByVerifiedEmail(userId: string, email: string, opts: { proven?: boolean; } = {},): Promise<number> {
     let n = 0;
     try {
-        const rows = await query<{ id: string; status: string; role_only: boolean; }>(
-            `SELECT a.id, a.status, p.role_only FROM membership_applications a JOIN subscription_plans p ON p.id = a.plan_id
+        if (!opts.proven) {
+            // Proof: the verification link / an admin set `verified_at`, or this
+            // account was created from an invite sent to its address.
+            const v = await query<{ ok: boolean; }>(
+                `SELECT (u.verified_at IS NOT NULL OR EXISTS (
+                            SELECT 1 FROM user_invites i
+                             WHERE i.accepted_at IS NOT NULL AND lower(i.email) = lower(u.email)
+                               AND (i.accepted_user_id IS NULL OR i.accepted_user_id = u.id))) AS ok
+                   FROM users u WHERE u.id = $1`,
+                [userId,],
+            );
+            if (v.rows[0]?.ok !== true) return 0;
+        }
+        const rows = await query<{ id: string; status: string; plan_id: string; role_only: boolean; }>(
+            `SELECT a.id, a.status, a.plan_id, p.role_only FROM membership_applications a JOIN subscription_plans p ON p.id = a.plan_id
               WHERE a.user_id IS NULL AND lower(a.contact_email) = lower($1) AND a.status IN ('pending', 'approved')
               ORDER BY a.created_at DESC`,
             [email,],
         );
         let pendingTaken = !!(await pendingApplicationFor(userId,));
+        const pendingPrograms = new Set((await query<{ plan_id: string; }>(
+            `SELECT plan_id FROM membership_applications WHERE user_id = $1 AND status = 'pending' AND program = true`, [userId,],
+        )).rows.map((r,) => r.plan_id,),);
         for (const r of rows.rows) {
-            // Programs don't count against the one pending MEMBERSHIP application.
-            if (r.status === 'pending' && !r.role_only) {
-                if (pendingTaken) continue;
-                pendingTaken = true;
+            // Programs don't count against the one pending MEMBERSHIP application,
+            // but each program takes one pending application.
+            if (r.status === 'pending') {
+                if (r.role_only) {
+                    if (pendingPrograms.has(r.plan_id,)) continue;
+                    pendingPrograms.add(r.plan_id,);
+                } else {
+                    if (pendingTaken) continue;
+                    pendingTaken = true;
+                }
             }
-            const u = await query(`UPDATE membership_applications SET user_id = $2, updated_at = NOW() WHERE id = $1 AND user_id IS NULL`, [r.id, userId,],);
-            if (u.rowCount) {
+            try {
+                const u = await query(`UPDATE membership_applications SET user_id = $2, updated_at = NOW() WHERE id = $1 AND user_id IS NULL`, [r.id, userId,],);
+                if (!u.rowCount) continue;
                 n++;
                 if (r.role_only) await activateProgram(r.id, userId,);
-                else await setUserApproval(userId, r.status as MembershipApplicationStatus,);
+                if (!r.role_only || r.status === 'pending') await setUserApproval(userId, r.status as MembershipApplicationStatus,);
+            } catch (e) {
+                // One row (e.g. a unique-index race) must not stop the others.
+                logger.warn('membership: could not attach an application by email', { userId, applicationId: r.id, error: (e as Error).message, },);
             }
         }
     } catch (e) {
@@ -421,8 +461,8 @@ export async function claimByVerifiedEmail(userId: string, email: string,): Prom
 
 /** Step 2 — signed in: claim the application (token, when submitted signed out) and save the card. */
 export async function attachCard(userId: string, body: MembershipApplyCardBody,): Promise<MembershipApplyResponse> {
-    const r = await query<{ id: string; user_id: string | null; plan_id: string; status: string; created_at: Date; name: string; }>(
-        `SELECT a.id, a.user_id, a.plan_id, a.status, a.created_at, p.name FROM membership_applications a
+    const r = await query<{ id: string; user_id: string | null; plan_id: string; status: string; created_at: Date; name: string; program: boolean; }>(
+        `SELECT a.id, a.user_id, a.plan_id, a.status, a.created_at, p.name, a.program FROM membership_applications a
            JOIN subscription_plans p ON p.id = a.plan_id WHERE a.id = $1`,
         [body.applicationId,],
     );
@@ -431,13 +471,21 @@ export async function attachCard(userId: string, body: MembershipApplyCardBody,)
     if (a.user_id && a.user_id !== userId) throw new NotFoundError('Application',);
     if (!a.user_id) {
         if (!body.token || verifyApplicationToken(body.token,) !== a.id) throw new NotFoundError('Application',);
-        await assertCanApply(userId, (await query<TierRow>(`SELECT id, name, is_free, requires_approval, application_form_id, stripe_price_id FROM subscription_plans WHERE id = $1`, [a.plan_id,],)).rows[0]!,);
+        // The level's FULL row: a program is checked as a program (one pending per
+        // program, role not held), not as a membership.
+        const tier = (await query<TierRow>(`SELECT ${TIER_COLUMNS} FROM subscription_plans WHERE id = $1`, [a.plan_id,],)).rows[0];
+        if (!tier) throw new NotFoundError('Membership',);
+        await assertCanApply(userId, tier,);
     }
     const card = await verifyCard(userId, body.paymentMethodId,);
-    await query(
-        `UPDATE membership_applications SET user_id = $2, stripe_customer_id = $3, payment_method_id = $4, updated_at = NOW() WHERE id = $1`,
+    // `user_id` may only go from empty (or this member) to this member: two
+    // accounts racing with the same token cannot both take it.
+    const upd = await query(
+        `UPDATE membership_applications SET user_id = $2, stripe_customer_id = $3, payment_method_id = $4, updated_at = NOW()
+          WHERE id = $1 AND status = 'pending' AND (user_id IS NULL OR user_id = $2)`,
         [a.id, userId, card.customer, card.pmId,],
-    );
+    ).catch((e,) => duplicatePending(e, a.program,),);
+    if (!upd.rowCount) throw new NotFoundError('Application',);
     await setUserApproval(userId, 'pending',);
     applicationFollowUp(a.id, userId, a.name, 'card',);
     return { application: { id: a.id, tierId: a.plan_id, tierName: a.name, status: 'pending', createdAt: new Date(a.created_at,).toISOString(), }, };
@@ -456,11 +504,17 @@ export async function claim(userId: string, body: { applicationId: string; token
     const a = r.rows[0];
     if (!a || !['pending', 'approved',].includes(a.status,)) throw new NotFoundError('Application',);
     if (a.user_id && a.user_id !== userId) throw new NotFoundError('Application',);
+    const program = await isProgramApplication(a.id,);
     if (!a.user_id) {
         if (!body.token || verifyApplicationToken(body.token,) !== a.id) throw new NotFoundError('Application',);
-        await query(`UPDATE membership_applications SET user_id = $2, updated_at = NOW() WHERE id = $1`, [a.id, userId,],);
+        const upd = await query(`UPDATE membership_applications SET user_id = $2, updated_at = NOW() WHERE id = $1 AND user_id IS NULL`, [a.id, userId,],)
+            .catch((e,) => duplicatePending(e, program,),);
+        if (!upd.rowCount) throw new NotFoundError('Application',);
     }
-    if (await isProgramApplication(a.id,)) await activateProgram(a.id, userId,);
+    if (program) {
+        await activateProgram(a.id, userId,);
+        if (a.status === 'pending') await setUserApproval(userId, 'pending',);
+    }
     else await setUserApproval(userId, a.status === 'approved' ? 'approved' : 'pending',);
     return { application: { id: a.id, tierId: a.plan_id, tierName: a.name, status: a.status as MembershipApplicationStatus, createdAt: new Date(a.created_at,).toISOString(), }, };
 }
@@ -506,11 +560,14 @@ async function activateProgram(applicationId: string, userId: string,): Promise<
 /** The account that already uses an application's email (account-less applications). */
 async function accountForEmail(email: string | null,): Promise<{ id: string; email: string; displayName: string; emailVerified: boolean; } | null> {
     if (!email) return null;
-    const r = await query<{ id: string; email: string; display_name: string | null; email_verified: boolean; }>(
-        `SELECT id, email, display_name, email_verified FROM users WHERE lower(email) = lower($1) LIMIT 1`, [email,],
+    // "Verified" = the address was PROVEN (`verified_at`): `email_verified` is
+    // true by default for accounts made while email validation is off.
+    const r = await query<{ id: string; email: string; display_name: string | null; proven: boolean; }>(
+        `SELECT id, email, display_name, (email_verified IS NOT FALSE AND verified_at IS NOT NULL) AS proven
+           FROM users WHERE lower(email) = lower($1) LIMIT 1`, [email,],
     );
     const u = r.rows[0];
-    return u ? { id: u.id, email: u.email, displayName: u.display_name ?? '', emailVerified: u.email_verified === true, } : null;
+    return u ? { id: u.id, email: u.email, displayName: u.display_name ?? '', emailVerified: u.proven === true, } : null;
 }
 
 async function approveProgram(
@@ -526,11 +583,11 @@ async function approveProgram(
             await query(`UPDATE membership_applications SET user_id = $2, updated_at = NOW() WHERE id = $1 AND user_id IS NULL`, [id, acct.id,],);
             userId = acct.id;
         } else if (acct) {
-            throw new ValidationError(`${app0.contactEmail} belongs to an account that has not verified its email yet. Link it below once you are sure it is theirs, or ask them to verify their email first.`,);
+            throw new ValidationError(`${app0.contactEmail} belongs to an account whose email address was never confirmed. Link it below once you are sure it is theirs, or ask them to verify their email first.`,);
         } else if (app0.contactEmail) {
             // No account: an invite that carries the role (added when they sign up).
             const { invite, } = await import('./userInvites.js');
-            const name = app0.answers.find((x,) => /^(full )?name$/i.test(x.label.trim(),),)?.value || undefined;
+            const name = applicantName({ answers: app0.answers, },) || undefined;
             await invite({ email: app0.contactEmail, name, roles: [tier.role,], }, ctx,);
             invited = true;
         } else {
@@ -570,9 +627,16 @@ export async function linkToAccount(id: string, userId: string, ctx: AuditContex
     if (!['pending', 'approved',].includes(app.status,)) throw new ValidationError('Only a pending or approved application can be linked.',);
     const acct = await accountForEmail(app.contactEmail,);
     if (!acct || acct.id !== userId) throw new ValidationError('That account does not use this application\'s email address.',);
-    await query(`UPDATE membership_applications SET user_id = $2, updated_at = NOW() WHERE id = $1 AND user_id IS NULL`, [id, userId,],);
-    if (await isProgramApplication(id,)) await activateProgram(id, userId,);
-    else await setUserApproval(userId, app.status === 'approved' ? 'approved' : 'pending',);
+    const upd = await query(`UPDATE membership_applications SET user_id = $2, updated_at = NOW() WHERE id = $1 AND user_id IS NULL`, [id, userId,],)
+        .catch((e,) => {
+            if ((e as { code?: string; }).code === '23505') throw new ConflictError('That account already has an application of this kind waiting for review — decide that one first.',);
+            throw e;
+        },);
+    if (!upd.rowCount) throw new ConflictError('This application is already linked to an account.',);
+    if (app.tierRoleOnly) {
+        await activateProgram(id, userId,);
+        if (app.status === 'pending') await setUserApproval(userId, 'pending',);
+    } else await setUserApproval(userId, app.status === 'approved' ? 'approved' : 'pending',);
     await logAudit({ userId: ctx.userId, action: 'link_account', entityType: 'membership_application', entityId: id, newValues: { userId, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
     return get(id,);
 }
@@ -762,7 +826,7 @@ async function approveClaimed(a: Awaited<ReturnType<typeof loadPending>>, id: st
         throw e instanceof ValidationError ? e : new ValidationError(message,);
     }
     await query(
-        `UPDATE membership_applications SET status = 'approved', note = $2, error = NULL, decided_by = $3, decided_at = NOW(), updated_at = NOW() WHERE id = $1`,
+        `UPDATE membership_applications SET status = 'approved', note = $2, error = NULL, decided_by = $3, decided_at = NOW(), updated_at = NOW(), activated_at = COALESCE(activated_at, NOW()) WHERE id = $1`,
         [id, note?.trim() || null, ctx.userId || null,],
     );
     await setUserApproval(a.user_id!, 'approved',);
@@ -790,10 +854,14 @@ export async function withdrawOffer(id: string, ctx: AuditContext,): Promise<Mem
 /** Reject: nothing is charged; the member is told. */
 export async function reject(id: string, note: string | undefined, ctx: AuditContext,): Promise<MembershipApplication> {
     const a = await loadPending(id,);
-    await query(
-        `UPDATE membership_applications SET status = 'rejected', note = $2, decided_by = $3, decided_at = NOW(), updated_at = NOW() WHERE id = $1`,
+    // Conditional: never reject an application another reviewer is approving
+    // right now — the card could be charged AND a rejection emailed.
+    const upd = await query(
+        `UPDATE membership_applications SET status = 'rejected', note = $2, decided_by = $3, decided_at = NOW(), updated_at = NOW()
+          WHERE id = $1 AND status = 'pending' AND (approving_at IS NULL OR approving_at < NOW() - INTERVAL '5 minutes')`,
         [id, note?.trim() || null, ctx.userId || null,],
     );
+    if (!upd.rowCount) throw new ConflictError('This application is being approved by someone else right now.',);
     if (a.user_id) await setUserApproval(a.user_id, 'rejected',);
     await logAudit({ userId: ctx.userId, action: 'reject', entityType: 'membership_application', entityId: id, newValues: { tierId: a.plan_id, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
     const app = await get(id,);
@@ -809,9 +877,7 @@ export async function reject(id: string, note: string | undefined, ctx: AuditCon
                 // saved a card for (not a program / "Hide price" / no-price level).
                 application: {
                     program: app.tierRoleOnly ? 'yes' : '',
-                    card: (a as { payment_method_id?: string | null; }).payment_method_id && !app.tierRoleOnly && !app.tierHidePrice
-                        && (await query<{ p: string | null; }>(`SELECT stripe_price_id AS p FROM subscription_plans WHERE id = $1`, [a.plan_id,],)).rows[0]?.p
-                        ? 'yes' : '',
+                    card: a.payment_method_id && !app.tierRoleOnly && !app.tierHidePrice && app.price ? 'yes' : '',
                 },
             },
         },).catch(() => {},);
@@ -825,19 +891,24 @@ export async function reject(id: string, note: string | undefined, ctx: AuditCon
  * withdrawn one by one). The team gets a "withdrawn" notice per application.
  */
 export async function withdraw(userId: string, applicationId?: string | null,): Promise<void> {
-    const r = await query<{ id: string; plan_id: string; }>(
-        `UPDATE membership_applications SET status = 'withdrawn', updated_at = NOW()
-          WHERE user_id = $1 AND status = 'pending' AND (CASE WHEN $2::uuid IS NULL THEN program = false ELSE id = $2::uuid END)
-          RETURNING id, plan_id`,
+    const r = await query<{ id: string; plan_id: string; name: string | null; }>(
+        `UPDATE membership_applications a SET status = 'withdrawn', updated_at = NOW()
+          FROM subscription_plans p
+         WHERE p.id = a.plan_id AND a.user_id = $1 AND a.status = 'pending'
+           AND (CASE WHEN $2::uuid IS NULL THEN a.program = false ELSE a.id = $2::uuid END)
+           -- Not while an admin's approval is charging the card.
+           AND (a.approving_at IS NULL OR a.approving_at < NOW() - INTERVAL '5 minutes')
+        RETURNING a.id, a.plan_id, p.name`,
         [userId, applicationId ?? null,],
     );
-    if (applicationId && !r.rows.length) throw new NotFoundError('Pending application',);
+    if (applicationId && !r.rows.length) {
+        const busy = await query(`SELECT 1 FROM membership_applications WHERE id = $1 AND user_id = $2 AND status = 'pending'`, [applicationId, userId,],);
+        if (busy.rows.length) throw new ConflictError('Your application is being approved right now — it can no longer be withdrawn.',);
+        throw new NotFoundError('Pending application',);
+    }
     if (!r.rows.length) return;
     await setUserApproval(userId, null,);
-    for (const row of r.rows) {
-        const tierName = (await query<{ name: string; }>(`SELECT name FROM subscription_plans WHERE id = $1`, [row.plan_id,],)).rows[0]?.name ?? 'membership';
-        applicationFollowUp(row.id, userId, tierName, 'withdrawn',);
-    }
+    for (const row of r.rows) applicationFollowUp(row.id, userId, row.name ?? 'membership', 'withdrawn',);
 }
 
 /**

@@ -262,14 +262,20 @@ async function dispatchWebhookEvent(event: Stripe.Event,): Promise<void> {
             await cache.invalidateCampaignCache();
             logger.info('Donation refunded via webhook', { chargeId: charge.id, },);
 
-            // A FULLY refunded shop order (refunded in Stripe directly): its
-            // discount use stops counting and an affiliate commission reverses.
-            if (charge.refunded) {
+            // A shop order refunded in Stripe (directly, or after the admin's
+            // refund). Full: its discount use stops counting and an affiliate
+            // commission reverses. Partial: the commission reverses in
+            // proportion — `amount_refunded` is cumulative, so a repeated or
+            // retried event reverses nothing more.
+            if (charge.amount_refunded > 0) {
                 const order = await query<{ id: string; }>(`SELECT id FROM shop_orders WHERE stripe_charge_id = $1`, [charge.id,],)
                     .catch(() => ({ rows: [] as { id: string; }[], }),);
                 if (order.rows[0]) {
                     const { markOrderRefunded, } = await import('../shop/discounts.js');
-                    await markOrderRefunded(order.rows[0].id,);
+                    await markOrderRefunded(
+                        order.rows[0].id,
+                        charge.refunded ? undefined : { refundedCents: charge.amount_refunded, chargedCents: charge.amount_captured || charge.amount, },
+                    );
                 }
             }
             break;

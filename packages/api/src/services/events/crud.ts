@@ -159,18 +159,43 @@ async function assertAccessInput(input: Partial<CalendarEventInput>,): Promise<v
  * The event shows a map but has only an address: find its point now, so the
  * event page can draw the map (the editor usually did already; this covers a
  * lookup that had not finished, the API and imports). Best-effort — a failed
- * lookup saves without a point and the page shows no map.
+ * or slow lookup (> MAP_POINT_WAIT_MS, e.g. queued behind other lookups) saves
+ * without a point and the page shows no map; it never fails or stalls a save.
  */
+export const MAP_POINT_WAIT_MS = 5000;
 export async function mapPointFor(
     showMap: boolean | undefined, location: string | null | undefined, lat: number | null | undefined,
+    waitMs = MAP_POINT_WAIT_MS,
 ): Promise<{ locationLat: number; locationLng: number; } | null> {
     if (!showMap || lat != null || !location?.trim()) return null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-        const [hit,] = await geo.search(location, 1,);
+        const lookup = geo.search(location, 1,);
+        lookup.catch(() => {},); // a late failure after the timeout is not an unhandled rejection
+        const timeout = new Promise<null>((resolve,) => { timer = setTimeout(() => resolve(null,), waitMs,); },);
+        const hits = await Promise.race([lookup, timeout,],);
+        const hit = hits?.[0];
         return hit ? { locationLat: hit.lat, locationLng: hit.lng, } : null;
     } catch {
         return null;
+    } finally {
+        if (timer) clearTimeout(timer,);
     }
+}
+
+/**
+ * The map point an update keeps. A patch that changes the location text but
+ * sends no point (an API caller, an import) drops the old point — it belongs
+ * to the old address, and "View map" / the map would still show the old place.
+ * `undefined` = leave the stored point alone.
+ */
+export function pointAfterLocationChange(
+    patch: Pick<Partial<CalendarEventInput>, 'location' | 'locationLat' | 'locationLng'>,
+    existing: { location?: string | null; locationLat?: number | null; },
+): { locationLat: null; locationLng: null; } | undefined {
+    if (patch.location === undefined || patch.locationLat !== undefined) return undefined;
+    if ((patch.location ?? '').trim() === (existing.location ?? '').trim()) return undefined;
+    return existing.locationLat != null ? { locationLat: null, locationLng: null, } : undefined;
 }
 
 export async function create(
@@ -228,6 +253,8 @@ export async function update(
         if (patch[rule] !== undefined && patch[rule] !== 'tier') (patch as Record<string, unknown>)[tier] = null;
     }
 
+    const dropped = pointAfterLocationChange(patch, existing,);
+    if (dropped) patch = { ...patch, ...dropped, };
     const point = await mapPointFor(
         patch.showMap ?? existing.showMap,
         patch.location !== undefined ? patch.location : existing.location,

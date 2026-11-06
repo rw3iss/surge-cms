@@ -27,6 +27,9 @@ export const FREE_MAX_PER_RUN = 300;
 const FREE_SPACING_MS = 400;
 /** Stop the free pass after this many failures in a row (blocked / rate limited). */
 const FREE_MAX_FAILURES = 5;
+/** Per-request timeouts: a hung X / syndication socket must not stall the whole run. */
+export const X_API_TIMEOUT_MS = 30_000;
+const FREE_TIMEOUT_MS = 15_000;
 
 /** Same wording family as publish.ts's friendlyXError, for reads. */
 export function friendlyXReadError(status: number, body: string,): string {
@@ -50,6 +53,11 @@ export async function signedGet(path: string, params: Record<string, string>, cr
     const qs = new URLSearchParams(params,).toString();
     const res = await fetch(qs ? `${url}?${qs}` : url, {
         headers: { Authorization: buildAuthHeader('GET', url, params, creds,), },
+        signal: AbortSignal.timeout(X_API_TIMEOUT_MS,),
+    },).catch((e: unknown,) => {
+        // Network / timeout: a plain message (never the request URL or headers).
+        const timedOut = (e as Error)?.name === 'TimeoutError' || (e as Error)?.name === 'AbortError';
+        throw new XReadError(0, timedOut ? `X API did not answer within ${X_API_TIMEOUT_MS / 1000} s.` : `X API unreachable: ${(e as Error)?.message ?? 'network error'}`,);
     },);
     const body = await res.text();
     if (!res.ok) throw new XReadError(res.status, friendlyXReadError(res.status, body,),);
@@ -208,7 +216,7 @@ export async function freeReads(ids: string[], opts: { spacingMs?: number; } = {
         out.attempted++;
         try {
             const url = `${SYNDICATION}?id=${encodeURIComponent(id,)}&token=${encodeURIComponent(deriveTweetToken(id,),)}&lang=en`;
-            const res = await fetch(url,);
+            const res = await fetch(url, { signal: AbortSignal.timeout(FREE_TIMEOUT_MS,), },);
             if (res.status === 429) {
                 out.failed++;
                 out.stopped = true;

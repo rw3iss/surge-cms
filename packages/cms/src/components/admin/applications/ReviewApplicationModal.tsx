@@ -12,7 +12,7 @@ import { cms, } from '../../../services/cmsClient';
 import { useToast, } from '../../common/toast';
 import ConfirmModal from '../common/ConfirmModal';
 import ModalShell from '../common/ModalShell';
-import { FormField, } from '../forms';
+import { CommitInput, FormField, } from '../forms';
 import { approvalBadge, offerStatus, } from './applicationStatus';
 import './ReviewApplicationModal.scss';
 
@@ -93,7 +93,20 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
     };
 
     /** A "hide price" application approved without a card = an offer (no charge now). */
-    const offer = () => Boolean(app()?.tierHidePrice && !app()?.card,);
+    const offer = () => Boolean(app()?.tierHidePrice && !app()?.card && !program(),);
+    /** Approving charges a saved card (a priced membership): needs an account AND a card. */
+    const charges = () => !program() && !offer();
+    /** Why Approve is disabled (null = it is not). */
+    const approveBlocked = (a: MembershipApplication,): string | null => {
+        if (charges()) {
+            if (!a.userId) return 'The applicant has not created their account yet';
+            if (!a.card) return 'The applicant has not saved a card yet';
+        }
+        if (program() && !a.userId && a.matchedAccount && !a.matchedAccount.emailVerified) {
+            return 'An account uses this email but it is not verified — link it first, or ask them to verify it';
+        }
+        return null;
+    };
     const card = (a: MembershipApplication,) => a.card ? `${cap(a.card.brand,)} •••• ${a.card.last4}` : 'No card saved';
     /** "$1,500.00 every 2 weeks" — what approval charges (the price the applicant chose). */
     const charge = (a: MembershipApplication,) => a.price ? `${formatMoney(a.price.amount, a.price.currency,)} ${billingFrequency(a.price.interval, a.price.intervalCount,)}` : null;
@@ -144,7 +157,7 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                                     <dd>
                                         <strong>{a().tierName}</strong>
                                         <Show when={program()}><div class="form-help-muted">Program — approval adds the {a().tierRole} role; membership unchanged.</div></Show>
-                                        <Show when={!offer() && charge(a(),)}>{(c,) => <div class="form-help-muted">Charges {c()}</div>}</Show>
+                                        <Show when={charges() && charge(a(),)}>{(c,) => <div class="form-help-muted">Charges {c()}</div>}</Show>
                                     </dd>
                                 </div>
                                 <div><dt>Submitted</dt><dd>{formatDateTime(a().createdAt,)}</dd></div>
@@ -158,7 +171,7 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                                 <div>
                                     <dt>Saved card</dt>
                                     <dd>
-                                        <Show when={!a().tierHidePrice || a().card} fallback={program() ? 'Not needed — a program has no price' : 'Not needed — price hidden until approved'}>
+                                        <Show when={!program() && (!a().tierHidePrice || a().card)} fallback={program() ? 'Not needed — a program has no price' : 'Not needed — price hidden until approved'}>
                                             {card(a(),)}<div class="form-help-muted">Charged only on approval.</div>
                                         </Show>
                                     </dd>
@@ -211,7 +224,7 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
 
                             <Show when={a().status === 'pending'}>
                                 <FormField label="Approval note (optional)" hint="Kept with the decision and included in the approval email. A rejection reason is asked for when you reject.">
-                                    <textarea rows={2} value={note()} onBlur={(e,) => setNote(e.currentTarget.value,)} />
+                                    <CommitInput multiline rows={2} value={note()} onCommit={setNote} />
                                 </FormField>
                                 <div class="review-application__footer">
                                     <button type="button" class="ui-button ui-button--secondary" onClick={props.onClose} disabled={busy()}>Close</button>
@@ -220,10 +233,10 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                                         type="button"
                                         class="ui-button ui-button--primary"
                                         onClick={() => setConfirm('approve',)}
-                                        disabled={busy() || (!offer() && (!a().userId || !a().card))}
-                                        title={offer() ? undefined : !a().userId ? 'The applicant has not created their account yet' : !a().card ? 'The applicant has not saved a card yet' : undefined}
+                                        disabled={busy() || !!approveBlocked(a(),)}
+                                        title={approveBlocked(a(),) ?? undefined}
                                     >
-                                        {offer() ? 'Approve' : 'Approve & start billing'}
+                                        {charges() ? 'Approve & start billing' : 'Approve'}
                                     </button>
                                 </div>
                             </Show>
@@ -236,8 +249,8 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                                     : offer()
                                     ? 'Nothing is charged now. They get an email to choose their billing and start the membership.'
                                     : `This charges the saved card (${card(a(),)}) ${charge(a(),) ? `${charge(a(),)}, starting now,` : 'now'} and starts the ${a().tierName} membership.`}
-                                confirmLabel={offer() ? 'Approve' : 'Approve & charge'}
-                                busyLabel={offer() ? 'Approving…' : 'Charging…'}
+                                confirmLabel={charges() ? 'Approve & charge' : 'Approve'}
+                                busyLabel={charges() ? 'Charging…' : 'Approving…'}
                                 loading={busy()}
                                 onConfirm={() => void decide()}
                                 onCancel={() => setConfirm(null,)}
@@ -256,7 +269,7 @@ const ReviewApplicationModal: Component<ReviewApplicationModalProps> = (props,) 
                             <ConfirmModal
                                 open={confirm() === 'reject'}
                                 title="Reject this application?"
-                                message={`The applicant is emailed${a().card && !a().tierHidePrice ? ' and their card is not charged' : ''}.`}
+                                message={`The applicant is emailed${a().card && charges() ? ' and their card is not charged' : ''}.`}
                                 confirmLabel="Reject"
                                 busyLabel="Rejecting…"
                                 loading={busy()}

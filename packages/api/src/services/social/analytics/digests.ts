@@ -91,6 +91,34 @@ export function dueSlot(d: SocialAnalyticsSettings['digest'], now: Date,): { key
     return { key: `${d.frequency}:${p.date}`, localDate: p.date, };
 }
 
+/**
+ * Has the data a scheduled digest reports on been collected? Day D is written
+ * by the collection run of D+1 (UTC, cron 06:10), so a digest whose period ends
+ * on `to` waits for a finished run that started on/after `to`+1 00:00 UTC, and
+ * for no run to be in progress. It stops waiting at `to`+1 09:00 UTC (for every
+ * time zone that is still the digest's own local day) so a broken collector
+ * delays a digest, never cancels it.
+ */
+export function collectionSettledAt(to: string, now: Date, s: { running: boolean; finishedSince: boolean; anyRecent: boolean; },): boolean {
+    if (now.getTime() >= Date.parse(`${addDays(to, 1,)}T09:00:00Z`,)) return true;
+    if (s.running) return false;
+    // Nothing collects analytics at all: nothing to wait for.
+    if (!s.anyRecent) return true;
+    return s.finishedSince;
+}
+
+async function collectionSettled(to: string, now = new Date(),): Promise<boolean> {
+    const r = await query<{ running: boolean; finished_since: boolean; any_recent: boolean; }>(
+        `SELECT bool_or(status = 'running' AND started_at > NOW() - INTERVAL '30 minutes') AS running,
+                bool_or(status <> 'running' AND started_at >= ($1::date + 1)::timestamp AT TIME ZONE 'UTC') AS finished_since,
+                COUNT(*) > 0 AS any_recent
+           FROM social_analytics_runs WHERE started_at > NOW() - INTERVAL '8 days'`,
+        [to,],
+    );
+    const row = r.rows[0];
+    return collectionSettledAt(to, now, { running: Boolean(row?.running,), finishedSince: Boolean(row?.finished_since,), anyRecent: Boolean(row?.any_recent,), },);
+}
+
 // ─── Snapshot (pure helpers) ──────────────────────────────────────────────────
 
 export function metric(value: number | null | undefined, previous: number | null | undefined,): DigestMetric {
@@ -322,6 +350,20 @@ export async function deleteDigest(id: string,): Promise<{ deleted: true; }> {
     return { deleted: true, };
 }
 
+/** A digest still 'generating' after this long was cut off (process stopped); the AI part alone may take 10 min. */
+const STALE_DIGEST_MINUTES = 30;
+
+/** Mark digests stuck in 'generating' as failed so they can be deleted or generated again. */
+export async function failStaleDigests(): Promise<number> {
+    const r = await query(
+        `UPDATE social_analytics_digests
+            SET status = 'failed', error = COALESCE(error, 'The digest did not finish (the process stopped). Generate it again.'), updated_at = NOW()
+          WHERE status = 'generating' AND created_at < NOW() - ($1 || ' minutes')::interval`,
+        [String(STALE_DIGEST_MINUTES,),],
+    );
+    return r.rowCount ?? 0;
+}
+
 /** Drop digests older than the retention (null = keep forever). */
 export async function sweepRetention(settings?: SocialAnalyticsSettings,): Promise<number> {
     const s = settings ?? await getSettings();
@@ -395,7 +437,7 @@ async function completeDigest(id: string, range: { from: string; to: string; }, 
     const digest = await getDigest(id,);
     // Delivery is best-effort: a mail failure never loses the stored digest.
     const { announceDigest, sendDigestEmail, } = await import('./digestDelivery.js');
-    if (email) await sendDigestEmail(digest, settings,).catch((e,) => logger.warn('digest email failed', { id, error: (e as Error).message, },));
+    if (email) await sendDigestEmail(digest, { settings, },).catch((e,) => logger.warn('digest email failed', { id, error: (e as Error).message, },));
     await announceDigest(digest,).catch(() => {},);
 }
 
@@ -406,10 +448,16 @@ export const SOCIAL_ANALYTICS_DIGEST_CRON = {
     description: 'Builds the scheduled social analytics digest when due (Social → Analytics → Settings) and drops digests past their retention.',
     handler: async (): Promise<void> => {
         const settings = await getSettings();
+        await failStaleDigests().catch((e,) => logger.warn('social-analytics digest: stale sweep failed', { error: (e as Error).message, },));
         const slot = dueSlot(settings.digest, new Date(),);
         if (slot) {
             const range = periodFor(settings.digest.frequency, slot.localDate,);
-            await generateDigest({ ...range, frequency: settings.digest.frequency, trigger: 'schedule', scheduleKey: slot.key, email: settings.email.enabled, },);
+            // Wait (until a later hourly tick) for the day's collection, or the digest misses its last day.
+            if (await collectionSettled(range.to,)) {
+                await generateDigest({ ...range, frequency: settings.digest.frequency, trigger: 'schedule', scheduleKey: slot.key, email: settings.email.enabled, },);
+            } else {
+                logger.info('social-analytics digest: waiting for today\'s collection', { slot: slot.key, },);
+            }
         }
         await sweepRetention(settings,);
     },

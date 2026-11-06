@@ -6,7 +6,7 @@
  * flag still reads as admin + sysadmin (`pluginVisibleTo`).
  * Rendered once in the public Layout (after the footer).
  */
-import { Component, For, Show, createResource, onCleanup, onMount } from 'solid-js';
+import { Component, For, Show, createMemo, createResource, onCleanup, onMount } from 'solid-js';
 import { pluginVisibleTo, type PublicPlugin } from '@sitesurge/types';
 import { cms } from '../../services/cmsClient';
 import { useAuth, useIsAdmin } from '../../stores/auth';
@@ -20,11 +20,21 @@ const PluginWidgetMount: Component<{
 }> = (props) => {
     let el: HTMLDivElement | undefined;
     const cleanups: Array<() => void> = [];
+    // Set on unmount. The bundle loads asynchronously, so the mount can be
+    // removed (user switched, signed out) before mountWidget runs: then it must
+    // not mount at all, and a teardown registered later runs at once.
+    let disposed = false;
+    const runCleanups = () => {
+        for (const fn of cleanups.splice(0,)) {
+            try { fn(); } catch { /* ignore teardown errors */ }
+        }
+    };
 
     onMount(async () => {
         if (!props.plugin.clientUrl || !el) return;
         try {
             const mod = await loadPluginModule(props.plugin.clientUrl);
+            if (disposed) return;
             const host = buildHost({
                 name: props.plugin.name,
                 version: props.plugin.version,
@@ -34,9 +44,10 @@ const PluginWidgetMount: Component<{
                 isAdmin: props.isAdmin,
                 mountPoint: el,
                 cleanups,
+                isDisposed: () => disposed,
             });
-            const teardown = mod.mountWidget?.(el, host);
-            if (typeof teardown === 'function') cleanups.push(teardown);
+            const teardown = await mod.mountWidget?.(el, host);
+            if (typeof teardown === 'function') host.onCleanup(teardown);
         } catch (err) {
             // A broken plugin must never break the site.
             console.warn(`[plugins] "${props.plugin.name}" widget failed to load`, err);
@@ -44,9 +55,8 @@ const PluginWidgetMount: Component<{
     });
 
     onCleanup(() => {
-        for (const fn of cleanups) {
-            try { fn(); } catch { /* ignore teardown errors */ }
-        }
+        disposed = true;
+        runCleanups();
     });
 
     return <div ref={el} class="plugin-widget" data-plugin={props.plugin.name} />;
@@ -80,7 +90,10 @@ const PluginWidgetHost: Component = () => {
     // with the new user, and a widget the new user may not see is torn down.
     // Without the key, a widget still visible to both users kept the previous
     // user's context, and one that should disappear could linger until reload.
-    const userKey = () => (auth.isLoading ? null : auth.user?.id ?? 'anonymous');
+    // Only the FIRST auth load hides the widgets: later loading phases (a login
+    // attempt, a session refresh) keep the last settled key, so a wrong
+    // password no longer tears every widget down and remounts it.
+    const userKey = createMemo<string | null>((prev,) => (auth.isLoading ? prev : auth.user?.id ?? 'anonymous'), null,);
 
     return (
         <Show when={userKey()} keyed>

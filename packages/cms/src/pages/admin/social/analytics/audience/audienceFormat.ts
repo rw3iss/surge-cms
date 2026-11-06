@@ -103,6 +103,19 @@ export function kindLabel(kind: string,): string {
     return KIND_LABELS[String(kind,).toLowerCase()] ?? titleCase(kind,);
 }
 
+const VIEWER_LABELS: Record<string, string> = { NEW: 'New viewers', RETURNING: 'Returning viewers', };
+export function viewerLabel(key: string,): string {
+    return VIEWER_LABELS[String(key,).toUpperCase()] ?? titleCase(key,);
+}
+
+/** TikTok traffic source keys ("For You", "PERSONAL_PROFILE", "follow") → plain words. */
+export function sourceLabel(key: string,): string {
+    const k = String(key,).replace(/[_-]+/g, ' ',).trim();
+    if (/^for ?you$/i.test(k,)) return 'For You feed';
+    const lower = k.toLowerCase();
+    return lower.charAt(0,).toUpperCase() + lower.slice(1,);
+}
+
 /** Post kinds the posts table can filter by, in a fixed order. */
 export const POST_KINDS = ['reel', 'story', 'carousel', 'image', 'video', 'short', 'live',] as const;
 
@@ -161,7 +174,8 @@ export function audienceHasData(a: SocialAudience | null | undefined,): boolean 
     const b = a.breakdowns;
     return hasDemographics(a.demographics.followers,) || hasDemographics(a.demographics.engaged,) || hasDemographics(a.demographics.reached,)
         || a.onlineHours.some((h,) => h.value > 0)
-        || [b.viewsByType, b.reachByType, b.interactionsByType, b.viewsByFollow, b.reachByFollow,].some((x,) => x.length)
+        || [b.viewsByType, b.reachByType, b.interactionsByType, b.viewsByFollow, b.reachByFollow,
+            b.viewsByPaid, b.videoViewsByPlay, b.reactionsByType, b.trafficSources, b.viewerTypes,].some((x,) => (x?.length ?? 0) > 0)
         || a.contentKinds.length > 0 || a.hashtags.length > 0 || a.stories.count > 0 || a.benchmarks.length > 0;
 }
 

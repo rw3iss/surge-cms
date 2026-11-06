@@ -16,6 +16,8 @@
 
 const TERMINAL = new Set(['completed', 'failed', 'cancelled', 'expired', 'orphaned']);
 const ACTIVE = ['pending', 'dispatched', 'in_progress'];
+/** Most sessions one pool may ask for (the broker's fleet spec caps a pool at 16). */
+const MAX_POOL_SIZE = 16;
 
 /** Escape a string for a RegExp. */
 function reEscape(s) {
@@ -38,8 +40,8 @@ function normalizePools(raw) {
         const name = String(p.name || '').trim();
         if (!name || !/^[A-Za-z0-9_.-]{1,64}$/.test(name) || seen.has(name)) continue;
         seen.add(name);
-        const count = Math.max(0, Math.min(64, Math.round(Number(p.count) || 0)));
-        out.push({ name, count: count || 1, description: String(p.description || '').trim() });
+        const count = Math.max(1, Math.min(MAX_POOL_SIZE, Math.round(Number(p.count) || 1)));
+        out.push({ name, count, description: String(p.description || '').trim() });
     }
     return out;
 }
@@ -47,23 +49,42 @@ function normalizePools(raw) {
 /**
  * Pool status from the broker's sessions + active jobs.
  * sessions: broker `GET /sessions` items; activeJobs: jobs in an ACTIVE status.
+ * `ready` counts attached members that can take a job (not usage-limited,
+ * signed out…; see isHealthy); the pool is `healthy` when that meets the
+ * expected count — an attached but usage-limited session no longer counts.
  */
 function poolStatus(pools, sessions, activeJobs) {
     const busyBy = busyCounts(activeJobs);
     return pools.map((p) => {
         const members = (sessions || []).filter((s) => s.status === 'attached' && inPool(s.label, p.name));
         const busy = members.reduce((n, s) => n + (busyBy.get(s.id) || 0), 0);
+        const ready = members.filter(isHealthy).length;
         return {
             name: p.name,
             description: p.description,
             expected: p.count,
             attached: members.length,
+            ready,
             busy,
-            idle: members.filter((s) => !busyBy.get(s.id)).length,
-            healthy: members.length >= p.count,
-            sessions: members.map((s) => ({ id: s.id, label: s.label, busy: busyBy.get(s.id) || 0 })),
+            idle: members.filter((s) => isHealthy(s) && !busyBy.get(s.id)).length,
+            healthy: ready >= p.count,
+            sessions: members.map((s) => ({
+                id: s.id,
+                label: s.label,
+                busy: busyBy.get(s.id) || 0,
+                healthy: isHealthy(s),
+                state: s.tui_state || null,
+            })),
         };
     });
+}
+
+/** Why a pool has no usable session — for the error a pool request returns. */
+function noSessionReason(pool, sessions) {
+    const members = (sessions || []).filter((s) => s.status === 'attached' && inPool(s.label, pool));
+    if (!members.length) return `No session is attached in pool "${pool}"`;
+    const states = [...new Set(members.map((s) => TUI_STATE_TEXT[s.tui_state] || s.tui_state || 'unavailable'))];
+    return `No session in pool "${pool}" can take a job right now (${states.join('; ')})`;
 }
 
 /** session_id → number of active jobs. */
@@ -183,6 +204,8 @@ function normalizeJob(job, extra) {
         id: String(j.id || j.job_id || ''),
         status: degenerate ? 'failed' : status,
         sessionId: j.session_id || null,
+        // The plugin records the session label in meta at submit, so a polled job keeps it.
+        sessionLabel: meta.session || (extra && extra.sessionLabel) || null,
         pool: meta.pool || (extra && extra.pool) || null,
         text: degenerate ? '' : text,
         result: degenerate ? null : (j.result === undefined ? null : j.result),
@@ -254,9 +277,26 @@ function sessionView(s) {
     };
 }
 
+/**
+ * The broker's `GET /auth` reduced to what the config page shows: Claude Code
+ * install info, whether a token is saved (+ its dates) and the sign-in state.
+ * Never the token itself — it is the Claude credential every session uses.
+ */
+function authView(a) {
+    const src = a && typeof a === 'object' ? a : {};
+    const tok = src.token && typeof src.token === 'object' ? src.token : {};
+    const login = src.login && typeof src.login === 'object' ? src.login : {};
+    const claude = src.claude && typeof src.claude === 'object' ? src.claude : null;
+    return {
+        claude: claude ? { installed: Boolean(claude.installed), version: claude.version || null, path: claude.path || null } : null,
+        token: { set: Boolean(tok.set), created_at: tok.created_at || null, expires_at: tok.expires_at || null },
+        login: { pending: Boolean(login.pending), url: login.url || null, error: login.error || null },
+    };
+}
+
 /** The fleet spec the plugin's pools translate to (PUT /fleet). */
 function fleetSpec(c) {
-    const spec = { pools: c.pools.map((p) => ({ name: p.name, count: Math.max(1, Math.min(16, Number(p.count) || 1)) })), autostart: true, nudge: true };
+    const spec = { pools: c.pools.map((p) => ({ name: p.name, count: Math.max(1, Math.min(MAX_POOL_SIZE, Number(p.count) || 1)) })), autostart: true, nudge: true };
     if (c.model) spec.model = c.model;
     if (c.effort) spec.effort = c.effort;
     return spec;
@@ -291,6 +331,8 @@ function fleetView(fleet, pools) {
 module.exports = {
     TERMINAL,
     ACTIVE,
+    MAX_POOL_SIZE,
+    noSessionReason,
     inPool,
     normalizePools,
     poolStatus,
@@ -309,6 +351,7 @@ module.exports = {
     isHealthy,
     supportsFleet,
     sessionView,
+    authView,
     fleetSpec,
     fleetView,
 };

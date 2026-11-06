@@ -26,8 +26,15 @@ Full walkthrough: in-admin `/admin/help/claude-broker`; details in the plugin RE
 
 A broker **pool** is a session label: members are attached sessions labelled
 `<pool>` or `<pool>-<n>`. The plugin config lists the pools (name, expected
-count, description) and the default pool. A pool request goes to the member
-with the fewest active jobs. A request may also name one `session` (id or label).
+count 1–16, description) and the default pool. A pool request goes to the member
+with the fewest active jobs among those that can WORK — a session the broker
+reports as usage-limited, signed out, stuck, refusing the channel or exited is
+skipped; when none is left the error names their states. A request may also name
+one `session` (id or label); it is refused (503) while that session cannot work.
+
+Pool status (`AiPool`): `attached`, **`ready`** (attached and able to work),
+`busy`, `idle` (ready with no job), `healthy` = `ready >= expected`; each session
+carries `healthy` + the broker `state`. Settings → AI shows Ready/expected.
 
 ## The answer: `AiResult`
 
@@ -66,9 +73,12 @@ const tags = await ai.askJson<string[]>('Return 5 tags as a JSON array for: …'
 ```
 
 `ask` never throws for a provider failure — check `status`/`error`. It is not
-capped by HTTP timeouts.
+capped by HTTP timeouts, but a broker request waits at most the plugin's **Wait
+timeout** (default 120 s; pass `timeoutSec` for longer) — a job still running
+then comes back `timedOut: true` (and `askJson` returns null).
 
-**HTTP / SDK** (staff + permission `ai:use`; settings need `ai:manage`):
+**HTTP / SDK** (staff + permission `ai:use`; settings need `ai:manage`; an
+`ssk_` API key passes on its scope — reads need `read`, writes `write`):
 
 | Route | SDK |
 |---|---|
@@ -85,7 +95,23 @@ capped by HTTP timeouts.
 An HTTP request waits at most **55 s** (proxies close idle upstreams at 60 s). A
 broker job still running then returns `timedOut: true`; poll
 `GET /ai/jobs/:id?wait=50` until `status` is final. `wait: false` returns the
-pending job at once.
+pending job at once. A polled job keeps its session label (`model`) and JSON
+parsing: the plugin records `session` and `format` in the job meta. The
+Anthropic provider has no job to poll — over HTTP it is cut at the same 55 s.
+
+## Secrets
+
+The Anthropic key is masked in `GET /ai/settings` (an echoed mask keeps it). The
+broker token is a `type: 'secret'` plugin field, so plugin admin reads mask it
+too (see PLUGINS.md → Secrets), and the plugin never returns the Claude sign-in
+token: `setupStatus` / `loginSubmit` carry only whether it is set and its dates.
+
+## Admin test prompts
+
+Settings → AI and the plugin's config page both poll a running broker job
+(≤ 50 s per request, so a proxy never times out) and offer **Cancel** while it
+runs. Settings → AI shows the provider form only with `ai:manage`; without it the
+page keeps the status and the test prompt.
 
 ## Files
 

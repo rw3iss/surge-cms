@@ -18,7 +18,7 @@ import type { FormAnswer, MembershipTierOption, } from '@sitesurge/types';
 import type { Stripe, StripeCardElement, } from '@stripe/stripe-js';
 import { mountStripeCard, payNewSubscription, tokenizeCard, } from '../../utils/stripeCard';
 import { A, useSearchParams, } from '@solidjs/router';
-import { Component, createEffect, createResource, createSignal, For, onCleanup, Show, } from 'solid-js';
+import { Component, createEffect, createResource, createSignal, For, onCleanup, Show, untrack, } from 'solid-js';
 import Markdown from '../common/Markdown';
 import {
     applicantFrom, ApplicationDone, ApplicationPayment, ApplicationQuestions, ApplicationSubmitted, claimApplication, submitApplication, type SubmittedApplication,
@@ -100,6 +100,9 @@ const SubscriptionSignup: Component = () => {
             setStep('done',);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Your application could not be sent.',);
+            // Signed in already: never leave them on the account form (a second
+            // sign-up would fail) — the Submitted step's button retries.
+            if (auth.user) setStep('submitted',);
         } finally {
             setBusy(false,);
         }
@@ -108,8 +111,8 @@ const SubscriptionSignup: Component = () => {
     // Already signed in (e.g. came back after a failed payment): skip the account step.
     createEffect(() => {
         if (step() === 'account' && auth.user) {
-            if (noCard()) void finishOffer();
-            else setStep('payment',);
+            // untrack: finishOffer's own reads must not re-run this effect.
+            untrack(() => (noCard() ? void finishOffer() : setStep('payment',)));
         }
     },);
 
@@ -123,6 +126,7 @@ const SubscriptionSignup: Component = () => {
 
     const createAccount = async (e: Event,) => {
         e.preventDefault();
+        if (busy()) return;
         setError('',);
         if (password() !== confirmPassword()) return setError('Passwords do not match',);
         if (password().length < 8) return setError('Password must be at least 8 characters',);
@@ -187,7 +191,7 @@ const SubscriptionSignup: Component = () => {
     return (
         <div class="subscription-signup">
             <h1 class="join__title">Join {siteName()}</h1>
-            <p class="join__subtitle">Joining requires payment. Choose a plan, create your account, and pay — that's it.</p>
+            <p class="join__subtitle">Joining requires a membership. Choose a plan, then create your account.</p>
 
             <Show when={step() !== 'done'}>
                 <ol class="subscription-signup__steps" aria-label="Sign-up steps">
@@ -212,16 +216,19 @@ const SubscriptionSignup: Component = () => {
                                 {(t,) => (
                                     <article class="subscribe-card subscribe-card--paid" classList={{ 'subscribe-card--current': tierId() === t.id, }}>
                                         <header class="subscribe-card__head"><h2 class="subscribe-card__name">{t.name}</h2></header>
-                                        <div class="subscribe-card__price">
-                                            <PriceChoice
-                                                tier={t}
-                                                selected={chosenFor(t,)}
-                                                onSelect={(id,) => pick(t, id,)}
-                                                amountClass="subscribe-card__amount"
-                                                perClass="subscribe-card__per"
-                                            />
-                                        </div>
-                                        <Show when={!t.priceHidden}><span class="subscribe-card__freq">{freq(tierAtPrice(t, chosenFor(t,),),)}</span></Show>
+                                        {/* Same as the /subscribe cards: a "Hide price" level shows no price line. */}
+                                        <Show when={!t.priceHidden}>
+                                            <div class="subscribe-card__price">
+                                                <PriceChoice
+                                                    tier={t}
+                                                    selected={chosenFor(t,)}
+                                                    onSelect={(id,) => pick(t, id,)}
+                                                    amountClass="subscribe-card__amount"
+                                                    perClass="subscribe-card__per"
+                                                />
+                                            </div>
+                                            <span class="subscribe-card__freq">{freq(tierAtPrice(t, chosenFor(t,),),)}</span>
+                                        </Show>
                                         <Markdown class="subscribe-card__desc" text={t.description} />
                                         <button
                                             type="button"
@@ -351,7 +358,7 @@ const SubscriptionSignup: Component = () => {
                                     <Show when={billedNote(t(),)}> <small class="subscribe-card__billed">({billedNote(t(),)})</small></Show>
                                 </div>
                                 <p class="subscription-signup__hint">
-                                    You are charged {money(t().priceCents, t().currency,)} now, then{per(t(),)} until you cancel.{' '}
+                                    You are charged {money(t().priceCents, t().currency,)} now, then {money(t().priceCents, t().currency,)}{per(t(),)} until you cancel.{' '}
                                     <button type="button" class="subscription-signup__change" onClick={() => setStep('plan',)}>Change plan</button>
                                 </p>
                                 <label class="join__label">Card</label>

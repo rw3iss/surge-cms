@@ -14,11 +14,11 @@
     padding: 0;
     list-style: none;
     font-size: 0.9rem;
-    color: var(--site-text-muted, #6b7280);
+    color: var(--site-text-muted, #{$text-light});
 
     li::before { content: '○'; margin-right: 0.35rem; }
-    li.is-done { color: var(--site-text, #1f2937); }
-    li.is-done::before { content: '✓'; color: var(--site-primary, #e63946); font-weight: 700; }
+    li.is-done { color: var(--site-text, #{$text-color}); }
+    li.is-done::before { content: '✓'; color: var(--site-primary, #{$primary-color}); font-weight: 700; }
   }
 
   &__actions {
@@ -73,11 +73,11 @@
     flex-direction: column;
     gap: 0.15rem;
     padding: 0.8rem 1rem;
-    border: 1px solid var(--site-border, #e5e7eb);
+    border: 1px solid var(--site-border, #{$border-color});
     border-radius: var(--site-radius, 10px);
 
     strong { font-size: 1.4rem; }
-    span { font-size: 0.8rem; color: var(--site-text-muted, #6b7280); }
+    span { font-size: 0.8rem; color: var(--site-text-muted, #{$text-light}); }
   }
 
   &__state {
@@ -86,8 +86,8 @@
     border-radius: 999px;
     font-size: 0.78rem;
     white-space: nowrap;
-    background: var(--site-border, #e5e7eb);
-    color: var(--site-text, #1f2937);
+    background: var(--site-border, #{$border-color});
+    color: var(--site-text, #{$text-color});
 
     &--pending_review { @include status-fill(info); }
     &--returned { @include status-fill(warning); }
@@ -95,5 +95,5 @@
     &--paid { @include status-fill(success); font-weight: 600; }
   }
 
-  &__note { margin-top: 0.25rem; font-size: 0.82rem; color: var(--site-text-muted, #6b7280); }
+  &__note { margin-top: 0.25rem; font-size: 0.82rem; color: var(--site-text-muted, #{$text-light}); }
 }

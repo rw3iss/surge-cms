@@ -14,3 +14,12 @@ describe('followTitleSlug', () => {
         expect(followTitleSlug('', 'Hello', '', { isNew: false, },),).toBe('hello',);
     },);
 },);
+
+describe('cleanSlug', () => {
+    it('reduces typed text to server-safe characters', async () => {
+        const { cleanSlug, } = await import('./autoSlug');
+        expect(cleanSlug('My Page!',),).toBe('my-page',);
+        expect(cleanSlug('  a__b--c- ',),).toBe('a-b-c',);
+        expect(cleanSlug('ok-slug',),).toBe('ok-slug',);
+    },);
+},);

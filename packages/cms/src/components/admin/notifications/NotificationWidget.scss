@@ -39,6 +39,8 @@ $nw-text: var(--admin-sidebar-text, white);
     }
 
     // The panel renders ABOVE the header → it grows upward over the sidebar.
+    // Focus lands on the panel on open (tabindex -1) — no ring around all of it.
+    &__panel:focus { outline: none; }
     &__panel {
         display: flex;
         flex-direction: column;

@@ -80,4 +80,11 @@
         &.is-completed { color: $success-color; }
         &.is-failed, &.is-expired, &.is-cancelled { color: $error-color; }
     }
+
+    &__progress {
+        margin: 0 0 $spacing-sm;
+        padding-left: 1.2rem;
+        color: var(--admin-text-muted);
+        font-size: $font-size-sm;
+    }
 }

@@ -40,7 +40,10 @@ const EARNING_LABEL = { pending: 'holding', available: 'payable', paid: 'paid', 
 
 type Params = { view?: string; state?: string; author?: string; q?: string; sort?: string; page?: string; };
 
-const ContributionsView: Component = () => {
+const ContributionsView: Component<{
+    /** After any change (review, payout, revoke): the host refreshes its own counts (the tab's "N waiting"). */
+    onChanged?: () => void;
+}> = (props,) => {
     const toast = useToast();
     const [params, setParams,] = useSearchParams<Params>();
     const state = (): StateFilter => (STATES.some((s,) => s.value === params.state,) ? params.state as StateFilter : 'all');
@@ -49,13 +52,22 @@ const ContributionsView: Component = () => {
 
     const [summary, { refetch: refetchSummary, },] = createResource(() => cms.contributions.summary().catch(() => null as ContributionSummary | null),);
     const [settings,] = createResource(() => cms.contributions.settings().catch(() => null,),);
-    const currency = () => summary()?.currency ?? settings()?.currency ?? 'usd';
+    const currency = () => summary.latest?.currency ?? settings.latest?.currency ?? 'usd';
 
+    const [listError, setListError,] = createSignal('',);
+    // `.latest` below (not `list()`): a refetch (filter, page, action) must not
+    // suspend the admin page — the table keeps its rows until the new ones land.
     const [list, { refetch: refetchList, },] = createResource(
         () => ({ state: state(), authorId: params.author, search: params.q, sort: sort(), page: page(), }),
-        (q,) => cms.contributions.list({ ...q, limit: 20, },),
+        (q,) => {
+            setListError('',);
+            return cms.contributions.list({ ...q, limit: 20, },).catch((e,) => {
+                setListError(e instanceof Error ? e.message : 'The contributions could not be loaded.',);
+                return null;
+            },);
+        },
     );
-    const refresh = () => { void refetchList(); void refetchSummary(); };
+    const refresh = () => { void refetchList(); void refetchSummary(); props.onChanged?.(); };
 
     // Search box: search-as-you-type (debounced into the URL).
     const [search, setSearch,] = createSignal(params.q ?? '',);
@@ -71,16 +83,16 @@ const ContributionsView: Component = () => {
     const authorName = () => {
         const id = params.author;
         if (!id) return '';
-        const c = summary()?.contributors.find((x,) => x.userId === id,);
+        const c = summary.latest?.contributors.find((x,) => x.userId === id,);
         if (c) return c.name || c.email;
-        return list()?.data.find((x,) => x.author?.id === id,)?.author?.name ?? 'Author';
+        return list.latest?.data.find((x,) => x.author?.id === id,)?.author?.name ?? 'Author';
     };
     const filterAuthor = (id: string,) => setParams({ author: id, page: undefined, },);
     const hasFilters = () => state() !== 'all' || !!params.author || !!params.q;
     const clearFilters = () => { setSearch('',); setParams({ state: undefined, author: undefined, q: undefined, page: undefined, },); };
 
     const count = (s: StateFilter,) => {
-        const c = summary()?.counts;
+        const c = summary.latest?.counts;
         if (!c) return null;
         return s === 'all' ? Object.values(c,).reduce((a, b,) => a + b, 0,) : c[s];
     };
@@ -125,14 +137,14 @@ const ContributionsView: Component = () => {
         <div class="contributions">
             {/* ── Summary ── */}
             <div class="contributions__cards">
-                <div class="contributions__card"><span>Waiting for review</span><strong>{summary()?.counts.pending_review ?? '—'}</strong></div>
-                <div class="contributions__card"><span>Approved</span><strong>{summary()?.counts.approved ?? '—'}</strong></div>
-                <div class="contributions__card"><span>Paid</span><strong>{summary()?.counts.paid ?? '—'}</strong></div>
-                <div class="contributions__card"><span>Owed</span><strong>{summary() ? formatMoney(summary()!.owedCents, currency(),) : '—'}</strong></div>
-                <div class="contributions__card"><span>Payable now</span><strong>{summary() ? formatMoney(summary()!.payableCents, currency(),) : '—'}</strong></div>
-                <div class="contributions__card"><span>Paid out</span><strong>{summary() ? formatMoney(summary()!.paidCents, currency(),) : '—'}</strong></div>
+                <div class="contributions__card"><span>Waiting for review</span><strong>{summary.latest?.counts.pending_review ?? '—'}</strong></div>
+                <div class="contributions__card"><span>Approved</span><strong>{summary.latest?.counts.approved ?? '—'}</strong></div>
+                <div class="contributions__card"><span>Paid</span><strong>{summary.latest?.counts.paid ?? '—'}</strong></div>
+                <div class="contributions__card"><span>Owed</span><strong>{summary.latest ? formatMoney(summary.latest!.owedCents, currency(),) : '—'}</strong></div>
+                <div class="contributions__card"><span>Payable now</span><strong>{summary.latest ? formatMoney(summary.latest!.payableCents, currency(),) : '—'}</strong></div>
+                <div class="contributions__card"><span>Paid out</span><strong>{summary.latest ? formatMoney(summary.latest!.paidCents, currency(),) : '—'}</strong></div>
             </div>
-            <Show when={settings() && !settings()!.enabled}>
+            <Show when={settings.latest && !settings.latest!.enabled}>
                 <p class="form-help-muted contributions__off">
                     Contributor payouts are off — approving a post publishes it without a payout.{' '}
                     <A href="/admin/posts/settings?tab=contributions">Turn them on in Posts → Settings → Contributions</A>.
@@ -174,16 +186,16 @@ const ContributionsView: Component = () => {
 
             {/* ── Table ── */}
             <DataTable<Contribution>
-                items={list()?.data ?? []}
+                items={list.latest?.data ?? []}
                 loading={list.loading}
                 getRowId={(r,) => r.postId}
-                emptyMessage={hasFilters() ? 'No contributions match these filters.' : 'No contributions yet.'}
+                emptyMessage={listError() || (hasFilters() ? 'No contributions match these filters.' : 'No contributions yet.')}
                 sort={{ current: sort(), onSort: (s,) => setParams({ sort: s, page: undefined, },), }}
                 pagination={{
                     page: page(),
-                    totalPages: list()?.meta.totalPages ?? 1,
-                    total: list()?.meta.total,
-                    limit: list()?.meta.limit,
+                    totalPages: list.latest?.meta.totalPages ?? 1,
+                    total: list.latest?.meta.total,
+                    limit: list.latest?.meta.limit,
                     onPageChange: (p,) => setParams({ page: p > 1 ? String(p,) : undefined, },),
                 }}
                 columns={[
@@ -236,7 +248,7 @@ const ContributionsView: Component = () => {
             />
 
             <ContributorPayouts
-                contributors={summary()?.contributors ?? []}
+                contributors={summary.latest?.contributors ?? []}
                 currency={currency()}
                 onFilterAuthor={(id,) => { filterAuthor(id,); window.scrollTo({ top: 0, behavior: 'smooth', },); }}
                 onPaid={refresh}
@@ -245,7 +257,7 @@ const ContributionsView: Component = () => {
             <ChangePayoutModal
                 open={editing() !== null}
                 title={editing()?.title ?? ''}
-                amountCents={editing()?.earning?.amountCents ?? settings()?.defaultPayoutCents ?? 0}
+                amountCents={editing()?.earning?.amountCents ?? settings.latest?.defaultPayoutCents ?? 0}
                 currency={editing()?.earning?.currency ?? currency()}
                 busy={busy()}
                 onSave={(c,) => void savePayout(c,)}

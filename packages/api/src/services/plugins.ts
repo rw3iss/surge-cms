@@ -46,9 +46,40 @@ function pluginHasUpdateHook(name: string): boolean {
     }
 }
 
+/** What an admin read shows for a stored `type: 'secret'` config value; echoed back on save = "unchanged". */
+export const PLUGIN_SECRET_MASK = '••••••••';
+
+/** Keys of a manifest's `type: 'secret'` config fields (the credentials). */
+function secretFieldKeys(manifest: PluginManifest | undefined): string[] {
+    return (manifest?.configSchema ?? []).filter((f) => f.type === 'secret').map((f) => f.key);
+}
+
+/**
+ * Replace every set `type: 'secret'` config value with the mask. Plugin
+ * credentials (API keys, broker tokens) never leave the server — not even to
+ * the admin config page, an MCP client or an API key. Only `type: 'secret'`
+ * is masked: `secret: true` merely keeps a field out of the PUBLIC projection
+ * and is also used on plain settings the config page must edit.
+ */
+export function maskPluginSecrets(p: Plugin): Plugin {
+    const keys = secretFieldKeys(p.manifest);
+    if (!keys.length || !p.config) return p;
+    const config = { ...p.config };
+    for (const k of keys) if (typeof config[k] === 'string' && config[k] !== '') config[k] = PLUGIN_SECRET_MASK;
+    return { ...p, config };
+}
+
+/** A config patch with echoed masks removed, so saving an untouched form keeps the stored secret. */
+export function dropEchoedSecrets(manifest: PluginManifest | undefined, cfg: Record<string, unknown>): Record<string, unknown> {
+    const out = { ...cfg };
+    for (const k of secretFieldKeys(manifest)) if (out[k] === PLUGIN_SECRET_MASK) delete out[k];
+    return out;
+}
+
+/** The admin-facing view of a plugin row: update flags + masked secrets. */
 function withUpdateFlag(p: Plugin): Plugin {
     return {
-        ...p,
+        ...maskPluginSecrets(p),
         updateAvailable: Boolean(p.installed && p.installedVersion && p.installedVersion !== p.version),
         hasUpdateHook: pluginHasUpdateHook(p.name),
     };
@@ -234,6 +265,7 @@ export async function install(name: string, ctx: AuditContext): Promise<Plugin> 
 
 export async function saveConfig(name: string, cfg: Record<string, unknown>, ctx: AuditContext): Promise<Plugin> {
     const row = await mustGetRow(name);
+    cfg = dropEchoedSecrets(row.manifest, cfg);
     const disk = diskMap().get(name);
     const mod = disk ? getServerModule(disk.dir, disk.manifest) : null;
     if (mod?.validateConfig) {

@@ -32,6 +32,7 @@ import FormRenderer from '../forms/FormRenderer';
 import { Portal, } from 'solid-js/web';
 import { A, } from '@solidjs/router';
 import { saveJoinPrefill, } from '../../utils/joinPrefill';
+import { useFocusTrap, } from '../../hooks/useFocusTrap';
 import './MembershipApplication.scss';
 
 /** The built-in application form, as a Form FormRenderer can draw. */
@@ -222,7 +223,14 @@ export const ApplicationPayment: Component<{
 /** "Thanks — pending approval" (shared by the modal and the sign-up flow): the
  *  ONE confirmation after applying. `program` = an "Add its role only" level
  *  (no billing, so no pricing line). */
-export const ApplicationDone: Component<{ tierName: string; noCard?: boolean; program?: boolean; signedOut?: boolean; }> = (props,) => (
+export const ApplicationDone: Component<{
+    tierName: string;
+    noCard?: boolean;
+    program?: boolean;
+    signedOut?: boolean;
+    /** Sent signed out for a level that takes a card: the card is added after sign-up. */
+    cardLater?: boolean;
+}> = (props,) => (
     <div class="membership-apply__done" role="status">
         <h3>Your request has been submitted</h3>
         <p>
@@ -233,7 +241,15 @@ export const ApplicationDone: Component<{ tierName: string; noCard?: boolean; pr
             <p class="membership-apply__muted">
                 <Show
                     when={props.noCard}
-                    fallback={<>Your card is saved but <strong>will not be charged unless your application is approved</strong>.</>}
+                    fallback={
+                        <Show
+                            when={props.cardLater}
+                            fallback={<>Your card is saved but <strong>will not be charged unless your application is approved</strong>.</>}
+                        >
+                            After you sign up, add the card for your membership in your profile.{' '}
+                            <strong>It will not be charged unless your application is approved.</strong>
+                        </Show>
+                    }
                 >
                     <strong>Nothing is charged now.</strong> When you are approved, sign in to see the pricing, choose your billing and start your membership.
                 </Show>
@@ -262,6 +278,10 @@ export const ApplyModal: Component<{
     const [submitted, setSubmitted,] = createSignal<SubmittedApplication | null>(null,);
     const [busy, setBusy,] = createSignal(false,);
     const [error, setError,] = createSignal('',);
+    /** Sent while signed out for a level that takes a card: the card is added after sign-up. */
+    const [cardLater, setCardLater,] = createSignal(false,);
+    let dialogEl: HTMLDivElement | undefined;
+    useFocusTrap(() => dialogEl,);
     /** "Hide price" level: no billing choice and no card — the application is all. */
     const noCard = () => !!props.tier.priceHidden;
     const finishNoCard = async () => {
@@ -288,7 +308,7 @@ export const ApplyModal: Component<{
     },);
     return (
         <Portal>
-        <div class="membership-apply-overlay" role="dialog" aria-modal="true" aria-label={`Apply for ${props.tier.name}`}>
+        <div class="membership-apply-overlay" role="dialog" aria-modal="true" aria-label={`Apply for ${props.tier.name}`} ref={dialogEl}>
             <div class="membership-apply membership-apply--modal">
                 <button type="button" class="membership-apply__close" aria-label="Close" onClick={() => props.onClose()}>×</button>
                 <h2 class="membership-apply__title">Apply for {props.tier.name}</h2>
@@ -312,9 +332,12 @@ export const ApplyModal: Component<{
                             // No card to add (programs, "Hide price" levels): complete it now
                             // and show the ONE confirmation. A failure falls back to the
                             // submitted step, whose Finish retries.
-                            if (noCard() && !auth.user) {
+                            if (!auth.user) {
                                 // Signed out: the application is in; it attaches to the account
-                                // made later with this email (sign-up / verified sign-in).
+                                // made later with this email (sign-up / verified sign-in). Saving
+                                // a card needs an account, so a priced level adds it from the
+                                // profile after sign-up (the card step would refuse a guest).
+                                setCardLater(!noCard(),);
                                 setStep('done',);
                             } else if (noCard()) {
                                 await finishNoCard();
@@ -328,7 +351,7 @@ export const ApplyModal: Component<{
                 <Show when={step() === 'submitted'}>
                     <ApplicationSubmitted
                         tierName={props.tier.name}
-                        signedIn
+                        signedIn={!!auth.user}
                         noCard={noCard()}
                         busy={busy()}
                         onContinue={() => (noCard() ? void finishNoCard() : setStep('payment',))}
@@ -343,7 +366,7 @@ export const ApplyModal: Component<{
                     />
                 </Show>
                 <Show when={step() === 'done'}>
-                    <ApplicationDone tierName={props.tier.name} noCard={noCard()} program={!!props.tier.roleOnly} signedOut={!auth.user} />
+                    <ApplicationDone tierName={props.tier.name} noCard={noCard()} program={!!props.tier.roleOnly} signedOut={!auth.user} cardLater={cardLater()} />
                     <div class="membership-apply__actions">
                         <Show when={!auth.user}>
                             <A href="/join" class="btn btn--outline" onClick={() => props.onClose()}>Create my account</A>

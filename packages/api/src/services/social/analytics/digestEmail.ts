@@ -205,11 +205,13 @@ function audienceBlock(a: SocialAudience, label: string,): string {
         + parts.join('',) + `</td></tr></table>`;
 }
 
-function postRow(p: SocialPostAnalytics, why: string | undefined, rank: number,): string {
+function postRow(p: SocialPostAnalytics, why: string | undefined, rank: number, origin?: string,): string {
     const title = esc(p.title || '(no text)',);
-    const link = p.url ? `<a href="${esc(p.url,)}" style="color:${TEXT};text-decoration:none;font-weight:700">${title}</a>` : `<strong>${title}</strong>`;
-    const thumb = p.thumbnailUrl
-        ? `<img src="${esc(p.thumbnailUrl,)}" width="88" height="50" alt="" style="display:block;width:88px;height:50px;object-fit:cover;border-radius:6px;border:0">`
+    const href = safeUrl(p.url, origin,);
+    const src = safeUrl(p.thumbnailUrl, origin,);
+    const link = href ? `<a href="${esc(href,)}" style="color:${TEXT};text-decoration:none;font-weight:700">${title}</a>` : `<strong>${title}</strong>`;
+    const thumb = src
+        ? `<img src="${esc(src,)}" width="88" height="50" alt="" style="display:block;width:88px;height:50px;object-fit:cover;border-radius:6px;border:0">`
         : `<div style="width:88px;height:50px;background:#f3f4f6;border-radius:6px"></div>`;
     const stats = [
         `${fmtValue('views', p.viewsInPeriod,)} views this period`,
@@ -223,6 +225,18 @@ function postRow(p: SocialPostAnalytics, why: string | undefined, rank: number,)
             + `<div style="font-size:12px;color:${MUTED};margin-top:3px">${esc(p.platform,)}${p.kind ? ` · ${esc(p.kind,)}` : ''} · ${esc(stats,)}</div>`
             + (why ? `<div style="font-size:12px;color:${TEXT};margin-top:4px;font-style:italic">${esc(why,)}</div>` : ''), `padding:10px 0;vertical-align:top;border-top:1px solid ${BORDER}`,)
         + `</tr>`;
+}
+
+/**
+ * Only http(s) URLs become links or images (a stored post URL is platform data,
+ * not trusted markup). A site path (`/uploads/…`, mirrored thumbnails) is made
+ * absolute with `origin` — an email has no base URL.
+ */
+export function safeUrl(url: string | null | undefined, origin?: string,): string | null {
+    const u = String(url ?? '',).trim();
+    if (/^https?:\/\//i.test(u,)) return u;
+    if (origin && /^\/[^/\\]/.test(u,)) return `${origin.replace(/\/+$/, '',)}${u}`;
+    return null;
 }
 
 function button(href: string, label: string,): string {
@@ -239,6 +253,14 @@ export function digestTitle(d: Pick<SocialAnalyticsDigest, 'frequency' | 'from' 
  * Render a stored digest as an email. `summary` = headline, totals, top 3
  * posts and the button; `full` = every section the digest includes.
  */
+function originOf(url: string,): string | undefined {
+    try {
+        return new URL(url,).origin;
+    } catch {
+        return undefined;
+    }
+}
+
 export function renderDigestEmail(
     digest: SocialAnalyticsDigest,
     layout: BrandLayout,
@@ -288,7 +310,7 @@ export function renderDigestEmail(
         const why = new Map((ins?.topPosts ?? []).map((p,) => [p.id, p.why,]),);
         const list = full ? data.topPosts : data.topPosts.slice(0, 3,);
         parts.push(row(h2('Top posts',)
-            + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${list.map((p, i,) => postRow(p, full ? why.get(p.id,) : undefined, i + 1,),).join('',)}</table>`,),);
+            + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${list.map((p, i,) => postRow(p, full ? why.get(p.id,) : undefined, i + 1, originOf(opts.viewUrl,),),).join('',)}</table>`,),);
     }
 
     if (full && has('ai',) && ins?.suggestions.length) {

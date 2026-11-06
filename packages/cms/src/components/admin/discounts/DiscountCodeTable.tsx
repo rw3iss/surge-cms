@@ -10,9 +10,8 @@ import { cms, } from '../../../services/cmsClient';
 import { useToast, } from '../../common/toast';
 import ConfirmModal from '../common/ConfirmModal';
 import Toggle from '../common/Toggle';
+import { formatDay as dateOnly, formatMoney, } from '../contributions/money';
 import './discounts.scss';
-
-const dateOnly = (iso: string | null,) => (iso ? new Date(iso,).toLocaleDateString(undefined, { dateStyle: 'medium', },) : '');
 
 /** What a code gives (and, for an affiliate code, earns). */
 export function codeDescription(c: ShopDiscountCode, currency = 'usd',): string {
@@ -30,7 +29,7 @@ function limits(c: ShopDiscountCode,): string {
     const parts: string[] = [];
     if (c.startsAt) parts.push(`from ${dateOnly(c.startsAt,)}`,);
     if (c.endsAt) parts.push(`until ${dateOnly(c.endsAt,)}`,);
-    if (c.minSubtotalCents) parts.push(`min $${(c.minSubtotalCents / 100).toFixed(2,)}`,);
+    if (c.minSubtotalCents) parts.push(`min ${formatMoney(c.minSubtotalCents,)}`,);
     if (c.allowedTierIds.length || c.allowedRoles.length) parts.push('members only',);
     if (c.maxUsesPerUser) parts.push(`${c.maxUsesPerUser} per buyer`,);
     if (c.appliesToTickets && c.affiliateUserId) parts.push('incl. tickets',);
@@ -46,18 +45,29 @@ const DiscountCodeTable: Component<{
     const toast = useToast();
     const [deleting, setDeleting,] = createSignal<ShopDiscountCode | null>(null,);
     const [busy, setBusy,] = createSignal(false,);
+    /** Codes whose Active switch is saving — the switch is locked until the reply (no double send). */
+    const [switching, setSwitching,] = createSignal<ReadonlySet<string>>(new Set(),);
+    const mark = (id: string, on: boolean,) => setSwitching((cur,) => {
+        const next = new Set(cur,);
+        if (on) next.add(id,); else next.delete(id,);
+        return next;
+    },);
 
     const setActive = async (c: ShopDiscountCode, active: boolean,) => {
+        if (switching().has(c.id,)) return;
+        mark(c.id, true,);
         try {
             await cms.shop.discounts.update(c.id, { active, },);
             props.onChanged();
         } catch (e) {
             toast.error(e instanceof Error ? e.message : 'Could not update the code.',);
+        } finally {
+            mark(c.id, false,);
         }
     };
     const remove = async () => {
         const c = deleting();
-        if (!c) return;
+        if (!c || busy()) return;
         setBusy(true,);
         try {
             await cms.shop.discounts.remove(c.id,);
@@ -89,7 +99,7 @@ const DiscountCodeTable: Component<{
                                             {c.uses}{c.maxUses != null ? ` / ${c.maxUses}` : ''}
                                         </td>
                                         <td class="form-help-muted">{limits(c,)}</td>
-                                        <td><Toggle checked={c.active} onChange={(v,) => void setActive(c, v,)} ariaLabel={`${c.code} active`} size="sm" /></td>
+                                        <td><Toggle checked={c.active} disabled={switching().has(c.id,)} onChange={(v,) => void setActive(c, v,)} ariaLabel={`${c.code} active`} size="sm" /></td>
                                         <td class="discount-table__actions">
                                             <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={() => props.onEdit(c,)}>Edit</button>{' '}
                                             <button type="button" class="ui-button ui-button--danger ui-button--sm" onClick={() => setDeleting(c,)}>Delete</button>
@@ -110,7 +120,7 @@ const DiscountCodeTable: Component<{
                 loading={busy()}
                 danger
                 onConfirm={() => void remove()}
-                onCancel={() => setDeleting(null,)}
+                onCancel={() => { if (!busy()) setDeleting(null,); }}
             />
         </>
     );

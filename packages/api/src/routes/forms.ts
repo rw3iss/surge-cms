@@ -9,7 +9,7 @@ import type {
     FormSubmitBody,
 } from '@sitesurge/types';
 import { defineRoute, reply, } from '../api/defineRoute';
-import { isAdminRole, } from '../api/roles';
+import { isStaffRole, } from '@sitesurge/types';
 import { AppError, NotFoundError, UnauthorizedError, } from '../core/errors';
 import * as forms from '../services/forms';
 
@@ -79,8 +79,9 @@ const formSchema = z.object({
 const submissionSchema = z.object({
     answers: z.array(z.object({
         questionId: z.string().uuid(),
-        value: z.union([z.string(), z.array(z.string(),), z.number(), z.boolean(),],),
-    },),),
+        // Bounded: answers are stored as-is and mailed to staff.
+        value: z.union([z.string().max(20000,), z.array(z.string().max(1000,),).max(200,), z.number(), z.boolean(),],),
+    },),).max(500,),
     nonce: z.string().max(64,).optional(),
 },) satisfies z.ZodType<FormSubmitBody>;
 
@@ -121,12 +122,13 @@ export const formsRoutes = [
     // all=true (or status) get the paginated admin list.
     defineRoute({
         method: 'get', path: '/', auth: 'optional',
-        summary: 'List forms. Public published-only by default; admins passing all=true/status get the paginated admin list.',
+        summary: 'List forms. Public published-only by default; staff passing all=true/status get the paginated admin list.',
         input: { query: listQuery, },
         handler: async ({ user, apiKey, query, },) => {
-            const isAdmin = isAdminRole(user?.role,) || Boolean(apiKey,);
+            // Staff (editors included — forms are staff-edited content) get the admin list.
+            const isStaff = isStaffRole(user?.role,) || Boolean(apiKey,);
 
-            if (isAdmin && (query.all === 'true' || query.status !== undefined)) {
+            if (isStaff && (query.all === 'true' || query.status !== undefined)) {
                 const result = await forms.list(
                     { status: query.status, sortBy: query.sortBy, sortOrder: query.sortOrder, },
                     { page: query.page, limit: query.limit, },
@@ -172,7 +174,10 @@ export const formsRoutes = [
         summary: 'Submit a form. Enforces requiresAuth, duplicate-submission, and required fields.',
         input: { params: slugParams, body: submissionSchema, },
         handler: async ({ params, body, user, userId, req, },) => {
-            const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',',)[0] || req.ip!;
+            // `req.ip` (trust proxy = 1 → the address nginx saw). The FIRST
+            // X-Forwarded-For entry is whatever the client sent, so reading it
+            // let anyone dodge the one-submission-per-IP rule.
+            const ipAddress = req.ip || req.socket.remoteAddress || '';
             const result = await forms.submit({
                 slug: params.slug,
                 answers: body.answers,
@@ -220,12 +225,13 @@ export const formsRoutes = [
     // published forms only — lets public pages embed a form block by id.
     defineRoute({
         method: 'get', path: '/:id', auth: 'optional',
-        summary: 'Fetch a form by id (with questions). Admins see any status; anonymous callers see published forms only.',
+        summary: 'Fetch a form by id (with questions). Staff see any status; everyone else sees published forms only.',
         input: { params: idParams, },
         handler: async ({ params, user, apiKey, },) => {
-            const isAdmin = isAdminRole(user?.role,) || Boolean(apiKey,);
+            // Staff (editors included) open drafts in the form editor.
+            const isStaff = isStaffRole(user?.role,) || Boolean(apiKey,);
             const form = await forms.getById(params.id,);
-            if (!form || (!isAdmin && form.status !== 'published')) throw new NotFoundError('Form',);
+            if (!form || (!isStaff && form.status !== 'published')) throw new NotFoundError('Form',);
             return form;
         },
     },),

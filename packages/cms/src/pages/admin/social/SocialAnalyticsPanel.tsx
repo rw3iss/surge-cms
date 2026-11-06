@@ -32,10 +32,23 @@ const PERIODS = [
     { days: 365, label: 'Last 12 months', },
 ];
 
+/** Preferred order of the Trend chart's metrics; the list itself is what the platform has data for. */
 const CHART_METRICS = [
     'followers', 'views', 'engagedViews', 'watchTimeMinutes', 'avgViewDuration', 'likes', 'comments', 'shares',
     'subscribersGained', 'subscribersLost', 'impressions', 'reach',
 ];
+
+function chartMetrics(available: string[] | undefined, current: string,): string[] {
+    const list = available?.length ? available : CHART_METRICS;
+    const rank = (m: string,) => {
+        const i = CHART_METRICS.indexOf(m,);
+        return i === -1 ? CHART_METRICS.length : i;
+    };
+    const out = [...new Set([...list, current,],),];
+    return out.sort((a, b,) => rank(a,) - rank(b,) || metricLabel(a,).localeCompare(metricLabel(b,),),);
+}
+
+const metricLabel = (m: string,): string => SOCIAL_METRICS[m]?.label ?? m.replace(/([A-Z])/g, ' $1',).replace(/^./, (c,) => c.toUpperCase(),);
 
 const day = (d: Date,) => d.toISOString().slice(0, 10,);
 
@@ -65,10 +78,26 @@ function fmtMinutes(min: number | null | undefined,): string {
 }
 
 function metricFormatter(metric: string,): (v: number,) => string {
-    if (metric === 'avgViewDuration') return (v,) => fmtDuration(v,);
-    if (metric === 'watchTimeMinutes') return (v,) => fmtMinutes(v,);
+    const unit = SOCIAL_METRICS[metric]?.unit;
+    if (metric === 'avgViewDuration' || unit === 'seconds') return (v,) => fmtDuration(v,);
+    if (metric === 'watchTimeMinutes' || unit === 'minutes') return (v,) => fmtMinutes(v,);
+    if (unit === 'percent') return (v,) => fmtPct(v,);
+    if (unit === 'cents') return (v,) => `$${(v / 100).toLocaleString(undefined, { maximumFractionDigits: 0, },)}`;
     return (v,) => Math.round(v,).toLocaleString();
 }
+
+/** A resource's last value WITHOUT suspending (reads `.latest` only once it has settled). */
+function settled<T,>(r: { state: string; latest: T | undefined; },): T | undefined {
+    return r.state === 'ready' || r.state === 'refreshing' ? r.latest : undefined;
+}
+
+/** A region whose data failed to load: the message + Retry (instead of an endless "Loading…"). */
+const LoadError: Component<{ what: string; error: unknown; onRetry: () => void; }> = (p,) => (
+    <div class="social-analytics__error" role="alert">
+        <span>Could not load {p.what}: {(p.error as Error)?.message ?? String(p.error,)}</span>
+        <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={() => p.onRetry()}>Retry</button>
+    </div>
+);
 
 const when = (iso: string | null,) => (iso ? new Date(iso,).toLocaleString() : '—');
 
@@ -96,17 +125,22 @@ const Metric: Component<{ k: string; value: string; }> = (p,) => (
 );
 
 const PostHistory: Component<{ id: string; range: { from: string; to: string; }; }> = (p,) => {
-    const [data,] = createResource(() => ({ id: p.id, ...p.range, }), (k,) => cms.socialAnalytics.post(k.id, { from: k.from, to: k.to, },),);
+    const [data, { refetch, },] = createResource(() => ({ id: p.id, ...p.range, }), (k,) => cms.socialAnalytics.post(k.id, { from: k.from, to: k.to, },),);
     return (
-        <Show when={data()} fallback={<div class="form-help-muted">Loading…</div>}>
-            {(d,) => (
-                <LineChart
-                    height={140}
-                    points={d().points.filter((x,) => x.views !== null).map((x,) => ({ date: x.date, value: x.views ?? 0, }))}
-                    emptyText="No views recorded for this post in the period."
-                />
-            )}
-        </Show>
+        <StableSuspense fallback={<div class="form-help-muted">Loading…</div>}>
+            <Show when={!data.error} fallback={<LoadError what="this post's history" error={data.error} onRetry={refetch} />}>
+                <Show when={data()}>
+                    {(d,) => (
+                        <LineChart
+                            height={140}
+                            label="Views of this post"
+                            points={d().points.filter((x,) => x.views !== null).map((x,) => ({ date: x.date, value: x.views ?? 0, }))}
+                            emptyText="No views recorded for this post in the period."
+                        />
+                    )}
+                </Show>
+            </Show>
+        </StableSuspense>
     );
 };
 
@@ -125,10 +159,15 @@ const SocialAnalyticsPanel: Component = () => {
     createEffect(on(withData, (list,) => {
         if (!list.find((a,) => a.platform === chartPlatform()) && list[0]) setChartPlatform(list[0].platform,);
     },),);
-    const [series,] = createResource(
+    const [series, { refetch: refetchSeries, },] = createResource(
         () => (chartPlatform() ? { platform: chartPlatform(), metric: chartMetric(), ...range(), } : null),
         (q,) => cms.socialAnalytics.series(q,),
     );
+    // A metric the newly picked platform does not have: fall back to views (else its first metric).
+    createEffect(on(() => settled(series,)?.available, (avail,) => {
+        if (!avail?.length || avail.includes(chartMetric(),)) return;
+        setChartMetric(avail.includes('views',) ? 'views' : avail[0],);
+    }, { defer: true, },),);
     const markers = createMemo<ChartMarker[]>(() => {
         const o = overview();
         const list: ChartMarker[] = (o?.definitionChanges ?? [])
@@ -198,16 +237,25 @@ const SocialAnalyticsPanel: Component = () => {
         searchTimer = setTimeout(() => setSearch(v.trim(),), 300,);
     };
 
+    const platformLabel = (platform: string,) => settled(overview,)?.accounts.find((a,) => a.platform === platform)?.label ?? platform;
     const collectNow = async () => {
         setCollecting(true,);
         try {
             const runs = await cms.socialAnalytics.collect();
             const failed = runs.filter((r,) => r.status === 'failed');
+            const running = runs.filter((r,) => r.status === 'running');
+            const names = (list: typeof runs,) => list.map((r,) => platformLabel(r.platform,)).join(', ',);
             if (!runs.length) toast.info('No platform is ready to collect (or a collection is already running).',);
-            else if (failed.length) toast.error(`Collected ${runs.length - failed.length} of ${runs.length}; failed: ${failed.map((r,) => r.platform).join(', ',)}`,);
-            else toast.success(`Collected ${runs.map((r,) => r.platform).join(', ',)}.`,);
+            else if (failed.length) toast.error(`Collected ${runs.length - failed.length} of ${runs.length}; failed: ${names(failed,)}`,);
+            else if (running.length) toast.info(`Still collecting ${names(running,)} in the background — the numbers update when it finishes. Refresh in a minute.`,);
+            else toast.success(`Collected ${names(runs,)}.`,);
             refetchOverview();
             refetchPosts();
+            // A background run finishes after this answer: read again once it is likely done.
+            if (running.length) setTimeout(() => {
+                refetchOverview();
+                refetchPosts();
+            }, 60_000,);
         } catch (e) {
             toast.error(`Could not collect: ${(e as Error).message}`,);
         } finally {
@@ -297,7 +345,7 @@ const SocialAnalyticsPanel: Component = () => {
                         <header>
                             <strong>AI summary</strong>
                             <span class="form-help-muted">{r().provider}{r().model ? ` · ${r().model}` : ''} · {r().status}</span>
-                            <button type="button" class="btn btn--tiny" onClick={() => setSummary(null,)}>Close</button>
+                            <button type="button" class="ui-button ui-button--ghost ui-button--sm" onClick={() => setSummary(null,)}>Close</button>
                         </header>
                         <Show when={r().status === 'completed'} fallback={
                             <>
@@ -318,7 +366,9 @@ const SocialAnalyticsPanel: Component = () => {
                 )}
             </Show>
 
-            <Show when={overview()} fallback={<div class="form-help-muted">Loading analytics…</div>}>
+            <StableSuspense fallback={<div class="form-help-muted">Loading analytics…</div>}>
+            <Show when={!overview.error} fallback={<LoadError what="the analytics" error={overview.error} onRetry={refetchOverview} />}>
+            <Show when={overview()}>
                 {(o,) => (
                     <>
                         <div class="social-analytics__totals">
@@ -379,28 +429,41 @@ const SocialAnalyticsPanel: Component = () => {
                                 )}
                             </For>
                         </div>
+                        <Show when={!o().accounts.some((a,) => a.since || a.lastRun)}>
+                            <p class="social-analytics__empty">
+                                Nothing has been collected yet. Connect a platform in <A href="/admin/social/configuration">Social → Configuration</A>,
+                                then press <strong>Collect now</strong> (the daily collection runs at 06:10 UTC).
+                            </p>
+                        </Show>
                     </>
                 )}
             </Show>
+            </Show>
+            </StableSuspense>
 
             <section class="admin-section social-analytics__chart">
                 <header class="admin-section__header social-analytics__chart-head">
                     <h2>Trend</h2>
                     <div class="social-analytics__chart-controls">
-                        <select value={chartPlatform()} onChange={(e,) => setChartPlatform(e.currentTarget.value,)}>
+                        <select value={chartPlatform()} onChange={(e,) => setChartPlatform(e.currentTarget.value,)} aria-label="Chart platform">
                             <For each={withData()}>{(a,) => <option value={a.platform}>{a.label}</option>}</For>
                         </select>
-                        <select value={chartMetric()} onChange={(e,) => setChartMetric(e.currentTarget.value,)}>
-                            <For each={CHART_METRICS}>{(m,) => <option value={m}>{SOCIAL_METRICS[m]?.label ?? m.replace(/([A-Z])/g, ' $1',).replace(/^./, (c,) => c.toUpperCase(),)}</option>}</For>
+                        <select value={chartMetric()} onChange={(e,) => setChartMetric(e.currentTarget.value,)} aria-label="Chart metric" title={SOCIAL_METRICS[chartMetric()]?.description ?? ''}>
+                            <For each={chartMetrics(settled(series,)?.available, chartMetric(),)}>{(m,) => <option value={m}>{metricLabel(m,)}</option>}</For>
                         </select>
                     </div>
                 </header>
-                <LineChart
-                    points={series()?.points ?? []}
-                    markers={markers()}
-                    format={metricFormatter(chartMetric(),)}
-                    emptyText={chartPlatform() ? 'No data for this metric in the period. Some metrics need more access (see the platform card).' : 'No platform has been collected yet — press Collect now.'}
-                />
+                <StableSuspense fallback={<div class="form-help-muted">Loading…</div>}>
+                    <Show when={!series.error} fallback={<LoadError what="the chart" error={series.error} onRetry={refetchSeries} />}>
+                        <LineChart
+                            points={series()?.points ?? []}
+                            markers={markers()}
+                            format={metricFormatter(chartMetric(),)}
+                            label={`${platformLabel(chartPlatform(),)} — ${metricLabel(chartMetric(),)}`}
+                            emptyText={chartPlatform() ? 'No data for this metric in the period. Some metrics need more access (see the platform card).' : 'No platform has been collected yet — press Collect now.'}
+                        />
+                    </Show>
+                </StableSuspense>
             </section>
 
             <section class="admin-section social-analytics__audience">
@@ -458,6 +521,8 @@ const SocialAnalyticsPanel: Component = () => {
                         {exporting() ? 'Exporting…' : 'Export CSV'}
                     </button>
                 </div>
+                <StableSuspense fallback={<div class="form-help-muted">Loading posts…</div>}>
+                <Show when={!postList.error} fallback={<LoadError what="the posts" error={postList.error} onRetry={refetchPosts} />}>
                 <div class="social-analytics__table-wrap">
                     <table class="admin-table social-analytics__table">
                         <thead>
@@ -481,7 +546,18 @@ const SocialAnalyticsPanel: Component = () => {
                                 <For each={postList()!.data}>
                                     {(p: SocialPostAnalytics,) => (
                                         <>
-                                            <tr class="social-analytics__row" onClick={() => setOpen(open() === p.id ? null : p.id,)}>
+                                            <tr
+                                                class="social-analytics__row"
+                                                tabIndex={0}
+                                                aria-expanded={open() === p.id}
+                                                title="Show this post's history"
+                                                onClick={() => setOpen(open() === p.id ? null : p.id,)}
+                                                onKeyDown={(e,) => {
+                                                    if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+                                                    e.preventDefault();
+                                                    setOpen(open() === p.id ? null : p.id,);
+                                                }}
+                                            >
                                                 <td class="social-analytics__post">
                                                     <Show when={p.thumbnailUrl} fallback={<span class="social-analytics__thumb social-analytics__thumb--empty" />}>
                                                         <img class="social-analytics__thumb" src={p.thumbnailUrl!} alt="" loading="lazy" />
@@ -492,7 +568,7 @@ const SocialAnalyticsPanel: Component = () => {
                                                                 <a href={p.url!} target="_blank" rel="noopener noreferrer" onClick={(e,) => e.stopPropagation()}>{p.title || '(no text)'}</a>
                                                             </Show>
                                                         </div>
-                                                        <div class="form-help-muted">{p.platform}{p.kind ? ` · ${p.kind}` : ''}</div>
+                                                        <div class="form-help-muted">{platformLabel(p.platform,)}{p.kind ? ` · ${kindLabel(p.kind,)}` : ''}</div>
                                                     </div>
                                                 </td>
                                                 <td>{p.publishedAt ? new Date(p.publishedAt,).toLocaleDateString() : '—'}</td>
@@ -526,6 +602,8 @@ const SocialAnalyticsPanel: Component = () => {
                     limit={25}
                     onPageChange={setPage}
                 />
+                </Show>
+                </StableSuspense>
             </section>
         </section>
     );

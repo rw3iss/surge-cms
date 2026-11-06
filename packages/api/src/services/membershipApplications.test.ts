@@ -110,6 +110,7 @@ describe('two-step apply, signed out first', () => {
             ['FROM membership_applications a', [{ id: APP, user_id: null, plan_id: TIER, status: 'pending', created_at: new Date(), name: "Founder's Club", },],],
             ['FROM subscription_plans WHERE id', [tierRow,],],
             ['stripe_customer_id AS customer', [{ customer: 'cus_new', },],],
+            ['SET user_id = $2', [{},],],
         ],);
         stripe.paymentMethods.retrieve.mockResolvedValue({ id: 'pm_9', customer: 'cus_new', },);
         const done = await attachCard(USER, { applicationId: APP, token: res.token, paymentMethodId: 'pm_9', },);
@@ -125,6 +126,7 @@ describe('two-step apply, signed out first', () => {
     },);
 },);
 
+const PROVEN: [string, unknown[]] = ['FROM user_invites i', [{ ok: true, },],];
 const CLAIM: [string, unknown[]] = ['SET approving_at = NOW()', [{ approving_at: new Date('2026-10-18T00:00:00Z',), },],];
 
 describe('approve', () => {
@@ -214,6 +216,7 @@ describe('submit — anonymous abuse guards', () => {
 describe('claimByVerifiedEmail', () => {
     it('attaches one pending + approved account-less rows to the proven user', async () => {
         db([
+            PROVEN,
             ['lower(a.contact_email) = lower($1) AND a.status IN', [{ id: 'p1', status: 'pending', role_only: false, }, { id: 'p2', status: 'pending', role_only: false, }, { id: 'o1', status: 'approved', role_only: false, },],],
             ['SET user_id = $2', [{},],],
         ],);
@@ -221,6 +224,41 @@ describe('claimByVerifiedEmail', () => {
         expect(n,).toBe(2,);
         const ids = q.mock.calls.filter(([sql,],) => String(sql,).includes('SET user_id = $2',),).map(([, p,],) => (p as string[])[0],);
         expect(ids,).toEqual(['p1', 'o1',],);
+    },);
+
+    it('attaches nothing to an account whose address was never proven (email validation off)', async () => {
+        db([
+            ['FROM user_invites i', [{ ok: false, },],],
+            ['lower(a.contact_email) = lower($1) AND a.status IN', [{ id: 'p1', status: 'pending', role_only: false, },],],
+            ['SET user_id = $2', [{},],],
+        ],);
+        expect(await claimByVerifiedEmail(USER, 'x@y.co',),).toBe(0,);
+        expect(q.mock.calls.some(([sql,],) => String(sql,).includes('SET user_id = $2',),),).toBe(false,);
+    },);
+
+    it('a caller with its own proof (invite link) skips the check', async () => {
+        db([
+            ['lower(a.contact_email) = lower($1) AND a.status IN', [{ id: 'p1', status: 'pending', role_only: false, },],],
+            ['SET user_id = $2', [{},],],
+        ],);
+        expect(await claimByVerifiedEmail(USER, 'x@y.co', { proven: true, },),).toBe(1,);
+        expect(q.mock.calls.some(([sql,],) => String(sql,).includes('verified_at IS NOT NULL',),),).toBe(false,);
+    },);
+
+    it('takes one pending application per program and keeps going when one row fails', async () => {
+        db([
+            PROVEN,
+            ['lower(a.contact_email) = lower($1) AND a.status IN', [
+                { id: 'g1', status: 'pending', role_only: true, plan_id: 'prog-a', },
+                { id: 'g2', status: 'pending', role_only: true, plan_id: 'prog-a', },
+                { id: 'g3', status: 'pending', role_only: true, plan_id: 'prog-b', },
+            ],],
+            ['SET user_id = $2', [{},],],
+        ],);
+        const n = await claimByVerifiedEmail(USER, 'x@y.co',);
+        const ids = q.mock.calls.filter(([sql,],) => String(sql,).includes('SET user_id = $2',),).map(([, p,],) => (p as string[])[0],);
+        expect(ids,).toEqual(['g1', 'g3',],);
+        expect(n,).toBe(2,);
     },);
 },);
 
@@ -261,6 +299,7 @@ describe('programs ("Add its role only")', () => {
 
     it('an approved program found by a verified email is activated (role added) when attached', async () => {
         db([
+            PROVEN,
             ['lower(a.contact_email) = lower($1) AND a.status IN', [{ id: 'g1', status: 'approved', role_only: true, },],],
             ['SET user_id = $2', [{},],],
             ['SELECT a.status, a.activated_at, p.role', [{ status: 'approved', activated_at: null, role: 'contributor', },],],
@@ -286,3 +325,45 @@ describe('programs — no account', () => {
         expect(startApproved,).not.toHaveBeenCalled();
     },);
 });
+
+describe('reject / withdraw vs an approval in progress', () => {
+    it('reject refuses while another reviewer is approving (no charge + rejection email)', async () => {
+        purposeMail.mockClear();
+        db([['FROM membership_applications WHERE id', [{ id: 'app1', user_id: USER, plan_id: TIER, status: 'pending', payment_method_id: 'pm_1', price_id: null, },],],],);
+        const { reject, } = await import('./membershipApplications');
+        await expect(reject('app1', 'no', { userId: 'admin', } as never,),).rejects.toThrow(/being approved/,);
+        expect(purposeMail,).not.toHaveBeenCalled();
+    },);
+
+    it('withdraw of a named application being approved says so instead of "not found"', async () => {
+        const { withdraw, } = await import('./membershipApplications');
+        q.mockImplementation(async (sql: string,) => {
+            if (sql.includes("SET status = 'withdrawn'",)) return { rows: [], rowCount: 0, };
+            if (sql.includes('SELECT 1 FROM membership_applications WHERE id = $1 AND user_id = $2',)) return { rows: [{},], rowCount: 1, };
+            return { rows: [], rowCount: 0, };
+        },);
+        await expect(withdraw(USER, '44444444-4444-4444-8444-444444444444',),).rejects.toThrow(/being approved/,);
+    },);
+},);
+
+describe('attachCard — a program claimed with its token', () => {
+    it('checks the level as a PROGRAM (full tier row), not as a membership', async () => {
+        const APP = '55555555-5555-4555-8555-555555555555';
+        const { submit: sub, } = await import('./membershipApplications');
+        db([
+            ['FROM subscription_plans WHERE id', [{ ...tierRow, role_only: true, role: 'affiliate', hide_price: true, },],],
+            ['INSERT INTO membership_applications', [{ id: APP, created_at: new Date(), },],],
+        ],);
+        const answers = ['name', 'email', 'phone', 'occupation',].map((id,) => ({ questionId: id, value: id === 'email' ? 'c@d.co' : `x-${id}`, }),);
+        const res = await sub({ tierId: TIER, answers, }, { userId: null, email: null, ipAddress: '1.1.1.1', },);
+        q.mockReset();
+        db([
+            ['FROM membership_applications a', [{ id: APP, user_id: null, plan_id: TIER, status: 'pending', created_at: new Date(), name: 'Affiliate', program: true, },],],
+            ['FROM subscription_plans WHERE id', [{ ...tierRow, role_only: true, role: 'affiliate', },],],
+            ['SELECT role, extra_roles FROM users', [{ role: 'member', extra_roles: ['affiliate',], },],],
+        ],);
+        // Program rules: the role is already held → refused as a program (not "already have an application").
+        await expect(attachCard(USER, { applicationId: APP, token: res.token, paymentMethodId: 'pm_9', },),).rejects.toThrow(/already part of/,);
+        expect(q.mock.calls.some(([sql,],) => String(sql,).includes('role_only',) && String(sql,).includes('FROM subscription_plans WHERE id',),),).toBe(true,);
+    },);
+},);

@@ -3,7 +3,7 @@
  * the email recipients of the "Social analytics digest" notification type)
  * and the notification's other channels (in-app, desktop, SMS).
  */
-import type { SocialAnalyticsDigest, SocialAnalyticsSettings, } from '@sitesurge/types';
+import type { SocialAnalyticsDigest, SocialAnalyticsDigestSendResponse, SocialAnalyticsSettings, } from '@sitesurge/types';
 import { config, } from '../../../config';
 import { query, } from '../../../db';
 import { logger, } from '../../../utils/logger';
@@ -19,9 +19,13 @@ const siteUrl = () => String(config.frontendUrl || '',).replace(/\/+$/, '',);
 export const digestViewPath = (id: string,) => `/admin/social/analytics/digests/${id}`;
 export const DIGEST_SETTINGS_PATH = '/admin/social/analytics/settings';
 
-/** Who gets the digest email. */
-export async function digestRecipients(settings: SocialAnalyticsSettings,): Promise<string[]> {
-    if (!settings.email.enabled) return [];
+/**
+ * Who gets the digest email. The "Email each digest" switch controls the
+ * AUTOMATIC email; a manual "Send email" (`manual`) uses the same recipients
+ * whether it is on or off.
+ */
+export async function digestRecipients(settings: SocialAnalyticsSettings, opts: { manual?: boolean; } = {},): Promise<string[]> {
+    if (!settings.email.enabled && !opts.manual) return [];
     const out = new Set(settings.email.recipients.map((a,) => a.toLowerCase(),),);
     if (settings.email.recipientMode === 'augment') {
         const n = (await getNotificationSettings())[DIGEST_NOTIFICATION_TYPE];
@@ -38,11 +42,15 @@ export async function renderEmailFor(digest: SocialAnalyticsDigest, format: 'ful
     },);
 }
 
-/** Email a digest; one message per recipient. Returns who it went to. */
-export async function sendDigestEmail(digest: SocialAnalyticsDigest, settings?: SocialAnalyticsSettings,): Promise<{ sent: number; recipients: string[]; }> {
-    const s = settings ?? await getSettings();
-    const recipients = await digestRecipients(s,);
-    if (!recipients.length || digest.status !== 'ready') return { sent: 0, recipients, };
+/** Email a digest; one message per recipient. Returns who it went to (and why nothing was sent). */
+export async function sendDigestEmail(
+    digest: SocialAnalyticsDigest,
+    opts: { settings?: SocialAnalyticsSettings; manual?: boolean; } = {},
+): Promise<SocialAnalyticsDigestSendResponse> {
+    const s = opts.settings ?? await getSettings();
+    const recipients = await digestRecipients(s, { manual: opts.manual, },);
+    if (digest.status !== 'ready') return { sent: 0, failed: 0, recipients, reason: 'not_ready', };
+    if (!recipients.length) return { sent: 0, failed: 0, recipients, reason: 'no_recipients', };
     const html = await renderEmailFor(digest, s.email.format,);
     const subject = digestTitle(digest,);
     let sent = 0;
@@ -60,7 +68,7 @@ export async function sendDigestEmail(digest: SocialAnalyticsDigest, settings?: 
             [digest.id, sent,],
         );
     }
-    return { sent, recipients, };
+    return { sent, failed: recipients.length - sent, recipients, reason: null, };
 }
 
 /**

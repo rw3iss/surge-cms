@@ -52,6 +52,16 @@
     gap: $spacing-sm;
   }
 
+  &__map-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-xs;
+    color: $text-light;
+  }
+
   &__hint { font-size: $font-size-xs; color: $text-light; }
   &__error { margin: 0; font-size: $font-size-xs; color: $error-color; }
   &__warning {

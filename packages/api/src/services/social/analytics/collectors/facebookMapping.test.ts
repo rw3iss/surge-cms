@@ -51,6 +51,20 @@ describe('facebookMapping', () => {
         expect(map.pageBreakdownPoints({ data: [{ name: 'page_media_view', values: [{ value: 5, },], },], }, 'is_from_ads', 'd',),).toEqual([],);
     },);
 
+    it('breakdowns: a values[] answer is dated by its end_time, like the Page totals', () => {
+        const pts = map.pageBreakdownPoints({
+            data: [{ name: 'page_media_view', values: [{ value: { true: 4, false: 6, }, end_time: END, },], },],
+        }, 'is_from_followers', '2026-11-04',);
+        expect(pts.map((p,) => [p.date, p.dimension, p.value,]),).toEqual([['2026-11-03', 'follow:FOLLOWER', 4,], ['2026-11-03', 'follow:NON_FOLLOWER', 6,],],);
+    },);
+
+    it('shares: 0 only for a node read with its summaries, null for a bare { id }', () => {
+        expect(map.mapFacebookPost('p', { reactions: { summary: { total_count: 2, }, }, }, new Map(),).shares,).toBe(0,);
+        expect(map.mapFacebookPost('p', { shares: { count: 3, }, }, new Map(),).shares,).toBe(3,);
+        expect(map.mapFacebookPost('p', {}, new Map(),).shares,).toBeNull();
+        expect(map.mapFacebookPost('p', null, new Map(),).shares,).toBeNull();
+    },);
+
     it('audience: followers by country / city', () => {
         const pts = map.audiencePoints({
             data: [

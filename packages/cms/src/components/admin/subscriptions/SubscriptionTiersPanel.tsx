@@ -13,7 +13,7 @@ import TierModal from './TierModal';
 import './Subscriptions.scss';
 
 const money = (t: SubscriptionTier,) =>
-    t.isFree ? 'Free' : t.stripePriceId
+    t.isFree ? 'Free' : t.roleOnly ? '— (program, no price)' : t.stripePriceId
         ? `$${(t.priceCents / 100).toFixed(2,)}${t.intervalCount > 1 ? ` every ${t.intervalCount} ${t.interval}s` : ` / ${t.interval}`}`
             + (t.displayPrice
                 ? ` (shown as $${(t.displayPrice.priceCents / 100).toFixed(2,)}${t.displayPrice.intervalCount > 1 ? ` every ${t.displayPrice.intervalCount} ${t.displayPrice.interval}s` : ` / ${t.displayPrice.interval}`})`
@@ -33,16 +33,18 @@ const SubscriptionTiersPanel: Component = () => {
     const [stripePrices,] = createResource(() => cms.subscriptionTiers.stripePrices().then((r,) => r.prices,).catch(() => [] as StripeSubscriptionPrice[]),);
     const otherPrices = (t: SubscriptionTier,) =>
         t.stripeProductId && t.stripePriceId
-            ? (stripePrices() ?? []).filter((p,) => p.productId === t.stripeProductId && p.priceId !== t.stripePriceId,)
+            ? (stripePrices.latest ?? []).filter((p,) => p.productId === t.stripeProductId && p.priceId !== t.stripePriceId,)
             : [];
     const [editing, setEditing,] = createSignal<SubscriptionTier | 'new' | null>(null,);
     const [deleting, setDeleting,] = createSignal<SubscriptionTier | null>(null,);
+    const [deletingBusy, setDeletingBusy,] = createSignal(false,);
 
-    const roleLabel = (key: string | null,) => (key ? roles()?.find((r,) => r.key === key,)?.label ?? key : '—');
+    const roleLabel = (key: string | null,) => (key ? roles.latest?.find((r,) => r.key === key,)?.label ?? key : '—');
 
     const doDelete = async () => {
         const t = deleting();
-        if (!t) return;
+        if (!t || deletingBusy()) return;
+        setDeletingBusy(true,);
         try {
             await cms.subscriptionTiers.remove(t.id,);
             toast.success('Membership level deleted.',);
@@ -50,6 +52,7 @@ const SubscriptionTiersPanel: Component = () => {
         } catch (e) {
             toast.error(e instanceof Error ? e.message : 'Could not delete it.',);
         } finally {
+            setDeletingBusy(false,);
             setDeleting(null,);
         }
     };
@@ -75,14 +78,14 @@ const SubscriptionTiersPanel: Component = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        <For each={tiers() ?? []}>
+                        <For each={tiers.latest ?? []}>
                             {(t,) => (
                                 <tr>
                                     <td>
                                         <strong>{t.name}</strong> <code class="subscriptions-panel__slug">{t.slug}</code>
                                         <Show when={t.description}><div class="form-help-muted">{t.description}</div></Show>
                                         <Show when={t.roleOnly}>
-                                            <div class="subscriptions-panel__approval"><span class="badge badge--info">Program — approval adds the {t.role} role</span></div>
+                                            <div class="subscriptions-panel__approval"><span class="badge badge--info">Program — approval adds the {roleLabel(t.role,)} role</span></div>
                                         </Show>
                                         <Show when={t.hiddenFromTiers}>
                                             <div class="subscriptions-panel__approval"><span class="badge badge--muted">Hidden from subscription tiers</span></div>
@@ -125,11 +128,11 @@ const SubscriptionTiersPanel: Component = () => {
                 </table>
             </div>
 
-            <Show when={editing() && roles() && perms()}>
+            <Show when={editing() && roles.latest && perms.latest}>
                 <TierModal
                     tier={editing() === 'new' ? null : (editing() as SubscriptionTier)}
-                    roles={roles()!}
-                    permissions={perms()!}
+                    roles={roles.latest!}
+                    permissions={perms.latest!}
                     onClose={() => setEditing(null,)}
                     onSaved={() => { setEditing(null,); void refetch(); }}
                 />
@@ -139,6 +142,8 @@ const SubscriptionTiersPanel: Component = () => {
                 title="Delete membership level"
                 message={`Delete "${deleting()?.name ?? ''}"? Only a membership level that never had members can be deleted — otherwise deactivate it.`}
                 confirmLabel="Delete"
+                busyLabel="Deleting…"
+                loading={deletingBusy()}
                 danger
                 onConfirm={doDelete}
                 onCancel={() => setDeleting(null,)}

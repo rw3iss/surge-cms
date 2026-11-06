@@ -33,6 +33,7 @@ import { logger, } from '../utils/logger';
 import { captureAudience, } from './audienceIntake';
 import { formAnswersEmailHtml, formAnswersText, } from './formAnswersEmail';
 import { brandedMessage, brandLayout, isFullHtmlDocument, } from './mail/branded';
+import { allow, } from './discussions/spam';
 
 interface SubmittedAnswer {
     questionId: string;
@@ -268,8 +269,16 @@ async function runEmail(
     // One message PER recipient rather than a single multi-recipient message:
     // recipients never see each other's addresses, and one rejected address
     // can't take the rest of the notifications down with it.
+    // A `{{ }}` "Send to" takes addresses from the VISITOR's answers, so the
+    // form could relay its text to any address. Addresses not written in the
+    // config get at most 3 messages per form per day (fails open without Redis).
+    const literal = (cfg.emailTo || '').toLowerCase();
     const failed: string[] = [];
     for (const to of recipients) {
+        if (!literal.includes(to.toLowerCase(),) && !(await allow(`formmail:${form.id}:${to.toLowerCase()}`, 3, 86_400,))) {
+            logger.warn('form email action: visitor-chosen recipient over its daily limit', { form: form.id, to, },);
+            continue;
+        }
         try {
             await sendEmail({ to, subject, html: body, text, },);
         } catch (e) {

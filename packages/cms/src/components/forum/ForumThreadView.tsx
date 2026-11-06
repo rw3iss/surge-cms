@@ -74,25 +74,38 @@ const ForumThreadView: Component<{ feed: Feed; }> = (props,) => {
             keeper.apply(() => {
                 setTops(mergeById(store.tops, r.data,).items,);
                 setTotalPages(Math.max(page(), r.meta?.totalPages ?? 1,),);
+                setError('',);
             }, 'bottom', true,);
             fresh.mark(idsOf(r.data,).filter((x,) => !before.has(x,)),);
         } catch { /* keep what is shown */ }
     };
 
-    usePoll(refresh, { interval: () => pollIntervalMs(s().refreshSeconds,), active: ctx.live, paused: ctx.typing, },);
+    // Every 3rd poll also re-reads the thread itself, so a lock / a moved or
+    // hidden thread reaches an open chat (the replies poll alone never sees it).
+    let ticks = 0;
+    const poll = async () => {
+        await refresh();
+        if (++ticks % 3 === 0) await props.feed.refresh();
+    };
+    usePoll(poll, { interval: () => pollIntervalMs(s().refreshSeconds,), active: ctx.live, paused: ctx.typing, },);
 
+    const [loadingEarlier, setLoadingEarlier,] = createSignal(false,);
     const loadEarlier = async () => {
         const id = thread()?.id;
-        if (!id) return;
+        if (!id || loadingEarlier()) return;
         const next = page() + 1;
+        setLoadingEarlier(true,);
         try {
             const r = await fetchPage(id, next,);
             keeper.apply(() => {
                 setTops(appendPage(store.tops, r.data,),);
                 setPage(next,);
+                setError('',);
             }, 'top', true,);
         } catch (e) {
             setError(errorText(e,),);
+        } finally {
+            setLoadingEarlier(false,);
         }
     };
 
@@ -108,11 +121,13 @@ const ForumThreadView: Component<{ feed: Feed; }> = (props,) => {
             when={thread()}
             fallback={
                 <Show when={!props.feed.loading()} fallback={<div class="forum-widget__skeleton" aria-hidden="true"><span /><span /></div>}>
-                    <Show when={isAdminView() || s().emptyText}>
-                        <p class={isAdminView() && !s().emptyText ? 'block-message' : 'forum-widget__empty'}>
-                            {s().emptyText ?? 'Choose the thread this block shows (Mode: Thread → Thread).'}
-                        </p>
-                    </Show>
+                    {/* Site: the thread was removed, hidden or is not readable — say so instead of an empty box. */}
+                    <p class={isAdminView() && !s().emptyText ? 'block-message' : 'forum-widget__empty'}>
+                        {s().emptyText
+                            ?? (isAdminView()
+                                ? (s().thread ? 'The chosen thread is not available (removed, hidden or awaiting approval).' : 'Choose the thread this block shows (Mode: Thread → Thread).')
+                                : 'This discussion is not available.')}
+                    </p>
                 </Show>
             }
         >
@@ -127,7 +142,9 @@ const ForumThreadView: Component<{ feed: Feed; }> = (props,) => {
                             </div>
                         </Show>
                         <Show when={page() < totalPages()}>
-                            <button type="button" class="forum-link-btn forum-widget__more" onClick={() => void loadEarlier()}>Load earlier messages</button>
+                            <button type="button" class="forum-link-btn forum-widget__more" disabled={loadingEarlier()} onClick={() => void loadEarlier()}>
+                                {loadingEarlier() ? 'Loading…' : 'Load earlier messages'}
+                            </button>
                         </Show>
                         <Show when={page() >= totalPages() && t().opening}>
                             {(op,) => <ForumMessage comment={op()} opening canReply={false} />}

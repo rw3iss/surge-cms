@@ -12,7 +12,7 @@ const mirror = vi.fn(async (_url: string, _p: string, id: string,) => `/uploads/
 vi.mock('../../../social', () => ({ mirrorRemoteMedia: mirror, }),);
 
 import { getCollector, } from '../registry';
-import { grantedScopes, tiktokAccount, tiktokPostMetric, tiktokPostRow, } from './tiktok';
+import { adoptNewerToken, grantedScopes, tiktokAccount, tiktokPostMetric, tiktokPostRow, } from './tiktok';
 
 const video = {
     id: '7300000000000000001',
@@ -41,6 +41,15 @@ describe('tiktok display mappers', () => {
         expect(row.postUrl,).toBe(video.share_url,);
         expect(row.publishedAt,).toBe(new Date(1_700_000_000_000,).toISOString(),);
         expect(tiktokPostRow({ id: '1', video_description: ' d ', },).content,).toBe('d',);
+    },);
+    it('adopts a token another process renewed (rotated refresh token), not an expired or identical one', () => {
+        const keys = { access: 'accessToken', refresh: 'refreshToken', expires: 'tokenExpiresAt', };
+        const now = Date.parse('2026-11-05T00:00:00Z',);
+        const creds: Record<string, unknown> = { accessToken: 'old', refreshToken: 'r1', };
+        expect(adoptNewerToken(creds, { accessToken: 'old', }, keys, now,),).toBeNull();
+        expect(adoptNewerToken(creds, { accessToken: 'n', tokenExpiresAt: '2026-11-04T00:00:00Z', }, keys, now,),).toBeNull();
+        expect(adoptNewerToken(creds, { accessToken: 'n', refreshToken: 'r2', tokenExpiresAt: '2026-11-06T00:00:00Z', }, keys, now,),).toBe('n',);
+        expect(creds,).toMatchObject({ accessToken: 'n', refreshToken: 'r2', },);
     },);
     it('parses granted scopes', () => {
         expect(grantedScopes({ scope: 'user.info.basic,video.list', },),).toEqual(['user.info.basic', 'video.list',],);

@@ -169,21 +169,27 @@ export async function credit(postId: string, amountCents: number, ctx: AuditCont
     const post = await postRow(postId,);
     if (!post.author_id) throw new ValidationError('This post has no author to pay.',);
     const s = await getContributorSettings();
-    const cur = await query<{ id: string; status: string; payout_id: string | null; }>(`SELECT id, status, payout_id FROM contribution_earnings WHERE post_id = $1`, [postId,],);
+    const cur = await query<{ id: string; }>(`SELECT id FROM contribution_earnings WHERE post_id = $1`, [postId,],);
     const e = cur.rows[0];
-    if (e && (e.status === 'paid' || e.payout_id)) throw new ValidationError('This contribution is already paid (or being paid) — it cannot be changed.',);
     if (e) {
-        await query(
-            `UPDATE contribution_earnings SET amount_cents = $2, status = 'earned', revoked_by = NULL, revoked_at = NULL, post_title = $3, updated_at = NOW()
-              WHERE id = $1`,
-            [e.id, amountCents, post.title,],
+        // Conditional: a payout claiming this earning between the read and the
+        // write must win (the amount of money in flight never changes). The
+        // payee follows the post's CURRENT author (an admin may have fixed it).
+        const u = await query(
+            `UPDATE contribution_earnings SET amount_cents = $2, status = 'earned', user_id = $4, revoked_by = NULL, revoked_at = NULL, post_title = $3, updated_at = NOW()
+              WHERE id = $1 AND status <> 'paid' AND payout_id IS NULL`,
+            [e.id, amountCents, post.title, post.author_id,],
         );
+        if (!u.rowCount) throw new ValidationError('This contribution is already paid (or being paid) — it cannot be changed.',);
     } else {
-        await query(
+        const ins = await query(
             `INSERT INTO contribution_earnings (user_id, post_id, post_title, amount_cents, currency, available_at, created_by)
-             VALUES ($1, $2, $3, $4, $5, NOW() + make_interval(days => $6), $7)`,
+             VALUES ($1, $2, $3, $4, $5, NOW() + make_interval(days => $6), $7)
+             ON CONFLICT (post_id) WHERE post_id IS NOT NULL DO NOTHING`,
             [post.author_id, postId, post.title, amountCents, s.currency, s.holdDays, uuidOrNull(ctx.userId,),],
         );
+        // Lost a race with another credit for the same post: apply this amount through the update path.
+        if (!ins.rowCount) return credit(postId, amountCents, ctx,);
     }
     await logAudit({ userId: ctx.userId, action: e ? 'update' : 'create', entityType: 'contribution_earning', entityId: postId, newValues: { amountCents, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
     return get(postId,);
@@ -232,7 +238,13 @@ export async function onApproved(postId: string, payoutCents: number | undefined
     const author = (await query<{ email: string; display_name: string | null; role: string; }>(`SELECT email, display_name, role FROM users WHERE id = $1`, [post.author_id,],)).rows[0];
     if (!author || isStaffRole(author.role,)) return false;
     const amount = payoutCents ?? s.defaultPayoutCents;
-    await credit(postId, amount, ctx,).catch((e: Error,) => logger.warn('contribution credit failed', { postId, error: e.message, },),);
+    try {
+        await credit(postId, amount, ctx,);
+    } catch (e) {
+        // Not credited (e.g. already paid): don't email "credited"; the generic review email goes out instead.
+        logger.warn('contribution credit failed', { postId, error: (e as Error).message, },);
+        return false;
+    }
     void sendPublishedEmails(post, author, amount, s.currency,);
     return true;
 }

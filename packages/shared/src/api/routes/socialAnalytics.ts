@@ -96,6 +96,10 @@ export interface SocialAnalyticsDigestCreateBody {
 export interface SocialAnalyticsDigestSendResponse {
     sent: number;
     recipients: string[];
+    /** Messages that could not be sent (logged server-side). */
+    failed?: number;
+    /** Why nothing was sent: the digest is not ready, or there is no recipient. */
+    reason?: 'not_ready' | 'no_recipients' | null;
 }
 
 export interface SocialAnalyticsAudienceQuery extends SocialAnalyticsRangeQuery {

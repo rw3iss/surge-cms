@@ -68,7 +68,27 @@ export async function review(
     const post = await load(id,);
     if (post.status !== 'pending_review') throw new ValidationError('This post is not waiting for review.',);
     const text = note?.trim() || null;
-    const updated = await posts.update(id, { status: action === 'approve' ? 'published' : 'draft', }, ctx,);
+    // CLAIM the review: one reviewer per submission. Two reviewers pressing
+    // Approve (or Approve + Return) at once used to both pass the status check —
+    // the post was published AND returned, and the author got two emails.
+    // A submission stamps `submitted_at`; a claim stamps `reviewed_at` after it
+    // (a claim older than 2 minutes on a post still waiting = a failed review).
+    const claim = await query(
+        `UPDATE posts SET reviewed_by = $2, reviewed_at = NOW()
+          WHERE id = $1 AND status = 'pending_review'
+            AND (reviewed_at IS NULL OR submitted_at IS NULL OR reviewed_at < submitted_at
+                 OR reviewed_at < NOW() - INTERVAL '2 minutes')`,
+        [id, reviewer.id,],
+    );
+    if (!claim.rowCount) throw new ValidationError('Someone else is reviewing this post right now — reload to see the result.',);
+    let updated: Awaited<ReturnType<typeof posts.update>>;
+    try {
+        updated = await posts.update(id, { status: action === 'approve' ? 'published' : 'draft', }, ctx,);
+    } catch (err) {
+        // Release the claim so the review can be retried.
+        await query(`UPDATE posts SET reviewed_at = NULL, reviewed_by = NULL WHERE id = $1 AND status = 'pending_review'`, [id,],).catch(() => {},);
+        throw err;
+    }
     await query(
         `UPDATE posts SET reviewed_by = $2, reviewed_at = NOW(), review_note = $3,
                 published_at = CASE WHEN $4 THEN COALESCE(published_at, NOW()) ELSE published_at END

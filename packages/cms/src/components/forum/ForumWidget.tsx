@@ -81,8 +81,9 @@ const ForumWidget: Component<ForumWidgetProps> = (props,) => {
         const fields = Array.from(root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea',),);
         return someoneTyping(fields.map((el,) => ({ focused: el === document.activeElement, value: el.value, name: el.name, })),);
     };
-    // Polling is a site feature; the editor preview stays still.
-    const live = () => s().liveUpdates && !admin() && !feed.error();
+    // Polling is a site feature; the editor preview stays still. A refused feed
+    // (401/403) stops it; any other failure keeps polling, so a network blip heals itself.
+    const live = () => s().liveUpdates && !admin() && !denied();
 
     const guestWriting = () => !signedIn() && s().allowAnonymous && Boolean(feed.meta()?.anonymousAllowed,);
     const reactionKinds = createMemo(() => {
@@ -160,7 +161,17 @@ const ForumWidget: Component<ForumWidgetProps> = (props,) => {
                         </Match>
                         <Match when={failed()}>
                             {(e,) => (
-                                <Show when={admin()}>
+                                <Show
+                                    when={admin()}
+                                    fallback={
+                                        <div class="forum-gate forum-gate--error" role="alert">
+                                            <p class="forum-gate__text">The discussion could not be loaded. Check your connection and try again.</p>
+                                            <button type="button" class="forum-btn" disabled={feed.loading()} onClick={() => void feed.load()}>
+                                                {feed.loading() ? 'Loading…' : 'Try again'}
+                                            </button>
+                                        </div>
+                                    }
+                                >
                                     <p class="block-message">The forum could not be loaded: {e().message}</p>
                                 </Show>
                             )}

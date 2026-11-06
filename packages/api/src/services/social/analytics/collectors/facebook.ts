@@ -50,7 +50,7 @@ import {
     POST_VIDEO_METRICS,
     REEL_METRICS,
 } from './facebookMapping';
-import { type FbItem, type FbPage, type FbReel, listPosts, listReels, mergeItems, upsertFacebookPosts, } from './facebookMedia';
+import { type FbItem, type FbPage, type FbReel, listPosts, listReels, mergeItems, POST_DAYS, upsertFacebookPosts, } from './facebookMedia';
 import {
     addDays,
     chunk,
@@ -62,9 +62,12 @@ import {
     insightNumbers,
     insightObjects,
     isMetricError,
+    dueForMetrics,
     isPermissionError,
+    isRateLimitError,
     isTokenError,
     mapLimit,
+    tokenErrorHint,
     unixDay,
     WarningBag,
 } from './metaGraph';
@@ -85,14 +88,23 @@ const UPGRADE = 'Basic Facebook connection — followers and posts only. To add 
 
 interface FacebookCreds {
     token: string;
+    /** The connection's user token when `token` is a saved Page token — tried when the Page token is rejected. */
+    fallbackToken: string | null;
     pageId: string | null;
 }
 
 export function facebookCreds(credentials: Record<string, unknown>,): FacebookCreds | null {
-    const token = String(credentials.pageAccessToken || credentials.accessToken || envValue(config.social.facebook.accessToken,),).trim();
+    const pageToken = String(credentials.pageAccessToken ?? '',).trim();
+    const userToken = String(credentials.accessToken || envValue(config.social.facebook.accessToken,),).trim();
+    const token = pageToken || userToken;
     if (!token) return null;
     const pageId = String(credentials.pageId || envValue(config.social.facebook.pageId,),).trim() || null;
-    return { token, pageId, };
+    return { token, fallbackToken: pageToken && userToken && userToken !== pageToken ? userToken : null, pageId, };
+}
+
+/** Facebook's token error, with the reason and the fix (never the token). */
+function tokenRejected(e: unknown,): Error {
+    return new Error(`Facebook token rejected — ${tokenErrorHint(e,)}. Reconnect Facebook in Social → Configuration and pick the Page again (${(e as Error).message}).`,);
 }
 
 function grantedScopes(credentials: Record<string, unknown>,): string[] | null {
@@ -148,7 +160,7 @@ function status(credentials: Record<string, unknown>, connected: boolean,): Soci
 class Refused extends Error {}
 
 function classify(e: unknown,): never {
-    if (isTokenError(e,)) throw new Error(`Facebook token rejected — reconnect Facebook in Social → Configuration (${(e as Error).message}).`,);
+    if (isTokenError(e,)) throw tokenRejected(e,);
     if (isPermissionError(e,)) throw new Refused((e as Error).message,);
     throw e;
 }
@@ -161,6 +173,22 @@ async function attempt<T,>(fn: () => Promise<T>, fallback: T, warnings: WarningB
         if (isTokenError(e,)) classify(e,);
         if (!(e instanceof Refused) && !isPermissionError(e,)) warnings.add(`${label}: ${(e as Error).message}`,);
         return { ok: false, value: fallback, };
+    }
+}
+
+/**
+ * Resolve the Page with the saved token; when a saved Page token is rejected
+ * (revoked by a password change, a reconnect…) retry with the user token,
+ * which is swapped for a fresh Page token.
+ */
+async function resolvePageWithFallback(creds: FacebookCreds, warn: (m: string,) => void,): Promise<FbPage> {
+    try {
+        return await resolvePage(creds,);
+    } catch (e) {
+        if (!isTokenError(e,) || !creds.fallbackToken) throw e;
+        const page = await resolvePage({ ...creds, token: creds.fallbackToken, fallbackToken: null, },);
+        warn('The saved Facebook Page token was rejected; collected with the account token instead. Pick the Page again in Social → Configuration → Facebook to save a fresh Page token.',);
+        return page;
     }
 }
 
@@ -223,7 +251,7 @@ async function pageBreakdowns(page: FbPage, today: string, warnings: WarningBag,
             points.push(...pageBreakdownPoints(resp, group.breakdown, date,),);
         }
     }
-    return points;
+    return points.filter((p,) => p.date < today);
 }
 
 /** Followers by country / city: period lifetime, else day (Meta lists both forms for the old page_fans_*). */
@@ -278,30 +306,43 @@ async function itemInsights(page: FbPage, item: FbItem, node: FbPostNode | null,
     return { metric: mapFacebookPost(item.externalId, node ?? item.node, nums, objects, reel,), video, };
 }
 
+const SUMMARY_FIELDS = 'reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0),shares';
+
 async function postMetrics(page: FbPage, items: FbItem[], warnings: WarningBag,): Promise<{ ok: boolean; video: boolean; posts: PostMetric[]; }> {
     // Summaries for items the list did not carry (older due posts): 50 per request.
     const missing = items.filter((i,) => !i.node.reactions && !i.node.comments,);
     const nodes = new Map<string, FbPostNode>();
     for (const batch of chunk(missing.map((i,) => i.externalId), 50,)) {
         try {
-            const r = await graphGet<Record<string, FbPostNode>>(FACEBOOK_GRAPH, '', {
-                ids: batch.join(',',),
-                fields: 'reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0),shares',
-            }, page.token,);
+            const r = await graphGet<Record<string, FbPostNode>>(FACEBOOK_GRAPH, '', { ids: batch.join(',',), fields: SUMMARY_FIELDS, }, page.token,);
             for (const [id, node,] of Object.entries(r,)) nodes.set(id, node,);
         } catch (e) {
             if (isTokenError(e,)) classify(e,);
-            warnings.add(`Facebook post summaries failed — ${(e as Error).message}`,);
+            if (!isMetricError(e,)) {
+                warnings.add(`Facebook post summaries failed — ${(e as Error).message}`,);
+                continue;
+            }
+            // One deleted / unreachable post fails the whole ?ids= batch — ask the batch one by one.
+            await mapLimit(batch, CONCURRENCY, async (id,) => {
+                try {
+                    nodes.set(id, await graphGet<FbPostNode>(FACEBOOK_GRAPH, id, { fields: SUMMARY_FIELDS, }, page.token,),);
+                } catch (err) {
+                    if (isTokenError(err,)) classify(err,);
+                    // Same text each time so the bag reports it once with a count (Meta's message names the id).
+                    warnings.add('Facebook post summaries: a post is no longer readable (deleted, hidden or not this Page\'s)',);
+                }
+            },);
         }
     }
     const nodeOf = (i: FbItem,) => (i.node.reactions || i.node.comments ? i.node : nodes.get(i.externalId,) ?? null);
     const dead: PostDeadSets = { post: new Set(), reel: new Set(), };
     let refused = false;
+    let limited = false;
     let video = false;
     const posts = await mapLimit(items, CONCURRENCY, async (item,): Promise<PostMetric | null> => {
         const node = nodeOf(item,);
         const basic = () => (node ? mapFacebookPost(item.externalId, node, new Map(),) : null);
-        if (refused) return basic();
+        if (refused || limited) return basic();
         try {
             const r = await itemInsights(page, item, node, dead, warnings,);
             if (r.video) video = true;
@@ -309,7 +350,10 @@ async function postMetrics(page: FbPage, items: FbItem[], warnings: WarningBag,)
         } catch (e) {
             if (isTokenError(e,)) classify(e,);
             if (isPermissionError(e,)) refused = true;
-            else warnings.add(`Facebook post insights failed — ${(e as Error).message}`,);
+            else if (isRateLimitError(e,)) {
+                limited = true;
+                warnings.add(`Facebook rate limit reached — the remaining posts keep only reactions / comments / shares this run (${(e as Error).message})`,);
+            } else warnings.add(`Facebook post insights failed — ${(e as Error).message}`,);
             return basic();
         }
     },);
@@ -339,6 +383,11 @@ async function benchmarkPages(page: FbPage, today: string, warnings: WarningBag,
     const points: DailyPoint[] = [];
     let ok = false;
     for (const ref of refs) {
+        // A Page username or numeric id only — never a path (`me/accounts`) or a query.
+        if (!/^[A-Za-z0-9.\-]{1,100}$/.test(ref,)) {
+            warnings.add(`Facebook benchmark "${ref}": not a Page username or id`,);
+            continue;
+        }
         try {
             const p = await graphGet<{ followers_count?: number; fan_count?: number; }>(FACEBOOK_GRAPH, ref, { fields: 'followers_count,fan_count,name', }, page.token,);
             const followers = typeof p.followers_count === 'number' ? p.followers_count : p.fan_count;
@@ -360,7 +409,7 @@ async function collect(ctx: CollectContext,): Promise<CollectResult> {
     const warnings = new WarningBag();
     let page: FbPage;
     try {
-        page = await resolvePage(creds,);
+        page = await resolvePageWithFallback(creds, ctx.warn,);
     } catch (e) {
         if (isTokenError(e,)) classify(e,);
         throw e;
@@ -382,14 +431,17 @@ async function collect(ctx: CollectContext,): Promise<CollectResult> {
             warnings.add(`Facebook posts: ${(e as Error).message}`,);
         }
     }
+    // Metrics for the due posts + newly listed recent ones (not the old tail of the last listed page).
+    const due = new Set(ctx.posts.map((p,) => p.externalId),);
+    const measured = items.filter((i,) => dueForMetrics(i.externalId, i.node.created_time, due, ctx.today, POST_DAYS,),);
     const known = new Set(items.map((i,) => i.externalId),);
     for (const p of ctx.posts) {
         if (known.has(p.externalId,)) continue;
-        items.push({ externalId: p.externalId, kind: p.kind ?? 'post', videoId: null, node: { id: p.externalId, }, },);
+        measured.push({ externalId: p.externalId, kind: p.kind ?? 'post', videoId: null, node: { id: p.externalId, }, },);
     }
 
     // BASIC + INSIGHTS — 3 / 7. Per post.
-    const media = await postMetrics(page, items, warnings,);
+    const media = await postMetrics(page, measured, warnings,);
     result.posts = media.posts;
 
     // INSIGHTS — 4–6.

@@ -16,12 +16,12 @@ import type { Form, FormQuestion, FormResults, FormSubmission, QuestionResult, }
 import { formatAnswerValue, } from '@sitesurge/types';
 import { NotFoundError, ValidationError, } from '../core/errors';
 import * as repo from '../repositories/forms.repo';
-import { query, } from '../db';
+import { transaction, } from '../db';
 import { uuidOrNull, } from '../utils/uuid';
 import { performBulkAction, } from '../utils/bulkActions';
 import type { BulkActionResult, } from '../utils/bulkActions';
 import { logAudit, } from './audit';
-import { cache, } from './cache';
+import { cache, CACHE_KEYS, } from './cache';
 import { dispatchFormAction, } from './formActions';
 import { buildNotification, notifyUser, notifyWith, personLabel, siteBaseUrl, } from './notifications';
 import { formAnswersEmailHtml, formAnswersText, } from './formAnswersEmail';
@@ -52,13 +52,22 @@ export async function list(
 export async function clone(id: string, ctx: AuditContext,): Promise<Form> {
     const src = await repo.findFormById(id,).catch(() => null);
     if (!src) throw new NotFoundError('Form',);
-    const { copy, } = await import('./entities.js');
-    const rec = await copy('form', id, { userId: ctx.userId, }, { title: `${src.title} (Copy)`, },);
-    const newId = String((rec as { id: string; }).id,);
-    await query(
-        `UPDATE forms SET title = $3, status = 'draft', submission_count = 0, closed_at = NULL, created_by = $2, created_at = NOW(), updated_at = NOW() WHERE id = $1`,
-        [newId, uuidOrNull(ctx.userId,), `${src.title} (Copy)`.slice(0, 255,),],
-    );
+    const title = `${src.title} (Copy)`.slice(0, 255,);
+    const [{ copyRecord, }, entityManager,] = await Promise.all([import('../entities/recordCopy.js'), import('../entities/entityManager.js'),],);
+    await entityManager.ready();
+    const typeDef = entityManager.requireType('form',);
+    // ONE transaction: the deep copy (row + questions, slug suffixed) AND the
+    // reset to a fresh draft. Before, the reset ran after the copy committed —
+    // a failure there left a PUBLISHED duplicate carrying the source's count.
+    const newId = await transaction(async (client,) => {
+        const copyId = await copyRecord(client, typeDef, id, { title, },);
+        await client.query(
+            `UPDATE forms SET status = 'draft', submission_count = 0, closed_at = NULL, created_by = $2, created_at = NOW(), updated_at = NOW() WHERE id = $1`,
+            [copyId, uuidOrNull(ctx.userId,),],
+        );
+        return copyId;
+    },);
+    await cache.invalidateEntityCache('form',);
     await cache.invalidateFormCache();
     await logAudit({ userId: ctx.userId, action: 'clone', entityType: 'form', entityId: newId, newValues: { from: id, }, ipAddress: ctx.ipAddress, userAgent: ctx.userAgent, },);
     const form = await getById(newId,);
@@ -79,7 +88,7 @@ export async function getById(id: string,): Promise<Form | null> {
 // ─── Public reads (published-only — anonymous caching safe) ─────────
 
 export async function listPublishedCached(): Promise<Form[]> {
-    const cacheKey = 'forms:public';
+    const cacheKey = CACHE_KEYS.formsPublic;
     const cached = await cache.get<Form[]>(cacheKey,);
     if (cached) return cached;
 
@@ -114,7 +123,7 @@ export async function getPublicBySlug(
     slug: string,
     hasUser: boolean,
 ): Promise<{ form: Form; } | { error: 'not_found' | 'unauthorized'; }> {
-    const cacheKey = `form:slug:${slug}`;
+    const cacheKey = CACHE_KEYS.formSlug(slug,);
     const cached = await cache.get<Form>(cacheKey,);
     if (cached && !cached.requiresAuth) return { form: cached, };
 
@@ -235,6 +244,42 @@ export type SubmitResult =
     | { ok: true; message: string; submissionId?: string | null; }
     | { error: 'not_found' | 'unauthorized' | 'duplicate' | 'closed'; };
 
+/** An answer counts as empty when it is missing, null, blank text or an empty list. */
+function isBlankAnswer(value: unknown,): boolean {
+    if (value === undefined || value === null) return true;
+    if (typeof value === 'string') return value.trim() === '';
+    if (Array.isArray(value,)) return value.every((v,) => String(v ?? '',).trim() === '',);
+    if (typeof value === 'number') return Number.isNaN(value,);
+    return false;
+}
+
+/**
+ * The submitted answers, cleaned: only answers to `questions` (an unknown id —
+ * a stale page, a pre-fill for another form, a crafted request — is dropped
+ * rather than stored), and one answer per question (the last one wins).
+ */
+export function cleanSubmittedAnswers(
+    questions: ReadonlyArray<Pick<FormQuestion, 'id'>>,
+    answers: ReadonlyArray<{ questionId: string; value: unknown; }>,
+): Array<{ questionId: string; value: unknown; }> {
+    const known = new Set(questions.map((q,) => q.id),);
+    const byId = new Map<string, unknown>();
+    for (const a of answers) if (a && known.has(a.questionId,)) byId.set(a.questionId, a.value,);
+    return [...byId,].map(([questionId, value,],) => ({ questionId, value, }));
+}
+
+/** The first required question without a real answer (blank text and `null` count as unanswered), or null. */
+export function missingRequiredQuestion<Q extends Pick<FormQuestion, 'id' | 'isRequired'>,>(
+    questions: readonly Q[],
+    answers: ReadonlyArray<{ questionId: string; value: unknown; }>,
+): Q | null {
+    for (const q of questions) {
+        if (!q.isRequired) continue;
+        if (isBlankAnswer(answers.find((a,) => a.questionId === q.id)?.value,)) return q;
+    }
+    return null;
+}
+
 export async function submit(input: SubmitInput,): Promise<SubmitResult> {
     const form = await repo.findFormBySlugPublished(input.slug,);
     if (!form) return { error: 'not_found', };
@@ -263,15 +308,12 @@ export async function submit(input: SubmitInput,): Promise<SubmitResult> {
         if (isDuplicate) return { error: 'duplicate', };
     }
 
-    // Validate required fields. Throws ValidationError → central error map.
+    // Keep only answers to this form's questions (one per question), then
+    // validate required fields. Throws ValidationError → central error map.
     const questions = await repo.findQuestionsByFormId(form.id,);
-    const requiredQuestions = questions.filter((q,) => q.isRequired);
-    for (const rq of requiredQuestions) {
-        const answer = input.answers.find((a,) => a.questionId === rq.id);
-        if (!answer || answer.value === '' || (Array.isArray(answer.value,) && answer.value.length === 0)) {
-            throw new ValidationError(`Question "${rq.question}" is required`,);
-        }
-    }
+    const answers = cleanSubmittedAnswers(questions, input.answers,);
+    const missing = missingRequiredQuestion(questions, answers,);
+    if (missing) throw new ValidationError(`Question "${missing.question}" is required`,);
 
     // `submit` always stores. Subscribe/email only store when the operator
     // opted in via `saveSubmission` — otherwise they run the action without
@@ -285,7 +327,7 @@ export async function submit(input: SubmitInput,): Promise<SubmitResult> {
             input.userId,
             input.ipAddress,
             input.userAgent,
-            input.answers,
+            answers,
             input.nonce ?? null,
         );
         // Idempotent re-submit of the same render (nonce already used):
@@ -299,7 +341,7 @@ export async function submit(input: SubmitInput,): Promise<SubmitResult> {
 
     // Run the form's configured action (subscribe / email). Best-effort — a
     // failure here never fails the response.
-    await dispatchFormAction(form, questions, input.answers, {
+    await dispatchFormAction(form, questions, answers, {
         userId: input.userId ?? undefined,
         userEmail: input.userEmail,
     },);
@@ -307,10 +349,10 @@ export async function submit(input: SubmitInput,): Promise<SubmitResult> {
     // Additive admin notification. Fire-and-forget.
     if (!input.skipNotification) void notifyWith('form_submission', async () => {
         const sorted = questions.slice().sort((x, y,) => x.order - y.order);
-        const byId = new Map(input.answers.map((a,) => [a.questionId, a.value,]),);
+        const byId = new Map(answers.map((a,) => [a.questionId, a.value,]),);
         const emailQ = sorted.find((q,) => q.type === 'email',);
         const answeredEmail = emailQ ? formatAnswerValue(byId.get(emailQ.id,),).trim() : '';
-        const answersHtml = formAnswersEmailHtml(form, questions, input.answers,);
+        const answersHtml = formAnswersEmailHtml(form, questions, answers,);
         // Variables for a custom "Form submission" template (Forms → Settings).
         const submissionContext = {
             form: { title: form.title, slug: form.slug, },
@@ -329,7 +371,7 @@ export async function submit(input: SubmitInput,): Promise<SubmitResult> {
             person,
             personHeading: 'Submitted by',
             // Laid out like the form: sections + half/full field widths.
-            sections: [{ heading: 'Answers', html: answersHtml, text: formAnswersText(form, questions, input.answers,), },],
+            sections: [{ heading: 'Answers', html: answersHtml, text: formAnswersText(form, questions, answers,), },],
             links: [
                 ...(submissionId ? [{ label: 'View submissions', url: `/admin/forms/${form.id}/submissions`, },] : []),
                 ...(person?.adminUrl ? [{ label: 'View member', url: person.adminUrl, },] : []),
@@ -394,17 +436,23 @@ export async function deleteSubmissions(formId: string, ids: string[], ctx: Audi
     return { deleted, };
 }
 
-function escapeCSV(value: string,): string {
-    if (value.includes(',',) || value.includes('"',) || value.includes('\n',)) {
-        return `"${value.replace(/"/g, '""',)}"`;
-    }
-    return value;
+/**
+ * One CSV cell: quoted when needed, and a value a spreadsheet would run as a
+ * formula (`=`, `+`, `-`, `@`, tab, CR first) gets a leading `'` — the answers
+ * are visitor input, so `=HYPERLINK(…)` must open as text in Excel.
+ */
+export function escapeCSV(value: string,): string {
+    let v = value;
+    if (/^[=+\-@\t\r]/.test(v,)) v = `'${v}`;
+    if (/[",\r\n]/.test(v,)) return `"${v.replace(/"/g, '""',)}"`;
+    return v;
 }
 
 function toCSV(headers: string[], rows: string[][],): string {
     const headerLine = headers.map(escapeCSV,).join(',',);
     const dataLines = rows.map((row,) => row.map(escapeCSV,).join(',',));
-    return [headerLine, ...dataLines,].join('\n',);
+    // UTF-8 BOM so Excel reads accented answers correctly; CRLF per RFC 4180.
+    return '\uFEFF' + [headerLine, ...dataLines,].join('\r\n',);
 }
 
 /** Build the CSV body + download filename for a form's submissions. */

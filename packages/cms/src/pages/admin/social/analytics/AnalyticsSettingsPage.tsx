@@ -171,7 +171,7 @@ const AnalyticsSettingsPage: Component = () => {
                                     </select>
                                 </FormField>
                             </Show>
-                            <FormField label="Time">
+                            <FormField label="Time" hint="If the day's collection (06:10 UTC) has not finished yet, the digest waits for it.">
                                 <select value={String(s().digest.hour,)} onChange={(e,) => setDigest({ hour: Number(e.currentTarget.value,), },)}>
                                     <For each={hourOptions}>{(h,) => <option value={h}>{`${h}:00`}</option>}</For>
                                 </select>
@@ -246,20 +246,21 @@ const AnalyticsSettingsPage: Component = () => {
                         <header class="admin-section__header">
                             <h2>Email</h2>
                             <p class="form-help-muted">
-                                Each new digest is emailed when this is on. In-app and desktop alerts follow the "Social analytics digest" type in{' '}
+                                Each new digest is emailed when this is on. <strong>Send email</strong> on a digest uses these recipients either way.
+                                In-app and desktop alerts follow the "Social analytics digest" type in{' '}
                                 <A href="/admin/settings?tab=notifications">Settings → Notifications</A>.
                             </p>
                         </header>
                         <Toggle checked={s().email.enabled} onChange={(v,) => setEmail({ enabled: v, },)} label="Email each digest" />
                         <div class="admin-form-row">
                             <FormField label="Format">
-                                <select value={s().email.format} onChange={(e,) => setEmail({ format: e.currentTarget.value as Settings['email']['format'], },)} disabled={!s().email.enabled}>
+                                <select value={s().email.format} onChange={(e,) => setEmail({ format: e.currentTarget.value as Settings['email']['format'], },)}>
                                     <option value="full">Full — the whole digest</option>
                                     <option value="summary">Summary — headline, totals, top 3 posts + a link</option>
                                 </select>
                             </FormField>
                             <FormField label="Recipients">
-                                <select value={s().email.recipientMode} onChange={(e,) => setEmail({ recipientMode: e.currentTarget.value as Settings['email']['recipientMode'], },)} disabled={!s().email.enabled}>
+                                <select value={s().email.recipientMode} onChange={(e,) => setEmail({ recipientMode: e.currentTarget.value as Settings['email']['recipientMode'], },)}>
                                     <option value="augment">These addresses + the notification's email recipients</option>
                                     <option value="override">Only these addresses</option>
                                 </select>
@@ -278,7 +279,7 @@ const AnalyticsSettingsPage: Component = () => {
                                 value={s().email.recipients.join('\n',)}
                                 onCommit={(v,) => setEmail({ recipients: parseRecipients(v,), },)}
                                 placeholder="team@example.com"
-                                disabled={!s().email.enabled}
+                               
                             />
                         </FormField>
                     </section>

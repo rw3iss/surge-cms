@@ -28,6 +28,13 @@ export const phoneListError = (raw: string,): string | null => {
     return bad.length ? `Not an international number (+ country code, digits only): ${bad.join(', ',)}` : null;
 };
 
+const EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
+/** A message naming the addresses that are not email addresses, or null. */
+export const emailListError = (raw: string,): string | null => {
+    const bad = splitList(raw,).filter((a,) => !EMAIL.test(a,),);
+    return bad.length ? `Not an email address: ${bad.join(', ',)}` : null;
+};
+
 interface Props {
     label: string;
     description?: string;
@@ -66,6 +73,7 @@ const NotificationTypeCard: Component<Props> = (props,) => {
                     class="ui-button ui-button--secondary ui-button--sm"
                     disabled={testing()}
                     title="Sends a sample to the SAVED recipients — save first."
+                    aria-label={`Send a test ${props.label} notification to the saved recipients`}
                     onClick={() => void sendTest()}
                 >
                     {testing() ? 'Sending…' : 'Send test'}
@@ -79,6 +87,7 @@ const NotificationTypeCard: Component<Props> = (props,) => {
                     <CommitInput
                         value={props.draft.email.addresses}
                         placeholder="alerts@example.com, ops@example.com"
+                        validate={emailListError}
                         onCommit={(v,) => props.onPatch('email', { addresses: v, },)}
                     />
                 </FormField>

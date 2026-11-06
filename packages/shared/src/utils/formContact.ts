@@ -26,19 +26,41 @@ export function isFormContactField(v: unknown,): v is FormContactField {
     return FORM_CONTACT_FIELDS.some((f,) => f.value === v);
 }
 
+/** Question types whose answer is free text a person types — the only ones a
+ *  LABEL guess applies to. A choice ("How should we reach you? Email / Phone")
+ *  or a date is never the submitter's address or name. */
+const GUESSABLE_TYPES = new Set(['text', 'textarea', 'email', 'number',],);
+
+/** May a question of this type carry a Contact field? (Typed-in answers only.) */
+export function contactFieldAllowed(type: string | null | undefined,): boolean {
+    return !type || GUESSABLE_TYPES.has(type,) || type === 'phone' || type === 'tel';
+}
+
+/** Labels ABOUT email / phone rather than asking for one ("Email preferences",
+ *  "Phone type", "Email newsletter opt-in"). */
+const ABOUT_CONTACT = /\b(preferences?|preferred|updates?|newsletters?|opt ?(in|out)|frequency|consent|subscri\w*|type|format|method|provider|carrier|app)\b/;
+
 /** The contact field a label (+ question type) most likely means, or null. */
 export function guessContactField(label: string | null | undefined, type?: string | null,): FormContactField | null {
     if (type === 'email') return 'email';
+    if (type === 'phone' || type === 'tel') return 'phone';
+    if (type && !GUESSABLE_TYPES.has(type,)) return null;
     // "First name (optional)" → "first name"; underscores / dashes as spaces.
     const l = String(label ?? '',).toLowerCase().replace(/\(.*?\)/g, ' ',).replace(/[_\-*:?]+/g, ' ',).replace(/\s+/g, ' ',).trim();
     if (!l) return null;
-    if (/\b(e ?mail)\b/.test(l,)) return 'email';
-    if (type === 'phone' || /\b(phone|mobile|cell|telephone|tel)\b/.test(l,)) return 'phone';
+    const about = ABOUT_CONTACT.test(l,);
+    if (/\b(e ?mail)\b/.test(l,)) return about ? null : 'email';
+    if (/\b(phone|mobile|cell|telephone|tel)\b/.test(l,)) return about ? null : 'phone';
+    // A number question is only ever a phone number here.
+    if (type === 'number') return null;
     if (/\b(first|given|fore) ?name\b/.test(l,)) return 'first_name';
     if (/\b(last|family|sur) ?name\b|\bsurname\b/.test(l,)) return 'last_name';
     if (/^(your |full |display )?name$|\bfull name\b/.test(l,)) return 'name';
     return null;
 }
+
+/** A plausible email address (the value a contact `email` field must hold). */
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 export interface FormContactQuestion {
     id: string;
@@ -67,7 +89,9 @@ const text = (v: unknown,): string => (Array.isArray(v,) ? v.join(', ',) : v ===
 export function contactQuestions<Q extends FormContactQuestion>(questions: readonly Q[],): Partial<Record<FormContactField, Q>> {
     const out: Partial<Record<FormContactField, Q>> = {};
     for (const q of questions) {
-        if (isFormContactField(q.contactField,) && !out[q.contactField]) out[q.contactField] = q;
+        // A contact field only means something on a typed-in answer (the editor
+        // offers it there only); one left on a choice question is ignored.
+        if (isFormContactField(q.contactField,) && contactFieldAllowed(q.type,) && !out[q.contactField]) out[q.contactField] = q;
     }
     for (const q of questions) {
         if (q.contactField) continue; // explicitly mapped questions are not guessed again
@@ -87,8 +111,11 @@ export function formContactValues(questions: readonly FormContactQuestion[], ans
     };
     const firstName = value('first_name',);
     const lastName = value('last_name',);
+    // An "email" that is not an address (a free-text answer, a typo) is no
+    // address at all — the callers would subscribe / mail / invite it.
+    const email = value('email',);
     return {
-        email: value('email',),
+        email: email && EMAIL_RE.test(email,) ? email : null,
         name: value('name',) ?? ([firstName, lastName,].filter(Boolean,).join(' ',) || null),
         firstName,
         lastName,

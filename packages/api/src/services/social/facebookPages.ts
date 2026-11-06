@@ -10,7 +10,7 @@
 import { query, } from '../../db';
 import { NotFoundError, ValidationError, } from '../../core/errors';
 import type { FacebookPageOption, } from '@sitesurge/types';
-import { FACEBOOK_GRAPH, graphGet, } from './analytics/collectors/metaGraph';
+import { FACEBOOK_GRAPH, graphGet, isTokenError, tokenErrorHint, } from './analytics/collectors/metaGraph';
 
 interface AccountRow {
     id: string;
@@ -32,16 +32,26 @@ async function connection(): Promise<{ creds: Record<string, unknown>; userToken
 }
 
 async function accounts(userToken: string,): Promise<AccountRow[]> {
-    const r = await graphGet<{ data?: AccountRow[]; }>(
-        FACEBOOK_GRAPH, 'me/accounts', { fields: 'id,name,category,tasks,access_token', limit: '100', }, userToken,
-    );
-    return r.data ?? [];
+    try {
+        const r = await graphGet<{ data?: AccountRow[]; }>(
+            FACEBOOK_GRAPH, 'me/accounts', { fields: 'id,name,category,tasks,access_token', limit: '100', }, userToken,
+        );
+        return r.data ?? [];
+    } catch (e) {
+        // A Graph failure is the operator's to fix, not a server error (graphGet never echoes the token).
+        if (isTokenError(e,)) throw new ValidationError(`Facebook rejected the access token — ${tokenErrorHint(e,)}. Reconnect Facebook, then pick the Page.`,);
+        throw new ValidationError(`Facebook did not list the Pages: ${(e as Error).message}`,);
+    }
 }
 
 /** Pages the connected user manages. Empty when the token is a Page token (it has no /me/accounts). */
 export async function pages(): Promise<FacebookPageOption[]> {
     const { creds, userToken, } = await connection();
-    const list = await accounts(userToken,).catch(() => [] as AccountRow[]);
+    // A Page token has no /me/accounts (empty list); a rejected token is reported.
+    const list = await accounts(userToken,).catch((e,) => {
+        if (e instanceof ValidationError && /rejected the access token/.test(e.message,)) throw e;
+        return [] as AccountRow[];
+    },);
     return list.map((p,) => ({
         id: p.id,
         name: p.name ?? p.id,
@@ -71,10 +81,12 @@ export async function selectPage(pageId: string,): Promise<FacebookPageOption> {
     const next: Record<string, unknown> = {
         ...creds,
         pageId: page.id,
-        ...(page.access_token ? { pageAccessToken: page.access_token, } : {}),
         ...(scopes.length ? { grantedScopes: scopes, } : {}),
     };
-    // The previous Page's capability record would misreport this one.
+    // The previous Page's token and capability record belong to that Page —
+    // keeping its token would make the collector read the OLD Page.
+    if (page.access_token) next.pageAccessToken = page.access_token;
+    else delete next.pageAccessToken;
     delete next.analyticsCapabilities;
     await query(
         `UPDATE social_connections SET credentials = $1::jsonb, display_name = $2, account_id = $3, updated_at = NOW()

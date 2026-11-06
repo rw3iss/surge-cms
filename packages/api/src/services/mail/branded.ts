@@ -41,9 +41,19 @@ export async function brandLayout(): Promise<BrandLayout> {
 
 const FONT = 'Arial,Helvetica,sans-serif';
 
+/** "example.com" from "https://example.com/" — the address shown in the footer. */
+function hostOf(siteUrl: string,): string {
+    return (siteUrl || '').replace(/^https?:\/\//i, '',).replace(/\/+$/, '',);
+}
+
+/** The site's display name; an unnamed site shows its address instead of nothing. */
+function nameOf(layout: BrandLayout,): string {
+    return layout.siteName?.trim() || hostOf(layout.siteUrl,);
+}
+
 function brand(layout: BrandLayout, height: number,): string {
     const home = escapeHtml(layout.siteUrl || '/',);
-    const name = escapeHtml(layout.siteName,);
+    const name = escapeHtml(nameOf(layout,),);
     return layout.logoUrl
         ? `<a href="${home}" style="text-decoration:none"><img src="${escapeHtml(layout.logoUrl,)}" alt="${name}" height="${height}" style="display:block;margin:0 auto;height:${height}px;width:auto;border:0"></a>`
         : `<a href="${home}" style="color:#111;font-family:${FONT};font-size:${Math.round(height / 2.6,)}px;font-weight:700;text-decoration:none">${name}</a>`;
@@ -57,16 +67,20 @@ export function brandHeaderRow(layout: BrandLayout,): string {
 /** The footer row (small logo, site name, site address). */
 export function brandFooterRow(layout: BrandLayout,): string {
     const home = escapeHtml(layout.siteUrl || '/',);
-    const host = escapeHtml((layout.siteUrl || '').replace(/^https?:\/\//, '',),);
+    const rawHost = hostOf(layout.siteUrl,);
+    const host = escapeHtml(rawHost,);
+    const name = nameOf(layout,);
     return `<tr><td align="center" style="padding:20px 24px 28px;border-top:1px solid #e5e7eb">`
         + brand(layout, 32,)
         + `<p style="margin:10px 0 0;font-family:${FONT};font-size:12px;line-height:1.5;color:#6b7280">`
-        + `${escapeHtml(layout.siteName,)}${host ? ` · <a href="${home}" style="color:#6b7280">${host}</a>` : ''}</p>`
+        // The address alone when it IS the name (an unnamed site).
+        + `${escapeHtml(name,)}${rawHost && rawHost !== name ? ` · <a href="${home}" style="color:#6b7280">${host}</a>` : ''}</p>`
         + `</td></tr>`;
 }
 
 export interface BrandedOptions {
     title?: string;
+    /** Plain text (escaped here) — the inbox preview line. */
     preheader?: string;
 }
 
@@ -74,8 +88,10 @@ export interface BrandedOptions {
 export function brandedEmail(rows: string, layout: BrandLayout, opts: BrandedOptions = {},): string {
     return wrapEmailShell({
         bodyHtml: brandHeaderRow(layout,) + rows + brandFooterRow(layout,),
-        title: opts.title ?? layout.siteName,
-        preheader: opts.preheader,
+        title: opts.title ?? nameOf(layout,),
+        // The preheader is PLAIN text (the shell inserts it as HTML): callers
+        // pass headlines that may come from data or an AI answer.
+        preheader: opts.preheader ? escapeHtml(opts.preheader,) : undefined,
         bg: '#f4f4f5',
         font: FONT,
         color: '#222222',

@@ -16,7 +16,7 @@ import { StableSuspense, } from '../../../../components/common/StableSuspense';
 import { useToast, } from '../../../../components/common/toast';
 import { cms, } from '../../../../services/cmsClient';
 import AnalyticsNav from './AnalyticsNav';
-import { daysAgo, periodLabel, } from './digestFormat';
+import { daysAgo, periodLabel, sendResultToast, } from './digestFormat';
 
 const LIMIT = 20;
 
@@ -119,7 +119,7 @@ const DigestsPage: Component = () => {
         setSendingId(d.id,);
         try {
             const r = await cms.socialAnalytics.sendDigest(d.id,);
-            toast.success(r.sent ? `Emailed to ${r.sent} recipient${r.sent === 1 ? '' : 's'}` : 'No recipients — add them in Settings',);
+            sendResultToast(toast, r,);
             refetch();
         } catch (e) {
             toast.error(`Could not email it: ${(e as Error).message}`,);

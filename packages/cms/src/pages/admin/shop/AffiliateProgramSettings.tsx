@@ -10,6 +10,7 @@ import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { createStore, } from 'solid-js/store';
 import Toggle from '../../../components/admin/common/Toggle';
 import { CommitInput, FormField, } from '../../../components/admin/forms';
+import { clampPercent, } from '../../../components/admin/contributions/money';
 import { useToast, } from '../../../components/common/toast';
 import { cms, } from '../../../services/cmsClient';
 import { isFeatureEnabled, reloadSiteSettings, } from '../../../stores/siteSettings';
@@ -21,7 +22,18 @@ const SCHEDULES: { value: AffiliatePayoutSchedule; label: string; }[] = [
     { value: 'monthly', label: 'Monthly (1st of the month)', },
 ];
 
-const AffiliateProgramSettings: Component = () => {
+/** What a host page needs to drive this panel from its sticky header Save. */
+export interface AffiliateSettingsApi {
+    save: () => Promise<void>;
+    saving: () => boolean;
+    /** False while off, loading, or after a failed load — saving defaults over real settings is refused. */
+    ready: () => boolean;
+}
+
+const AffiliateProgramSettings: Component<{
+    /** Host page with a header Save (Shop Settings): receives the save API; the panel hides its own button. */
+    bindSave?: (api: AffiliateSettingsApi,) => void;
+}> = (props,) => {
     const toast = useToast();
     const on = () => isFeatureEnabled('affiliates',);
     const [switching, setSwitching,] = createSignal(false,);
@@ -35,6 +47,9 @@ const AffiliateProgramSettings: Component = () => {
     },);
     const [roles,] = createResource(() => cms.roles.list().catch(() => [] as RoleDef[]),);
     const memberRoles = () => (roles() ?? []).filter((r,) => r.key !== 'anonymous' && !isStaffRole(r.key,),);
+    /** The saved role is always an option, even if the role list lacks it (else the select would show — and save — another). */
+    const roleMissing = () => !!draft.role && roles.state === 'ready' && !memberRoles().some((r,) => r.key === draft.role,);
+    const ready = () => on() && loaded.state === 'ready' && !!loaded();
 
     const setEnabled = async (next: boolean,) => {
         setSwitching(true,);
@@ -50,6 +65,7 @@ const AffiliateProgramSettings: Component = () => {
     };
 
     const save = async () => {
+        if (saving() || !ready()) return;
         setSaving(true,);
         try {
             const s = await cms.affiliates.updateSettings({
@@ -68,6 +84,8 @@ const AffiliateProgramSettings: Component = () => {
         }
     };
 
+    props.bindSave?.({ save, saving, ready, },);
+
     return (
         <section class="admin-section settings-card">
             <header class="admin-section__header">
@@ -85,15 +103,20 @@ const AffiliateProgramSettings: Component = () => {
                 hint="Adds the Affiliate program tab to members' profiles, Shop → Affiliates in the admin, and commissions on affiliate codes."
             />
             <Show when={on()}>
-                <Show when={loaded.state !== 'pending'} fallback={<p class="form-help-muted">Loading…</p>}>
+                <Show when={loaded.state !== 'pending' && loaded.state !== 'refreshing'} fallback={<p class="form-help-muted">Loading…</p>}>
+                  <Show
+                    when={loaded.state !== 'errored'}
+                    fallback={<p class="alert alert--error" role="alert">The affiliate settings could not be loaded{loaded.error instanceof Error ? `: ${loaded.error.message}` : '.'}</p>}
+                  >
                     <div class="admin-form-row">
                         <FormField label="Affiliate role" hint="Users with this role (main or additional) are affiliates.">
                             <select value={draft.role} onChange={(e,) => setDraft('role', e.currentTarget.value,)}>
+                                <Show when={roleMissing()}><option value={draft.role} selected>{draft.role} (role not found)</option></Show>
                                 <For each={memberRoles()}>{(r,) => <option value={r.key} selected={r.key === draft.role}>{r.label}</option>}</For>
                             </select>
                         </FormField>
                         <FormField label="Default commission %" tooltip="The share of the merchandise subtotal a NEW affiliate code earns (0–100). Each code can differ.">
-                            <CommitInput type="number" min={0} max={100} step="0.5" value={draft.defaultCommissionPercent} onCommit={(v,) => setDraft('defaultCommissionPercent', Math.min(100, Math.max(0, Number(v,) || 0,),),)} />
+                            <CommitInput type="number" min={0} max={100} step="0.5" value={draft.defaultCommissionPercent} onCommit={(v,) => setDraft('defaultCommissionPercent', clampPercent(v,),)} />
                         </FormField>
                     </div>
                     <div class="admin-form-row">
@@ -130,11 +153,14 @@ const AffiliateProgramSettings: Component = () => {
                         </FormField>
                         <p class="form-help-muted">Payouts come out of the shop's Stripe balance. <A href="/admin/shop/affiliates">Manage affiliates →</A></p>
                     </div>
-                    <div>
-                        <button type="button" class="ui-button ui-button--primary" onClick={() => void save()} disabled={saving()}>
-                            {saving() ? 'Saving…' : 'Save affiliate settings'}
-                        </button>
-                    </div>
+                    <Show when={!props.bindSave}>
+                        <div>
+                            <button type="button" class="ui-button ui-button--primary" onClick={() => void save()} disabled={saving() || !ready()}>
+                                {saving() ? 'Saving…' : 'Save affiliate settings'}
+                            </button>
+                        </div>
+                    </Show>
+                  </Show>
                 </Show>
             </Show>
         </section>

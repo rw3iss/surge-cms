@@ -148,6 +148,7 @@ async function resolveTarget(ctx, payload) {
         const want = String(payload.session);
         const hit = s.sessions.find((x) => x.status === 'attached' && (x.id === want || x.label === want));
         if (!hit) return fail(404, `No attached session "${want}"`);
+        if (!lib.isHealthy(hit)) return fail(503, `Session "${hit.label || hit.id}" cannot take a job right now (${lib.TUI_STATE_TEXT[hit.tui_state] || hit.tui_state})`);
         return { ok: true, session: hit, pool: poolOf(c.pools, hit.label) };
     }
     const pool = String(payload.pool || c.defaultPool || (c.pools[0] && c.pools[0].name) || '').trim();
@@ -156,7 +157,7 @@ async function resolveTarget(ctx, payload) {
     if (!s.ok) return s;
     // Broker ≥ 0.6 reports each session's TUI state; skip ones that cannot work (usage limit, signed out…).
     const session = lib.pickSession(pool, s.sessions.filter(lib.isHealthy), j.ok ? j.jobs : [], lastSettled);
-    if (!session) return fail(503, `No session is attached in pool "${pool}"`);
+    if (!session) return fail(503, lib.noSessionReason(pool, s.sessions));
     return { ok: true, session, pool };
 }
 
@@ -180,7 +181,7 @@ async function submit(ctx, payload) {
     const body = {
         session_id: session.id,
         content,
-        meta: cleanMeta(payload.meta, { source: 'cms', pool: pool || undefined, format: payload.format || undefined }),
+        meta: cleanMeta(payload.meta, { source: 'cms', pool: pool || undefined, session: session.label || undefined, format: payload.format || undefined }),
         ttl_sec: Math.max(10, Math.min(Number(payload.ttlSec) || c.ttlSec, 86400)),
         priority: ['high', 'normal', 'low'].includes(payload.priority) ? payload.priority : 'normal',
         ...(payload.clientRef ? { client_ref: String(payload.clientRef).slice(0, 255) } : {}),
@@ -344,7 +345,7 @@ module.exports = {
                 return out;
             }
             const [auth, fleet] = await Promise.all([broker(ctx, 'GET', '/auth'), broker(ctx, 'GET', '/fleet')]);
-            if (auth.ok) out.auth = auth.data;
+            if (auth.ok) out.auth = lib.authView(auth.data);
             else out.authError = auth.error;
             if (fleet.ok) out.fleet = lib.fleetView(fleet.data, c.pools);
             else out.fleetError = fleet.error;
@@ -362,7 +363,11 @@ module.exports = {
             const code = String(payload.code || '').trim();
             if (!code || code.length > 1024 || /[\r\n\0]/.test(code)) return fail(400, 'Paste the code shown after signing in.');
             const r = await broker(ctx, 'POST', '/auth/login/code', { code });
-            if (r.ok) return { ok: true, token: r.data && r.data.token };
+            // The saved token's details (dates) only — the credential itself never goes to the browser.
+            if (r.ok) {
+                const t = r.data && r.data.token;
+                return { ok: true, token: t && typeof t === 'object' ? { set: true, created_at: t.created_at || null, expires_at: t.expires_at || null } : { set: Boolean(t) } };
+            }
             // Broker errors are { error: { code, message, details: { retry, url } } }; a bad code
             // comes with a FRESH sign-in link (the old one is used up).
             const d = (r.details && r.details.error && r.details.error.details) || {};

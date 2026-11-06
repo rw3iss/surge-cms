@@ -43,7 +43,7 @@ export function targetOf(n: Pick<UserNotification, 'url'>,): { path: string; ext
 export async function actOn(n: UserNotification, navigate: (path: string,) => void,): Promise<void> {
     if (!n.readAt) {
         await cms.notifications.markRead([n.id,],).catch(() => undefined,);
-        void refreshNotifications();
+        void refreshNotifications({ force: true, },);
     }
     const t = targetOf(n,);
     if (t.external) window.open(t.path, '_blank', 'noopener',);

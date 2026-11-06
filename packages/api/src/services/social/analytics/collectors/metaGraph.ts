@@ -36,6 +36,24 @@ export function isTokenError(e: unknown,): boolean {
     return e instanceof GraphError && (e.code === 190 || e.code === 102 || e.status === 401);
 }
 
+/** Why Meta rejected the token, in words an operator can act on (subcodes 458–467). */
+export function tokenErrorHint(e: unknown,): string {
+    const sub = e instanceof GraphError ? e.subcode : null;
+    if (sub === 463) return 'the token has expired';
+    if (sub === 460) return 'the account password changed, which revoked the token';
+    if (sub === 458) return 'the app was removed from the account';
+    if (sub === 459 || sub === 464) return 'the account needs to log in to Facebook to resolve a checkpoint';
+    if (sub === 467) return 'the user logged out or the token was revoked';
+    return 'the token is invalid or was revoked';
+}
+
+/** Meta throttling (app / user / Page / Business Use Case limits) — stop asking for the rest of this run. */
+export function isRateLimitError(e: unknown,): boolean {
+    if (!(e instanceof GraphError)) return false;
+    const c = e.code;
+    return e.status === 429 || c === 4 || c === 17 || c === 32 || c === 613 || (c !== null && c >= 80000 && c <= 80099);
+}
+
 /** The token lacks a permission (insights scope, ANALYZE task on the Page…). */
 export function isPermissionError(e: unknown,): boolean {
     if (!(e instanceof GraphError)) return false;
@@ -48,14 +66,34 @@ export function isMetricError(e: unknown,): boolean {
     return e instanceof GraphError && (e.code === 100 || e.code === 2500) && !isTokenError(e,);
 }
 
+/** A Graph request that has not answered in this long is abandoned (one hung socket must not stall the cron). */
+export const GRAPH_TIMEOUT_MS = 30_000;
+
+/**
+ * Strip credentials from text that may reach a warning, a log or stored JSON:
+ * the token itself and any `access_token=` / `client_secret=` URL parameter.
+ */
+export function redactSecrets(text: string, ...secrets: Array<string | null | undefined>): string {
+    let out = String(text ?? '',);
+    for (const s of secrets) if (s && s.length >= 8) out = out.split(s,).join('[redacted]',);
+    return out.replace(/((?:access_token|client_secret|appsecret_proof|fb_exchange_token)=)[^&\s"']+/gi, '$1[redacted]',);
+}
+
 /** GET a Graph URL. The token travels as a param but is never echoed in an error. */
 export async function graphGet<T = any,>(base: string, path: string, params: Record<string, string>, token: string,): Promise<T> {
     const q = new URLSearchParams({ ...params, access_token: token, },);
-    const res = await fetch(`${base}/${path.replace(/^\//, '',)}?${q}`,);
+    let res: Response;
+    try {
+        res = await fetch(`${base}/${path.replace(/^\//, '',)}?${q}`, { signal: AbortSignal.timeout(GRAPH_TIMEOUT_MS,), },);
+    } catch (e) {
+        const timedOut = (e as Error)?.name === 'TimeoutError' || (e as Error)?.name === 'AbortError';
+        const msg = timedOut ? `no answer within ${GRAPH_TIMEOUT_MS / 1000} s` : (e as Error)?.message || 'network error';
+        throw new GraphError(`Graph request failed: ${redactSecrets(msg, token,)}`, 0, null, null,);
+    }
     const data = await res.json().catch(() => ({})) as { error?: { message?: string; code?: number; error_subcode?: number; }; };
     if (!res.ok || data?.error) {
         const err = data?.error ?? {};
-        throw new GraphError(err.message || `HTTP ${res.status}`, res.status, err.code ?? null, err.error_subcode ?? null,);
+        throw new GraphError(redactSecrets(err.message || `HTTP ${res.status}`, token,), res.status, err.code ?? null, err.error_subcode ?? null,);
     }
     return data as T;
 }
@@ -175,6 +213,9 @@ export class WarningBag {
     }
 }
 
+/** Prefix of the "ask this group one by one" marker kept in a `dead` set (never a metric name). */
+const SPLIT_MARK = '\u0000split:';
+
 /**
  * Fetch an insights edge for a metric list, tolerating dead metrics:
  * all at once → on a metric error, one at a time. `dead` is shared across
@@ -193,12 +234,18 @@ export async function fetchInsights(
 ): Promise<InsightResponse> {
     const live = metrics.filter((m,) => !dead.has(m,));
     if (!live.length) return { data: [], };
-    let groupError: Error;
-    try {
-        return await graphGet<InsightResponse>(base, path, { ...params, metric: live.join(',',), }, token,);
-    } catch (e) {
-        if (!isMetricError(e,)) throw e;
-        groupError = e as Error;
+    // A group Meta refuses together although every metric works alone (a
+    // metric that "invalidates" a grouped request) is asked one by one for the
+    // rest of the run — not group-first (+ 1 failed call) per object.
+    const splitKey = `${SPLIT_MARK}${[...live,].sort().join(',',)}`;
+    let groupError: Error = new Error('grouped request refused',);
+    if (live.length === 1 || !dead.has(splitKey,)) {
+        try {
+            return await graphGet<InsightResponse>(base, path, { ...params, metric: live.join(',',), }, token,);
+        } catch (e) {
+            if (!isMetricError(e,)) throw e;
+            groupError = e as Error;
+        }
     }
     const data: InsightRow[] = [];
     const failed: Array<[string, string,]> = [];
@@ -217,12 +264,26 @@ export async function fetchInsights(
     // insights (an album child, media older than the business conversion…),
     // not the metrics — don't blacklist them for the rest of the run.
     if (live.length === 1 || failed.length === live.length) {
-        warnings.add(`${label} (${live.join(', ',)}): ${groupError.message}`,);
+        warnings.add(`${label} (${live.join(', ',)}): ${failed[0]?.[1] ?? groupError.message}`,);
         return { data: [], };
     }
+    if (!failed.length) dead.add(splitKey,);
     for (const [m, msg,] of failed) {
         dead.add(m,);
         warnings.add(`${label}: metric ${m} unavailable — ${msg}`,);
     }
     return { data, };
+}
+
+/**
+ * Should a listed item get per-post insights today? The runner's due list
+ * (≤ 90 days daily, older weekly) decides; an item the listing reached that is
+ * not due is asked only when it is recent (just discovered, not yet in the due
+ * list) — so the tail of the last listed page is not measured daily forever.
+ */
+export function dueForMetrics(id: string, time: string | undefined, due: Set<string>, today: string, days: number,): boolean {
+    if (due.has(id,)) return true;
+    const t = Date.parse(String(time ?? '',).replace(/\+0000$/, 'Z',),);
+    if (!Number.isFinite(t,)) return true;
+    return Date.parse(`${addDays(today, -days,)}T00:00:00Z`,) <= t;
 }

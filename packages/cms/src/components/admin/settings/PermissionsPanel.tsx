@@ -45,7 +45,7 @@ const PermissionsPanel: Component = () => {
 
     // Built-in + custom roles (Roles section above), in their display order.
     const [roleList, { refetch: refetchRoles, },] = createResource(() => cms.roles.list().catch(() => [],),);
-    const roleKeys = () => (roleList()?.length ? roleList()!.map((r,) => r.key,) : BUILTIN_ROLES);
+    const roleKeys = () => (roleList.latest?.length ? roleList.latest.map((r,) => r.key,) : BUILTIN_ROLES);
 
     const [permissions, { refetch, },] = createResource(async () => {
         try {
@@ -55,10 +55,11 @@ const PermissionsPanel: Component = () => {
         }
     },);
 
-    /** Group by feature, filtered by the search box. */
-    const groups = createMemo(() => {
+    /** Group by feature, filtered by the search box. `.latest`: a refetch after
+     *  each change must not blank the list (or collapse the open groups). */
+    const byFeature = createMemo(() => {
         const q = search().toLowerCase().trim();
-        const list = (permissions() ?? []).filter((p,) =>
+        const list = (permissions.latest ?? []).filter((p,) =>
             !q
             || p.key.toLowerCase().includes(q,)
             || p.label.toLowerCase().includes(q,)
@@ -69,12 +70,26 @@ const PermissionsPanel: Component = () => {
             g.push(p,);
             byFeature.set(p.feature, g,);
         }
-        // `core` first — it is the set every install has.
-        return [...byFeature.entries(),].sort(([a,], [b,],) =>
-            (a === 'core' ? -1 : b === 'core' ? 1 : a.localeCompare(b,)));
+        return byFeature;
     },);
+    /** Feature keys (strings, so `<For>` keeps each group — and its open state — across refetches). `core` first. */
+    const features = createMemo(() => [...byFeature().keys(),].sort((a, b,) => (a === 'core' ? -1 : b === 'core' ? 1 : a.localeCompare(b,))));
 
-    const save = async (key: string, patch: Record<string, unknown>,) => {
+    /** One save per permission at a time: a second click would compute from stale data. */
+    const [saving, setSaving,] = createSignal<Set<string>>(new Set(),);
+    const isSaving = (key: string,) => saving().has(key,);
+    const withSaving = async (key: string, fn: () => Promise<void>,) => {
+        if (isSaving(key,)) return;
+        setSaving(new Set([...saving(), key,],),);
+        try { await fn(); } finally {
+            const next = new Set(saving(),);
+            next.delete(key,);
+            setSaving(next,);
+        }
+    };
+    const [deletingBusy, setDeletingBusy,] = createSignal(false,);
+
+    const save = (key: string, patch: Record<string, unknown>,) => withSaving(key, async () => {
         try {
             await cms.permissions.update(key, patch,);
             await refetch();
@@ -82,7 +97,7 @@ const PermissionsPanel: Component = () => {
         } catch (e: any) {
             toast.error(e?.message || 'Could not update the permission.',);
         }
-    };
+    },);
 
     /** The "+ Role exception" controls, per permission row. */
     const addRole: Record<string, HTMLSelectElement> = {};
@@ -91,16 +106,28 @@ const PermissionsPanel: Component = () => {
         const role = addRole[key]?.value;
         const outcome = addMode[key]?.value ?? 'allow';
         if (!role) return;
-        try {
-            await cms.permissions.setGrant(key, {
-                subjectType: 'role', subjectId: role, granted: outcome !== 'deny', mode: outcome === 'approval' ? 'approval' : 'allow',
-            },);
-            await refetch();
-            toast.success(`Exception saved for ${role}.`,);
-        } catch (e: any) {
-            toast.error(e?.message || 'Could not save the exception.',);
-        }
+        await withSaving(key, async () => {
+            try {
+                await cms.permissions.setGrant(key, {
+                    subjectType: 'role', subjectId: role, granted: outcome !== 'deny', mode: outcome === 'approval' ? 'approval' : 'allow',
+                },);
+                await refetch();
+                toast.success(`Exception saved for ${role}.`,);
+            } catch (e: any) {
+                toast.error(e?.message || 'Could not save the exception.',);
+            }
+        },);
     };
+
+    const removeRoleGrant = (key: string, role: string,) => withSaving(key, async () => {
+        try {
+            await cms.permissions.removeGrant(key, 'role', role,);
+            await refetch();
+            toast.success('Exception removed.',);
+        } catch (e: any) {
+            toast.error(e?.message || 'Could not remove the exception.',);
+        }
+    },);
 
     /** Toggle a role in the default list. */
     const toggleRole = async (p: PermissionWithGrants, role: string,) => {
@@ -110,7 +137,7 @@ const PermissionsPanel: Component = () => {
         await save(p.key, { defaultRoles: next, },);
     };
 
-    const removeUserGrant = async (key: string, userId: string,) => {
+    const removeUserGrant = (key: string, userId: string,) => withSaving(key, async () => {
         try {
             await cms.permissions.removeGrant(key, 'user', userId,);
             await refetch();
@@ -118,11 +145,12 @@ const PermissionsPanel: Component = () => {
         } catch (e: any) {
             toast.error(e?.message || 'Could not remove the grant.',);
         }
-    };
+    },);
 
     const doDelete = async () => {
         const key = pendingDelete();
-        if (!key) return;
+        if (!key || deletingBusy()) return;
+        setDeletingBusy(true,);
         try {
             await cms.permissions.remove(key,);
             await refetch();
@@ -130,6 +158,7 @@ const PermissionsPanel: Component = () => {
         } catch (e: any) {
             toast.error(e?.message || 'Could not delete the permission.',);
         } finally {
+            setDeletingBusy(false,);
             setPendingDelete(null,);
         }
     };
@@ -173,25 +202,27 @@ const PermissionsPanel: Component = () => {
             </div>
 
             <Show
-                when={!permissions.loading}
+                when={permissions.latest !== undefined}
                 fallback={<p class="form-help-muted">Loading permissions…</p>}
             >
                 <Show
-                    when={groups().length > 0}
+                    when={features().length > 0}
                     fallback={
                         <p class="form-help-muted">
                             No permissions match. Features register theirs when enabled.
                         </p>
                     }
                 >
-                    <For each={groups()}>
-                        {([feature, items,],) => (
+                    <For each={features()}>
+                        {(feature,) => {
+                            const items = () => byFeature().get(feature,) ?? [];
+                            return (
                             <CollapsiblePanel
                                 title={feature === 'core' ? 'Core' : feature}
-                                subtitle={`${items.length} permission${items.length !== 1 ? 's' : ''}`}
+                                subtitle={`${items().length} permission${items().length !== 1 ? 's' : ''}`}
                                 defaultOpen={feature === 'core'}
                             >
-                                <For each={items}>
+                                <For each={items()}>
                                     {(p,) => (
                                         <div class="permission-row">
                                             <div class="permission-row__head">
@@ -217,6 +248,7 @@ const PermissionsPanel: Component = () => {
                                                 <FormField label="Available to">
                                                     <select
                                                         value={p.defaultAccess}
+                                                        disabled={isSaving(p.key,)}
                                                         onChange={(e,) =>
                                                             save(p.key, { defaultAccess: e.currentTarget.value, },)}
                                                     >
@@ -239,7 +271,9 @@ const PermissionsPanel: Component = () => {
                                                                         p.defaultRoles.includes(role,)
                                                                             ? ' permission-chip--on' : ''
                                                                     }`}
-                                                                    onClick={() => toggleRole(p, role,)}
+                                                                    aria-pressed={p.defaultRoles.includes(role,)}
+                                                                    disabled={isSaving(p.key,)}
+                                                                    onClick={() => void toggleRole(p, role,)}
                                                                 >
                                                                     {role}
                                                                 </button>
@@ -259,7 +293,7 @@ const PermissionsPanel: Component = () => {
                                                     <option value="approval">Allow — requires approval</option>
                                                     <option value="deny">Deny</option>
                                                 </select>
-                                                <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={() => void addRoleGrant(p.key,)}>
+                                                <button type="button" class="ui-button ui-button--secondary ui-button--sm" disabled={isSaving(p.key,)} onClick={() => void addRoleGrant(p.key,)}>
                                                     + Role exception
                                                 </button>
                                             </div>
@@ -276,11 +310,9 @@ const PermissionsPanel: Component = () => {
                                                                 <button
                                                                     type="button"
                                                                     class="permission-chip__x"
-                                                                    aria-label={`Remove ${g.role}`}
-                                                                    onClick={async () => {
-                                                                        await cms.permissions.removeGrant(p.key, 'role', g.role,);
-                                                                        await refetch();
-                                                                    }}
+                                                                    aria-label={`Remove the ${g.role} exception`}
+                                                                    disabled={isSaving(p.key,)}
+                                                                    onClick={() => void removeRoleGrant(p.key, g.role,)}
                                                                 >×</button>
                                                             </span>
                                                         )}
@@ -293,7 +325,8 @@ const PermissionsPanel: Component = () => {
                                                                     type="button"
                                                                     class="permission-chip__x"
                                                                     aria-label="Remove grant"
-                                                                    onClick={() => removeUserGrant(p.key, g.userId,)}
+                                                                    disabled={isSaving(p.key,)}
+                                                                    onClick={() => void removeUserGrant(p.key, g.userId,)}
                                                                 >×</button>
                                                             </span>
                                                         )}
@@ -304,7 +337,8 @@ const PermissionsPanel: Component = () => {
                                     )}
                                 </For>
                             </CollapsiblePanel>
-                        )}
+                            );
+                        }}
                     </For>
                 </Show>
             </Show>
@@ -323,6 +357,8 @@ const PermissionsPanel: Component = () => {
                 title="Delete permission"
                 message={`Delete ${pendingDelete()}? Any grants on it are removed too.`}
                 confirmLabel="Delete"
+                busyLabel="Deleting…"
+                loading={deletingBusy()}
                 danger
                 onConfirm={doDelete}
                 onCancel={() => setPendingDelete(null,)}

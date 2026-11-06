@@ -49,6 +49,9 @@ const MembershipTierCards: Component<MembershipTierCardsProps> = (props,) => {
     };
     const priceParam = (t: MembershipTierOption,) => (altPrice(t,) ? `&price=${encodeURIComponent(altPrice(t,)!,)}` : '');
 
+    /** A pending MEMBERSHIP application blocks other membership applications — not programs. */
+    const blockedByPending = (t: MembershipTierOption,) => !t.roleOnly && !!props.pending && !!t.requiresApproval && !t.isApproved;
+
     // Back from log-in with `?apply=<tierId>`: open that application.
     const [search, setSearch,] = useSearchParams<{ apply?: string; price?: string; }>();
     createEffect(() => {
@@ -58,11 +61,11 @@ const MembershipTierCards: Component<MembershipTierCardsProps> = (props,) => {
         const price = search.price;
         setSearch({ apply: undefined, price: undefined, },);
         if (t && price && t.prices?.some((p,) => p.priceId === price,)) setPicked({ ...picked(), [t.id]: price, },);
-        if (t && !props.pending) setApplying(t,);
+        if (t && !blockedByPending(t,)) setApplying(t,);
     },);
 
     const choose = (t: MembershipTierOption,) => {
-        if (t.isPending) return;
+        if (t.isPending || blockedByPending(t,)) return;
         // Approved for this level: choose billing + pay on the membership tab.
         if (t.isApproved) return navigate(`${membershipUrl(t.id,)}${priceParam(t,)}`,);
         if (t.requiresApproval) {
@@ -124,8 +127,8 @@ const MembershipTierCards: Component<MembershipTierCardsProps> = (props,) => {
                             <button
                                 type="button"
                                 class={`btn subscribe-card__cta ${t.isFree ? 'btn--outline' : 'btn--primary'}`}
-                                // A pending MEMBERSHIP application blocks other membership applications, not programs.
-                                disabled={held(t,) || !!t.isPending || (!t.roleOnly && !!props.pending && !!t.requiresApproval && !t.isApproved)}
+                                disabled={held(t,) || !!t.isPending || blockedByPending(t,)}
+                                title={!t.isPending && !held(t,) && blockedByPending(t,) ? 'You already have a membership application waiting for review.' : undefined}
                                 onClick={() => choose(t,)}
                             >
                                 {ctaLabel(t,)}

@@ -176,6 +176,9 @@ export const AuthProvider: ParentComponent = (props,) => {
     };
 
     const logout = async () => {
+        // Drop this browser's desktop-alert subscription first (needs the session),
+        // so the next person on a shared computer does not get these alerts.
+        await (await import('./notifications')).releaseDesktopNotifications();
         try {
             // suppressUnauthorized: logout's own 401 (already-expired session)
             // shouldn't trigger the modal — we're clearing the user anyway.

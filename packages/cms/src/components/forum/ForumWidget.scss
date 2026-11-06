@@ -703,6 +703,7 @@ $fw-soft: color-mix(in srgb, var(--site-text, #111827) 4%, var(--site-bg, #fff))
   }
 
   &__error { margin: 0; font-size: 0.82rem; color: #b91c1c; }
+  &__count { margin: 0; font-size: 0.75rem; color: $fw-muted; text-align: right; font-variant-numeric: tabular-nums; }
 }
 
 // ─── Sign-in placeholder ───
@@ -722,6 +723,9 @@ $fw-soft: color-mix(in srgb, var(--site-text, #111827) 4%, var(--site-bg, #fff))
   &__text { margin: 0 0 0.5rem; max-width: 28rem; color: $fw-muted; }
 
   .forum-btn { align-self: center; }
+
+  // Load failure (site): solid border, same calm box — not an alarm.
+  &--error { border-style: solid; }
 }
 
 // ─── Motion ───

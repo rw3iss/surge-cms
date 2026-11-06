@@ -47,8 +47,9 @@ The broker itself has no pools. A **pool is a session label**: its members are
 the attached sessions labelled `<pool>` or `<pool>-<n>` (`summary`,
 `summary-1`, `summary-2` …). A request to a pool goes to the member with the
 fewest active jobs (ties: the one whose last job settled longest ago), sent by
-session id. `count` is how many sessions you expect; the status shows
-`attached/expected` and flags a short pool.
+session id. `count` (1–16) is how many sessions you expect; the status shows
+`ready/expected` (ready = attached AND able to work — a usage-limited or
+signed-out session is attached but not ready) and flags a short pool.
 
 ## Prompt framing and results (CivicGate conventions)
 
@@ -72,7 +73,7 @@ the same actions internally. Each returns `{ ok: true, … }` or
 | Action | Payload | Returns |
 |---|---|---|
 | `testConnection` | – | `version`, `sessionCount` |
-| `status` | – | `broker`, `pools[]` (attached/expected/busy/idle/sessions), `unpooled[]`, `defaultPool` |
+| `status` | – | `broker`, `pools[]` (attached/ready/expected/busy/idle/sessions with healthy+state), `unpooled[]`, `defaultPool` |
 | `pools` | – | configured `pools[]`, `defaultPool` |
 | `sessions` | `pool?`, `all?` | `sessions[]` |
 | `submit` | `prompt`, `system?`, `pool?` \| `session?` (id or label), `format?`, `kind?`, `subject?`, `wait?`, `timeoutSec?`, `ttlSec?`, `priority?`, `meta?`, `clientRef?`, `frame?` | `job` |
@@ -80,9 +81,9 @@ the same actions internally. Each returns `{ ok: true, … }` or
 | `cancel` | `id` | `job` |
 | `comment` | `id`, `note` | `job` |
 | `jobs` | `status?`, `pool?`, `sessionId?`, `limit?`, `all?` | `jobs[]` (CMS jobs unless `all`) |
-| `setupStatus` | – | `broker` (reachable/version/capabilities), `managed`, `attached[]`, `auth` (broker `GET /auth`), `fleet` (pools → sessions with state/stateText/healthy/restarts, tmux) |
+| `setupStatus` | – | `broker` (reachable/version/capabilities), `managed`, `attached[]`, `auth` (broker `GET /auth` reduced to claude install info, `token.set` + dates, login state — never the token), `fleet` (pools → sessions with state/stateText/healthy/restarts, tmux) |
 | `loginStart` | – | `url` (the Claude sign-in page; broker `POST /auth/login`) |
-| `loginSubmit` | `code` | `token` — or `retry: true` on a wrong code |
+| `loginSubmit` | `code` | `token: { set, created_at, expires_at }` (never the value) — or `retry: true` on a wrong code |
 | `loginCancel` / `logout` | – | – |
 | `startSessions` | – | `started[]`, `stopped[]`, `kept[]` (fleet spec synced + applied) |
 | `stopSessions` | – | `stopped[]` |

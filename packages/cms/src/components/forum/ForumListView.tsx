@@ -128,8 +128,11 @@ const ForumListView: Component<{ feed: Feed; }> = (props,) => {
     const LoadMore = () => (
         <Show when={feed.hasMore()}>
             <button type="button" class="forum-link-btn forum-widget__more" disabled={feed.loadingMore()} onClick={loadMore}>
-                {feed.loadingMore() ? 'Loading…' : chat() ? 'Load earlier posts' : 'Load more'}
+                {feed.loadingMore() ? 'Loading…' : feed.moreError() ? 'Try again' : chat() ? 'Load earlier posts' : 'Load more'}
             </button>
+            <Show when={feed.moreError()}>
+                <p class="forum-composer__error" role="alert">More posts could not be loaded: {feed.moreError()}</p>
+            </Show>
         </Show>
     );
 

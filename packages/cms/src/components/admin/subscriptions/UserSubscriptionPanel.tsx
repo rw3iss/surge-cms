@@ -14,7 +14,9 @@ const SOURCE: Record<string, string> = { stripe: 'Paid (Stripe)', manual: 'Assig
 
 const UserSubscriptionPanel: Component<{ userId: string; onChanged?: () => void; }> = (props,) => {
     const toast = useToast();
-    const [info, { refetch, },] = createResource(() => props.userId, (id,) => cms.users.subscription(id,).catch(() => null),);
+    const [loadFailed, setLoadFailed,] = createSignal(false,);
+    const [info, { refetch, },] = createResource(() => props.userId, (id,) =>
+        cms.users.subscription(id,).then((r,) => { setLoadFailed(false,); return r; },).catch(() => { setLoadFailed(true,); return null; },));
     const [tiers,] = createResource(() => cms.subscriptionTiers.list().catch(() => [] as SubscriptionTier[]),);
     const [choice, setChoice,] = createSignal('',);
     /** Optional end date (YYYY-MM-DD) for a hand-assigned membership — e.g. "free for 3 months". */
@@ -22,6 +24,7 @@ const UserSubscriptionPanel: Component<{ userId: string; onChanged?: () => void;
     const [busy, setBusy,] = createSignal(false,);
 
     const assign = async () => {
+        if (busy()) return;
         setBusy(true,);
         try {
             // End of the chosen day, local time.
@@ -42,31 +45,41 @@ const UserSubscriptionPanel: Component<{ userId: string; onChanged?: () => void;
     return (
         <div class="user-detail__panel">
             <h2 class="user-detail__panel-title">Membership</h2>
-            <Show when={info()} fallback={<p class="form-help-muted">Loading…</p>}>
+            <Show
+                when={info.latest}
+                fallback={
+                    <p class="form-help-muted">
+                        {loadFailed()
+                            ? <>The membership could not be loaded. <button type="button" class="ui-button ui-button--ghost ui-button--sm" onClick={() => void refetch()}>Try again</button></>
+                            : 'Loading…'}
+                    </p>
+                }
+            >
                 <div class="user-detail__info-grid">
                     <div class="user-detail__info-item">
                         <span class="user-detail__info-label">Tier</span>
-                        <span class="user-detail__info-value"><strong>{info()!.tier?.name ?? '—'}</strong>{info()!.tier?.role ? ` · role ${info()!.tier!.role}` : ''}</span>
+                        <span class="user-detail__info-value"><strong>{info.latest!.tier?.name ?? '—'}</strong>{info.latest!.tier?.role ? ` · role ${info.latest!.tier!.role}` : ''}</span>
                     </div>
                     <div class="user-detail__info-item">
                         <span class="user-detail__info-label">Source</span>
-                        <span class="user-detail__info-value">{SOURCE[info()!.source]}{info()!.status ? ` (${info()!.status})` : ''}</span>
+                        <span class="user-detail__info-value">{SOURCE[info.latest!.source]}{info.latest!.status ? ` (${info.latest!.status})` : ''}</span>
                     </div>
-                    <Show when={info()!.currentPeriodEnd}>
+                    <Show when={info.latest!.currentPeriodEnd}>
                         <div class="user-detail__info-item">
-                            <span class="user-detail__info-label">{info()!.cancelAtPeriodEnd ? 'Ends' : 'Renews'}</span>
-                            <span class="user-detail__info-value">{new Date(info()!.currentPeriodEnd!,).toLocaleDateString()}</span>
+                            <span class="user-detail__info-label">{info.latest!.cancelAtPeriodEnd ? 'Ends' : 'Renews'}</span>
+                            <span class="user-detail__info-value">{new Date(info.latest!.currentPeriodEnd!,).toLocaleDateString()}</span>
                         </div>
                     </Show>
                 </div>
                 <Show
-                    when={info()!.source !== 'stripe'}
+                    when={info.latest!.source !== 'stripe'}
                     fallback={<p class="form-help-muted">This user pays through Stripe — change or cancel the subscription in Stripe; their tier and role follow automatically.</p>}
                 >
                     <div class="u-flex-row u-gap-sm user-subscription__assign">
                         <select value={choice()} onChange={(e,) => setChoice(e.currentTarget.value,)}>
                             <option value="">Put on a tier…</option>
-                            <For each={(tiers() ?? []).filter((t,) => t.isActive,)}>{(t,) => <option value={t.id}>{t.name}</option>}</For>
+                            {/* Programs ("Add its role only") are not memberships — they are approved through applications. */}
+                            <For each={(tiers.latest ?? []).filter((t,) => t.isActive && !t.roleOnly,)}>{(t,) => <option value={t.id}>{t.name}</option>}</For>
                         </select>
                         <label class="form-help-muted user-subscription__ends">
                             Ends (optional)

@@ -91,6 +91,22 @@ export function sanitizeCredentials(
     return sanitized;
 }
 
+/**
+ * Drop credential values that are the MASK we send to the client (`••••…`):
+ * a client that reads a connection and writes it back (SDK, MCP, a form that
+ * echoes every field) must not replace a real secret with its mask.
+ */
+export function withoutMaskedValues(credentials: Record<string, unknown> | undefined,): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const [k, v,] of Object.entries(credentials ?? {},)) {
+        if (typeof v === 'string' && v.startsWith('••••',)) continue;
+        // has* flags are computed by sanitizeCredentials, never stored.
+        if (/^has[A-Z]/.test(k,) && typeof v === 'boolean') continue;
+        out[k] = v;
+    }
+    return out;
+}
+
 function assertValidProvider(provider: string,): void {
     if (!VALID_PROVIDERS.includes(provider,)) {
         throw new AppError(400, 'BAD_REQUEST', 'Invalid provider',);
@@ -227,7 +243,7 @@ export async function upsert(data: UpsertConnectionInput, userId: string,): Prom
     // Merge new credentials/settings with existing (don't overwrite tokens when
     // saving app creds, or clobber other settings keys when saving one).
     const existingCreds = existing.rows[0]?.credentials || {};
-    const mergedCreds = { ...existingCreds, ...data.credentials, };
+    const mergedCreds = { ...existingCreds, ...withoutMaskedValues(data.credentials,), };
     const existingSettings = existing.rows[0]?.settings || {};
     const mergedSettings = { ...existingSettings, ...data.settings, };
 
@@ -528,6 +544,12 @@ export async function completeOAuth(
         JSON.parse(statePayload,) :
         statePayload as Record<string, unknown>;
     const { userId, } = parsed;
+    // A state is bound to the provider that issued it: one started for another
+    // provider must not complete this provider's sign-in.
+    if (parsed.provider !== provider) {
+        logger.warn('OAuth state provider mismatch', { expected: parsed.provider, got: provider, },);
+        return { kind: 'error', query: 'Invalid+authorization+state', };
+    }
 
     // Read app credentials (a second sign-in, e.g. tiktok_business, lives on another row).
     const row = oauthConnection(provider,);

@@ -20,17 +20,23 @@ export interface SocialMetricDefinition {
     label: string;
     description: string;
     /** How to show the number. */
-    unit?: 'count' | 'seconds' | 'percent' | 'minutes';
+    unit?: 'count' | 'seconds' | 'percent' | 'minutes' | 'cents';
+    /**
+     * How a daily series of it combines over a period: `sum` (views, likes —
+     * per-day amounts), `last` (a LEVEL such as a follower total — never sum
+     * it) or `avg` (a per-day average or rate). Default `sum`.
+     */
+    aggregate?: 'sum' | 'last' | 'avg';
 }
 
 /** The dashboard's metrics, with the definition shown in each tooltip. */
 export const SOCIAL_METRICS: Record<string, SocialMetricDefinition> = {
-    followers: { key: 'followers', label: 'Followers', description: 'Followers / subscribers on the day (YouTube rounds to 3 significant figures).', unit: 'count', },
+    followers: { key: 'followers', label: 'Followers', description: 'Followers / subscribers on the day (YouTube rounds to 3 significant figures).', unit: 'count', aggregate: 'last', },
     followerChange: { key: 'followerChange', label: 'Follower change', description: 'Followers at the end of the period minus at the start (from our daily snapshots).', unit: 'count', },
     views: { key: 'views', label: 'Views', description: 'Platform views in the period. Each platform counts a view differently (see the notes on the chart).', unit: 'count', },
     engagedViews: { key: 'engagedViews', label: 'Engaged views', description: 'YouTube only: views past the first few seconds — the old meaning of a view.', unit: 'count', },
     watchTimeMinutes: { key: 'watchTimeMinutes', label: 'Watch time', description: 'Minutes watched in the period (YouTube Analytics).', unit: 'minutes', },
-    avgViewDuration: { key: 'avgViewDuration', label: 'Avg view duration', description: 'Average seconds watched per view.', unit: 'seconds', },
+    avgViewDuration: { key: 'avgViewDuration', label: 'Avg view duration', description: 'Average seconds watched per view.', unit: 'seconds', aggregate: 'avg', },
     likes: { key: 'likes', label: 'Likes', description: 'Likes / reactions in the period.', unit: 'count', },
     comments: { key: 'comments', label: 'Comments', description: 'Comments / replies in the period.', unit: 'count', },
     shares: { key: 'shares', label: 'Shares', description: 'Shares / reposts in the period.', unit: 'count', },
@@ -38,7 +44,50 @@ export const SOCIAL_METRICS: Record<string, SocialMetricDefinition> = {
     avgViewsPerPost: { key: 'avgViewsPerPost', label: 'Avg views / post', description: 'Current views of the posts published in the period, divided by their number.', unit: 'count', },
     engagementRate: { key: 'engagementRate', label: 'Engagement rate', description: '(likes + comments + shares + saves) ÷ views, for the posts published in the period.', unit: 'percent', },
     impressions: { key: 'impressions', label: 'Impressions', description: 'Times the post/thumbnail was shown (YouTube: thumbnail impressions, from the Reporting API).', unit: 'count', },
+    // ── Account snapshot columns (levels on the day) ──
+    following: { key: 'following', label: 'Following', description: 'Accounts this account follows, on the day.', unit: 'count', aggregate: 'last', },
+    totalViews: { key: 'totalViews', label: 'Total views (lifetime)', description: 'The account\'s lifetime view count reported on the day.', unit: 'count', aggregate: 'last', },
+    totalLikes: { key: 'totalLikes', label: 'Total likes (lifetime)', description: 'The account\'s lifetime like count reported on the day.', unit: 'count', aggregate: 'last', },
+    postsCount: { key: 'postsCount', label: 'Posts (lifetime)', description: 'Posts / videos on the account, on the day.', unit: 'count', aggregate: 'last', },
+    // ── Daily series written by the collectors ──
+    reach: { key: 'reach', label: 'Reach', description: 'Unique accounts that saw the content on the day (a sum over days counts a person once per day).', unit: 'count', },
+    saves: { key: 'saves', label: 'Saves', description: 'Times content was saved (Instagram).', unit: 'count', },
+    replies: { key: 'replies', label: 'Replies', description: 'Replies (Instagram stories, Threads).', unit: 'count', },
+    engagements: { key: 'engagements', label: 'Engagements', description: 'All interactions on the day: likes, comments, shares, saves, replies, clicks (each platform counts a little differently).', unit: 'count', },
+    accountsEngaged: { key: 'accountsEngaged', label: 'Accounts engaged', description: 'Unique accounts that interacted on the day.', unit: 'count', },
+    profileLinkTaps: { key: 'profileLinkTaps', label: 'Profile link taps', description: 'Taps on the link(s) in the profile / bio.', unit: 'count', },
+    profileViews: { key: 'profileViews', label: 'Profile views', description: 'Visits to the profile (TikTok Business).', unit: 'count', },
+    pageViews: { key: 'pageViews', label: 'Page views', description: 'Visits to the Facebook Page.', unit: 'count', },
+    clicks: { key: 'clicks', label: 'Clicks', description: 'Link clicks (Threads, X).', unit: 'count', },
+    subscribersGained: { key: 'subscribersGained', label: 'Subscribers gained', description: 'New YouTube subscribers on the day.', unit: 'count', },
+    subscribersLost: { key: 'subscribersLost', label: 'Subscribers lost', description: 'YouTube unsubscribes on the day.', unit: 'count', },
+    followersGained: { key: 'followersGained', label: 'Followers gained', description: 'New followers on the day (Facebook: unique new follows).', unit: 'count', },
+    followersLost: { key: 'followersLost', label: 'Followers lost', description: 'Unfollows on the day.', unit: 'count', },
+    follows: { key: 'follows', label: 'Follows', description: 'Follow actions on the day (Facebook; a person who follows twice counts twice).', unit: 'count', },
+    newFollowers: { key: 'newFollowers', label: 'New followers', description: 'New followers on the day (Instagram, TikTok Business).', unit: 'count', },
+    lostFollowers: { key: 'lostFollowers', label: 'Lost followers', description: 'Followers lost on the day (TikTok Business).', unit: 'count', },
+    followersNet: { key: 'followersNet', label: 'Net followers', description: 'New minus lost followers on the day (TikTok Business).', unit: 'count', },
+    followersTotal: { key: 'followersTotal', label: 'Followers (daily total)', description: 'The follower total the platform reports for that day (TikTok Business).', unit: 'count', aggregate: 'last', },
+    videoViews: { key: 'videoViews', label: 'Video views', description: 'Video views on the day (Facebook counts 3+ seconds).', unit: 'count', },
+    videoViews30s: { key: 'videoViews30s', label: '30-second views', description: 'Video views of 30 seconds or more (or the whole video when shorter) — Facebook.', unit: 'count', },
+    videoRepeatViews: { key: 'videoRepeatViews', label: 'Repeat video views', description: 'Video views by people who had already watched (Facebook).', unit: 'count', },
+    reactions: { key: 'reactions', label: 'Reactions', description: 'Reactions on posts on the day (like, love, wow, haha, sorry, anger) — Facebook.', unit: 'count', },
+    impressionsCtr: { key: 'impressionsCtr', label: 'Impressions CTR', description: 'Share of thumbnail impressions that became a view (YouTube).', unit: 'percent', aggregate: 'avg', },
+    storyViews: { key: 'storyViews', label: 'Story views', description: 'Views of stories on the day (Instagram).', unit: 'count', },
+    storyReplies: { key: 'storyReplies', label: 'Story replies', description: 'Replies to stories on the day (Instagram).', unit: 'count', },
+    stories: { key: 'stories', label: 'Stories', description: 'Stories posted on the day (Instagram).', unit: 'count', },
+    patrons: { key: 'patrons', label: 'Patrons', description: 'Patron count reported by Patreon on the day.', unit: 'count', aggregate: 'last', },
+    activePatrons: { key: 'activePatrons', label: 'Active patrons', description: 'Members with an active pledge on the day (Patreon).', unit: 'count', aggregate: 'last', },
+    paidMembers: { key: 'paidMembers', label: 'Paid members', description: 'Active members paying more than zero on the day (Patreon).', unit: 'count', aggregate: 'last', },
+    declinedPatrons: { key: 'declinedPatrons', label: 'Declined patrons', description: 'Members whose last payment was declined, on the day (Patreon).', unit: 'count', aggregate: 'last', },
+    monthlyIncomeCents: { key: 'monthlyIncomeCents', label: 'Monthly income', description: 'Monthly amount pledged by active members, on the day (Patreon).', unit: 'cents', aggregate: 'last', },
+    newPatrons: { key: 'newPatrons', label: 'New patrons', description: 'Members who joined on the day (Patreon).', unit: 'count', },
 };
+
+/** How a metric combines over a period (`sum` unless SOCIAL_METRICS says otherwise). */
+export function socialMetricAggregate(key: string,): 'sum' | 'last' | 'avg' {
+    return SOCIAL_METRICS[key]?.aggregate ?? 'sum';
+}
 
 /** Dates a platform changed how it counts views — shown on charts. */
 export interface SocialDefinitionChange {
@@ -125,6 +174,8 @@ export interface SocialSeries {
     platform: string;
     metric: string;
     points: SocialSeriesPoint[];
+    /** Account metrics this platform has data for in the range (what the chart can offer). */
+    available?: string[];
 }
 
 export interface SocialPostAnalytics {
@@ -344,6 +395,10 @@ export interface SocialAudience {
         videoViewsByPlay?: AudienceBucket[];
         /** Reactions by type: like, love, wow, haha, sorry, anger (Facebook). */
         reactionsByType?: AudienceBucket[];
+        /** Where viewers found the videos (TikTok: For You, profile, search…), newest snapshot, view-weighted. */
+        trafficSources?: AudienceBucket[];
+        /** New vs returning viewers (TikTok), newest snapshot; keys NEW / RETURNING. */
+        viewerTypes?: AudienceBucket[];
     };
     /** Posts / views / engagement per content kind, from our post metrics. */
     contentKinds: Array<{ kind: string; posts: number; views: number | null; avgViews: number | null; engagementRate: number | null; }>;

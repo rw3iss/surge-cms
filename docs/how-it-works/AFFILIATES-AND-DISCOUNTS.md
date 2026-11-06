@@ -31,7 +31,11 @@ ticket lines bought through the cart.
 **Usage is counted, never stored:** "Used" = paid redemptions (refunded ones do not
 count). At checkout, unpaid orders from the last 30 minutes that hold the code also
 count, so a limited code cannot be oversold by buyers paying at the same time; the
-order is created with the code row LOCKED (`FOR UPDATE`) and re-checked.
+order is created with the code row LOCKED (`FOR UPDATE`) and re-checked. The
+buyer's OWN unpaid orders (same account or email) are not counted, so a card
+decline followed by a new attempt does not read "used up". `POST /check` is
+rate-limited (30 per 10 minutes per user / IP) and follows `shop.discounts:use`
+like the checkout.
 
 **Checkout:** `previewCheckout` / `createCheckout` take `discountCode`. The preview
 returns `discountCents`, `discountCode`, `discountSummary` or `discountError` (never
@@ -41,7 +45,11 @@ computed on the discounted line amounts (`distributeDiscount`). The order stores
 (`orderTotalsLines`). The redemption row is written when the order is PAID
 (`fulfillShopOrder` → `recordRedemption`), so abandoned checkouts never use a code.
 A refund (admin status → refunded, or a full refund in Stripe → `charge.refunded`)
-marks the redemption refunded (`markOrderRefunded`).
+marks the redemption refunded (`markOrderRefunded`) and reverses the affiliate
+commission — also while the affiliates feature is switched off (the commission
+must not be payable when it is switched back on). A PARTIAL refund in Stripe
+(`charge.refunded` with `refunded: false`) keeps the use counted and reverses the
+commission IN PROPORTION — see *Refunds* under the affiliate program.
 
 **Storefront:** `?code=XYZ` on any shop URL (an affiliate's share link) is remembered
 for 30 days (`services/discountCode.ts`, captured by `ShopStoreGuard`) and
@@ -73,10 +81,32 @@ weekly / every 2 weeks / monthly. A manual **Pay out** is always available.
     affiliate share = (commission% − buyer discount%) × merchandise subtotal (before the discount)
 
 so the buyer discount is paid out of the commission and the shop's total cost is the
-commission. Tickets and shipping/tax never earn commission. Earnings rows:
-`commission` (status `earned` → `paid`), payable once `available_at` (payment +
-refund window) passes. A refund before payout marks it `reversed`; after a payout it
-adds a negative `reversal` row that nets against the next payout.
+commission. **The split is the one the buyer checked out with:** checkout stores the
+rule from its locked re-check on the order (`shop_orders.discount_snapshot`,
+migration 213: `{ codeId, kind, percent, amountCents, appliesToTickets,
+affiliateUserId, commissionPercent }`), and the commission at payment reads the
+affiliate + commission % from it (`commissionSplitFor` in
+`services/shop/discounts.ts`; orders from before 213 fall back to the code's current
+values). The buyer discount% is read from what the ORDER actually got off its
+merchandise (`orderBuyerDiscountPercent`). Tickets and shipping/tax never earn
+commission. Earnings rows: `commission` (status `earned` → `paid`), payable once
+`available_at` (payment + refund window) passes.
+
+**Refunds** (`reverseCommission`, maths in `services/affiliates/reversal.ts`): the
+commission reversed in total is `round(commission × refunded / charged)` — all of it
+on a full refund. Stripe reports the CUMULATIVE `amount_refunded`, so this is a
+high-water mark: only the increase is reversed, and a retried or older webhook
+reverses nothing. "Already reversed" is read from the ledger (the cut from the
+commission + the `reversal` rows), under a row lock on the commission.
+
+| Commission state | What a refund does |
+|---|---|
+| Not paid, not in a payout, no reversal rows | Its amount is cut in place; at zero (full refund) it becomes `reversed` |
+| Paid out, or held by a payout in progress | A negative `reversal` row for the increase; it nets against the next payout |
+
+An order has ONE commission per affiliate but may have several `reversal` rows
+(unique index `uq_affiliate_earnings_commission` on commission rows only,
+migration 213). The discount use is released only by a FULL refund.
 
 **Stripe Connect Express:** the shop's Stripe account is the platform (Settings →
 Shop → Payment credentials; enable **Connect** in Stripe). "Connect with Stripe"
@@ -94,13 +124,21 @@ webhook keeps it current.
 Account creation uses a 10-minute idempotency key, so a failed first try (Connect not enabled yet) is not replayed by Stripe after it is fixed. Payouts are `stripe.transfers.create` from the shop's balance to the
 connected account — idempotent per payout row. The earnings are CLAIMED (payout id
 set in a transaction) before the transfer, so two runs can never pay the same
-commission; a failed transfer releases them and records the error.
+commission. See CONTRIBUTOR-PAYOUTS.md → "Payout safety" for failure handling
+(a refused transfer releases the earnings; an unclear one is kept and resumed).
 
 **Automatic payouts:** the `affiliate-payouts` cron (daily 06:15, primary only)
 pays every affiliate with a payable balance and a ready Stripe account when
 `isPayoutDue(schedule, lastAutoPayoutAt)` — weekly / 14 days since the last run, or
 the first run of a new month.
 
+**Admin UI:** the code modal checks the server's rules before sending (buyer
+discount ≤ commission, no 0 % / $0 code, code format, end after start, use limits);
+the Active switch is locked while it saves. Shop → Settings → Affiliate program
+refuses to save placeholder defaults when the settings failed to load.
+
 **Permissions:** `shop.discounts:manage` (admin), `shop.discounts:use` (everyone;
-codes narrow it), `affiliates:manage` (admin), `affiliates:self` (members; the
+codes narrow it), `affiliates:manage` (admin — also reads / edits / deletes
+AFFILIATE codes through `/shop/discounts/:id`, but cannot turn one into a site-wide
+code), `affiliates:self` (members; the
 service also requires the affiliate role).

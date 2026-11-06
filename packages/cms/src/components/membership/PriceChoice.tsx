@@ -38,10 +38,12 @@ const PriceChoice: Component<PriceChoiceProps> = (props,) => {
         props.onSelect?.(id,);
     };
     // A "hide price" level the viewer is not approved for: no prices at all.
-    if (props.tier.priceHidden) {
-        return <div class="price-choice"><span class="price-choice__hidden">Pricing shared after approval</span></div>;
-    }
+    // (Reactive: the same tier object can gain its prices once approved.)
     return (
+        <Show
+            when={!props.tier.priceHidden}
+            fallback={<div class="price-choice"><span class="price-choice__hidden">Pricing shared after approval</span></div>}
+        >
         <div class="price-choice" classList={{ 'price-choice--selectable': !!props.onSelect, }}>
             <Show
                 when={def() && props.onSelect && alts().length}
@@ -90,6 +92,7 @@ const PriceChoice: Component<PriceChoiceProps> = (props,) => {
                 <span class="price-choice__billed">{billedNote(props.tier,)}</span>
             </Show>
         </div>
+        </Show>
     );
 };
 

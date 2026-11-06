@@ -205,7 +205,11 @@ export function dropFormRow<Q extends SectionedQuestion,>(
     if (!dragged || !t || from === target) return rows;
     if (isFormSectionRow(dragged,)) {
         let ti = target;
-        if (!isFormSectionRow(t,) && t.sectionId) ti = rows.findIndex((x,) => isFormSectionRow(x,) && x.id === t.sectionId,);
+        if (!isFormSectionRow(t,) && t.sectionId) {
+            // A question whose section row is missing (un-normalized rows) counts as a root question.
+            const si = rows.findIndex((x,) => isFormSectionRow(x,) && x.id === t.sectionId,);
+            if (si >= 0) ti = si;
+        }
         const [ua, ub,] = unitBounds(rows, from,);
         if (ti >= ua && ti < ub) return rows;
         const [ta, tb,] = unitBounds(rows, ti,);

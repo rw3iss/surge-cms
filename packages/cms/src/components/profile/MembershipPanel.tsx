@@ -47,9 +47,9 @@ const MembershipPanel: Component = () => {
     /** A level that requires approval: the application modal. */
     const [applying, setApplying,] = createSignal<MembershipTierOption | null>(null,);
     const [applyingPrice, setApplyingPrice,] = createSignal<string | null>(null,);
-    const pending = () => data()?.pendingApplication ?? null;
+    const pending = () => data.latest?.pendingApplication ?? null;
     /** Approved for a level that is not started yet: choose billing + pay. */
-    const offer = () => data()?.approvedOffer ?? null;
+    const offer = () => data.latest?.approvedOffer ?? null;
     /** Finish an application submitted without a card. */
     const [addingCard, setAddingCard,] = createSignal(false,);
 
@@ -57,11 +57,11 @@ const MembershipPanel: Component = () => {
     let card: StripeCardElement | null = null;
     onCleanup(() => card?.destroy(),);
 
-    const current = () => data()?.current;
+    const current = () => data.latest?.current;
     /** Subscription-required mode: Free is not offered; "no plan" means no access. */
-    const required = () => Boolean(data()?.subscriptionRequired,);
+    const required = () => Boolean(data.latest?.subscriptionRequired,);
     const noPlan = () => !current()?.tier || Boolean(current()?.tier?.isFree,);
-    const tiers = () => data()?.tiers ?? [];
+    const tiers = () => data.latest?.tiers ?? [];
     const currentTier = () => tiers().find((t,) => t.isCurrent,) ?? tiers().find((t,) => t.isFree,) ?? null;
     const chosen = () => tiers().find((t,) => t.id === selected(),) ?? null;
     /** The price the member pays on their current level (default when unknown). */
@@ -281,9 +281,11 @@ const MembershipPanel: Component = () => {
 
     return (
         <div class="profile__card membership">
-            <Show when={!data.loading} fallback={<p class="profile__muted">Loading your membership…</p>}>
+            {/* `data.latest` (not `data()`): a refetch after a change keeps the panel
+                on screen instead of blanking it to "Loading…" (or suspending the page). */}
+            <Show when={!(data.loading && !data.latest)} fallback={<p class="profile__muted">Loading your membership…</p>}>
                 <Show
-                    when={!data.error && data()}
+                    when={!data.error && data.latest}
                     fallback={
                         <div class="membership__pending membership__pending--failed" role="alert">
                             Membership details could not be loaded{data.error instanceof Error && data.error.message ? `: ${data.error.message}` : '.'}{' '}
@@ -293,20 +295,23 @@ const MembershipPanel: Component = () => {
                 >
                     <Show when={notice()}><div class="membership__notice">{notice()}</div></Show>
 
-                    <Show when={!pending() && data()?.lastFailedAttempt && view() === 'overview'}>
+                    <Show when={!pending() && data.latest?.lastFailedAttempt && view() === 'overview'}>
                         <div class="membership__pending membership__pending--failed" role="status">
                             <Show
-                                when={data()!.lastFailedAttempt!.status === 'incomplete' || data()!.lastFailedAttempt!.status === 'incomplete_expired'}
-                                fallback={<>The latest payment for your <strong>{data()!.lastFailedAttempt!.tierName}</strong> membership failed. Update your card to pay it.{' '}</>}
+                                when={data.latest!.lastFailedAttempt!.status === 'incomplete' || data.latest!.lastFailedAttempt!.status === 'incomplete_expired'}
+                                fallback={<>The latest payment for your <strong>{data.latest!.lastFailedAttempt!.tierName}</strong> membership failed. Update your card to pay it.{' '}</>}
                             >
-                                Your <strong>{data()!.lastFailedAttempt!.tierName}</strong> payment did not go through, so the membership was not started — <strong>you were not charged</strong>.{' '}
+                                Your <strong>{data.latest!.lastFailedAttempt!.tierName}</strong> payment did not go through, so the membership was not started — <strong>you were not charged</strong>.{' '}
                             </Show>
                             <button
                                 type="button"
                                 class="membership__link"
                                 onClick={() => {
-                                    const id = data()!.lastFailedAttempt!.tierId;
-                                    if (tiers().some((t,) => t.id === id,)) { openChooser(); setSelected(id,); } else openChooser();
+                                    const id = data.latest!.lastFailedAttempt!.tierId;
+                                    openChooser();
+                                    // pickTier also resets the price to THAT level's (the current level's price is not on it).
+                                    const t = tiers().find((x,) => x.id === id,);
+                                    if (t) pickTier(t,);
                                 }}
                             >
                                 Try again
@@ -359,6 +364,7 @@ const MembershipPanel: Component = () => {
                                     setBusy(true,);
                                     try {
                                         await cms.payments.withdrawMembershipApplication();
+                                        setNotice('Your application was withdrawn.',);
                                         await refetch();
                                         void auth.refreshUser?.();
                                     } catch (e) {
@@ -375,7 +381,7 @@ const MembershipPanel: Component = () => {
                                     tier={tiers().find((t,) => t.id === pending()!.tierId,)!}
                                     application={{ id: pending()!.id, token: null, tierId: pending()!.tierId, }}
                                     onBack={() => setAddingCard(false,)}
-                                    onDone={() => { setAddingCard(false,); void refetch(); }}
+                                    onDone={() => { setAddingCard(false,); setNotice('Your card is saved. It is charged only if your application is approved.',); void refetch(); void auth.refreshUser?.(); }}
                                 />
                             </Show>
                         </div>
@@ -445,7 +451,9 @@ const MembershipPanel: Component = () => {
                                     disabled={busy()}
                                     onClick={() => {
                                         if (required()) { setAsking('cancel',); return; }
-                                        setSelected(tiers().find((t,) => t.isFree,)?.id ?? null,);
+                                        const free = tiers().find((t,) => t.isFree,);
+                                        if (!free) { setAsking('cancel',); return; } // no Free level on offer: cancel outright
+                                        setSelected(free.id,);
                                         setPriceSel(null,);
                                         void toConfirm();
                                     }}
@@ -466,7 +474,7 @@ const MembershipPanel: Component = () => {
                     {/* ── Choose ── */}
                     <Show when={view() === 'choose'}>
                         <span class="profile__label">Choose your membership</span>
-                        <div class="membership__tiers" role="radiogroup">
+                        <div class="membership__tiers" role="radiogroup" aria-label="Membership levels">
                             <For each={tiers()}>
                                 {(t,) => (
                                     // A div, not a <button>: the description is Markdown

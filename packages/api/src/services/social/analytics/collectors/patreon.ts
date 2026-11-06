@@ -28,6 +28,18 @@ const MEMBER_FIELDS = 'patron_status,currently_entitled_amount_cents,campaign_li
 const MAX_PAGES = 50;
 const NEW_PATRON_WINDOW = 7;
 const SKEW_MS = 5 * 60_000;
+/** A hung Patreon socket must not stall the run. */
+const TIMEOUT_MS = 30_000;
+
+/** fetch with a timeout; network errors become a plain message (never the URL or headers). */
+async function timedFetch(url: string, init: RequestInit,): Promise<Response> {
+    try {
+        return await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS,), },);
+    } catch (e) {
+        const name = (e as Error)?.name;
+        throw new Error(name === 'TimeoutError' || name === 'AbortError' ? `Patreon did not answer within ${TIMEOUT_MS / 1000} s.` : 'Patreon is unreachable (network error).',);
+    }
+}
 
 export interface PatreonMember {
     patron_status?: 'active_patron' | 'declined_patron' | 'former_patron' | null;
@@ -81,7 +93,8 @@ export function summarizeMembers(members: PatreonMember[],): PatreonMemberSummar
         s.lifetimeSupportCents += num(m.campaign_lifetime_support_cents,);
         if (m.patron_status === 'active_patron') {
             s.activePatrons++;
-            s.monthlyIncomeCents += entitled;
+            // A free trial pays nothing yet — its entitled amount is not income.
+            if (!m.is_free_trial) s.monthlyIncomeCents += entitled;
             if (entitled > 0 && !m.is_free_trial) s.paidMembers++;
         } else if (m.patron_status === 'declined_patron') s.declinedPatrons++;
         else if (m.patron_status === 'former_patron') s.formerPatrons++;
@@ -151,7 +164,7 @@ class PatreonError extends Error {
 }
 
 async function getJson(token: string, url: string,): Promise<any> {
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, 'User-Agent': USER_AGENT, }, },);
+    const res = await timedFetch(url, { headers: { Authorization: `Bearer ${token}`, 'User-Agent': USER_AGENT, }, },);
     const body = await res.json().catch(() => ({})) as { errors?: Array<{ detail?: string; title?: string; }>; };
     if (!res.ok) {
         const e = body.errors?.[0];
@@ -173,11 +186,37 @@ function appCredentials(creds: Record<string, unknown>,): { id: string; secret: 
     return id && secret ? { id, secret, } : null;
 }
 
+/** The connection's credentials as saved right now ({} when unreadable). */
+async function savedCreds(): Promise<Record<string, unknown>> {
+    try {
+        const r = await query<{ credentials: Record<string, unknown> | null; }>(`SELECT credentials FROM social_connections WHERE provider = 'patreon'`,);
+        return r.rows?.[0]?.credentials ?? {};
+    } catch {
+        return {};
+    }
+}
+
+/**
+ * Patreon ROTATES refresh tokens: when another process renewed the token
+ * after this run read its credentials, use the saved (newer, still valid)
+ * pair instead of refreshing with the stale one. (pure)
+ */
+export function newerSavedToken(creds: Record<string, unknown>, saved: Record<string, unknown>, now = Date.now(),): string | null {
+    const access = saved.accessToken;
+    if (typeof access !== 'string' || !access || access === creds.accessToken) return null;
+    const at = Date.parse(String(saved.tokenExpiresAt ?? '',),);
+    if (Number.isFinite(at,) && at - SKEW_MS <= now) return null;
+    for (const k of ['accessToken', 'refreshToken', 'tokenExpiresAt',]) if (saved[k] !== undefined) creds[k] = saved[k];
+    return access;
+}
+
 export async function refreshPatreonToken(creds: Record<string, unknown>,): Promise<string> {
+    const adopted = newerSavedToken(creds, await savedCreds(),);
+    if (adopted) return adopted;
     const app = appCredentials(creds,);
     const refresh = String(creds.refreshToken ?? '',);
     if (!app || !refresh) throw new Error('Patreon token expired and no refresh token + client id/secret are saved — reconnect Patreon.',);
-    const res = await fetch(TOKEN_URL, {
+    const res = await timedFetch(TOKEN_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT, },
         body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refresh, client_id: app.id, client_secret: app.secret, },),
@@ -185,6 +224,8 @@ export async function refreshPatreonToken(creds: Record<string, unknown>,): Prom
     const data = await res.json().catch(() => ({})) as Record<string, any>;
     if (!res.ok || !data.access_token) {
         const msg = data.error_description || data.error || `HTTP ${res.status}`;
+        const late = newerSavedToken(creds, await savedCreds(),);
+        if (late) return late;
         await saveCreds({ oauthError: String(msg,), },).catch(() => {});
         throw new Error(`Patreon token refresh failed: ${String(msg,)}`,);
     }
@@ -251,7 +292,7 @@ async function findCampaign(token: string, creds: Record<string, unknown>,): Pro
     return { id: String(first.id,), attributes: first.attributes ?? {}, };
 }
 
-async function listMembers(token: string, campaignId: string,): Promise<PatreonMember[]> {
+async function listMembers(token: string, campaignId: string, truncated?: (read: number,) => void,): Promise<PatreonMember[]> {
     const members: PatreonMember[] = [];
     let cursor: string | null = null;
     for (let page = 0; page < MAX_PAGES; page++) {
@@ -259,9 +300,14 @@ async function listMembers(token: string, campaignId: string,): Promise<PatreonM
         if (cursor) q.set('page[cursor]', cursor,);
         const body = await getJson(token, `${API}/campaigns/${encodeURIComponent(campaignId,)}/members?${q}`,);
         for (const m of (body.data ?? []) as Array<{ attributes?: PatreonMember; }>) members.push(m.attributes ?? {},);
-        cursor = body.meta?.pagination?.cursors?.next ?? null;
-        if (!cursor) break;
+        const next: string | null = body.meta?.pagination?.cursors?.next ?? null;
+        if (!next || next === cursor) {
+            cursor = null;
+            break;
+        }
+        cursor = next;
     }
+    if (cursor) truncated?.(members.length,);
     return members;
 }
 
@@ -282,7 +328,8 @@ async function collect(ctx: CollectContext,): Promise<CollectResult> {
 
     let summary: PatreonMemberSummary | null = null;
     try {
-        summary = summarizeMembers(await listMembers(token, campaign.id,),);
+        summary = summarizeMembers(await listMembers(token, campaign.id, (read,) =>
+            ctx.warn(`Patreon members: stopped after ${read} members (${MAX_PAGES} pages) — counts and income are partial.`,)),);
     } catch (e) {
         const scope = e instanceof PatreonError && (e.status === 401 || e.status === 403) ? ' (needs the campaigns.members scope)' : '';
         ctx.warn(`Patreon members: ${(e as Error).message}${scope}`,);

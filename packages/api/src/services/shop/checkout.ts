@@ -604,11 +604,18 @@ export async function createCheckout(input: CheckoutInput, ctx: AuditContext, vi
     const order = await transaction(async (client,) => {
         // Re-check a limited code with its row LOCKED, so two buyers cannot
         // both take its last use.
+        let locked: AppliedDiscount | undefined;
         if (discount && input.discountCode) {
             const again = await applyDiscount(input.discountCode, discountLinesOf(lines,), viewer, {
                 client, email: input.customerEmail, currency: totals.currency,
             },);
             if (!again.applied) throw new ValidationError(again.error || 'That discount code cannot be used.',);
+            // The order is written with the preview's amounts: refuse when the
+            // code changed in between (rule edited, window closed for part of it).
+            if (again.applied.discountCents !== discount.discountCents || again.applied.codeId !== discount.codeId) {
+                throw new ValidationError('The discount changed while you checked out. Review your order and try again.',);
+            }
+            locked = again.applied;
         }
         const created = await ordersRepo.createOrder(client, {
             orderNumber,
@@ -653,8 +660,10 @@ export async function createCheckout(input: CheckoutInput, ctx: AuditContext, vi
 
         if (discount) {
             await client.query(
-                `UPDATE shop_orders SET discount_code_id = $2, discount_code = $3 WHERE id = $1`,
-                [created.id, discount.codeId, discount.code,],
+                // The rule as re-checked under the lock — the commission at
+                // payment reads it (services/shop/discounts `commissionSplitFor`).
+                `UPDATE shop_orders SET discount_code_id = $2, discount_code = $3, discount_snapshot = $4 WHERE id = $1`,
+                [created.id, discount.codeId, discount.code, JSON.stringify((locked ?? discount).snapshot,),],
             );
         }
 

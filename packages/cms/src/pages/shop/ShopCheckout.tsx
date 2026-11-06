@@ -132,8 +132,15 @@ const ShopCheckoutInner: Component = () => {
         previewTimer = setTimeout(() => void runPreview(), 500,);
     };
 
+    /**
+     * Each preview gets a number; only the LATEST one's reply is applied. Without
+     * it a slow earlier reply (e.g. an address-change preview still carrying the
+     * old code) could land after "Remove" / "Apply" and bring the old totals back.
+     */
+    let previewSeq = 0;
     const runPreview = async () => {
         if (cartItems().length === 0) return;
+        const seq = ++previewSeq;
         setPreviewing(true,);
         try {
             const t = await cms.shop.checkout.preview({
@@ -142,8 +149,11 @@ const ShopCheckoutInner: Component = () => {
                 shippingMethod: Object.keys(groupMethod(),).length ? groupMethod() : shippingMethod(),
                 discountCode: appliedCode() || undefined,
             },);
+            if (seq !== previewSeq) return; // a newer preview is on its way
             setTotals(t,);
-            // Keep a code that works (it survives a reload); forget one that does not apply.
+            // Keep a code that works (it survives a reload, renewing its 30 days). A code that
+            // does not apply YET (e.g. under its minimum order) stays remembered — it may still
+            // apply when the cart grows, and an affiliate link must not lose its code.
             if (t.discountCode) rememberDiscountCode(t.discountCode,);
             setAccessError(null,);
             // Prune cart lines the server reports as unavailable (e.g. a variant
@@ -167,11 +177,12 @@ const ShopCheckoutInner: Component = () => {
             }
             if (Object.keys(adopt,).length) setGroupMethod((m,) => ({ ...adopt, ...m, }));
         } catch (err) {
+            if (seq !== previewSeq) return;
             // Keep last totals (the final total is authoritative on create) —
             // except a ticket the buyer may not get, which must be said.
             setAccessError(accessErrorOf(err,),);
         } finally {
-            setPreviewing(false,);
+            if (seq === previewSeq) setPreviewing(false,);
         }
     };
 
@@ -181,7 +192,18 @@ const ShopCheckoutInner: Component = () => {
         setCodeInput(c,);
         setAppliedCode(c,);
         if (!c) forgetDiscountCode();
+        if (previewTimer) clearTimeout(previewTimer,); // this preview supersedes a scheduled one
         void runPreview();
+    };
+    /**
+     * The code the CURRENT totals were priced with — only when it is the one asked
+     * for (case-insensitive), so "Remove" / a new code never shows the previous
+     * code as applied while its preview is still running.
+     */
+    const appliedDiscount = (): string | null => {
+        const got = totals()?.discountCode;
+        const want = appliedCode();
+        return got && want && got.toUpperCase() === want.toUpperCase() ? got : null;
     };
 
     /** Pick a shipping method + re-price immediately. */
@@ -318,7 +340,7 @@ const ShopCheckoutInner: Component = () => {
                 billingAddress: shippingAddress(),
                 shippingMethod: Object.keys(groupMethod(),).length ? groupMethod() : shippingMethod(),
                 // Only a code the preview accepted (an unusable one would refuse the order).
-                discountCode: totals()?.discountCode || undefined,
+                discountCode: appliedDiscount() || undefined,
             },);
 
             if (!clientSecret) {
@@ -592,7 +614,7 @@ const ShopCheckoutInner: Component = () => {
                         </Show>
                         <div class="shop-checkout__discount">
                             <Show
-                                when={totals()?.discountCode}
+                                when={appliedDiscount()}
                                 fallback={
                                     <div class="shop-checkout__discount-form">
                                         <input
@@ -600,6 +622,10 @@ const ShopCheckoutInner: Component = () => {
                                             class="shop-checkout__discount-input"
                                             placeholder="Discount code"
                                             aria-label="Discount code"
+                                            maxLength={64}
+                                            autocomplete="off"
+                                            autocapitalize="characters"
+                                            spellcheck={false}
                                             value={codeInput()}
                                             disabled={step() === 'confirm'}
                                             onInput={(e,) => setCodeInput(e.currentTarget.value,)}
@@ -618,15 +644,15 @@ const ShopCheckoutInner: Component = () => {
                             >
                                 <div class="shop-checkout__discount-applied">
                                     <span>
-                                        <strong>{totals()!.discountCode}</strong>
+                                        <strong>{appliedDiscount()}</strong>
                                         <Show when={totals()!.discountSummary}> — {totals()!.discountSummary}</Show>
                                     </span>
                                     <Show when={step() !== 'confirm'}>
-                                        <button type="button" class="shop-checkout__discount-remove" onClick={() => applyCode('',)}>Remove</button>
+                                        <button type="button" class="shop-checkout__discount-remove" disabled={previewing()} onClick={() => applyCode('',)}>Remove</button>
                                     </Show>
                                 </div>
                             </Show>
-                            <Show when={appliedCode() && totals()?.discountError}>
+                            <Show when={appliedCode() && !previewing() && totals()?.discountError}>
                                 <p class="shop-checkout__discount-error" role="alert">{totals()!.discountError}</p>
                             </Show>
                         </div>

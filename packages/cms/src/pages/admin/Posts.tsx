@@ -63,7 +63,7 @@ const AdminPosts: Component = () => {
     // ── Contributions view (`?view=contributions`) ──
     // Offered when contributor payouts are on OR contributions exist, and only
     // to staff with `contributions:manage` (the summary 403s otherwise → no view).
-    const [contrib,] = createResource(
+    const [contrib, { refetch: refetchContrib, },] = createResource(
         () => (shell() ? null : 'staff'),
         async () => {
             try {
@@ -75,7 +75,10 @@ const AdminPosts: Component = () => {
             }
         },
     );
-    const contributionsView = () => searchParams.view === 'contributions' && contrib()?.available === true;
+    // `.latest` once resolved: the waiting count refreshes after each review / payout
+    // action without suspending the page.
+    const contribInfo = () => (contrib.state === 'ready' || contrib.state === 'refreshing' ? contrib.latest : undefined);
+    const contributionsView = () => searchParams.view === 'contributions' && contribInfo()?.available === true;
     const switchView = (v: 'posts' | 'contributions',) => setSearchParams({
         view: v === 'contributions' ? 'contributions' : undefined,
         // Each view has its own filters / sort.
@@ -113,17 +116,17 @@ const AdminPosts: Component = () => {
                     </div>
                 </div>
             </ModalShell>
-            <Show when={contrib()?.available}>
+            <Show when={contribInfo()?.available}>
                 <Tabs<'posts' | 'contributions'>
                     items={[
                         { value: 'posts', label: 'All posts', },
-                        { value: 'contributions', label: contrib()!.pending ? `Contributions (${contrib()!.pending} waiting)` : 'Contributions', },
+                        { value: 'contributions', label: contribInfo()?.pending ? `Contributions (${contribInfo()!.pending} waiting)` : 'Contributions', },
                     ]}
                     value={contributionsView() ? 'contributions' : 'posts'}
                     onChange={switchView}
                 />
             </Show>
-            <Show when={!contributionsView()} fallback={<ContributionsView />}>
+            <Show when={!contributionsView()} fallback={<ContributionsView onChanged={() => void refetchContrib()} />}>
             <div class="admin-filter-bar">
                 <input
                     class="admin-filter-bar__search"

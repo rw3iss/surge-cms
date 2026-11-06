@@ -1,6 +1,6 @@
 import type { MembershipTierOption, } from '@sitesurge/types';
 import { A, useSearchParams, } from '@solidjs/router';
-import { Component, createResource, createSignal, onMount, Show, } from 'solid-js';
+import { Component, createEffect, createResource, createSignal, Show, untrack, } from 'solid-js';
 import SeoHead from '../components/common/seo/SeoHead';
 import { cms, } from '../services/cmsClient';
 import { isFeatureEnabled, isPatreonEnabled, siteName, siteSettings, } from '../stores/siteSettings';
@@ -26,16 +26,24 @@ const Join: Component = () => {
     const [params,] = useSearchParams<{ tier?: string; price?: string; apply?: string; }>();
     const choice = (): MembershipChoice | null =>
         params.tier ? { tier: params.tier, price: params.price ?? null, apply: params.apply === '1', } : null;
-    onMount(() => { const c = choice(); if (c && !siteSettings()?.membership?.required) rememberChoice(c,); },);
-    // Details typed into a membership application just before "Create my account".
-    // (Subscription-required sites render SubscriptionSignup instead, which takes them itself.)
-    onMount(() => {
-        if (siteSettings()?.membership?.required) return;
+    // Both wait for the site settings: on a direct load they arrive after mount,
+    // and a subscription-required site must leave the prefill for SubscriptionSignup.
+    let settled = false;
+    createEffect(() => {
+        const settings = siteSettings();
+        if (settled || !settings) return;
+        settled = true;
+        if (settings.membership?.required && isFeatureEnabled('users',)) return;
+        const c = choice();
+        if (c) rememberChoice(c,);
+        // Details typed into a membership application just before "Create my account".
         const p = takeJoinPrefill();
         if (!p) return;
-        if (p.name && !name()) setName(p.name,);
-        if (p.email && !email()) setEmail(p.email,);
-        if (p.phone && !phone()) setPhone(p.phone,);
+        untrack(() => {
+            if (p.name && !name()) setName(p.name,);
+            if (p.email && !email()) setEmail(p.email,);
+            if (p.phone && !phone()) setPhone(p.phone,);
+        },);
     },);
     const [chosenTier,] = createResource(
         () => params.tier,
@@ -53,6 +61,7 @@ const Join: Component = () => {
 
     const handleRegister = async (e: Event,) => {
         e.preventDefault();
+        if (isLoading()) return;
         setError('',);
 
         if (password() !== confirmPassword()) {
@@ -205,9 +214,9 @@ const Join: Component = () => {
                         Patreon (if that's enabled). */}
                     <Show when={isFeatureEnabled('users',)}>
                     <div class="join__section">
-                        <h2 class="join__section-title">Create a Free Account</h2>
+                        <h2 class="join__section-title">{chosenTier() ? 'Create Your Account' : 'Create a Free Account'}</h2>
                         <p class="join__section-desc">
-                            Create a standard account to browse public content.
+                            {chosenTier() ? 'Your membership is set up after your account is created.' : 'Create a standard account to browse public content.'}
                             <Show when={isPatreonEnabled()}>
                                 {' '}Note that free accounts have limited access — only public posts and media will be visible.
                             </Show>

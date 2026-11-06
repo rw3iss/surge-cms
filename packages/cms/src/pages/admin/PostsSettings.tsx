@@ -18,7 +18,7 @@ import LiveProviderSettings from '../../components/admin/posts/settings/LiveProv
 import { useToast, } from '../../components/common/toast';
 import { cms, } from '../../services/cmsClient';
 import EmailTemplatesPanel, { type PurposeConfig, } from '../../components/admin/mail/EmailTemplatesPanel';
-import ContributorSettingsPanel from '../../components/admin/contributions/ContributorSettingsPanel';
+import ContributorSettingsPanel, { type ContributorSettingsApi, } from '../../components/admin/contributions/ContributorSettingsPanel';
 
 interface PanelCtx {
     providers: () => LiveProviderDescriptor[];
@@ -101,6 +101,15 @@ const AdminPostsSettings: Component = () => {
 
     const ctx: PanelCtx = { providers, provider, setProvider, configs, setConfigs, };
 
+    // Contributions tab: its settings are a separate row with their own API, so the
+    // header Save saves THOSE there (it used to save the posts settings and say
+    // "Posts settings saved" while the contributor changes were dropped).
+    const [contrib, setContrib,] = createSignal<ContributorSettingsApi | null>(null,);
+    const onContributions = () => tab() === 'contributions';
+    const headerSave = () => (onContributions() ? void contrib()?.save() : void save());
+    const headerBusy = () => (onContributions() ? !!contrib()?.saving() : saving());
+    const headerDisabled = () => (onContributions() ? !contrib()?.ready() || headerBusy() : saving() || !loaded());
+
     return (
         <div class="posts-settings-page">
             <AdminTitle>Posts Settings</AdminTitle>
@@ -108,8 +117,8 @@ const AdminPostsSettings: Component = () => {
                 <A href="/admin/posts" class="admin-header__back">← Posts</A>
                 <h1>Posts Settings</h1>
                 <div class="admin-header__actions">
-                    <button class="ui-button ui-button--primary" onClick={save} disabled={saving() || !loaded()}>
-                        {saving() ? 'Saving…' : 'Save'}
+                    <button class="ui-button ui-button--primary" onClick={headerSave} disabled={headerDisabled()}>
+                        {headerBusy() ? 'Saving…' : 'Save'}
                     </button>
                 </div>
             </div>
@@ -143,9 +152,9 @@ const AdminPostsSettings: Component = () => {
                     </section>
                 </Show>
 
-                {/* Contributor payouts: its own Save (separate settings row). */}
+                {/* Contributor payouts: a separate settings row, saved by the header Save. */}
                 <Show when={tab() === 'contributions'}>
-                    <ContributorSettingsPanel />
+                    <ContributorSettingsPanel bindSave={setContrib} />
                 </Show>
 
                 <Show when={tab() === 'emails'}>

@@ -5,7 +5,7 @@ vi.mock('../audit', () => ({ logAudit: vi.fn(), }),);
 vi.mock('../settings', () => ({ isFeatureEnabledServer: vi.fn(async () => false), }),);
 vi.mock('../permissions', () => ({ can: vi.fn(async () => true), }),);
 
-const { codeProblem, normalizeBody, } = await import('./discounts');
+const { codeProblem, commissionSplitFor, normalizeBody, } = await import('./discounts');
 
 const row = {
     active: true, starts_at: null, ends_at: null, max_uses: null, max_uses_per_user: null, min_subtotal_cents: null,
@@ -52,3 +52,25 @@ describe('normalizeBody', () => {
         expect(() => normalizeBody({ code: 'X10', startsAt: '2026-11-02', endsAt: '2026-11-01', },),).toThrow(/end date/,);
     },);
 },);
+
+describe('commissionSplitFor', () => {
+    it('uses the checkout snapshot when it belongs to the code (no DB read)', async () => {
+        const { query, } = await import('../../db');
+        vi.mocked(query,).mockClear();
+        const split = await commissionSplitFor('c1', {
+            codeId: 'c1', kind: 'percent', percent: 10, amountCents: 0, appliesToTickets: true, affiliateUserId: 'u1', commissionPercent: 20,
+        },);
+        expect(split,).toEqual({ affiliateUserId: 'u1', commissionPercent: 20, appliesToTickets: true, },);
+        expect(query,).not.toHaveBeenCalled();
+    });
+
+    it('snapshot of a site code (no affiliate) → no commission', async () => {
+        expect(await commissionSplitFor('c1', { codeId: 'c1', affiliateUserId: null, commissionPercent: null, },),).toBeNull();
+    });
+
+    it('older orders (no snapshot) fall back to the code row', async () => {
+        const { query, } = await import('../../db');
+        vi.mocked(query,).mockResolvedValueOnce({ rows: [{ affiliate_user_id: 'u2', commission_percent: '15', applies_to_tickets: false, },], rowCount: 1, } as never,);
+        expect(await commissionSplitFor('c1', null,),).toEqual({ affiliateUserId: 'u2', commissionPercent: 15, appliesToTickets: false, },);
+    });
+});

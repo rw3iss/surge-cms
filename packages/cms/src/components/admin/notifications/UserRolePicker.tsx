@@ -52,21 +52,24 @@ const UserRolePicker: Component<{
     // Search-as-you-type box: queries on input (debounced), so it does not
     // commit on blur like the other admin text inputs.
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let searchSeq = 0;
     onCleanup(() => clearTimeout(timer,),);
     const search = (q: string,) => {
         setQuery(q,);
         setOpen(true,);
         clearTimeout(timer,);
-        if (!q.trim()) { setHits([],); return; }
+        if (!q.trim()) { searchSeq++; setHits([],); setSearching(false,); return; }
         timer = setTimeout(async () => {
+            // Latest search wins — a slow answer for "ja" never replaces the one for "jane".
+            const mine = ++searchSeq;
             setSearching(true,);
             try {
                 const res = await cms.users.list({ search: q.trim(), limit: 8, },);
-                setHits((res.data ?? []) as unknown as UserHit[],);
+                if (mine === searchSeq) setHits((res.data ?? []) as unknown as UserHit[],);
             } catch {
-                setHits([],);
+                if (mine === searchSeq) setHits([],);
             } finally {
-                setSearching(false,);
+                if (mine === searchSeq) setSearching(false,);
             }
         }, 250,);
     };

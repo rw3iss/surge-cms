@@ -17,7 +17,7 @@ import AnalyticsNav from './AnalyticsNav';
 import AudiencePanel from './audience/AudiencePanel';
 import { audienceHasData, } from './audience/audienceFormat';
 import { StatusBadge, } from './DigestsPage';
-import { deltaText, deltaTone, fmtMetric, fmtNum, fmtPct, metricLabel, orderedMetricKeys, periodLabel, } from './digestFormat';
+import { deltaText, deltaTone, fmtMetric, fmtNum, fmtPct, metricLabel, orderedMetricKeys, periodLabel, sendResultToast, } from './digestFormat';
 
 const when = (iso: string | null,) => (iso ? new Date(iso,).toLocaleString() : '—');
 
@@ -311,7 +311,7 @@ const DigestView: Component = () => {
         setSending(true,);
         try {
             const r = await cms.socialAnalytics.sendDigest(params.id,);
-            toast.success(r.sent ? `Emailed to ${r.sent} recipient${r.sent === 1 ? '' : 's'}` : 'No recipients — add them in Settings',);
+            sendResultToast(toast, r,);
             refetch();
         } catch (e) {
             toast.error(`Could not email it: ${(e as Error).message}`,);

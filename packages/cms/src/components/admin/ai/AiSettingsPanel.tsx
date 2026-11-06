@@ -25,6 +25,9 @@ const AiSettingsPanel: Component = () => {
     const [testJson, setTestJson,] = createSignal(false,);
     const [running, setRunning,] = createSignal(false,);
     const [result, setResult,] = createSignal<AiResult | null>(null,);
+    /** null = still loading; false = no `ai:manage` (the provider form is read-only). */
+    const [canManage, setCanManage,] = createSignal<boolean | null>(null,);
+    let cancelled = false;
     let keyEl: HTMLInputElement | undefined;
 
     const loadStatus = async () => {
@@ -39,7 +42,10 @@ const AiSettingsPanel: Component = () => {
     onMount(async () => {
         try {
             setS(await cms.ai.settings(),);
-        } catch { /* no ai:manage — the settings form stays at defaults */ }
+            setCanManage(true,);
+        } catch {
+            setCanManage(false,); // no ai:manage — show the status + test prompt only
+        }
         void loadStatus();
     },);
 
@@ -63,6 +69,7 @@ const AiSettingsPanel: Component = () => {
     const run = async () => {
         setRunning(true,);
         setResult(null,);
+        cancelled = false;
         try {
             let r = await cms.ai.query({
                 prompt: prompt(),
@@ -72,9 +79,9 @@ const AiSettingsPanel: Component = () => {
                 kind: 'TEST',
             },);
             setResult(r,);
-            for (let i = 0; i < 10 && r.timedOut && r.id; i++) {
+            for (let i = 0; i < 10 && r.timedOut && r.id && !cancelled; i++) {
                 r = await cms.ai.job(r.id, { wait: 50, },);
-                setResult(r,);
+                if (!cancelled) setResult(r,);
             }
         } catch (e) {
             toast.error(e instanceof Error ? e.message : 'The request failed.',);
@@ -82,6 +89,20 @@ const AiSettingsPanel: Component = () => {
             setRunning(false,);
         }
     };
+
+    /** Stop waiting and cancel the broker job (an Anthropic request cannot be cancelled once sent). */
+    const cancel = async () => {
+        const r = result();
+        cancelled = true;
+        if (!r?.id || r.provider !== 'broker') return;
+        try {
+            setResult(await cms.ai.cancel(r.id,),);
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Could not cancel the job.',);
+        }
+    };
+
+    const live = (r: AiResult,) => r.status === 'pending' || r.status === 'in_progress';
 
     const provider = (key: AiProviderKey,) => status()?.providers.find((p,) => p.key === key,);
 
@@ -95,6 +116,10 @@ const AiSettingsPanel: Component = () => {
                         daemon (no API cost); the <strong>Anthropic API</strong> is an optional, paid alternative.
                     </p>
                 </header>
+                <Show when={canManage() === false}>
+                    <p class="form-help-muted">You can send prompts; changing these settings needs the <code>ai:manage</code> permission.</p>
+                </Show>
+                <Show when={canManage()}>
                 <div class="admin-form-row">
                     <FormField label="Default provider">
                         <select value={s.defaultProvider} onChange={(e,) => setS('defaultProvider', e.currentTarget.value as AiProviderKey,)}>
@@ -119,6 +144,7 @@ const AiSettingsPanel: Component = () => {
                         {saving() ? 'Saving…' : 'Save AI settings'}
                     </button>
                 </div>
+                </Show>
             </section>
 
             <section class="admin-section">
@@ -154,14 +180,20 @@ const AiSettingsPanel: Component = () => {
                             <Show when={st().pools.length}>
                                 <table class="ai-settings__pools">
                                     <thead>
-                                        <tr><th>Pool</th><th>Sessions</th><th>Busy</th><th>Idle</th><th>For</th></tr>
+                                        <tr><th>Pool</th><th>Ready</th><th>Busy</th><th>Idle</th><th>For</th></tr>
                                     </thead>
                                     <tbody>
                                         <For each={st().pools}>
                                             {(p,) => (
                                                 <tr>
                                                     <td>{p.name}{p.name === st().broker.defaultPool ? ' (default)' : ''}</td>
-                                                    <td class={p.healthy ? 'is-ok' : 'is-warn'}>{p.attached}/{p.expected}</td>
+                                                    <td
+                                                        class={p.healthy ? 'is-ok' : 'is-warn'}
+                                                        title={p.sessions.filter((x,) => x.healthy === false,).map((x,) => `${x.label}: ${x.state ?? 'unavailable'}`,).join('\n',) || undefined}
+                                                    >
+                                                        {p.ready ?? p.attached}/{p.expected}
+                                                        {p.attached !== (p.ready ?? p.attached) ? ` (${p.attached} attached)` : ''}
+                                                    </td>
                                                     <td>{p.busy}</td>
                                                     <td>{p.idle}</td>
                                                     <td>{p.description}</td>
@@ -212,6 +244,9 @@ const AiSettingsPanel: Component = () => {
                     <button type="button" class="ui-button ui-button--primary ui-button--sm" disabled={running() || !prompt().trim()} onClick={() => void run()}>
                         {running() ? 'Waiting for the answer…' : 'Send'}
                     </button>
+                    <Show when={running() && result()?.provider === 'broker' && result()?.id && live(result()!,)}>
+                        <button type="button" class="ui-button ui-button--secondary ui-button--sm" onClick={() => void cancel()}>Cancel</button>
+                    </Show>
                 </div>
                 <Show when={result()}>
                     {(r,) => (
@@ -221,6 +256,11 @@ const AiSettingsPanel: Component = () => {
                                 {r().model ? ` · ${r().model}` : ''}{r().pool ? ` · pool ${r().pool}` : ''}
                             </p>
                             <Show when={r().error}><p class="ai-settings__error">{r().error}</p></Show>
+                            <Show when={r().progress.length}>
+                                <ul class="ai-settings__progress">
+                                    <For each={r().progress}>{(n,) => <li>{n.note}</li>}</For>
+                                </ul>
+                            </Show>
                             <pre>{r().data != null ? JSON.stringify(r().data, null, 2,) : r().text}</pre>
                         </div>
                     )}

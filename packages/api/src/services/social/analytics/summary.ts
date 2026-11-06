@@ -7,6 +7,7 @@ import type { AiResult, AiStatusResponse, } from '@sitesurge/types';
 import * as ai from '../../ai';
 import { failedResult, } from '../../ai/result';
 import { overview, posts, resolveRange, } from './read';
+import { getSettings, } from './settings';
 
 const SYSTEM = 'You are a social media analyst for a news/media organisation. Write in plain, short American English. '
     + 'Use only the numbers given; never invent figures. Note when a platform has little or no data.';
@@ -64,7 +65,9 @@ export async function summarize(range: { from?: string; to?: string; },): Promis
         'Data (JSON):',
         digest,
     ].join('\n',);
-    const target = await summaryTarget();
+    // The pool configured for analytics work (Settings → AI pool), else the fallbacks in pickSummaryTarget.
+    const pool = await getSettings().then((st,) => st.digest.aiPool,).catch(() => undefined);
+    const target = await summaryTarget(pool,);
     if (!target.ok) return failedResult('broker', target.error, { meta: { reason: 'no_session', }, },);
     // ≤ 50 s over HTTP; a longer answer comes back timedOut and the admin polls the job.
     return ai.ask(prompt, { system: SYSTEM, kind: 'ANALYTICS SUMMARY', timeoutSec: 50, ...target.opts, },);

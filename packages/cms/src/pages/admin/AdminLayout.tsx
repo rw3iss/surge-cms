@@ -18,7 +18,7 @@ import { swatchCssVars, } from '../../services/colorResolver';
 import { loadSwatches, swatches as swatchesSignal, } from '../../services/siteColors';
 import { adminAppearance, adminAppearanceCssVars, loadAdminAppearance, } from '../../stores/adminAppearance';
 import { useAuth, } from '../../stores/auth';
-import { adminShellFor, canEnterAdmin, } from '../../admin/shells';
+import { adminShellFor, canEnterAdmin, shellAllowsPath, } from '../../admin/shells';
 import { isFeatureEnabled, loadSiteSettings, siteLogo, siteName, } from '../../stores/siteSettings';
 import { ensureFontFaces, } from '../../services/fonts';
 import { appearanceCssVars, richTextTypographyCss, } from '../../utils/appearanceStyle';
@@ -174,10 +174,8 @@ const AdminLayout: ParentComponent = (props,) => {
     const shellNavItems = () => NAV_ITEMS.filter((i,) => shell()!.nav.includes(i.id,),);
     const shellAllows = (path: string,) => {
         const sh = shell();
-        // Everyone in the admin has their own notifications page.
-        if (!sh || path === '/admin' || path === '/admin/' || path === '/admin/notifications') return true;
-        const allowed = sh.paths ?? shellNavItems().map((i,) => i.path,);
-        return allowed.some((p,) => path === p || path.startsWith(`${p}/`,),);
+        // One rule with the shell's own deny list (e.g. a contributor's /admin/posts/settings).
+        return !sh || shellAllowsPath(sh, path, shellNavItems().map((i,) => i.path,),);
     };
     /** Is this nav item shown to the current user? */
     const navVisible = (item: NavItem,) => {

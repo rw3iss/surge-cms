@@ -34,14 +34,14 @@ export async function upsertTikTokVideos(videos: TikTokVideo[], authorName: stri
         await query(
             `INSERT INTO social_posts (platform, external_id, content, media_url, thumbnail_url, author_name, likes, comments, shares,
                     published_at, fetched_at, raw_data, source, post_url, media_kind, duration_seconds)
-             VALUES ('tiktok', $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), $10, 'sync', $3, 'video', $11)
+             VALUES ('tiktok', $1, $2, $3, $4, $5, COALESCE($6::int, 0), COALESCE($7::int, 0), COALESCE($8::int, 0), $9, NOW(), $10, 'sync', $3, 'video', $11)
              ON CONFLICT (platform, external_id) DO UPDATE SET
                content = COALESCE(EXCLUDED.content, social_posts.content),
                media_url = COALESCE(EXCLUDED.media_url, social_posts.media_url),
                post_url = COALESCE(EXCLUDED.post_url, social_posts.post_url),
                thumbnail_url = COALESCE(EXCLUDED.thumbnail_url, social_posts.thumbnail_url),
                author_name = COALESCE(EXCLUDED.author_name, social_posts.author_name),
-               likes = EXCLUDED.likes, comments = EXCLUDED.comments, shares = EXCLUDED.shares,
+               likes = COALESCE($6, social_posts.likes), comments = COALESCE($7, social_posts.comments), shares = COALESCE($8, social_posts.shares),
                published_at = COALESCE(social_posts.published_at, EXCLUDED.published_at),
                duration_seconds = COALESCE(EXCLUDED.duration_seconds, social_posts.duration_seconds),
                media_kind = COALESCE(social_posts.media_kind, EXCLUDED.media_kind),

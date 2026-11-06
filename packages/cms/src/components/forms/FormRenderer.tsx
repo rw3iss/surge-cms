@@ -8,7 +8,7 @@ import type {
     QuestionResult,
     TextSummary,
 } from '@sitesurge/types';
-import { Component, createSignal, For, Match, Show, Switch, } from 'solid-js';
+import { Component, createSignal, createUniqueId, For, Match, Show, Switch, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
 import { type FormSection, formLayoutItems, } from '@sitesurge/types';
 import './FormRenderer.scss';
@@ -57,8 +57,29 @@ function makeNonce(): string {
     return `n-${Date.now()}-${String(Math.trunc(performance.now(),),)}`;
 }
 
+/** Radio / checkbox questions: several controls under ONE label (a group). */
+const isGroupType = (t: string,): boolean => t === 'radio' || t === 'checkbox';
+
 const FormRenderer: Component<FormRendererProps> = (props,) => {
     const submissionNonce = makeNonce();
+    // Element ids for label / error / section wiring (unique per render — a page may show one form twice).
+    const uid = createUniqueId();
+    const fieldId = (qid: string,) => `fr-${uid}-${qid}`;
+    const wrapId = (qid: string,) => `fr-${uid}-${qid}-field`;
+    const labelId = (qid: string,) => `fr-${uid}-${qid}-label`;
+    const helpId = (qid: string,) => `fr-${uid}-${qid}-help`;
+    const errorId = (qid: string,) => `fr-${uid}-${qid}-error`;
+    /** Accessibility wiring shared by every single-control question. */
+    const controlAria = (q: FormQuestion,) => ({
+        id: fieldId(q.id,),
+        'aria-labelledby': q.questionAsPlaceholder ? labelId(q.id,) : undefined,
+        'aria-describedby': [q.description ? helpId(q.id,) : '', fieldErrors()[q.id] ? errorId(q.id,) : '',].filter(Boolean,).join(' ',) || undefined,
+        'aria-invalid': fieldErrors()[q.id] ? true : undefined,
+        'aria-required': q.isRequired || undefined,
+    });
+    /** The questions a section holds (for the toggle's `aria-controls`). */
+    const sectionQuestionIds = (sec: FormSection,): string =>
+        props.form.questions.filter((q,) => q.sectionId === sec.id,).map((q,) => wrapId(q.id,),).join(' ',);
 
     /** Effective title text, or null when it should be hidden. */
     const titleText = (): string | null => {
@@ -108,17 +129,22 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                 style={{ 'text-align': sec.align || 'left', }}
             >
                 <Show when={sec.collapsible} fallback={text()}>
-                    {/* The whole heading toggles; the arrow shows the state. */}
-                    <button
-                        type="button"
-                        class="form-renderer__section-toggle"
-                        style={{ 'justify-content': sec.align === 'center' ? 'center' : sec.align === 'right' ? 'flex-end' : 'flex-start', }}
-                        aria-expanded={sectionOpen(sec,)}
-                        onClick={() => toggleSection(sec,)}
-                    >
-                        <span class="form-renderer__section-arrow" aria-hidden="true" />
-                        <span class="form-renderer__section-title">{sec.title || 'Section'}</span>
-                    </button>
+                    {/* A heading holding a button (the disclosure pattern): the whole
+                        heading toggles, the arrow shows the state, and screen readers
+                        still list it among the form's headings. */}
+                    <h3 class="form-renderer__section-heading">
+                        <button
+                            type="button"
+                            class="form-renderer__section-toggle"
+                            style={{ 'justify-content': sec.align === 'center' ? 'center' : sec.align === 'right' ? 'flex-end' : 'flex-start', }}
+                            aria-expanded={sectionOpen(sec,)}
+                            aria-controls={sectionQuestionIds(sec,) || undefined}
+                            onClick={() => toggleSection(sec,)}
+                        >
+                            <span class="form-renderer__section-arrow" aria-hidden="true" />
+                            <span class="form-renderer__section-title">{sec.title || 'Section'}</span>
+                        </button>
+                    </h3>
                 </Show>
                 <Show when={sec.description && sectionOpen(sec,)}>
                     <p class="form-renderer__section-description">{sec.description}</p>
@@ -138,7 +164,13 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
     const [fieldErrors, setFieldErrors,] = createSignal<Record<string, string>>({},);
 
     const updateAnswer = (questionId: string, value: unknown,) => {
-        setAnswers(prev => ({ ...prev, [questionId]: value, }),);
+        setAnswers(prev => {
+            const next = { ...prev, };
+            // A cleared field is no answer (a cleared NUMBER used to read as 0).
+            if (value === undefined) delete next[questionId];
+            else next[questionId] = value;
+            return next;
+        },);
         // Clear a field's error as soon as the visitor edits it.
         if (fieldErrors()[questionId]) {
             setFieldErrors(prev => {
@@ -153,7 +185,8 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
 
     /** Validate one answer against its question's rules → error message or null. */
     const validateQuestion = (q: FormQuestion, value: unknown,): string | null => {
-        const empty = value == null || value === '' || (Array.isArray(value,) && value.length === 0);
+        const empty = value == null || (typeof value === 'string' && value.trim() === '') || (typeof value === 'number' && Number.isNaN(value,))
+            || (Array.isArray(value,) && value.length === 0);
         if (q.isRequired && empty) return 'This field is required.';
         if (empty) return null;
         const v = q.validation;
@@ -198,16 +231,27 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                 if (it.kind === 'question' && it.section && errs[it.question.id] && !sectionOpen(it.section,)) open[it.section.id] = true;
             }
             if (Object.keys(open,).length) setToggled({ ...toggled(), ...open, },);
+            // Take the visitor to the first problem (after the sections open).
+            const first = renderItems().find((it,): it is QuestionItem => it.kind === 'question' && !!errs[it.question.id],);
+            if (first) {
+                requestAnimationFrame(() => {
+                    const wrap = document.getElementById(wrapId(first.question.id,),);
+                    const control = wrap?.querySelector<HTMLElement>('input, select, textarea',);
+                    wrap?.scrollIntoView({ block: 'center', behavior: 'smooth', },);
+                    control?.focus({ preventScroll: true, },);
+                },);
+            }
             return;
         }
 
         setSubmitting(true,);
 
         try {
-            const formAnswers = Object.entries(answers(),).map(([questionId, value,],) => ({
-                questionId,
-                value,
-            }),) as FormAnswer[];
+            // Only this form's questions (a pre-fill may name others).
+            const known = new Set(props.form.questions.map((q,) => q.id,),);
+            const formAnswers = Object.entries(answers(),)
+                .filter(([questionId,],) => known.has(questionId,),)
+                .map(([questionId, value,],) => ({ questionId, value, }),) as FormAnswer[];
             if (props.onCollect) {
                 await props.onCollect(formAnswers,);
                 return;
@@ -263,23 +307,30 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                                         const inSection = (item as QuestionItem).section;
                                         return (
                                 <div
+                                    id={wrapId(q.id,)}
                                     class="form-renderer__field"
+                                    role={isGroupType(q.type,) ? 'group' : undefined}
+                                    aria-labelledby={isGroupType(q.type,) ? labelId(q.id,) : undefined}
+                                    aria-describedby={isGroupType(q.type,) && fieldErrors()[q.id] ? errorId(q.id,) : undefined}
                                     classList={{
                                         'form-renderer__field--invalid': !!fieldErrors()[q.id],
                                         'form-renderer__field--half': q.width === 'half',
                                         'form-renderer__field--collapsed': !sectionOpen(inSection,),
                                     }}
                                 >
-                                    <Show when={!q.questionAsPlaceholder}>
-                                        <label class="form-renderer__label">
+                                    <Show
+                                        when={!q.questionAsPlaceholder}
+                                        fallback={<span id={labelId(q.id,)} class="sr-only">{q.question}</span>}
+                                    >
+                                        <label id={labelId(q.id,)} class="form-renderer__label" for={isGroupType(q.type,) ? undefined : fieldId(q.id,)}>
                                             {q.question}
                                             <Show when={q.isRequired}>
-                                                <span class="form-renderer__required">*</span>
+                                                <span class="form-renderer__required" aria-hidden="true">*</span>
                                             </Show>
                                         </label>
                                     </Show>
                                     <Show when={q.description}>
-                                        <p class="form-renderer__description">{q.description}</p>
+                                        <p id={helpId(q.id,)} class="form-renderer__description">{q.description}</p>
                                     </Show>
 
                                     <Switch>
@@ -287,6 +338,7 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                                             <input
                                                 type="text"
                                                 class="form-renderer__input"
+                                                {...controlAria(q,)}
                                                 value={initial(q.id,)}
                                                 required={q.isRequired}
                                                 minLength={q.validation?.minLength}
@@ -301,6 +353,7 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                                         <Match when={q.type === 'textarea'}>
                                             <textarea
                                                 class="form-renderer__textarea"
+                                                {...controlAria(q,)}
                                                 value={initial(q.id,)}
                                                 rows={q.rows ?? 4}
                                                 required={q.isRequired}
@@ -319,12 +372,13 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                                             <input
                                                 type="number"
                                                 class="form-renderer__input form-renderer__input--number"
+                                                {...controlAria(q,)}
                                                 required={q.isRequired}
                                                 inputmode="numeric"
                                                 min={q.validation?.min}
                                                 max={q.validation?.max}
                                                 placeholder={q.questionAsPlaceholder ? q.question : (q.placeholder || '')}
-                                                onInput={(e,) => updateAnswer(q.id, Number(e.currentTarget.value,),)}
+                                                onInput={(e,) => updateAnswer(q.id, e.currentTarget.value === '' ? undefined : Number(e.currentTarget.value,),)}
                                             />
                                         </Match>
 
@@ -332,6 +386,7 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                                             <input
                                                 type="email"
                                                 class="form-renderer__input"
+                                                {...controlAria(q,)}
                                                 value={initial(q.id,)}
                                                 required={q.isRequired}
                                                 inputmode="email"
@@ -346,6 +401,7 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                                             <input
                                                 type="date"
                                                 class="form-renderer__input form-renderer__input--date"
+                                                {...controlAria(q,)}
                                                 required={q.isRequired}
                                                 onInput={(e,) => updateAnswer(q.id, e.currentTarget.value,)}
                                             />
@@ -354,6 +410,7 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                                         <Match when={q.type === 'select'}>
                                             <select
                                                 class="form-renderer__select"
+                                                {...controlAria(q,)}
                                                 required={q.isRequired}
                                                 onChange={(e,) => updateAnswer(q.id, e.currentTarget.value,)}
                                             >
@@ -410,7 +467,7 @@ const FormRenderer: Component<FormRendererProps> = (props,) => {
                                     </Switch>
 
                                     <Show when={fieldErrors()[q.id]}>
-                                        <span class="form-renderer__field-error" role="alert">
+                                        <span id={errorId(q.id,)} class="form-renderer__field-error" role="alert">
                                             {fieldErrors()[q.id]}
                                         </span>
                                     </Show>

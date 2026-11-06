@@ -67,8 +67,15 @@ export async function youTubeAccessToken(creds?: Record<string, unknown>,): Prom
         return t.accessToken;
     } catch (e) {
         const msg = (e as Error).message || 'Google sign-in expired';
-        logger.warn('youtube: token renewal failed — reconnect needed', { error: msg, },);
-        await saveCreds({ oauthError: msg, },).catch(() => {},);
+        // Only an answer from Google (invalid_grant, invalid_client…) means "reconnect";
+        // a timeout / network error is transient and must not mark the sign-in broken.
+        const code = (e as Error & { code?: string; }).code;
+        if (code) {
+            logger.warn('youtube: token renewal failed — reconnect needed', { error: msg, code, },);
+            await saveCreds({ oauthError: msg, },).catch(() => {},);
+        } else {
+            logger.warn('youtube: token renewal failed (transient) — retried on the next read', { error: msg, },);
+        }
         return null;
     }
 }

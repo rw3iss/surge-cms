@@ -96,6 +96,13 @@
         color: var(--site-heading, inherit);
     }
 
+    // Collapsible section: an <h3> holding the toggle button — no heading
+    // styles of its own (the button's title span carries them).
+    &__section-heading {
+        margin: 0;
+        font: inherit;
+    }
+
     // Collapsible section: the heading is a button (looks like the title), an
     // arrow before the title shows open / closed.
     &__section-toggle {

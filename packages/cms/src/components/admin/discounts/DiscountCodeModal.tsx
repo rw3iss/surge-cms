@@ -3,7 +3,7 @@
  * codes) and Shop → Affiliates (an affiliate's codes: commission + the buyer
  * discount that comes out of it). Service: services/shop/discounts.ts.
  */
-import type { RoleDef, ShopDiscountCode, ShopDiscountCodeBody, SubscriptionTier, } from '@sitesurge/types';
+import type { RoleDef, ShopDiscountCode, SubscriptionTier, } from '@sitesurge/types';
 import { isStaffRole, } from '@sitesurge/types';
 import { Component, createResource, createSignal, For, Show, } from 'solid-js';
 import { createStore, } from 'solid-js/store';
@@ -13,6 +13,8 @@ import { useToast, } from '../../common/toast';
 import ModalShell from '../common/ModalShell';
 import Toggle from '../common/Toggle';
 import { CommitInput, FormField, } from '../forms';
+import { clampPercent, } from '../contributions/money';
+import { buildDiscountBody, type DiscountDraft, toLocalInput as toLocal, } from './discountForm';
 import './discounts.scss';
 
 export interface DiscountCodeModalProps {
@@ -27,26 +29,15 @@ export interface DiscountCodeModalProps {
     onSaved: (code: ShopDiscountCode,) => void;
 }
 
-/** `2026-11-01T09:30` (datetime-local, local time) ↔ ISO. */
-const toLocal = (iso: string | null | undefined,) => {
-    if (!iso) return '';
-    const d = new Date(iso,);
-    const pad = (n: number,) => String(n,).padStart(2, '0',);
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1,)}-${pad(d.getDate(),)}T${pad(d.getHours(),)}:${pad(d.getMinutes(),)}`;
-};
-const fromLocal = (v: string,) => (v ? new Date(v,).toISOString() : null);
-const intOrNull = (v: string,) => (v.trim() === '' ? null : Math.max(0, Math.round(Number(v,),),) || null);
-const dollarsToCents = (v: string,) => (v.trim() === '' ? null : Math.max(0, Math.round(Number(v,) * 100,),));
-
 const DiscountCodeModal: Component<DiscountCodeModalProps> = (props,) => {
     const toast = useToast();
     const affiliate = () => Boolean(props.code?.affiliateUserId ?? props.affiliateUserId,);
     const [saving, setSaving,] = createSignal(false,);
     const [error, setError,] = createSignal('',);
     const c = props.code;
-    const [draft, setDraft,] = createStore({
+    const [draft, setDraft,] = createStore<DiscountDraft>({
         code: c?.code ?? '',
-        kind: (c?.kind ?? 'percent') as 'percent' | 'fixed',
+        kind: c?.kind ?? 'percent',
         percent: c?.percent ?? (affiliate() ? 0 : 10),
         amountDollars: c ? (c.amountCents / 100).toFixed(2,) : '',
         active: c?.active ?? true,
@@ -55,8 +46,8 @@ const DiscountCodeModal: Component<DiscountCodeModalProps> = (props,) => {
         minSubtotal: c?.minSubtotalCents != null ? (c.minSubtotalCents / 100).toFixed(2,) : '',
         startsAt: toLocal(c?.startsAt,),
         endsAt: toLocal(c?.endsAt,),
-        allowedTierIds: [...(c?.allowedTierIds ?? []),] as string[],
-        allowedRoles: [...(c?.allowedRoles ?? []),] as string[],
+        allowedTierIds: [...(c?.allowedTierIds ?? []),],
+        allowedRoles: [...(c?.allowedRoles ?? []),],
         appliesToTickets: c?.appliesToTickets ?? false,
         commissionPercent: c?.commissionPercent ?? props.defaultCommission ?? 10,
         note: c?.note ?? '',
@@ -72,25 +63,11 @@ const DiscountCodeModal: Component<DiscountCodeModalProps> = (props,) => {
     };
 
     const save = async () => {
+        if (saving()) return;
         setError('',);
-        if (!draft.code.trim()) return setError('Enter a code.',);
-        const body: ShopDiscountCodeBody = {
-            code: draft.code.trim(),
-            kind: affiliate() ? 'percent' : draft.kind,
-            percent: Number(draft.percent,) || 0,
-            amountCents: draft.kind === 'fixed' && !affiliate() ? (dollarsToCents(draft.amountDollars,) ?? 0) : 0,
-            active: draft.active,
-            maxUses: intOrNull(draft.maxUses,),
-            maxUsesPerUser: intOrNull(draft.maxUsesPerUser,),
-            minSubtotalCents: dollarsToCents(draft.minSubtotal,),
-            startsAt: fromLocal(draft.startsAt,),
-            endsAt: fromLocal(draft.endsAt,),
-            allowedTierIds: draft.allowedTierIds,
-            allowedRoles: draft.allowedRoles,
-            appliesToTickets: draft.appliesToTickets,
-            note: draft.note.trim() || null,
-            ...(affiliate() ? { commissionPercent: Number(draft.commissionPercent,) || 0, } : {}),
-        };
+        const built = buildDiscountBody(draft, affiliate(),);
+        if (!built.ok) return setError(built.error,);
+        const body = built.body;
         setSaving(true,);
         try {
             const saved = props.code
@@ -113,7 +90,8 @@ const DiscountCodeModal: Component<DiscountCodeModalProps> = (props,) => {
                 <h2 class="discount-modal__title">{props.code ? `Edit ${props.code.code}` : affiliate() ? 'New affiliate code' : 'New discount code'}</h2>
 
                 <div class="admin-form-row">
-                    <FormField label="Code" hint="Letters, digits, - or _. Buyers type it at checkout (any case).">
+                    <FormField label="Code" hint="3–64 letters, digits, - or _. Buyers type it at checkout (any case).">
+                        {/* No `validate` here: a refused draft would leave the OLD code to be saved; the Save checks it. */}
                         <CommitInput value={draft.code} onCommit={(v,) => setDraft('code', v.trim(),)} placeholder="SUMMER10" />
                     </FormField>
                     <Show when={!affiliate()}>
@@ -133,13 +111,18 @@ const DiscountCodeModal: Component<DiscountCodeModalProps> = (props,) => {
                             tooltip="The affiliate's share of the merchandise subtotal of every paid order that uses this code (0–100). Any buyer discount comes out of it."
                             hint="Default 10%."
                         >
-                            <CommitInput type="number" min={0} max={100} step="0.5" value={draft.commissionPercent} onCommit={(v,) => setDraft('commissionPercent', Math.min(100, Math.max(0, Number(v,) || 0,),),)} />
+                            <CommitInput type="number" min={0} max={100} step="0.5" value={draft.commissionPercent} onCommit={(v,) => {
+                                const next = clampPercent(v,);
+                                setDraft('commissionPercent', next,);
+                                // The buyer discount comes out of the commission: never above it.
+                                if (Number(draft.percent,) > next) setDraft('percent', next,);
+                            }} />
                         </FormField>
                         <FormField
                             label="Buyer discount %"
                             tooltip="Given to the buyer and taken out of the commission (0 = the affiliate keeps all of it). The affiliate can change this on their page."
                         >
-                            <CommitInput type="number" min={0} max={100} step="0.5" value={draft.percent} onCommit={(v,) => setDraft('percent', Math.max(0, Number(v,) || 0,),)} />
+                            <CommitInput type="number" min={0} max={Number(draft.commissionPercent,)} step="0.5" value={draft.percent} onCommit={(v,) => setDraft('percent', clampPercent(v, Number(draft.commissionPercent,),),)} />
                         </FormField>
                     </div>
                 </Show>
@@ -148,7 +131,7 @@ const DiscountCodeModal: Component<DiscountCodeModalProps> = (props,) => {
                         when={draft.kind === 'fixed'}
                         fallback={
                             <FormField label="Percent off" hint="Of the merchandise subtotal (and tickets, if allowed below).">
-                                <CommitInput type="number" min={0} max={100} step="0.5" value={draft.percent} onCommit={(v,) => setDraft('percent', Math.min(100, Math.max(0, Number(v,) || 0,),),)} />
+                                <CommitInput type="number" min={0} max={100} step="0.5" value={draft.percent} onCommit={(v,) => setDraft('percent', clampPercent(v,),)} />
                             </FormField>
                         }
                     >

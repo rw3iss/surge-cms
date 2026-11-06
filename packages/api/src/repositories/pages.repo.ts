@@ -1,8 +1,8 @@
 import type { Block, NavigationItem, Page, } from '@sitesurge/types';
-import { query, } from '../db';
+import { query, transaction, } from '../db';
 import { ConflictError, } from '../core/errors';
 import { NotFoundError, ValidationError, } from '../middleware/error';
-import { mapRow, mapRows, } from '../utils/mapRow';
+import { buildUpdateSet, mapRow, mapRows, } from '../utils/mapRow';
 import { sanitize, } from '../utils/sanitize';
 import { uuidOrNull, } from '../utils/uuid';
 import {
@@ -147,12 +147,39 @@ export async function findPageById(id: string,): Promise<Page> {
     return findByIdOrThrow<Page>('pages', id, 'Page',);
 }
 
+/** A query runner: the pool's `query`, or a transaction client's. */
+export type QueryFn = typeof query;
+
+/**
+ * Run `fn` in ONE transaction that holds the lock for system page `key`.
+ *
+ * Assigning a key is two writes — take it from the page that holds it, then
+ * give it to this one. Done apart, two saves claiming the same key at once
+ * both passed the release and the second write hit the partial-unique index
+ * (a 409 "already exists"), and a write that failed after the release (a slug
+ * conflict) left the key on NO page — the homepage went back to the built-in
+ * screen. Under the lock the second claim waits and then takes the key over
+ * cleanly; a failed write rolls the release back.
+ */
+export async function withSystemPageLock<T,>(key: string, fn: (run: QueryFn,) => Promise<T>,): Promise<T> {
+    return transaction(async (client,) => {
+        const run = ((text: string, params?: unknown[],) => client.query(text, params,)) as QueryFn;
+        await run(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`pages:system_page:${key}`,],);
+        return fn(run,);
+    },);
+}
+
 /**
  * Take a system page key ("Use as page") away from whichever OTHER page holds it,
  * so the caller can assign it. Returns that page (to report it), or null.
+ * Pass the transaction's `run` (see `withSystemPageLock`).
  */
-export async function releaseSystemPage(key: string, exceptId: string | null,): Promise<{ id: string; title: string; } | null> {
-    const r = await query<{ id: string; title: string; }>(
+export async function releaseSystemPage(
+    key: string,
+    exceptId: string | null,
+    run: QueryFn = query,
+): Promise<{ id: string; title: string; } | null> {
+    const r = await run<{ id: string; title: string; }>(
         `UPDATE pages SET system_page = NULL, is_homepage = false, updated_at = NOW()
           WHERE system_page = $1 AND ($2::uuid IS NULL OR id <> $2::uuid)
           RETURNING id, title`,
@@ -169,8 +196,8 @@ export async function findSystemPageSlugs(): Promise<Record<string, string>> {
     return Object.fromEntries(r.rows.map((row,) => [row.system_page, row.slug,]),);
 }
 
-export async function createPage(data: Record<string, unknown>, userId: string,): Promise<Page> {
-    const result = await query(
+export async function createPage(data: Record<string, unknown>, userId: string, run: QueryFn = query,): Promise<Page> {
+    const result = await run(
         `INSERT INTO pages (slug, title, description, meta_title, meta_description,
                         meta_keywords, og_image, status, is_homepage, show_title,
                         apply_page_padding, apply_site_gutter, header_style, header_position,
@@ -218,8 +245,16 @@ export async function createPage(data: Record<string, unknown>, userId: string,)
     return page;
 }
 
-export async function updatePage(id: string, data: Record<string, unknown>,): Promise<Page> {
-    return updateById<Page>('pages', id, data, 'Page',);
+export async function updatePage(id: string, data: Record<string, unknown>, run?: QueryFn,): Promise<Page> {
+    if (!run) return updateById<Page>('pages', id, data, 'Page',);
+    // Same statement as `updateById`, on the caller's transaction.
+    const { setClause, values, nextIndex, } = buildUpdateSet(data,);
+    values.push(id,);
+    const result = setClause
+        ? await run(`UPDATE pages SET ${setClause}, updated_at = NOW() WHERE id = $${nextIndex} RETURNING *`, values,)
+        : await run(`SELECT * FROM pages WHERE id = $1`, [id,],);
+    if (result.rows.length === 0) throw new NotFoundError('Page',);
+    return mapRow<Page>(result.rows[0],);
 }
 
 export async function deletePage(id: string,): Promise<void> {

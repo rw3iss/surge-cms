@@ -9,10 +9,10 @@
  * (back from Stripe onboarding) re-reads the account once.
  */
 import type { Contribution, ContributionEarningStatus, ContributionState, PartnerMeResponse, } from '@sitesurge/types';
-import { formatCurrency, } from '@sitesurge/types';
 import { A, useSearchParams, } from '@solidjs/router';
-import { Component, createResource, createSignal, For, lazy, onMount, Show, } from 'solid-js';
+import { Component, createResource, createSignal, For, lazy, onMount, Show, Suspense, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
+import { formatDay as day, formatMoney as money, payoutStatusForPartner, } from '../admin/contributions/money';
 import { Tabs, } from '../ui/Tabs';
 import './AffiliatePanel.scss';
 import './PartnerProgramPanel.scss';
@@ -21,8 +21,6 @@ const AffiliatePanel = lazy(() => import('./AffiliatePanel'));
 
 type Program = 'affiliate' | 'contributions';
 
-const money = (c: number, cur = 'usd',) => formatCurrency(c, cur.toUpperCase(),);
-const day = (iso: string | null,) => (iso ? new Date(iso,).toLocaleDateString(undefined, { dateStyle: 'medium', },) : '—');
 
 const STATE_LABEL: Record<ContributionState, string> = {
     pending_review: 'Waiting for review',
@@ -73,6 +71,11 @@ const ContributionsTab: Component<{ c: NonNullable<PartnerMeResponse['contributi
                 <div><span>Contributions pending</span><strong>{money(props.c.balance.pendingCents, props.c.balance.currency,)}</strong></div>
                 <div><span>Contributions paid</span><strong>{money(props.c.balance.paidCents, props.c.balance.currency,)}</strong></div>
             </div>
+            <p class="profile__muted affiliate-panel__note">
+                {props.c.holdDays > 0
+                    ? `Pending earnings become payable ${props.c.holdDays} day${props.c.holdDays === 1 ? '' : 's'} after the post is approved.`
+                    : 'Earnings are payable as soon as the post is approved.'}
+            </p>
 
             <section class="affiliate-panel__section">
                 <h3>Your contributions</h3>
@@ -114,7 +117,7 @@ const ContributionsTab: Component<{ c: NonNullable<PartnerMeResponse['contributi
                                         <tr>
                                             <td>{day(p.createdAt,)}</td>
                                             <td>{money(p.amountCents, p.currency,)}</td>
-                                            <td>{p.status === 'paid' ? 'Sent' : p.status === 'failed' ? 'Failed — our team will retry' : 'Processing'}</td>
+                                            <td>{payoutStatusForPartner(p.status,)}</td>
                                         </tr>
                                     )}
                                 </For>
@@ -130,6 +133,8 @@ const ContributionsTab: Component<{ c: NonNullable<PartnerMeResponse['contributi
 const PartnerProgramPanel: Component = () => {
     const [params, setParams,] = useSearchParams<{ program?: string; stripe?: string; }>();
     const [data, { refetch, mutate, },] = createResource<PartnerMeResponse>(() => cms.partners.me(),);
+    /** The loaded data, read without suspending the profile page (`.latest` once resolved). */
+    const loaded = () => (data.state === 'ready' || data.state === 'refreshing' ? data.latest : undefined);
     const [linking, setLinking,] = createSignal(false,);
     const [refreshing, setRefreshing,] = createSignal(false,);
     const [error, setError,] = createSignal('',);
@@ -139,7 +144,7 @@ const PartnerProgramPanel: Component = () => {
         setError('',);
         try {
             const stripe = await cms.partners.stripeRefresh();
-            const d = data();
+            const d = loaded();
             if (d) mutate({ ...d, stripe, },);
             else void refetch();
         } catch (e) {
@@ -171,10 +176,10 @@ const PartnerProgramPanel: Component = () => {
     };
 
     const programs = (): { value: Program; label: string; }[] => {
-        const p = data()?.programs;
+        const p = loaded()?.programs;
         return [
             ...(p?.affiliate ? [{ value: 'affiliate' as Program, label: 'Affiliate sales', },] : []),
-            ...(p?.contributor && data()?.contributions ? [{ value: 'contributions' as Program, label: 'Contributions', },] : []),
+            ...(p?.contributor && loaded()?.contributions ? [{ value: 'contributions' as Program, label: 'Contributions', },] : []),
         ];
     };
     const program = (): Program | null => {
@@ -185,9 +190,9 @@ const PartnerProgramPanel: Component = () => {
 
     return (
         <div class="partner-panel">
-            <Show when={!data.loading || data()} fallback={<div class="profile__card"><p class="profile__muted">Loading your partner account…</p></div>}>
+            <Show when={data.state !== 'unresolved' && data.state !== 'pending'} fallback={<div class="profile__card"><p class="profile__muted">Loading your partner account…</p></div>}>
                 <Show
-                    when={data()}
+                    when={loaded()}
                     fallback={
                         <div class="profile__card">
                             <p class="profile__muted">
@@ -251,7 +256,14 @@ const PartnerProgramPanel: Component = () => {
                             </p>
                             </div>
 
-                            <Show when={programs().length}>
+                            <Show
+                                when={programs().length}
+                                fallback={
+                                    <div class="profile__card">
+                                        <p class="profile__muted">You are not in a partner program yet. When our team adds you to one, its sales or contributions show here.</p>
+                                    </div>
+                                }
+                            >
                                 {/* 2. The program switch, between the two cards. */}
                                 <div class="partner-panel__switch">
                                     <Tabs<Program>
@@ -263,7 +275,10 @@ const PartnerProgramPanel: Component = () => {
                                 {/* 3. The selected program. */}
                                 <div class="profile__card partner-panel__program">
                                     <Show when={program() === 'affiliate'}>
-                                        <AffiliatePanel embedded />
+                                        {/* Own boundary: loading the affiliate chunk + data must not blank the profile page. */}
+                                        <Suspense fallback={<p class="profile__muted">Loading your affiliate account…</p>}>
+                                            <AffiliatePanel embedded />
+                                        </Suspense>
                                     </Show>
                                     <Show when={program() === 'contributions' && d().contributions}>
                                         <ContributionsTab c={d().contributions!} currency={d().totals.currency} />

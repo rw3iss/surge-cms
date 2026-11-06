@@ -40,11 +40,47 @@ content SSR, client, and form-email runtimes.
 ## subscribe
 
 `action_config = { mailingListId }`. On submit the dispatcher resolves the list,
-finds the submitter's email (a question of type `email`, or whose derived key is
-`email`), optional `name`/`phone` (derived keys), and calls
+finds the submitter's email / name / phone through the shared **Contact field**
+rule (below), and calls
 `mailingLists.publicSubscribe(list.slug, { email, name, phone }, actor)`. Gated
 on the `mailing_lists` feature (skipped + logged if disabled). Double-opt-in and
 dedup are handled by the mailing-list service.
+
+## Contact field (who submitted)
+
+ONE rule, `formContactValues` / `contactQuestions` in `@sitesurge/types`
+(`utils/formContact.ts`), finds the submitter's email / name / first + last
+name / phone for subscribe, Add as contact, replies and the membership
+application → `/join` pre-fill. Per field:
+
+| Source | Applies to | Example |
+| --- | --- | --- |
+| The question's **Contact field** (form editor select) | typed-in questions only: text, long text, email, number | "Your work address" marked Email |
+| A question of type `email` | — | any email question |
+| A label guess (`guessContactField`) | typed-in questions only | "Email address", "First name (optional)", "Mobile" |
+
+- A CHOICE or DATE question never counts — not by label ("Email preferences"
+  as radio buttons) and not by a stored Contact field (migration 214 cleared the
+  ones the 198 backfill set; `contactFieldAllowed` ignores any left).
+- Labels ABOUT email / phone are not guessed: "Email preferences", "Phone type",
+  "Newsletter by email?" (words like preferences, updates, opt-in, type, method).
+- An `email` value that is not an address is no email (`null`).
+- `name` falls back to first + last name.
+
+## Submission rules
+
+- Only answers to the form's own questions are stored (one per question, the
+  last wins); an unknown question id is dropped.
+- A required question is unanswered when its value is missing, `null`, blank
+  text (spaces only) or an empty list.
+- Answer size is bounded by the route (text ≤ 20,000 chars, ≤ 200 choices,
+  ≤ 500 answers).
+- The one-submission-per-visitor check uses `req.ip` (the address nginx saw),
+  never the first `X-Forwarded-For` entry, which the client controls.
+- **CSV export** (`GET /forms/:id/submissions/export`, admin **Export CSV** on the
+  submissions page): every submission, UTF-8 BOM, CRLF; a cell starting with
+  `=`, `+`, `-`, `@`, tab or CR gets a leading `'` so a spreadsheet opens it as
+  text, not a formula.
 
 ## email
 

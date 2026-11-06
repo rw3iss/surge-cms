@@ -19,7 +19,7 @@
 import { formatDate, type GalleryCollection, type GalleryItem, type GalleryPublicConfig, } from '@sitesurge/types';
 import { Title, } from '@solidjs/meta';
 import { A, type RouteSectionProps, useNavigate, useParams, } from '@solidjs/router';
-import { Component, createEffect, createResource, For, Show, } from 'solid-js';
+import { Component, createEffect, createMemo, createResource, For, onCleanup, onMount, Show, } from 'solid-js';
 import MediaVideo from '../../components/blocks/media/MediaVideo';
 import SeoHead from '../../components/common/seo/SeoHead';
 import UpgradeTout from '../../components/content/UpgradeTout';
@@ -33,6 +33,7 @@ import { featureEnabledLoaded, isFeatureEnabled, } from '../../stores/siteSettin
 import { deniedReasonOf, handleAccessDenied, } from '../../utils/accessDenied';
 import NotFoundPage from '../NotFound';
 import { GalleryCollectionsLayout, visibleCollections, } from './GalleryCollections';
+import { ARROW_OWNERS, galleryNavKey, } from './itemKeyNav';
 import './gallery.scss';
 
 /** Intersected with the router's section props so it stays a valid <Route component> (see DynamicPageProps). */
@@ -96,6 +97,28 @@ const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
         if (!d?.config?.appearance.showCollectionItems || !d.item?.collectionId) return [];
         return (neighbours()?.list ?? []).filter((x,) => x.media,);
     };
+    // Keyed by id (strings compare by value in <For>): each item switch refetches
+    // the list as NEW objects, which remounted every thumbnail — the link the
+    // visitor just activated lost focus and keyboard users fell to the page top.
+    const stripById = createMemo(() => new Map(stripItems().map((x,) => [x.id, x,] as const),),);
+    const stripIds = createMemo(() => stripItems().map((x,) => x.id,),);
+
+    // ← / → = previous / next item, unless the focus is somewhere arrows
+    // already mean something (text fields, the video player, sliders, menus).
+    onMount(() => {
+        const onKey = (e: KeyboardEvent,) => {
+            const t = e.target instanceof Element ? e.target : null;
+            const dir = galleryNavKey(e, Boolean(t?.closest(ARROW_OWNERS,),),);
+            if (!dir) return;
+            const to = dir === 'prev' ? neighbours()?.prev : neighbours()?.next;
+            if (!to) return;
+            e.preventDefault();
+            navigate(to.url,);
+        };
+        document.addEventListener('keydown', onKey,);
+        onCleanup(() => document.removeEventListener('keydown', onKey,),);
+    },);
+
     // Bring the current item into view inside the column / strip (not the page).
     let stripList: HTMLDivElement | undefined;
     createEffect(() => {
@@ -164,8 +187,8 @@ const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
                                         </Show>
                                     </span>
                                     <span class="gallery-item-page__pn">
-                                        <Show when={neighbours()?.prev}>{(p,) => <A href={p().url} rel="prev">‹ Previous</A>}</Show>
-                                        <Show when={neighbours()?.next}>{(n,) => <A href={n().url} rel="next">Next ›</A>}</Show>
+                                        <Show when={neighbours()?.prev}>{(p,) => <A href={p().url} rel="prev" aria-keyshortcuts="ArrowLeft">‹ Previous</A>}</Show>
+                                        <Show when={neighbours()?.next}>{(n,) => <A href={n().url} rel="next" aria-keyshortcuts="ArrowRight">Next ›</A>}</Show>
                                     </span>
                                 </nav>
                                 <Show when={item().title}><h1 class="gallery-item-page__title">{item().title}</h1></Show>
@@ -199,19 +222,24 @@ const GalleryItemPage: Component<GalleryItemPageProps> = (props,) => {
                                     <aside class="gallery-item-page__strip" aria-label={collection() ? `More in ${collection()!.name}` : 'More in this collection'}>
                                         <Show when={collection()}>{(c,) => <h2 class="gallery-item-page__strip-heading"><A href={c().url}>{c().name}</A></h2>}</Show>
                                         <div class="gallery-item-page__strip-list" ref={stripList}>
-                                            <For each={stripItems()}>
-                                                {(it,) => (
-                                                    <A
-                                                        href={it.url}
-                                                        class="gallery-item-page__strip-item"
-                                                        classList={{ 'is-active': it.id === item().id, }}
-                                                        aria-current={it.id === item().id ? 'page' : undefined}
-                                                        title={it.title || undefined}
-                                                    >
-                                                        <img src={tileSrc(it,)} alt={it.media?.alt || it.title || ''} loading="lazy" />
-                                                        <Show when={it.media?.type === 'video'}><span class="gallery-item-page__strip-play" aria-hidden="true">▶</span></Show>
-                                                    </A>
-                                                )}
+                                            <For each={stripIds()}>
+                                                {(sid, i,) => {
+                                                    const it = () => stripById().get(sid,)!;
+                                                    const label = () => it().title || it().media?.alt || `Item ${i() + 1}`;
+                                                    return (
+                                                        <A
+                                                            href={it().url}
+                                                            class="gallery-item-page__strip-item"
+                                                            classList={{ 'is-active': sid === item().id, }}
+                                                            aria-current={sid === item().id ? 'page' : undefined}
+                                                            aria-label={it().media?.type === 'video' ? `${label()} (video)` : label()}
+                                                            title={it().title || undefined}
+                                                        >
+                                                            <img src={tileSrc(it(),)} alt="" loading="lazy" />
+                                                            <Show when={it().media?.type === 'video'}><span class="gallery-item-page__strip-play" aria-hidden="true">▶</span></Show>
+                                                        </A>
+                                                    );
+                                                }}
                                             </For>
                                         </div>
                                     </aside>

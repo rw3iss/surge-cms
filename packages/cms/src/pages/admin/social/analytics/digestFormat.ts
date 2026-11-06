@@ -2,7 +2,7 @@
  * Pure formatting helpers for the analytics digests UI (the in-browser digest,
  * the digest list and the settings page). No DOM, no Solid — unit-tested.
  */
-import { SOCIAL_METRICS, type DigestMetric, type SocialAnalyticsSettings, } from '@sitesurge/types';
+import { SOCIAL_METRICS, type DigestMetric, type SocialAnalyticsDigestSendResponse, type SocialAnalyticsSettings, } from '@sitesurge/types';
 
 export const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',];
 
@@ -143,4 +143,22 @@ export function orderedMetricKeys(metrics: Record<string, DigestMetric>, preferr
     const keys = Object.keys(metrics,).filter((k,) => metrics[k] && (metrics[k].value !== null || metrics[k].previous !== null));
     const first = preferred.filter((k,) => keys.includes(k,));
     return [...first, ...keys.filter((k,) => !first.includes(k,)).sort(),];
+}
+
+/** The toast after "Send email": sent / partly failed / why nothing went out. */
+export function sendResultMessage(r: SocialAnalyticsDigestSendResponse,): { kind: 'success' | 'error' | 'info'; text: string; } {
+    const n = (k: number,) => `${k} recipient${k === 1 ? '' : 's'}`;
+    if (r.reason === 'not_ready') return { kind: 'info', text: 'The digest is not ready yet — try again when it has finished.', };
+    if (!r.recipients.length || r.reason === 'no_recipients') {
+        return { kind: 'info', text: 'No recipients — add addresses in Analytics → Settings → Email (or the notification type\'s email recipients).', };
+    }
+    const failed = r.failed ?? r.recipients.length - r.sent;
+    if (!r.sent) return { kind: 'error', text: `Could not send to any of the ${n(r.recipients.length,)} (see the server log).`, };
+    if (failed > 0) return { kind: 'error', text: `Emailed ${n(r.sent,)}; ${failed} failed (see the server log).`, };
+    return { kind: 'success', text: `Emailed to ${n(r.sent,)}.`, };
+}
+
+export function sendResultToast(toast: { success(m: string,): void; error(m: string,): void; info(m: string,): void; }, r: SocialAnalyticsDigestSendResponse,): void {
+    const m = sendResultMessage(r,);
+    toast[m.kind](m.text,);
 }

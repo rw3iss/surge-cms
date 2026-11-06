@@ -9,12 +9,16 @@ import type { MembershipPublicTiersResponse, } from '@sitesurge/types';
 import { Component, createEffect, createSignal, on, Show, } from 'solid-js';
 import { cms, } from '../../services/cmsClient';
 import { useAuth, } from '../../stores/auth';
+import MembershipNotices from './MembershipNotices';
 import MembershipTierCards from './MembershipTierCards';
 
 const MembershipLevels: Component<{ levels: string[]; }> = (props,) => {
     const auth = useAuth();
     const [data, setData,] = createSignal<MembershipPublicTiersResponse | null>(null,);
-    const load = () => cms.payments.membershipTiers(props.levels,).then(setData,).catch(() => setData(null,),);
+    const [failed, setFailed,] = createSignal(false,);
+    const load = () => cms.payments.membershipTiers(props.levels,)
+        .then((r,) => { setData(r,); setFailed(false,); },)
+        .catch(() => { if (!data()) setFailed(true,); },);
     // Reload when the viewer signs in / out (current level, pending application).
     createEffect(on(() => [auth.user?.id ?? null, props.levels.join(',',),], () => { void load(); },),);
     const tiers = () => data()?.tiers ?? [];
@@ -23,15 +27,9 @@ const MembershipLevels: Component<{ levels: string[]; }> = (props,) => {
 
     return (
         <div class="membership-levels">
-            <Show when={pending()}>
-                <div class="subscribe-page__required subscribe-page__pending" role="status">
-                    Your application for <strong>{pending()!.tierName}</strong> is waiting for approval. We will email you when it is reviewed.
-                </div>
-            </Show>
-            <Show when={offer()}>
-                <div class="subscribe-page__required subscribe-page__pending" role="status">
-                    You're approved for <strong>{offer()!.tierName}</strong>!
-                </div>
+            <MembershipNotices pending={pending()} offer={offer()} />
+            <Show when={failed()}>
+                <p class="subscribe-page__note" role="alert">The membership levels could not be loaded. Please try again later.</p>
             </Show>
             <Show when={tiers().length}>
                 <MembershipTierCards

@@ -18,7 +18,8 @@ import {
     guessContactField,
 } from '@sitesurge/types';
 import { A, useNavigate, useParams, } from '@solidjs/router';
-import { Component, createEffect, createMemo, createResource, createSignal, For, Show, } from 'solid-js';
+import { Component, createEffect, createMemo, createResource, createSignal, For, onMount, Show, } from 'solid-js';
+import { createStore, reconcile, } from 'solid-js/store';
 import AutoSaveIndicator from '../../components/admin/common/AutoSaveIndicator';
 import ConfirmModal from '../../components/admin/common/ConfirmModal';
 import EditorSaveBar from '../../components/admin/common/EditorSaveBar';
@@ -45,6 +46,8 @@ interface FormQuestion {
     id?: string;
     /** Client-only key for an unsaved question (collapse state); never sent. */
     uiKey?: string;
+    /** Client-only row identity (saved id, else `uiKey`) — keeps a card's DOM across edits; never sent. */
+    rowKey?: string;
     /** The section it is in (`FormSectionRow.id`); null = the root. */
     sectionId?: string | null;
     type: QuestionKind;
@@ -66,7 +69,40 @@ interface FormQuestion {
 /** Free-text inputs that support a placeholder (and, for textarea, sizing). */
 const isTextInputType = (t: string,): boolean => t === 'text' || t === 'textarea' || t === 'email' || t === 'number';
 
-const FormEditor: Component = () => {
+/** A row of the editor's flat list, with its client identity. */
+type EditorRow = FormQuestion | FormSectionRow;
+
+/** Give a row its stable identity (saved id / client key / section id). */
+const withRowKey = (r: EditorRow,): EditorRow => {
+    if ((r as { rowKey?: string; }).rowKey) return r;
+    const key = isFormSectionRow(r,) ? r.id : (r.id ?? r.uiKey ?? crypto.randomUUID());
+    return { ...r, rowKey: key, };
+};
+
+/** JSON with sorted object keys — to tell a stored draft from the saved form. */
+function stableJson(v: unknown,): string {
+    return JSON.stringify(v, (_k, val,) => (val && typeof val === 'object' && !Array.isArray(val,)
+        ? Object.fromEntries(Object.keys(val,).sort().map((k,) => [k, (val as Record<string, unknown>)[k],]),)
+        : val),);
+}
+
+/**
+ * The editor, re-created for each form: navigating from one form to another
+ * (Clone → the copy) re-uses the route, and the draft key, the collapsed cards
+ * and every field would otherwise carry over from the previous form.
+ * `reload()` (Revert) re-creates it too.
+ */
+const FormEditorRoute: Component = () => {
+    const params = useParams<{ id?: string; }>();
+    const [reloads, setReloads,] = createSignal(0,);
+    return (
+        <Show when={`${params.id ?? 'new'}#${reloads()}`} keyed>
+            {(_key: string,) => <FormEditor reload={() => setReloads(reloads() + 1,)} />}
+        </Show>
+    );
+};
+
+const FormEditor: Component<{ reload: () => void; }> = (editorProps,) => {
     const params = useParams<{ id: string; }>();
     const navigate = useNavigate();
     const isNew = () => !params.id || params.id === 'new';
@@ -118,7 +154,13 @@ const FormEditor: Component = () => {
 
     // Questions + sections, as ONE flat list in display order: a section row
     // is followed by its questions (`utils/formSections` keeps it that way).
-    const [rows, setRows,] = createSignal<Array<FormQuestion | FormSectionRow>>([],);
+    // In a STORE, reconciled by `rowKey`: an edit patches the row in place, so
+    // its card keeps its DOM (and the focused input). A signal holding a new
+    // array of new objects remounted the card on every change — Tab from the
+    // question text to the Type select lost focus.
+    const [rowStore, setRowStore,] = createStore<{ list: EditorRow[]; }>({ list: [], },);
+    const rows = (): EditorRow[] => rowStore.list;
+    const setRows = (next: EditorRow[],) => setRowStore('list', reconcile(next.map(withRowKey,), { key: 'rowKey', },),);
     const questions = createMemo(() => rows().filter((r,): r is FormQuestion => !isFormSectionRow(r,),),);
     /** Root-level rows (sections and questions not in a section) — same objects, so unchanged cards keep their DOM. */
     const rootRows = createMemo(() => rows().filter((r,) => isFormSectionRow(r,) || !r.sectionId,),);
@@ -254,6 +296,7 @@ const FormEditor: Component = () => {
 
                 // Load questions + sections
                 loadRows(data,);
+                restoreDraft(new Date(data.updatedAt as unknown as string,).getTime() || 0,);
 
                 return data;
             }
@@ -329,17 +372,20 @@ const FormEditor: Component = () => {
         markDirty();
     };
 
-    const removeQuestion = (index: number,) => {
-        if (confirm('Remove this question?',)) {
-            const target = questions()[index];
-            setRows(rows().filter((r,) => r !== target,),);
-            markDirty();
-        }
+    /** Remove-question modal: the question being removed (null = closed). */
+    const [questionToRemove, setQuestionToRemove,] = createSignal<FormQuestion | null>(null,);
+    const removeQuestion = (index: number,) => setQuestionToRemove(questions()[index] ?? null,);
+    const confirmRemoveQuestion = () => {
+        const target = questionToRemove();
+        setQuestionToRemove(null,);
+        if (!target) return;
+        setRows(rows().filter((r,) => r !== target,),);
+        markDirty();
     };
 
     // Preview: the editor's CURRENT state as a Form, rendered by the public FormRenderer.
     const [previewOpen, setPreviewOpen,] = createSignal(false,);
-    const previewForm = (): Form => ({
+    const previewForm = createMemo((): Form => ({
         id: params.id ?? 'preview',
         title: title() || 'Untitled form',
         slug: slug() || 'preview',
@@ -365,7 +411,7 @@ const FormEditor: Component = () => {
         createdBy: '',
         createdAt: new Date(),
         updatedAt: new Date(),
-    });
+    }),);
 
     // Collapsed question cards, by a stable key (the saved id, else a client key
     // given on add / load) — survives reordering and edits.
@@ -449,10 +495,9 @@ const FormEditor: Component = () => {
         },);
     };
 
-    // Auto-save draft to localStorage
-    const autoSave = useAutoSave({
-        key: `form-draft-${params.id || 'new'}`,
-        state: () => ({
+    // Auto-save draft to localStorage (restored on open when it differs from —
+    // and is newer than — the saved form; Revert discards it).
+    const draftState = () => ({
             title: title(),
             slug: slug(),
             description: description(),
@@ -471,8 +516,54 @@ const FormEditor: Component = () => {
             saveSubmission: saveSubmission(),
             addContact: addContact(),
             rows: rows(),
-        }),
-    },);
+    });
+    type DraftState = ReturnType<typeof draftState>;
+    const autoSave = useAutoSave({ key: `form-draft-${params.id || 'new'}`, state: draftState, },);
+    /** A draft from this browser was restored over the saved form (shows Revert). */
+    const [draftRestored, setDraftRestored,] = createSignal(false,);
+    const [revertOpen, setRevertOpen,] = createSignal(false,);
+    const applyDraft = (d: Partial<DraftState>,) => {
+        setTitle(d.title ?? '',);
+        setSlug(d.slug ?? '',);
+        setDescription(d.description ?? '',);
+        setStatus(d.status || 'draft',);
+        setShowResults(!!d.showResults,);
+        setAllowMultiple(!!d.allowMultiple,);
+        setRequiresAuth(!!d.requiresAuth,);
+        setSuccessMessage(d.successMessage ?? '',);
+        setSubmitButtonText(d.submitButtonText ?? '',);
+        setMaxSubmissions(d.maxSubmissions ?? '',);
+        setAction((d.action as FormActionType) || 'submit',);
+        setMailingListId(d.mailingListId ?? '',);
+        setEmailTo(d.emailTo ?? '',);
+        setEmailSubject(d.emailSubject ?? '',);
+        setEmailBody(d.emailBody ?? '',);
+        setSaveSubmission(!!d.saveSubmission,);
+        setAddContact(!!d.addContact,);
+        if (Array.isArray(d.rows,)) setRows(normalizeFormRows(d.rows as EditorRow[],),);
+    };
+    /**
+     * After the saved form (or, for a new one, nothing) is on screen: bring back
+     * a draft this browser kept, when it is newer than `savedAt` and really
+     * differs. The editor used to write drafts but never read them.
+     */
+    const restoreDraft = (savedAt: number,) => {
+        const stored = autoSave.getDraft();
+        if (!stored?.data || stored.timestamp <= savedAt) return;
+        if (stableJson(stored.data,) === stableJson(draftState(),)) return;
+        applyDraft(stored.data as Partial<DraftState>,);
+        markDirty();
+        setDraftRestored(true,);
+        toast.info('Restored your unsaved changes to this form. Use Revert to discard them.',);
+    };
+    // A new form has no saved copy: any draft that is not empty is newer.
+    onMount(() => { if (isNew()) restoreDraft(0,); },);
+    const revertDraft = () => {
+        setRevertOpen(false,);
+        autoSave.clear();
+        markClean();
+        editorProps.reload();
+    };
 
     const handleSubmit = async (e?: Event,) => {
         e?.preventDefault();
@@ -562,6 +653,7 @@ const FormEditor: Component = () => {
             invalidateFormsCache();
             autoSave.clear();
             markClean();
+            setDraftRestored(false,);
             toast.success(isNew() ? 'Form created' : 'Form saved',);
             if (isNew()) {
                 navigate(`/admin/forms/${(saved as Form).id}`, { replace: true, },);
@@ -579,17 +671,22 @@ const FormEditor: Component = () => {
         { key: 's', ctrl: true, handler: () => handleSubmit(), },
     ],);
 
+    const [deleteOpen, setDeleteOpen,] = createSignal(false,);
+    const [deleting, setDeleting,] = createSignal(false,);
     const handleDelete = async () => {
-        if (!confirm('Are you sure you want to delete this form and all its submissions? This cannot be undone.',)) {
-            return;
-        }
-
+        setDeleting(true,);
         try {
             await cms.forms.remove(params.id,);
             invalidateFormsCache();
+            autoSave.clear();
+            markClean();
+            setDeleteOpen(false,);
             navigate('/admin/forms',);
         } catch (err) {
+            setDeleteOpen(false,);
             showError(err, 'An error occurred while deleting',);
+        } finally {
+            setDeleting(false,);
         }
     };
 
@@ -1071,6 +1168,35 @@ const FormEditor: Component = () => {
                 onCancel={() => setCloneOpen(false,)}
             />
             <ConfirmModal
+                open={deleteOpen()}
+                title="Delete this form?"
+                message={`"${title() || 'Untitled'}" and all ${form()?.submissionCount ?? 0} of its submissions are deleted. This cannot be undone.`}
+                confirmLabel="Delete form"
+                busyLabel="Deleting…"
+                loading={deleting()}
+                danger
+                onConfirm={() => void handleDelete()}
+                onCancel={() => setDeleteOpen(false,)}
+            />
+            <ConfirmModal
+                open={!!questionToRemove()}
+                title="Remove this question?"
+                message={`"${questionToRemove()?.question || 'Untitled question'}" is removed when you save the form. Answers already submitted to it stay in the submissions, but it no longer has a column there.`}
+                confirmLabel="Remove question"
+                danger
+                onConfirm={confirmRemoveQuestion}
+                onCancel={() => setQuestionToRemove(null,)}
+            />
+            <ConfirmModal
+                open={revertOpen()}
+                title="Revert to the saved form?"
+                message="Your unsaved changes to this form (kept in this browser) are discarded."
+                confirmLabel="Revert"
+                danger
+                onConfirm={revertDraft}
+                onCancel={() => setRevertOpen(false,)}
+            />
+            <ConfirmModal
                 open={leaveGuard.pending()}
                 title="Unsaved changes"
                 message={'This form has changes that have not been saved. Leaving now discards them.'}
@@ -1118,6 +1244,11 @@ const FormEditor: Component = () => {
                 <h1>{isNew() ? 'New Form' : 'Edit Form'}</h1>
                 <div class="admin-header__actions">
                     <AutoSaveIndicator status={autoSave.status()} lastSavedAt={autoSave.lastSavedAt()} />
+                    <Show when={draftRestored()}>
+                        <button type="button" class="ui-button ui-button--ghost ui-button--sm" title="Discard the unsaved changes restored from this browser" onClick={() => setRevertOpen(true,)}>
+                            Revert
+                        </button>
+                    </Show>
                     <Show when={!isNew() && (form()?.submissionCount ?? 0) > 0}>
                         <A
                             href={`/admin/forms/${params.id}/submissions`}
@@ -1137,7 +1268,7 @@ const FormEditor: Component = () => {
                     <EditorSaveBar
                         onSave={() => handleSubmit()}
                         onCancel={() => navigate('/admin/forms',)}
-                        onDelete={handleDelete}
+                        onDelete={() => setDeleteOpen(true,)}
                         saving={saving()}
                         showDelete={!isNew()}
                         saveLabel="Save Form"
@@ -1594,4 +1725,4 @@ const FormEditor: Component = () => {
     );
 };
 
-export default FormEditor;
+export default FormEditorRoute;

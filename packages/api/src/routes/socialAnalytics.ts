@@ -155,11 +155,11 @@ export const socialAnalyticsRoutes = [
     },),
     defineRoute({
         method: 'post', path: '/collect', auth: 'staff',
-        summary: 'Run the collectors now (all ready ones, or the named platforms).',
+        summary: 'Run the collectors now (all ready ones, or the named platforms). Waits ≤ 50 s; runs still going come back with status "running".',
         input: { body: collectBody, },
         handler: async ({ body, user, },) => {
             await permissions.requirePermission(viewerOf(user,), MANAGE,);
-            return analytics.runCollection({ platforms: body.platforms, trigger: 'manual', },);
+            return analytics.collectNow({ platforms: body.platforms, },);
         },
     },),
 
@@ -225,7 +225,7 @@ export const socialAnalyticsRoutes = [
         input: { params: idParams, },
         handler: async ({ params, user, },) => {
             await permissions.requirePermission(viewerOf(user,), MANAGE,);
-            return analytics.sendDigestEmail(await analytics.getDigest(params.id,),);
+            return analytics.sendDigestEmail(await analytics.getDigest(params.id,), { manual: true, },);
         },
     },),
     defineRoute({

@@ -114,6 +114,11 @@ export const CACHE_KEYS = {
     /** Map picker lookups (services/geo.ts) — 7 days, never invalidated (addresses don't move). */
     geoSearch: (q: string,) => `geo:search:${q}`,
     geoReverse: (lat: number, lng: number,) => `geo:reverse:${lat}:${lng}`,
+    /** Cross-process 1 req/s gate for Nominatim (acquireGate). */
+    geoGate: 'geo:gate',
+    // ── Forms (services/forms.ts) ──
+    formsPublic: 'forms:public',
+    formSlug: (slug: string,) => `form:slug:${slug}`,
     videoMaster: (mediaId: string, variant: 'full' | 'teaser',) => `video:master:${mediaId}:${variant}`,
     videoMasterPrefix: (mediaId: string,) => `video:master:${mediaId}:*`,
 
@@ -173,6 +178,18 @@ export async function set(
         }
     } catch (error) {
         logger.error('Cache set error', { key, error, },);
+    }
+}
+
+/**
+ * Take a short shared gate (`SET NX PX`): true when this process may go now.
+ * Fails OPEN (true) when Redis is down — a rate gate is courtesy, not access control.
+ */
+export async function acquireGate(key: string, ms: number,): Promise<boolean> {
+    try {
+        return (await getRedis().set(key, '1', 'PX', ms, 'NX',)) === 'OK';
+    } catch {
+        return true;
     }
 }
 
@@ -548,6 +565,7 @@ export async function closeRedis(): Promise<void> {
 export const cache = {
     get,
     set,
+    acquireGate,
     del,
     delPattern,
     invalidatePageCache,

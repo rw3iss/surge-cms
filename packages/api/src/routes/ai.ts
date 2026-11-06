@@ -76,22 +76,33 @@ const settingsBody = z.object({
 const HTTP_WAIT_MAX_SEC = 55;
 
 type Viewer = Parameters<typeof viewerOf>[0];
-const use = (user: Viewer,) => permissions.requirePermission(viewerOf(user,), 'ai:use',);
+/**
+ * `ai:use` / `ai:manage` for a signed-in staff member. An `ssk_` API key has
+ * already passed its scope check in the `staff` tier (reads → read, writes →
+ * write) and has no user to check — without this the SDK in API-key mode got
+ * a 403 on every AI route.
+ */
+const allow = (key: 'ai:use' | 'ai:manage',) => async (user: Viewer, apiKey?: unknown,): Promise<void> => {
+    if (apiKey && !user?.id) return;
+    await permissions.requirePermission(viewerOf(user,), key,);
+};
+const use = allow('ai:use',);
+const manage = allow('ai:manage',);
 
 export const aiRoutes = [
     defineRoute({
         method: 'get', path: '/status', auth: 'staff',
         summary: 'Providers (available or why not), the broker plugin state and every pool\'s live status.',
-        handler: async ({ user, },) => {
-            await use(user,);
+        handler: async ({ user, apiKey, },) => {
+            await use(user, apiKey,);
             return ai.status();
         },
     },),
     defineRoute({
         method: 'get', path: '/pools', auth: 'staff',
         summary: 'The broker pools: configured count vs attached / busy / idle sessions.',
-        handler: async ({ user, },) => {
-            await use(user,);
+        handler: async ({ user, apiKey, },) => {
+            await use(user, apiKey,);
             return ai.pools();
         },
     },),
@@ -99,8 +110,8 @@ export const aiRoutes = [
         method: 'get', path: '/sessions', auth: 'staff',
         summary: 'Broker sessions (attached unless `all`), optionally one pool\'s.',
         input: { query: sessionsQuery, },
-        handler: async ({ query, user, },) => {
-            await use(user,);
+        handler: async ({ query, user, apiKey, },) => {
+            await use(user, apiKey,);
             return ai.sessions(query.pool, query.all,);
         },
     },),
@@ -108,8 +119,8 @@ export const aiRoutes = [
         method: 'post', path: '/query', auth: 'staff',
         summary: 'Send a prompt to a provider (broker pool / session, or Anthropic). Waits (≤ 55 s) for the answer unless wait=false.',
         input: { body: queryBody, },
-        handler: async ({ body, user, },) => {
-            await use(user,);
+        handler: async ({ body, user, apiKey, },) => {
+            await use(user, apiKey,);
             const timeoutSec = Math.min(body.timeoutSec ?? HTTP_WAIT_MAX_SEC, HTTP_WAIT_MAX_SEC,);
             return ai.query({ ...body, timeoutSec, meta: { ...(body.meta ?? {}), ...(user?.id ? { userId: user.id, } : {}), }, },);
         },
@@ -118,8 +129,8 @@ export const aiRoutes = [
         method: 'get', path: '/jobs', auth: 'staff',
         summary: 'Recent broker jobs sent by the CMS (all jobs with `all`).',
         input: { query: jobsQuery, },
-        handler: async ({ query, user, },) => {
-            await use(user,);
+        handler: async ({ query, user, apiKey, },) => {
+            await use(user, apiKey,);
             return ai.jobs(query,);
         },
     },),
@@ -127,8 +138,8 @@ export const aiRoutes = [
         method: 'get', path: '/jobs/:id', auth: 'staff',
         summary: 'One broker job as an AiResult; `wait=N` long-polls until it settles.',
         input: { params: idParams, query: jobQuery, },
-        handler: async ({ params, query, user, },) => {
-            await use(user,);
+        handler: async ({ params, query, user, apiKey, },) => {
+            await use(user, apiKey,);
             return ai.job(params.id, query.wait ? Math.min(query.wait, HTTP_WAIT_MAX_SEC,) : undefined,);
         },
     },),
@@ -136,8 +147,8 @@ export const aiRoutes = [
         method: 'delete', path: '/jobs/:id', auth: 'staff',
         summary: 'Cancel a broker job.',
         input: { params: idParams, },
-        handler: async ({ params, user, },) => {
-            await use(user,);
+        handler: async ({ params, user, apiKey, },) => {
+            await use(user, apiKey,);
             return ai.cancel(params.id,);
         },
     },),
@@ -145,16 +156,16 @@ export const aiRoutes = [
         method: 'post', path: '/jobs/:id/comment', auth: 'staff',
         summary: 'Add a note to a running broker job (the session sees it).',
         input: { params: idParams, body: commentBody, },
-        handler: async ({ params, body, user, },) => {
-            await use(user,);
+        handler: async ({ params, body, user, apiKey, },) => {
+            await use(user, apiKey,);
             return ai.comment(params.id, body.note,);
         },
     },),
     defineRoute({
         method: 'get', path: '/settings', auth: 'staff',
         summary: 'AI settings (the Anthropic key masked).',
-        handler: async ({ user, },) => {
-            await permissions.requirePermission(viewerOf(user,), 'ai:manage',);
+        handler: async ({ user, apiKey, },) => {
+            await manage(user, apiKey,);
             return ai.aiSettingsForAdmin();
         },
     },),
@@ -162,8 +173,8 @@ export const aiRoutes = [
         method: 'put', path: '/settings', auth: 'staff',
         summary: 'Update the default provider / Anthropic key + model (an echoed mask keeps the key).',
         input: { body: settingsBody, },
-        handler: async ({ body, user, },) => {
-            await permissions.requirePermission(viewerOf(user,), 'ai:manage',);
+        handler: async ({ body, user, apiKey, },) => {
+            await manage(user, apiKey,);
             return ai.setAiSettings(body, user?.id ?? null,);
         },
     },),

@@ -4,6 +4,10 @@
  * (VAPID key from the server) → saved for this user. Off: unsubscribed here
  * and on the server. Desktop notifications go to the IN-APP recipients of a
  * type whose "desktop" switch is on (Settings → Notifications).
+ *
+ * On mount an existing subscription is re-sent to the server (an upsert): the
+ * server may have pruned it, or another account signed in on this browser may
+ * own it now. One made with an OLD server key (keys changed) is replaced.
  */
 import { createSignal, onMount, Show, type Component, } from 'solid-js';
 import Toggle from '../../ui/Toggle';
@@ -15,6 +19,18 @@ function urlBase64ToUint8Array(base64: string,): Uint8Array {
     const raw = atob((base64 + pad).replace(/-/g, '+',).replace(/_/g, '/',),);
     return Uint8Array.from([...raw,].map((c,) => c.charCodeAt(0,),),);
 }
+
+/** Same bytes? (an existing subscription's key vs the server's current key) */
+function sameKey(a: ArrayBuffer | null | undefined, b: Uint8Array,): boolean {
+    if (!a) return true; // unknown → assume it matches
+    const x = new Uint8Array(a,);
+    return x.length === b.length && x.every((v, i,) => v === b[i],);
+}
+
+const toBody = (sub: PushSubscription,) => {
+    const json = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string; }; };
+    return { endpoint: json.endpoint, keys: json.keys, };
+};
 
 const supported = () => typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 
@@ -43,9 +59,22 @@ const NotificationDesktopToggle: Component<{ size?: 'sm' | 'md'; /** Default: "D
             return;
         }
         if (Notification.permission === 'denied') setNote('Blocked in your browser settings.',);
-        const reg = await navigator.serviceWorker.getRegistration();
-        const sub = await reg?.pushManager.getSubscription();
-        setOn(!!sub && Notification.permission === 'granted',);
+        try {
+            const reg = await navigator.serviceWorker.getRegistration();
+            let sub = await reg?.pushManager.getSubscription();
+            if (sub && Notification.permission === 'granted' && publicKey) {
+                const key = urlBase64ToUint8Array(publicKey,);
+                if (!sameKey(sub.options?.applicationServerKey, key,)) {
+                    // Made with an old server key — the push service would refuse every send.
+                    await sub.unsubscribe().catch(() => undefined,);
+                    sub = await reg!.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key as BufferSource, },);
+                }
+                await cms.notifications.pushSubscribe(toBody(sub,),);
+            }
+            setOn(!!sub && Notification.permission === 'granted',);
+        } catch {
+            setOn(false,);
+        }
     },);
 
     const enable = async () => {
@@ -56,10 +85,14 @@ const NotificationDesktopToggle: Component<{ size?: 'sm' | 'md'; /** Default: "D
             return;
         }
         const reg = await registration();
-        const sub = (await reg.pushManager.getSubscription())
-            ?? await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey,) as BufferSource, },);
-        const json = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string; }; };
-        await cms.notifications.pushSubscribe({ endpoint: json.endpoint, keys: json.keys, },);
+        const key = urlBase64ToUint8Array(publicKey,);
+        let sub = await reg.pushManager.getSubscription();
+        if (sub && !sameKey(sub.options?.applicationServerKey, key,)) {
+            await sub.unsubscribe().catch(() => undefined,);
+            sub = null;
+        }
+        sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key as BufferSource, },);
+        await cms.notifications.pushSubscribe(toBody(sub,),);
         setOn(true,);
         setNote('',);
     };

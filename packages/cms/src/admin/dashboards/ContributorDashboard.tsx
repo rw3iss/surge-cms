@@ -29,6 +29,9 @@ const ContributorDashboard: Component = () => {
         }
     },);
     const by = (s: State,) => (posts() ?? []).filter((p,) => (p.status as string) === s,);
+    // Paid contributors: a link to their earnings (Profile → Partner Program → Contributions).
+    const [partner,] = createResource(() => cms.partners.me().catch(() => null,),);
+    const paid = () => (partner.state === 'ready' ? !!partner()?.programs.contributor && !!partner()?.contributions : false);
 
     return (
         <div class="contributor-dashboard">
@@ -39,6 +42,9 @@ const ContributorDashboard: Component = () => {
                     <NotificationsBadgeLink />
                 </div>
                 <div class="admin-header__actions">
+                    <Show when={paid()}>
+                        <A href="/profile?tab=partners&program=contributions" class="ui-button ui-button--secondary">Earnings and payouts</A>
+                    </Show>
                     <A href="/admin/posts/new" class="ui-button ui-button--primary">Write a new post</A>
                 </div>
             </div>

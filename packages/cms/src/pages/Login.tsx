@@ -6,7 +6,8 @@ import SeoHead from '../components/common/seo/SeoHead';
 import { useAuth, } from '../stores/auth';
 import { canEnterAdmin, } from '../admin/shells';
 import { siteName, } from '../stores/siteSettings';
-import { type AccessDeniedReason, deniedMessage, parseDeniedReason, safeReturnPath, shouldRetryAfterSignin, } from '../utils/accessDenied';
+import { type AccessDeniedReason, deniedMessage, parseDeniedReason, shouldRetryAfterSignin, } from '../utils/accessDenied';
+import { loginRoutePath, returnPathFrom, } from './loginTarget';
 import { choiceTarget, takeChoice, } from '../utils/membershipChoice';
 import './Login.scss';
 
@@ -33,19 +34,15 @@ const Login: Component = () => {
         }
         if (target) return target;
         // The role's "page after sign-in" (highest priority among all the user's roles).
-        if (auth.loginRoute != null) return `/${auth.loginRoute}`;
+        const routed = loginRoutePath(auth.loginRoute,);
+        if (routed) return routed;
         return isAdminRole(role,) ? '/admin' : '/';
     };
 
     /** Post-login destination from `?redirect=` or `?return=` (either works).
      *  A bare name (`profile`) is normalized to an absolute path (`/profile`);
-     *  protocol-relative / external values are rejected (returns ''). */
-    const returnTarget = (): string => {
-        const raw = (typeof searchParams.redirect === 'string' && searchParams.redirect) ||
-            (typeof searchParams.return === 'string' && searchParams.return) ||
-            '';
-        return safeReturnPath(raw,);
-    };
+     *  protocol-relative / external / back-to-/login values are rejected (returns ''). */
+    const returnTarget = (): string => returnPathFrom(searchParams.redirect, searchParams.return,);
 
     /*
      * `?reason=` — set by the access-denied fallback (`utils/accessDenied`)

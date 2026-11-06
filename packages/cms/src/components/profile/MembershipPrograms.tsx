@@ -57,13 +57,14 @@ const MembershipPrograms: Component = () => {
         }
     };
 
+    // Kept while a notice shows, so "You left X." is seen even when it was the last program.
     return (
-        <Show when={list()?.length}>
+        <Show when={list.latest?.length || notice()}>
             <section class="membership-programs" id="programs">
                 <h3 class="membership-programs__title">Programs</h3>
                 <p class="profile__muted membership-programs__lead">Programs you are part of or have applied to.</p>
                 <Show when={notice()}><div class="membership__notice">{notice()}</div></Show>
-                <For each={list()}>
+                <For each={list.latest}>
                     {(p,) => (
                         <div class="membership-programs__row">
                             <div class="membership-programs__info">

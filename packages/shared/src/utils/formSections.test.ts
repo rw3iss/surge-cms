@@ -98,3 +98,30 @@ describe('dropFormRowAtEnd', () => {
         expect(ids(dropFormRowAtEnd(rows, 0,),),).toBe('b [s1] a@s1');
     },);
 });
+
+describe('edge cases', () => {
+    it('empty sections (also at the end) round-trip in place', () => {
+        const rows = [S('s0',), q('a',), S('s1',), S('s2',),];
+        const { questions, sections, } = formLayoutFromRows(rows,);
+        expect(sections.map((s,) => [s.id, s.position,]),).toEqual([['s0', 0,], ['s1', 1,], ['s2', 1,],],);
+        expect(ids(formRowsFromLayout(questions, sections,),),).toBe(ids(rows,),);
+    },);
+    it('positions follow a deleted question (recomputed from the rows on save)', () => {
+        const rows = [q('a',), q('b',), S('s1',), q('c', 's1',),];
+        const after = rows.filter((r,) => isFormSectionRow(r,) || r.id !== 'a',);
+        expect(formLayoutFromRows(after,).sections[0]!.position,).toBe(1,);
+    },);
+    it('a section position past the last question renders last', () => {
+        const items = formLayoutItems([q('a',),], [{ id: 's', title: '', position: 9, },],);
+        expect(items.map((i,) => i.kind),).toEqual(['question', 'section',],);
+    },);
+    it('a section dropped next to a question whose section row is missing treats it as a root question', () => {
+        const rows = [S('s1',), q('a', 's1',), q('b', 'ghost',),];
+        expect(ids(dropFormRow(rows, 0, 2, true,),),).toBe('b@ghost [s1] a@s1');
+    },);
+    it('moving the last section down / the first up is a no-op', () => {
+        const rows = [S('s1',), q('a', 's1',), S('s2',),];
+        expect(moveFormRow(rows, 2, 'down',),).toBe(rows,);
+        expect(moveFormRow(rows, 0, 'up',),).toBe(rows,);
+    },);
+});

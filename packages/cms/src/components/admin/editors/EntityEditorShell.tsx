@@ -166,6 +166,23 @@ export function EntityEditorShell<TEntity,>(
                 onCancel={() => setShowRevertConfirm(false,)}
             />
 
+            {/* Leaving with unsaved edits (sidebar link, Cancel, back button).
+                Without this the router guard blocked the navigation and
+                nothing was shown — the link simply did nothing. */}
+            <ConfirmModal
+                open={e.leaveGuard.pending()}
+                title="Unsaved changes"
+                message={
+                    'There are changes that are not saved. Leave without saving? '
+                    + 'Your edits stay as a local draft in this browser.'
+                }
+                confirmLabel="Leave without saving"
+                cancelLabel="Stay"
+                danger
+                onConfirm={() => { e.autoSave.flush(); e.leaveGuard.confirmLeave(); }}
+                onCancel={e.leaveGuard.cancelLeave}
+            />
+
             <ConfirmModal
                 open={showCloneConfirm()}
                 title="Unsaved changes"

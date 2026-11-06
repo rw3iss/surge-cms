@@ -422,6 +422,10 @@ const ENTITY_SKIP = new Set([
     // makes Postgres reject the whole statement ("multiple assignments to same
     // column"), which took out every restore.
     'updated_at',
+    // Assignments, not content: restoring an old page must not take the
+    // homepage / a system page back from the page that holds it now (a 409 on
+    // the partial-unique index, or a silent take-over).
+    'system_page', 'is_homepage',
 ],);
 
 /** Live column names for a table, so a snapshot is written back by name and
