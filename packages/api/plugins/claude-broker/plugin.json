@@ -1,8 +1,8 @@
 {
   "name": "claude-broker",
   "label": "Claude Broker (AI)",
-  "description": "Send AI prompts to Claude Code sessions attached to a local claude-broker daemon. Configures the session pools the CMS AI module can use.",
-  "version": "0.2.0",
+  "description": "Send AI prompts to Claude Code sessions on a local claude-broker daemon. Sign in to Claude and run the session pools from the admin (claude-broker ≥ 0.6 manages, watches and restarts them).",
+  "version": "0.3.0",
   "author": "Surge CMS",
   "homepage": "https://github.com/rw3iss/claude-broker",
   "apiVersion": 1,
@@ -28,27 +28,6 @@
       "help": "The daemon's CLAUDE_BROKER_TOKEN."
     },
     {
-      "key": "claudePath",
-      "label": "Claude Code path",
-      "type": "string",
-      "secret": true,
-      "help": "Absolute path to the claude CLI on the server. Empty = found automatically (~/.local/bin, PATH)."
-    },
-    {
-      "key": "sessionCwd",
-      "label": "Session working folder",
-      "type": "string",
-      "secret": true,
-      "help": "Folder the broker sessions start in. Empty = the plugin's data folder (an empty folder — sessions get no project files)."
-    },
-    {
-      "key": "brokerSocket",
-      "label": "Broker socket",
-      "type": "string",
-      "secret": true,
-      "help": "The daemon's unix socket the sessions' shim connects to. Empty = /tmp/claude-broker.sock."
-    },
-    {
       "key": "pools",
       "label": "Pools",
       "type": "textarea",
@@ -60,6 +39,36 @@
       "label": "Default pool",
       "type": "string",
       "secret": true
+    },
+    {
+      "key": "model",
+      "label": "Session model",
+      "type": "select",
+      "options": [
+        "",
+        "haiku",
+        "sonnet",
+        "opus"
+      ],
+      "default": "",
+      "secret": true,
+      "help": "Model the broker's sessions run (empty = the account default). Haiku is cheapest for summaries/classification."
+    },
+    {
+      "key": "effort",
+      "label": "Session effort",
+      "type": "select",
+      "options": [
+        "",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default": "",
+      "secret": true,
+      "help": "Reasoning effort for the sessions (empty = default)."
     },
     {
       "key": "ttlSec",

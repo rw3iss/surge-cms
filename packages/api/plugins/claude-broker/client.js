@@ -57,12 +57,14 @@ function check(ok, label, detail, pending) {
 }
 
 /**
- * Setup checklist + "Sign in to Claude" + start/stop the pool sessions.
- * Sign-in runs `claude auth login` ON THE SERVER: open the link, sign in,
- * copy the code the page shows, paste it here.
+ * Setup checklist + "Sign in to Claude" + the session fleet. The broker
+ * (claude-broker ≥ 0.6) does the work: it runs `claude setup-token` for the
+ * sign-in (one long-lived token every session uses — sessions sharing one
+ * interactive login blank each other's token), and starts, watches and
+ * restarts the pool sessions in its own tmux server.
  */
-function renderSetup(host, getCfg) {
-    const sec = section('Setup', 'Claude Code must be installed and signed in on this server, and the claude-broker daemon running. Sessions for your pools can then be started from here.');
+function renderSetup(host) {
+    const sec = section('Setup', 'Claude Code and the claude-broker daemon run on this server. Sign in once, then start your pools — the broker keeps the sessions running.');
     const body = el('div');
     const loginBox = el('div', { style: { display: 'none', margin: '0.75rem 0', padding: '0.75rem 1rem', border: '1px solid var(--admin-border, #e5e7eb)', borderRadius: '8px' } });
     const sessBox = el('div', { style: { marginTop: '0.75rem' } });
@@ -74,17 +76,15 @@ function renderSetup(host, getCfg) {
     sec.appendChild(sessBox);
     sec.appendChild(msg);
 
-    // How-to (collapsed).
-    const how = el('details', { style: { marginTop: '0.75rem' } },
+    sec.appendChild(el('details', { style: { marginTop: '0.75rem' } },
         el('summary', { style: { cursor: 'pointer', fontWeight: '600' }, text: 'How to set up the server (one time)' }),
         el('ol', { style: { paddingLeft: '1.2rem', lineHeight: '1.6' } },
-            el('li', {}, 'SSH to the server as the user the CMS runs as, then run the setup script: ', el('code', { text: 'bash <cms>/packages/api/plugins/claude-broker/setup/setup-server.sh' }), '. It installs Claude Code, tmux and claude-broker, starts the broker daemon (systemd) and prints the broker token.'),
+            el('li', {}, 'SSH to the server as the user the CMS runs as and run ', el('code', { text: 'bash <cms>/packages/api/plugins/claude-broker/setup/setup-server.sh' }), '. It installs tmux, Claude Code and claude-broker (≥ 0.6), starts the broker daemon and prints its token.'),
             el('li', {}, 'Paste the token into Broker connection below and Save.'),
-            el('li', {}, 'Press ', el('strong', { text: 'Sign in to Claude' }), ' above: open the link, sign in with the Claude account the sessions should use, copy the code the page shows and paste it here.'),
-            el('li', {}, 'Add your pools (below), Save, then press ', el('strong', { text: 'Start sessions' }), '. Each session answers Claude Code\'s first-run questions by itself and attaches within ~30 s.'),
+            el('li', {}, 'Press ', el('strong', { text: 'Sign in to Claude' }), ': open the link, sign in with the Claude account the sessions should use, copy the code the page shows and paste it here.'),
+            el('li', {}, 'Add pools below, Save, then ', el('strong', { text: 'Start sessions' }), '. The broker answers each session\'s first-run questions, restarts sessions that exit or get stuck, and wakes idle ones when a job waits.'),
             el('li', {}, 'Send a test prompt at the bottom of this page.')),
-        el('p', {}, el('a', { href: '/admin/help/claude-broker', text: 'Full guide: Claude Broker (AI) →' })));
-    sec.appendChild(how);
+        el('p', {}, el('a', { href: '/admin/help/claude-broker', text: 'Full guide: Claude Broker (AI) →' }))));
 
     let st = null;
 
@@ -96,23 +96,26 @@ function renderSetup(host, getCfg) {
         const cancel = el('button', { className: 'btn btn-secondary', type: 'button', text: 'Cancel' });
         const out = el('p', { className: 'form-help-muted' });
         submit.onclick = async () => {
-            submit.disabled = true; out.textContent = 'Signing in…'; out.style.color = '';
+            submit.disabled = true; out.style.color = ''; out.textContent = 'Signing in…';
             const r = await action(host, 'loginSubmit', { code: code.value });
             submit.disabled = false;
-            if (r.ok) { loginBox.style.display = 'none'; msg.textContent = `Signed in${r.auth && r.auth.email ? ' as ' + r.auth.email : ''}.`; load(); return; }
-            out.style.color = BAD; out.textContent = r.error || 'Sign-in failed.';
+            if (r.ok) { loginBox.style.display = 'none'; msg.style.color = ''; msg.textContent = 'Signed in — the sessions use this sign-in from their next start.'; load(); return; }
+            out.style.color = BAD;
+            out.textContent = (r.error || 'Sign-in failed.') + (r.retry ? ' Each link works once — open the NEW link above, sign in again and paste the new code.' : '');
+            if (r.retry && r.url) { link.href = r.url; code.value = ''; }
             if (!r.retry) load();
         };
         code.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submit.onclick(); } });
         cancel.onclick = async () => { await action(host, 'loginCancel'); loginBox.style.display = 'none'; load(); };
-        loginBox.appendChild(el('p', {}, el('strong', { text: '1. ' }), el('a', { href: url, target: '_blank', rel: 'noopener noreferrer', text: 'Open the Claude sign-in page' }), ' and sign in with the account the sessions should use.'));
+        const link = el('a', { href: url, target: '_blank', rel: 'noopener noreferrer', text: 'Open the Claude sign-in page' });
+        loginBox.appendChild(el('p', {}, el('strong', { text: '1. ' }), link, ' and sign in with the account the sessions should use (a Claude subscription).'));
         loginBox.appendChild(el('p', {}, el('strong', { text: '2. ' }), 'Copy the code the page shows and paste it here:'));
         loginBox.appendChild(el('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' } }, code, submit, cancel));
         loginBox.appendChild(out);
     }
 
     async function startLogin() {
-        msg.textContent = 'Starting the sign-in on the server…'; msg.style.color = '';
+        msg.style.color = ''; msg.textContent = 'Starting the sign-in on the server…';
         const r = await action(host, 'loginStart');
         if (!r.ok) { msg.style.color = BAD; msg.textContent = r.error || 'Could not start the sign-in.'; return; }
         msg.textContent = '';
@@ -121,37 +124,52 @@ function renderSetup(host, getCfg) {
 
     function renderSessions() {
         sessBox.innerHTML = '';
-        if (!st || !st.ok) return;
-        sessBox.appendChild(el('h3', { style: { fontSize: '0.95rem', margin: '0.5rem 0 0.25rem' }, text: 'Pool sessions' }));
-        if (!st.pools.length) { sessBox.appendChild(el('p', { className: 'form-help-muted', text: 'No pools yet — add one below and Save.' })); return; }
+        if (!st || !st.ok || !st.broker.reachable) return;
+        sessBox.appendChild(el('h3', { style: { fontSize: '0.95rem', margin: '0.5rem 0 0.25rem' }, text: 'Sessions' }));
+        if (!st.managed) {
+            sessBox.appendChild(el('p', { className: 'form-help-muted', text: `This broker (v${st.broker.version || '?'}) does not manage sessions. Update it (claude-broker update, or re-run the setup script) to sign in and start sessions from here. Attached now: ${st.attached.map((s) => s.label).join(', ') || 'none'}.` }));
+            return;
+        }
+        const pools = st.fleet ? st.fleet.pools : [];
+        if (!pools.length) sessBox.appendChild(el('p', { className: 'form-help-muted', text: 'No pools yet — add one below, Save, then Start sessions.' }));
         const ul = el('ul', { style: { listStyle: 'none', padding: 0, margin: 0 } });
-        for (const p of st.pools) {
-            for (const l of p.labels) {
-                const live = l.attached && !l.note;
-                const detail = live ? 'attached' : l.note ? l.note : l.running ? 'running, not attached yet' : 'not running';
-                ul.appendChild(check(live, `${p.name} · ${l.label}`, detail, !live && l.note === 'Starting…'));
+        for (const p of pools) {
+            if (!p.sessions.length) ul.appendChild(check(false, p.name, 'not started', false));
+            for (const x of p.sessions) {
+                const row = check(x.healthy, `${p.name} · ${x.label}`, `${x.stateText}${x.detail && x.state !== 'ready' ? ` — ${x.detail}` : ''}${x.restarts ? ` · ${x.restarts} restart(s)` : ''}`, !x.healthy && (x.state === 'starting' || x.state === 'prompt'));
+                row.appendChild(el('button', {
+                    className: 'btn btn-secondary btn-sm', type: 'button', style: { marginLeft: 'auto' }, text: 'Restart',
+                    onclick: async () => { const r = await action(host, 'restartSession', { label: x.label }); msg.style.color = r.ok ? '' : BAD; msg.textContent = r.ok ? `Restarting ${x.label}…` : r.error; setTimeout(load, 5000); },
+                }));
+                ul.appendChild(row);
             }
         }
         sessBox.appendChild(ul);
+        const others = st.attached.filter((s) => !s.managed);
+        if (others.length) sessBox.appendChild(el('p', { className: 'form-help-muted', text: `Also attached (not started here): ${others.map((s) => s.label || s.id).join(', ')}.` }));
         const start = el('button', { className: 'btn btn-primary btn-sm', type: 'button', text: 'Start sessions' });
         const stop = el('button', { className: 'btn btn-secondary btn-sm', type: 'button', text: 'Stop sessions' });
         start.onclick = async () => {
-            start.disabled = true; msg.style.color = ''; msg.textContent = 'Starting…';
+            start.disabled = true; msg.style.color = ''; msg.textContent = 'Applying the pools…';
             const r = await action(host, 'startSessions');
             start.disabled = false;
             if (!r.ok) { msg.style.color = BAD; msg.textContent = r.error; return; }
-            msg.textContent = r.started.length ? `Starting ${r.started.join(', ')} — they attach within ~30 s.` : 'Every session is already running.';
-            setTimeout(load, 2000); setTimeout(load, 15000); setTimeout(load, 40000);
+            const started = r.started || [];
+            const stopped = r.stopped || [];
+            msg.textContent = `${started.length ? `Starting ${started.join(', ')} — they attach within ~30 s. ` : 'Every session is already running. '}${stopped.length ? `Stopped ${stopped.join(', ')}.` : ''}`;
+            setTimeout(load, 3000); setTimeout(load, 15000); setTimeout(load, 40000);
         };
         stop.onclick = async () => {
-            if (!confirm('Close every session started here? Jobs in progress are lost.')) return;
+            if (!confirm('Stop every session started here? Jobs in progress are lost.')) return;
             const r = await action(host, 'stopSessions');
             msg.style.color = r.ok ? '' : BAD;
-            msg.textContent = r.ok ? `Stopped ${r.stopped.length} session(s).` : r.error;
+            msg.textContent = r.ok ? `Stopped ${(r.stopped || []).length} session(s).` : r.error;
             load();
         };
         sessBox.appendChild(el('div', { className: 'form-actions' }, start, stop));
-        sessBox.appendChild(el('p', { className: 'form-help-muted' }, 'Watch or answer a session on the server: ', el('code', { text: st.tmuxAttach })));
+        if (st.fleet && st.fleet.tmux && st.fleet.tmux.attach) {
+            sessBox.appendChild(el('p', { className: 'form-help-muted' }, 'Watch a session on the server: ', el('code', { text: st.fleet.tmux.attach })));
+        }
     }
 
     async function load() {
@@ -159,22 +177,33 @@ function renderSetup(host, getCfg) {
         st = await action(host, 'setupStatus');
         refreshBtn.disabled = false;
         body.innerHTML = '';
-        if (!st.ok) { body.appendChild(el('p', { style: { color: BAD }, text: st.error || 'Could not read the server status.' })); return; }
+        if (!st.ok) { body.appendChild(el('p', { style: { color: BAD }, text: st.error || 'Could not read the status.' })); return; }
         const ul = el('ul', { style: { listStyle: 'none', padding: 0, margin: 0 } });
-        ul.appendChild(check(st.claude.installed, 'Claude Code installed', st.claude.installed ? `${st.claude.version || ''} (${st.claude.path})` : 'not found — run the setup script'));
-        const signedIn = st.auth.loggedIn;
-        const authRow = check(signedIn, 'Signed in to Claude', signedIn ? [st.auth.email, st.auth.subscription && `${st.auth.subscription} plan`].filter(Boolean).join(' · ') : (st.auth.error || 'not signed in'), st.login && st.login.pending);
-        if (st.claude.installed) {
-            authRow.appendChild(el('button', {
-                className: 'btn btn-secondary btn-sm', type: 'button', style: { marginLeft: 'auto' },
-                text: st.login && st.login.pending ? 'Continue sign-in' : signedIn ? 'Sign in again' : 'Sign in to Claude',
-                onclick: () => (st.login && st.login.pending && st.login.url ? showLogin(st.login.url) : startLogin()),
-            }));
+        const b = st.broker;
+        ul.appendChild(check(b.reachable, 'Broker daemon', b.reachable ? `${b.url} · v${b.version || '?'}` : `${b.url} — ${b.error || 'not reachable'} (run the setup script, then save the token)`));
+        if (b.reachable && st.managed) {
+            const a = st.auth || {};
+            const claude = a.claude || (st.fleet && st.fleet.claude) || {};
+            ul.appendChild(check(Boolean(claude.installed), 'Claude Code', claude.installed ? `${claude.version || ''} (${claude.path || ''})` : 'not installed on the server — run the setup script'));
+            const tok = a.token || {};
+            const login = a.login || {};
+            const tokDetail = tok.set
+                ? `long-lived token saved${tok.created_at ? ` ${String(tok.created_at).slice(0, 10)}` : ''}${tok.expires_at ? `, valid until ${String(tok.expires_at).slice(0, 10)}` : ''}`
+                : (login.error || 'not signed in');
+            const authRow = check(Boolean(tok.set), 'Signed in to Claude', tokDetail, Boolean(login.pending));
+            if (claude.installed) {
+                authRow.appendChild(el('button', {
+                    className: 'btn btn-secondary btn-sm', type: 'button', style: { marginLeft: 'auto' },
+                    text: login.pending ? 'Continue sign-in' : tok.set ? 'Sign in again' : 'Sign in to Claude',
+                    onclick: () => (login.pending && login.url ? showLogin(login.url) : startLogin()),
+                }));
+            }
+            ul.appendChild(authRow);
+            const tm = st.fleet && st.fleet.tmux;
+            if (tm) ul.appendChild(check(Boolean(tm.installed), 'tmux', tm.installed ? `sessions run on the private server "${tm.socket}"` : 'not installed — run the setup script'));
+            if (st.authError) ul.appendChild(check(false, 'Sign-in status', st.authError));
+            if (st.fleetError) ul.appendChild(check(false, 'Sessions', st.fleetError));
         }
-        ul.appendChild(authRow);
-        ul.appendChild(check(st.tmux.installed, 'tmux installed', st.tmux.installed ? 'sessions run in tmux' : 'needed to run sessions — run the setup script'));
-        ul.appendChild(check(st.brokerCli.installed, 'claude-broker installed', st.brokerCli.installed ? '' : 'run the setup script'));
-        ul.appendChild(check(st.broker.reachable, 'Broker daemon reachable', st.broker.reachable ? `${st.broker.url} · v${st.broker.version || '?'}` : `${st.broker.url} — ${st.broker.error || 'not reachable'}`));
         body.appendChild(ul);
         renderSessions();
     }
@@ -187,16 +216,16 @@ export default {
     async mountConfig(root, host) {
         const cfg = {
             brokerUrl: 'http://127.0.0.1:4180', token: '', pools: [], defaultPool: '',
-            ttlSec: 300, waitSec: 120, framePrompts: true, sessionGapMs: 6000,
+            ttlSec: 300, waitSec: 120, framePrompts: true, sessionGapMs: 6000, model: '', effort: '',
             ...(host.config || {}),
         };
         cfg.pools = Array.isArray(cfg.pools) ? cfg.pools.map((p) => ({ name: p.name || '', count: p.count || 1, description: p.description || '' })) : [];
         root.innerHTML = '';
-        const { group, input, toggle } = host.ui.form(cfg);
+        const { group, input, toggle, select } = host.ui.form(cfg);
         let live = null; // last status() result
 
         // ── Setup: Claude Code on this server ──
-        root.appendChild(renderSetup(host, () => cfg));
+        root.appendChild(renderSetup(host));
 
         // ── Connection ──
         const conn = section('Broker connection', 'The claude-broker daemon (see its README). The token is the daemon\'s CLAUDE_BROKER_TOKEN.');
@@ -246,6 +275,9 @@ export default {
         poolsSec.appendChild(el('div', { className: 'form-actions' },
             el('button', { className: 'btn btn-secondary', type: 'button', text: '+ Add pool', onclick: () => { cfg.pools.push({ name: '', count: 1, description: '' }); renderPools(); } })));
         poolsSec.appendChild(group('Default pool', defaultSel, 'Used when a request names no pool.'));
+        poolsSec.appendChild(el('div', { className: 'admin-form-row' },
+            group('Session model', select('model', ['', 'haiku', 'sonnet', 'opus']), 'Empty = the account default. Applied when sessions (re)start.'),
+            group('Session effort', select('effort', ['', 'low', 'medium', 'high', 'xhigh', 'max']), 'Empty = the default.')));
         root.appendChild(poolsSec);
 
         // ── Save ──

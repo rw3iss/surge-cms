@@ -211,6 +211,83 @@ function brokerError(r) {
     return `Broker request failed (${r.status || 'network'})`;
 }
 
+// ─── Broker ≥ 0.6: fleet, sign-in, session health ───────────────────────────
+
+/** TUI states in which a session cannot do work (claude-broker ≥ 0.6 reports them). */
+const UNHEALTHY = new Set(['usage_limited', 'login_required', 'context_wedged', 'channels_unavailable', 'exited']);
+
+/** Usable for a job? A session without a reported state (older broker, no tmux pane) counts as usable. */
+function isHealthy(s) {
+    return !s || !s.tui_state || !UNHEALTHY.has(s.tui_state);
+}
+
+/** Does this broker manage sessions + sign-in itself? */
+function supportsFleet(capabilities) {
+    const c = Array.isArray(capabilities) ? capabilities : [];
+    return c.includes('fleet') && c.includes('auth');
+}
+
+/** What each TUI state means, for the admin checklist. */
+const TUI_STATE_TEXT = {
+    unknown: 'running',
+    starting: 'starting',
+    prompt: 'answering a first-run question',
+    ready: 'ready',
+    working: 'working on a job',
+    usage_limited: 'stopped: Claude usage limit reached (resumes after the reset)',
+    login_required: 'stopped: signed out — sign in again',
+    context_wedged: 'stuck (context error) — being restarted',
+    channels_unavailable: 'Claude Code refused the broker channel ("Channels are not currently available") — it cannot receive jobs',
+    exited: 'exited — being restarted',
+};
+
+function sessionView(s) {
+    return {
+        id: s.id,
+        label: s.label,
+        status: s.status,
+        busy: s.busy || 0,
+        managed: Boolean(s.managed),
+        tuiState: s.tui_state || null,
+        tuiDetail: s.tui_detail || null,
+        healthy: isHealthy(s),
+    };
+}
+
+/** The fleet spec the plugin's pools translate to (PUT /fleet). */
+function fleetSpec(c) {
+    const spec = { pools: c.pools.map((p) => ({ name: p.name, count: Math.max(1, Math.min(16, Number(p.count) || 1)) })), autostart: true, nudge: true };
+    if (c.model) spec.model = c.model;
+    if (c.effort) spec.effort = c.effort;
+    return spec;
+}
+
+/** GET /fleet → per-pool rows of sessions with a readable state. */
+function fleetView(fleet, pools) {
+    const sessions = (fleet && Array.isArray(fleet.sessions)) ? fleet.sessions : [];
+    const names = new Set([...(pools || []).map((p) => p.name), ...sessions.map((x) => x.pool).filter(Boolean)]);
+    return {
+        tmux: fleet && fleet.tmux ? fleet.tmux : null,
+        claude: fleet && fleet.claude ? fleet.claude : null,
+        specPools: fleet && fleet.spec && Array.isArray(fleet.spec.pools) ? fleet.spec.pools : [],
+        pools: [...names].map((name) => ({
+            name,
+            sessions: sessions.filter((x) => x.pool === name).map((x) => ({
+                label: x.label,
+                attached: Boolean(x.attached),
+                running: Boolean(x.running),
+                state: x.tui_state || (x.attached ? 'ready' : x.running ? 'starting' : 'exited'),
+                stateText: !x.attached && x.running && (!x.tui_state || ['ready', 'working', 'unknown'].includes(x.tui_state))
+                    ? 'running, but not attached to the broker yet (its MCP shim has not connected)'
+                    : TUI_STATE_TEXT[x.tui_state] || (x.attached ? 'attached' : x.running ? 'starting' : 'not running'),
+                healthy: Boolean(x.attached) && isHealthy(x),
+                detail: x.tui_detail || x.note || null,
+                restarts: x.restarts || 0,
+            })),
+        })),
+    };
+}
+
 module.exports = {
     TERMINAL,
     ACTIVE,
@@ -227,4 +304,11 @@ module.exports = {
     resultText,
     normalizeJob,
     brokerError,
+    UNHEALTHY,
+    TUI_STATE_TEXT,
+    isHealthy,
+    supportsFleet,
+    sessionView,
+    fleetSpec,
+    fleetView,
 };

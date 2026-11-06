@@ -13,7 +13,7 @@
 #   4. the broker daemon    (systemd USER service + linger, so it survives logout/reboot)
 # and prints the broker token to paste into the plugin's config page.
 # Signing in to Claude and starting sessions are then done from the admin
-# (Plugins → Claude Broker → Setup).
+# (Plugins → Claude Broker → Setup); the broker daemon runs them.
 set -euo pipefail
 
 BIN="$HOME/.local/bin"
@@ -36,8 +36,14 @@ say "Claude Code"
 if [ -x "$BIN/claude" ] || command -v claude >/dev/null 2>&1; then ok "$(claude --version)"
 else curl -fsSL https://claude.ai/install.sh | bash; ok "$("$BIN/claude" --version)"; fi
 
-say "claude-broker"
-if [ -x "$BIN/claude-broker" ] || command -v claude-broker >/dev/null 2>&1; then ok "claude-broker installed"
+say "claude-broker (>= 0.6: manages sign-in + sessions)"
+if [ -x "$BIN/claude-broker" ] || command -v claude-broker >/dev/null 2>&1; then
+    CB_VERSION="$(claude-broker --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)"
+    if [ -z "$CB_VERSION" ] || [ "$(printf '%s\n0.6.0\n' "$CB_VERSION" | sort -V | head -1)" != "0.6.0" ]; then
+        say "updating claude-broker ${CB_VERSION:-?} → latest"
+        claude-broker update || curl -fsSL https://raw.githubusercontent.com/rw3iss/claude-broker/main/install.sh | bash -s -- --update
+    fi
+    ok "claude-broker $(claude-broker --version 2>/dev/null | head -1)"
 else curl -fsSL https://raw.githubusercontent.com/rw3iss/claude-broker/main/install.sh | bash; ok "claude-broker installed"; fi
 
 say "Broker token"
@@ -88,10 +94,12 @@ $(ok "Server ready.")
 Next, in the CMS admin → Plugins → Claude Broker:
   1. Broker connection → Token:  $TOKEN
      (URL http://127.0.0.1:4180) → Save
-  2. Setup → Sign in to Claude (open the link, paste the code back)
-  3. Add pools → Save → Setup → Start sessions
+  2. Setup → Sign in to Claude (open the link, paste the code back) — the broker
+     saves ONE long-lived token (claude setup-token) that every session uses
+  3. Add pools → Save → Setup → Start sessions (the broker starts, watches and
+     restarts them; spec in ~/.config/claude-broker/fleet.json)
   4. Test prompt at the bottom of the page
 
 Logs:     journalctl --user -u claude-broker -f
-Sessions: tmux -L sitesurge-broker attach -t sitesurge-broker
+Sessions: claude-broker fleet status   (watch one: tmux -L claude-broker attach)
 DONE

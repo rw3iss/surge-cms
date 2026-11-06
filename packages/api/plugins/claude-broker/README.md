@@ -10,30 +10,33 @@ In-admin guide: **/admin/help/claude-broker**.
 
 1. **Server, once** (SSH, as the user the CMS runs as):
    `bash packages/api/plugins/claude-broker/setup/setup-server.sh` — installs
-   tmux, Claude Code and claude-broker, runs the daemon as a systemd **user**
-   service (with linger) and prints the broker token. Idempotent.
+   tmux, Claude Code and claude-broker **≥ 0.6** (updates an older one), runs
+   the daemon as a systemd **user** service (with linger) and prints the broker
+   token. Idempotent.
 2. Admin → Plugins → **Claude Broker (AI)** → Install → Enable → Configure:
    - **Broker connection** — URL (default `http://127.0.0.1:4180`) + the token.
-   - **Setup → Sign in to Claude** — the server runs `claude auth login`
-     DETACHED with stdin on a FIFO (`<dataDir>/login/`), so the admin opens the
-     printed link, signs in, and pastes the code back (`loginStart` →
-     `loginSubmit`; works across cluster workers). A wrong code keeps the login
-     waiting (`retry: true`).
-   - **Pools** — one row per pool: name, expected session count, description.
-   - **Setup → Start sessions** — one tmux window per missing pool member on a
-     PRIVATE tmux server (`tmux -L sitesurge-broker`, `$TMUX` dropped — never
-     the operator's own sessions), each loading a per-session MCP config
-     (`<dataDir>/mcp/<label>.json`, `--strict-mcp-config`: shim + label + token),
-     so no `claude mcp add` is needed. First-run prompts (trust folder, bypass
-     permissions, development channel) are answered automatically; each label's
-     outcome is shown in the checklist (`<dataDir>/session-notes/`).
+   - **Setup → Sign in to Claude** — the BROKER runs `claude setup-token` in its
+     private tmux server; open the link, sign in, paste the code back. It saves
+     ONE long-lived token (`~/.config/claude-broker/oauth.env`, 0600) that every
+     session loads — sessions sharing one interactive login refresh and blank
+     each other's token ("Login expired"; CivicGate outage 2026-10-22).
+   - **Pools** — name + session count; **Session model / effort** optional.
+   - **Setup → Start sessions** — writes the pools to the broker's fleet spec
+     (`PUT /fleet`) and applies it (`POST /fleet/apply`). The broker starts one
+     tmux window per session (`<pool>` or `<pool>-<n>`) with the battle-tested
+     CivicGate launch (strict per-session MCP config, worker settings,
+     `ENABLE_TOOL_SEARCH=false`, pre-trusted neutral folder, dev-channel prompt
+     answered), then supervises them: restarts exited/stuck ones, nudges an idle
+     session when a job waits, and reports each session's state (ready, usage
+     limit, signed out, channel refused …) — shown per session in the checklist
+     with a Restart button.
 3. Settings → AI → Default provider = Claude broker.
 
-**Known blocker:** Claude Code may start but print *"Channels are not currently
-available"* — its channels feature is switched off for that account/version, so
-the session attaches (the shim is an MCP server) but never receives a job. The
-checklist reports it per session ("refused the broker channel"). Seen on Claude
-Code 2.1.309 on 2026-11-05 for every newly started session.
+**Routing:** the plugin still picks the least-busy session of a pool itself
+(so the 6 s per-session gap holds), but skips sessions the broker reports as
+unable to work (`usage_limited`, `login_required`, `context_wedged`,
+`channels_unavailable`, `exited`). With an older broker (< 0.6) the setup
+checklist shows reachability + attached sessions only.
 
 ## Pools
 
@@ -74,17 +77,17 @@ the same actions internally. Each returns `{ ok: true, … }` or
 | `cancel` | `id` | `job` |
 | `comment` | `id`, `note` | `job` |
 | `jobs` | `status?`, `pool?`, `sessionId?`, `limit?`, `all?` | `jobs[]` (CMS jobs unless `all`) |
-| `setupStatus` | – | `claude` (installed/path/version), `auth` (loggedIn/email/subscription), `tmux`, `brokerCli`, `broker` (reachable/error), `pools[].labels[]` (attached/running/note), `login` (pending/url), `tmuxAttach` |
-| `loginStart` | – | `url` (the Claude sign-in page) |
-| `loginSubmit` | `code` | `auth` — or `retry: true` on a wrong code |
-| `loginCancel` | – | – |
-| `startSessions` | `pool?` | `started[]`, `skipped[]` |
-| `stopSessions` | `labels?` | `stopped[]` |
+| `setupStatus` | – | `broker` (reachable/version/capabilities), `managed`, `attached[]`, `auth` (broker `GET /auth`), `fleet` (pools → sessions with state/stateText/healthy/restarts, tmux) |
+| `loginStart` | – | `url` (the Claude sign-in page; broker `POST /auth/login`) |
+| `loginSubmit` | `code` | `token` — or `retry: true` on a wrong code |
+| `loginCancel` / `logout` | – | – |
+| `startSessions` | – | `started[]`, `stopped[]`, `kept[]` (fleet spec synced + applied) |
+| `stopSessions` | – | `stopped[]` |
+| `restartSession` | `label` | – |
 
 A `job` is `{ id, status, sessionId, sessionLabel, pool, text, result, error,
 progress[], meta, createdAt, dispatchedAt, completedAt, expiresAt, timedOut }`.
 
 Pure helpers (pool membership, session picking, framing, normalisation) live in
-`lib.js` and are tested by `src/plugins/claudeBroker.test.ts`; the server
-setup helpers (sign-in, tmux sessions) live in `claude.js`, tested by
-`src/plugins/claudeBrokerSetup.test.ts` against a fake `claude` CLI.
+`lib.js` and are tested by `src/plugins/claudeBroker.test.ts`. Sign-in and the sessions themselves are the broker's job (claude-broker ≥ 0.6:
+`/auth`, `/fleet`).

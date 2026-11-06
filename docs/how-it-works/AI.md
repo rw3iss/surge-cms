@@ -15,9 +15,10 @@ provider's readiness and every broker pool, and has a test prompt.
 ## Server setup (broker)
 
 1. Once, on the server, as the CMS's OS user: `bash packages/api/plugins/claude-broker/setup/setup-server.sh`
-   (tmux, Claude Code, claude-broker, the daemon as a systemd user service; prints the token).
+   (tmux, Claude Code, claude-broker ≥ 0.6, the daemon as a systemd user service; prints the token).
 2. Plugins → Claude Broker → paste the token → **Setup → Sign in to Claude** (open the link, sign in,
-   paste the code back — the server runs `claude auth login` for you) → add pools → **Start sessions**.
+   paste the code back — the broker runs `claude setup-token` and saves one long-lived token for every
+   session) → add pools → **Start sessions** (the broker starts, supervises and restarts the sessions).
 
 Full walkthrough: in-admin `/admin/help/claude-broker`; details in the plugin README.
 

@@ -13,7 +13,6 @@
  * GET /sessions, GET /healthz — Bearer token.
  */
 const lib = require('./lib.js');
-const claude = require('./claude.js');
 
 const DEFAULT_URL = 'http://127.0.0.1:4180';
 const MAX_POLL_SEC = 60;
@@ -36,10 +35,8 @@ function cfg(ctx) {
         waitSec: num(c.waitSec, 120, 1, 3600),
         frame: c.framePrompts !== false,
         gapMs: num(c.sessionGapMs, 6000, 0, 60000),
-        claudePath: String(c.claudePath || '').trim(),
-        sessionCwd: String(c.sessionCwd || '').trim(),
-        brokerSocket: String(c.brokerSocket || '').trim(),
-        dataDir: (ctx.storage && ctx.storage.dataDir) || require('node:path').join(require('node:os').tmpdir(), 'sitesurge-claude-broker'),
+        model: String(c.model || '').trim(),
+        effort: String(c.effort || '').trim(),
     };
 }
 
@@ -56,7 +53,7 @@ async function broker(ctx, method, path, body) {
         headers: { Authorization: `Bearer ${c.token}` },
         jsonBody: body,
     });
-    if (!r.ok) return { ok: false, status: r.status, error: lib.brokerError(r) };
+    if (!r.ok) return { ok: false, status: r.status, error: lib.brokerError(r), details: r.details };
     return r;
 }
 
@@ -139,7 +136,8 @@ async function resolveTarget(ctx, payload) {
     if (!pool) return fail(400, 'No pool given and no default pool is configured');
     const [s, j] = await Promise.all([listSessions(ctx), listActiveJobs(ctx)]);
     if (!s.ok) return s;
-    const session = lib.pickSession(pool, s.sessions, j.ok ? j.jobs : [], lastSettled);
+    // Broker ≥ 0.6 reports each session's TUI state; skip ones that cannot work (usage limit, signed out…).
+    const session = lib.pickSession(pool, s.sessions.filter(lib.isHealthy), j.ok ? j.jobs : [], lastSettled);
     if (!session) return fail(503, `No session is attached in pool "${pool}"`);
     return { ok: true, session, pool };
 }
@@ -304,86 +302,92 @@ module.exports = {
             return r.ok ? { ok: true, job: lib.normalizeJob(r.data) } : r;
         },
 
-        // ── Setup: Claude Code on this server (see claude.js) ──
+        // ── Setup: delegated to the broker (claude-broker ≥ 0.6 owns sign-in + sessions) ──
 
-        /** Checklist: Claude Code installed + signed in, tmux, broker reachable, sessions per pool. */
+        /**
+         * One checklist for the config page: broker reachable + its version and
+         * capabilities, Claude Code installed, the workers' sign-in token, the
+         * fleet's sessions per pool. An older broker (no `fleet`/`auth`
+         * capability) still reports reachability and attached sessions.
+         */
         async setupStatus(ctx) {
             const c = cfg(ctx);
-            const [local, h] = await Promise.all([claude.claudeStatus(c), health(ctx)]);
-            let attached = [];
-            let brokerError = h.ok ? null : h.error;
-            if (h.ok) {
-                const s = await listSessions(ctx);
-                if (s.ok) attached = s.sessions.filter((x) => x.status === 'attached').map((x) => x.label).filter(Boolean);
-                else brokerError = s.error;
+            const h = await health(ctx);
+            const base = { ok: true, broker: { url: c.url, reachable: false, version: null, capabilities: [], error: null } };
+            if (!h.ok) return { ...base, broker: { ...base.broker, error: h.error } };
+            const caps = Array.isArray(h.health.capabilities) ? h.health.capabilities : [];
+            const brokerInfo = { url: c.url, reachable: true, version: h.health.version || null, capabilities: caps, error: null };
+            const s = await listSessions(ctx);
+            if (!s.ok) return { ...base, broker: { ...brokerInfo, reachable: false, error: s.error } };
+            const attached = s.sessions.filter((x) => x.status === 'attached');
+            const out = { ok: true, broker: brokerInfo, managed: lib.supportsFleet(caps), attached: attached.map(lib.sessionView) };
+            if (!out.managed) {
+                out.pools = lib.poolStatus(c.pools, s.sessions, []);
+                return out;
             }
-            const tmux = claude.findBinary('tmux');
-            const windows = tmux ? await claude.tmuxWindows(tmux) : [];
-            return {
-                ok: true,
-                ...local,
-                broker: { reachable: h.ok && !brokerError, error: brokerError, version: h.ok ? (h.health.version || null) : null, url: c.url },
-                pools: c.pools.map((p) => {
-                    const labels = claude.poolLabels(p);
-                    return {
-                        name: p.name,
-                        expected: labels.length,
-                        labels: labels.map((l) => ({ label: l, attached: attached.includes(l), running: windows.includes(l), note: claude.readSessionNote(c, l) })),
-                        attached: attached.filter((l) => lib.inPool(l, p.name)).length,
-                    };
-                }),
-                tmuxSession: claude.TMUX_SESSION,
-                tmuxAttach: `tmux -L ${claude.TMUX_SOCKET} attach -t ${claude.TMUX_SESSION}`,
-            };
+            const [auth, fleet] = await Promise.all([broker(ctx, 'GET', '/auth'), broker(ctx, 'GET', '/fleet')]);
+            if (auth.ok) out.auth = auth.data;
+            else out.authError = auth.error;
+            if (fleet.ok) out.fleet = lib.fleetView(fleet.data, c.pools);
+            else out.fleetError = fleet.error;
+            return out;
         },
 
-        /** Start `claude auth login` on the server → the sign-in link for the admin to open. */
+        /** Start `claude setup-token` on the server (in the broker) → the sign-in link to open. */
         async loginStart(ctx) {
-            return claude.loginStart(cfg(ctx));
+            const r = await broker(ctx, 'POST', '/auth/login', {});
+            return r.ok ? { ok: true, url: r.data && r.data.url } : r;
         },
 
-        /** The code from the sign-in page → the waiting login. */
+        /** The code from the sign-in page → the broker saves the long-lived token for every session. */
         async loginSubmit(ctx, payload) {
-            return claude.loginSubmit(cfg(ctx), payload.code);
+            const code = String(payload.code || '').trim();
+            if (!code || code.length > 1024 || /[\r\n\0]/.test(code)) return fail(400, 'Paste the code shown after signing in.');
+            const r = await broker(ctx, 'POST', '/auth/login/code', { code });
+            if (r.ok) return { ok: true, token: r.data && r.data.token };
+            // Broker errors are { error: { code, message, details: { retry, url } } }; a bad code
+            // comes with a FRESH sign-in link (the old one is used up).
+            const d = (r.details && r.details.error && r.details.error.details) || {};
+            return { ...r, retry: Boolean(d.retry), url: d.url || null };
         },
 
         async loginCancel(ctx) {
-            return claude.loginCancel(cfg(ctx));
+            const r = await broker(ctx, 'DELETE', '/auth/login');
+            return r.ok ? { ok: true } : r;
+        },
+
+        /** Forget the saved worker token (sessions keep running until restarted). */
+        async logout(ctx) {
+            const r = await broker(ctx, 'DELETE', '/auth/token');
+            return r.ok ? { ok: true } : r;
         },
 
         /**
-         * Start the missing sessions of every pool (or `pool`) in tmux. Returns at
-         * once; each session answers Claude Code's first-run prompts in the
-         * background and attaches to the broker within ~30 s.
+         * Push the configured pools (+ model/effort) to the broker's fleet spec and
+         * apply it: the broker starts the missing sessions and stops the ones no
+         * longer wanted, then keeps them alive (restarts, prompts, nudges).
          */
-        async startSessions(ctx, payload) {
+        async startSessions(ctx) {
             const c = cfg(ctx);
-            const h = await health(ctx);
-            if (!h.ok) return h;
-            const s = await listSessions(ctx);
-            if (!s.ok) return s;
-            const attached = s.sessions.filter((x) => x.status === 'attached').map((x) => x.label).filter(Boolean);
-            const r = await claude.startSessions(c, attached, payload.pool ? String(payload.pool) : '');
-            if (!r.ok) return r;
-            for (const label of r.started) {
-                const isAttached = async () => {
-                    const now = await listSessions(ctx);
-                    return now.ok && now.sessions.some((x) => x.status === 'attached' && x.label === label);
-                };
-                claude.writeSessionNote(c, label, 'Starting…');
-                claude.acceptPrompts(r.tmux, `${r.target}:${label}`, isAttached)
-                    .then((res) => {
-                        claude.writeSessionNote(c, label, res.ok ? null : res.note);
-                        if (!res.ok) ctx.logger.warn(`session "${label}": ${res.note} (tmux -L ${claude.TMUX_SOCKET} attach -t ${r.target})`);
-                    })
-                    .catch((e) => claude.writeSessionNote(c, label, e.message));
-            }
-            return { ok: true, started: r.started, skipped: r.skipped, tmuxSession: r.target };
+            if (!c.pools.length) return fail(400, 'Add a pool first.');
+            const spec = lib.fleetSpec(c);
+            const put = await broker(ctx, 'PUT', '/fleet', spec);
+            if (!put.ok) return put;
+            const r = await broker(ctx, 'POST', '/fleet/apply', {});
+            return r.ok ? { ok: true, ...(r.data || {}) } : r;
         },
 
-        /** Close session windows started here (all, or `labels`). The broker detaches them. */
-        async stopSessions(ctx, payload) {
-            return claude.stopSessions(cfg(ctx), Array.isArray(payload.labels) ? payload.labels.map(String) : []);
+        /** Stop every fleet session (the pools stay configured). */
+        async stopSessions(ctx) {
+            const r = await broker(ctx, 'POST', '/fleet/stop', {});
+            return r.ok ? { ok: true, ...(r.data || {}) } : r;
+        },
+
+        async restartSession(ctx, payload) {
+            const label = String(payload.label || '');
+            if (!/^[A-Za-z0-9_.-]{1,64}$/.test(label)) return fail(400, 'A session label is required');
+            const r = await broker(ctx, 'POST', `/fleet/sessions/${encodeURIComponent(label)}/restart`, {});
+            return r.ok ? { ok: true, ...(r.data || {}) } : r;
         },
 
         /** Recent jobs — CMS jobs only unless `all`; filter by status / session / pool. */

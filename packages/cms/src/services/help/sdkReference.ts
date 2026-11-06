@@ -1662,33 +1662,41 @@ export const CLAUDE_BROKER_DOC: SdkDoc = {
         {
             heading: 'Set it up',
             blocks: [
-                {
-                    p: 'One time, on the server, as the user the CMS runs as (SSH):',
-                },
+                { p: 'One time, on the server, as the user the CMS runs as (SSH):', },
                 { code: 'bash packages/api/plugins/claude-broker/setup/setup-server.sh', },
                 {
-                    p: 'It installs tmux, Claude Code and claude-broker, starts the broker daemon as a systemd user service '
-                        + '(it survives logout and reboot) and prints the broker token. Everything else happens in the admin, '
+                    p: 'It installs tmux, Claude Code and claude-broker (0.6 or newer), runs the broker daemon as a systemd user '
+                        + 'service (it survives logout and reboot) and prints the broker token. Everything else happens in the admin, '
                         + 'on Plugins → Claude Broker:',
                 },
                 {
                     list: [
                         '**Broker connection** — paste the token (URL `http://127.0.0.1:4180`) and Save.',
-                        '**Setup → Sign in to Claude** — the server starts `claude auth login`. Open the link it shows, sign in '
-                        + 'with the Claude account the sessions should use, copy the code the page shows and paste it back. '
-                        + 'The sign-in is stored on the server (`~/.claude`) and renews itself.',
-                        '**Pools** — add a pool (name + session count), Save.',
-                        '**Setup → Start sessions** — starts the missing sessions in tmux (`tmux -L sitesurge-broker`). Each one '
-                        + 'answers Claude Code\'s first-run questions by itself and attaches within ~30 s; the checklist shows '
-                        + 'each session as attached, or why not.',
+                        '**Setup → Sign in to Claude** — the broker starts `claude setup-token` on the server. Open the link, sign in '
+                        + 'with the Claude account the sessions should use, copy the code the page shows and paste it back. The broker '
+                        + 'saves ONE long-lived token (valid a year) that every session uses — sessions sharing one ordinary login keep '
+                        + 'refreshing the same token and end up signed out.',
+                        '**Pools** — add a pool (name + session count) and, optionally, the model and effort the sessions run. Save.',
+                        '**Setup → Start sessions** — the broker starts one session per pool member in its own tmux server and keeps '
+                        + 'them running: it answers Claude Code\'s first-run questions, restarts a session that exits or gets stuck, and '
+                        + 'wakes an idle session when a job waits. Each session shows its state in the checklist, with a Restart button.',
                         '**Test prompt** — at the bottom of the page.',
                     ],
                 },
                 {
-                    note: 'If a session reports "Claude Code refused the broker channel: Channels are not currently available", '
-                        + 'Claude Code started but its channels feature is switched off for that account or version, so it cannot '
-                        + 'receive jobs. Update Claude Code (`claude update`) and start the session again; to look at it, run '
-                        + '`tmux -L sitesurge-broker attach -t sitesurge-broker` on the server.',
+                    table: [
+                        ['Session state', 'Meaning'],
+                        ['ready', 'Attached and taking jobs'],
+                        ['starting / answering a first-run question', 'Coming up — usually under 30 s'],
+                        ['usage limit reached', 'The Claude plan\'s limit is used up; jobs go to other sessions until it resets'],
+                        ['signed out', 'Sign in to Claude again — the broker restarts the session with the new sign-in'],
+                        ['stuck (context error) / exited', 'The broker clears or restarts it'],
+                        ['refused the broker channel', 'Claude Code says "Channels are not currently available": it runs but cannot receive jobs. Update Claude Code (`claude update`) and restart the session'],
+                    ],
+                },
+                {
+                    note: 'Requests skip sessions that cannot work (usage limit, signed out, stuck, channel refused). To watch a session '
+                        + 'on the server: `claude-broker fleet status`, or `tmux -L claude-broker attach`.',
                 },
             ],
         },

@@ -89,3 +89,43 @@ describe('framePrompt', () => {
         expect(lib.framePrompt({ prompt: 'hi', system: 'Be brief.', frame: false, },),).toBe('Be brief.\n\nhi',);
     },);
 },);
+
+describe('broker ≥ 0.6: health, fleet', () => {
+    it('treats sessions in a stopped TUI state as unusable, unknown as usable', () => {
+        expect(lib.isHealthy({ tui_state: 'usage_limited', },),).toBe(false,);
+        expect(lib.isHealthy({ tui_state: 'channels_unavailable', },),).toBe(false,);
+        expect(lib.isHealthy({ tui_state: 'ready', },),).toBe(true,);
+        expect(lib.isHealthy({},),).toBe(true,);
+    },);
+
+    it('needs both fleet and auth to manage sessions', () => {
+        expect(lib.supportsFleet(['pools', 'fleet', 'auth', 'tui',],),).toBe(true,);
+        expect(lib.supportsFleet(['pools',],),).toBe(false,);
+        expect(lib.supportsFleet(undefined,),).toBe(false,);
+    },);
+
+    it('turns the plugin pools into a fleet spec (count clamped, model/effort only when set)', () => {
+        expect(lib.fleetSpec({ pools: [{ name: 'summary', count: 40, }, { name: 'chat', count: 0, },], model: 'haiku', effort: '', },),).toEqual({
+            pools: [{ name: 'summary', count: 16, }, { name: 'chat', count: 1, },], autostart: true, nudge: true, model: 'haiku',
+        },);
+    },);
+
+    it('groups fleet sessions by pool with a readable state', () => {
+        const v = lib.fleetView({
+            sessions: [
+                { label: 'summary-1', pool: 'summary', window: '1', attached: true, tui_state: 'ready', },
+                { label: 'summary-2', pool: 'summary', window: '2', attached: true, tui_state: 'usage_limited', tui_detail: 'What do you want to do?', },
+            ],
+        }, [{ name: 'summary', }, { name: 'chat', },],);
+        const summary = v.pools.find((p: { name: string; },) => p.name === 'summary',);
+        expect(summary.sessions.map((x: { healthy: boolean; },) => x.healthy,),).toEqual([true, false,],);
+        expect(summary.sessions[1].stateText,).toMatch(/usage limit/,);
+        expect(v.pools.find((p: { name: string; },) => p.name === 'chat',).sessions,).toEqual([],);
+    },);
+
+    it('never picks an unhealthy pool member', () => {
+        const sessions = [s('a', 'summary-1',), { ...s('b', 'summary-2',), tui_state: 'login_required', },];
+        const picked = lib.pickSession('summary', sessions.filter(lib.isHealthy,), [j('a',), j('a',),], new Map(),);
+        expect(picked.id,).toBe('a',);
+    },);
+},);
