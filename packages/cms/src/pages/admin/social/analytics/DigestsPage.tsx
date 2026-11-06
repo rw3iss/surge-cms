@@ -210,7 +210,7 @@ const DigestsPage: Component = () => {
                                                         <StatusBadge status={d.status} />
                                                         <Show when={d.error}><div class="form-help-muted digests-table__error" title={d.error!}>{d.error}</div></Show>
                                                     </td>
-                                                    <td class="digests-table__headline">{d.headline || <span class="form-help-muted">—</span>}</td>
+                                                    <td><div class="digests-table__headline">{d.headline || <span class="form-help-muted">—</span>}</div></td>
                                                     <td>
                                                         <Show when={d.emailedAt} fallback={<span class="form-help-muted">—</span>}>
                                                             {d.emailCount} · <span class="form-help-muted">{when(d.emailedAt,)}</span>
