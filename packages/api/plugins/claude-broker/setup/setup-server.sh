@@ -7,7 +7,7 @@
 #     bash packages/api/plugins/claude-broker/setup/setup-server.sh
 #
 # Idempotent — safe to re-run. It installs what is missing:
-#   1. tmux                 (sessions run in tmux; uses sudo dnf/apt)
+#   1. git, curl, openssl, tmux, build tools (sudo dnf/apt) + checks Node >= 20
 #   2. Claude Code          (official installer → ~/.local/bin/claude)
 #   3. claude-broker        (its installer → ~/.local/bin/claude-broker)
 #   4. the broker daemon    (systemd USER service + linger, so it survives logout/reboot)
@@ -26,11 +26,39 @@ export PATH="$BIN:$PATH"
 say() { printf '\033[1;36m▶ %s\033[0m\n' "$*"; }
 ok() { printf '\033[1;32m✓ %s\033[0m\n' "$*"; }
 
-say "tmux"
-if command -v tmux >/dev/null 2>&1; then ok "tmux $(tmux -V)"
-elif command -v dnf >/dev/null 2>&1; then sudo dnf install -y tmux
-elif command -v apt-get >/dev/null 2>&1; then sudo apt-get update -y && sudo apt-get install -y tmux
-else echo "Install tmux with your package manager, then re-run." >&2; exit 1; fi
+# Install system packages with whichever package manager the box has.
+pkg_install() {
+    if command -v dnf >/dev/null 2>&1; then sudo dnf install -y "$@"
+    elif command -v apt-get >/dev/null 2>&1; then sudo apt-get update -y && sudo apt-get install -y "$@"
+    else echo "Install these with your package manager, then re-run: $*" >&2; exit 1; fi
+}
+
+say "Prerequisites (git, curl, openssl, tmux, build tools for claude-broker's sqlite module)"
+MISSING=()
+for cmd in git curl openssl tmux make g++ python3; do
+    command -v "$cmd" >/dev/null 2>&1 || MISSING+=("$cmd")
+done
+if [ "${#MISSING[@]}" -gt 0 ]; then
+    PKGS=()
+    for cmd in "${MISSING[@]}"; do
+        case "$cmd" in
+            g++) if command -v dnf >/dev/null 2>&1; then PKGS+=(gcc-c++); else PKGS+=(g++); fi ;;
+            *) PKGS+=("$cmd") ;;
+        esac
+    done
+    say "installing: ${PKGS[*]}"
+    pkg_install "${PKGS[@]}"
+fi
+ok "git $(git --version | awk '{print $3}'), $(tmux -V)"
+
+say "Node.js (>= 20)"
+if ! command -v node >/dev/null 2>&1; then
+    echo "Node.js is not installed — install Node 20+ (the CMS needs it too), then re-run." >&2; exit 1
+fi
+NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
+if [ "$NODE_MAJOR" -lt 20 ]; then echo "Node $(node -v) is too old — claude-broker needs Node 20+." >&2; exit 1; fi
+command -v npm >/dev/null 2>&1 || pkg_install npm
+ok "node $(node -v)"
 
 say "Claude Code"
 if [ -x "$BIN/claude" ] || command -v claude >/dev/null 2>&1; then ok "$(claude --version)"
