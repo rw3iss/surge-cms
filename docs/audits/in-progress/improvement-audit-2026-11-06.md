@@ -46,4 +46,5 @@ See the area files (each has location, problem, fix, risk, status, lead follow-u
 ## 6. Progress log
 - 2026-11-06: audit started; six area agents running.
 - 2026-11-06: all six areas applied + verified; lead follow-ups applied; partial-refund + snapshot items (partners 14, 15) implemented.
+- 2026-11-06: committed 3e74239c, deployed to production; migrations 204, 210, 212, 213, 214 applied; no errors in the service log.
 - 2026-11-06: full verification — shared 330, api 2226, cms 598 tests pass; api + cms tsc 0 errors; vite build OK; docs:api regenerated.
