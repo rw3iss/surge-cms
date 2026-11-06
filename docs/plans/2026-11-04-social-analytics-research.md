@@ -351,7 +351,8 @@ tables. Platform APIs are only a source, never the store.
 > (no webhooks yet), Threads (new analytics-only provider, migration 203). Not yet verified
 > against live accounts except where noted in the guide.
 > 3 derived metrics + 4 dashboard: DONE (Social → Analytics; CSV export of posts).
-> 5: AI summary DONE (through the new AI module / claude-broker plugin); weekly email report and
+> 5: AI summary DONE (through the new AI module / claude-broker plugin); scheduled DIGESTS DONE
+> 2026-11-05 (daily/weekly/monthly, stored snapshots + history, email + notifications, retention);
 > CSV import NOT built. 6 manual import: NOT built. 7 permissions: DONE.
 
 **Phasing suggestion:** (1) snapshot tables + YouTube + Instagram + Facebook collectors (all free,

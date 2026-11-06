@@ -6,3 +6,8 @@ export { collectorStatuses, overview, posts, postSeries, series, } from './socia
 export { listRuns, runCollection, SOCIAL_ANALYTICS_CRON, } from './social/analytics/runner';
 export { listCollectors, } from './social/analytics/registry';
 export { summarize, summaryDigest, } from './social/analytics/summary';
+export { getSettings, updateSettings, } from './social/analytics/settings';
+export {
+    deleteDigest, generateDigest, getDigest, listDigests, SOCIAL_ANALYTICS_DIGEST_CRON, sweepRetention,
+} from './social/analytics/digests';
+export { renderEmailFor, sendDigestEmail, } from './social/analytics/digestDelivery';

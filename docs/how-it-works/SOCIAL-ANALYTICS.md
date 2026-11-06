@@ -127,7 +127,44 @@ marks that day.
   back `timedOut` and the admin polls `cms.ai.job`.
 - **Export CSV** on the Posts table: every page of the current filter, formula-safe.
 
+## Digests (scheduled reports)
+
+Social → Analytics → **Settings** schedules a **digest**; Social → Analytics → **Digests** lists every
+stored one and opens it in the browser.
+
+| Setting (`social_analytics_settings`) | Meaning |
+|---|---|
+| Digest on/off, frequency | daily · weekly (weekday) · monthly (day 1–28), at a local hour in a time zone |
+| Platforms | which platforms to include (none = all with data) |
+| Sections | totals · per platform · trends · top posts (count) · AI insights |
+| AI pool | the claude-broker pool the insights run on (default `analytics`; falls back to the default pool, then the Anthropic API) |
+| Email | on/off · format full or summary · extra recipients · recipient mode |
+| Retention | days to keep digests (1 … any), or keep forever |
+
+- **Period:** the digest due on a local date covers up to *yesterday* — 1 day, 7 days, or one calendar
+  month — compared with the same length right before it (`periodFor` / `previousPeriod`).
+- **Schedule:** the hourly `social-analytics-digest` cron (:20, primary only) asks `dueSlot()`; it is due
+  from the configured hour on the matching day, once per local date (`schedule_key` is unique, so
+  overlapping runs make one digest). The same cron applies the retention.
+- **Snapshot:** `social_analytics_digests` (migration 202) stores the whole report as JSONB
+  (`DigestData`: totals and per-platform metrics with previous values and changes, daily series, top
+  posts, definition changes, AI insights) — so a digest reads the same months later, whatever the live
+  data does. Engagement in a digest is always (likes + comments + shares) ÷ views.
+- **AI insights:** a JSON answer (`headline`, `highlights`, per-platform notes, why each top post worked,
+  `suggestions`) through the AI module; a missing session or a bad answer is stored as
+  `ai.status: 'failed'` with the reason, and the rest of the digest still ships.
+- **Delivery:** the digest EMAIL (`digestEmail.ts`: branded table layout — KPI tiles with change pills,
+  platform tables with bar-strip trends, top posts with thumbnails, AI card, "Open in the dashboard")
+  goes to the extra recipients, plus — in *augment* mode — the email recipients of the **Social analytics
+  digest** notification type (Settings → Notifications); *override* = only the extra recipients. The
+  notification type's in-app / desktop / SMS channels get a "digest ready" note linking to the browser
+  view (its email channel is skipped — those people get the digest itself).
+- **API:** `GET/PUT /social-analytics/settings`, `GET /digests`, `GET /digests/:id`, `POST /digests`
+  (generate now; returns `generating` at once — poll), `POST /digests/:id/send`, `DELETE /digests/:id`,
+  `GET /digests/:id/email?format=` (the email as an HTML page). SDK `cms.socialAnalytics.settings /
+  updateSettings / digests / digest / generateDigest / sendDigest / deleteDigest / digestEmailUrl`.
+
 ## Not built yet (plan §6 phase 5)
 
-Weekly email report, per-platform CSV import (history/gaps), TikTok sign-in flow + cover mirroring,
+Per-platform CSV import (history/gaps), TikTok sign-in flow + cover mirroring,
 Patreon webhooks.

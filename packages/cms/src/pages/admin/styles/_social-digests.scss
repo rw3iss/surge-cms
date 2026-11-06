@@ -1,0 +1,517 @@
+// Social → Analytics: sub-nav, digests list, the in-browser digest, settings.
+// The digest's look mirrors its email (services/social/analytics/digestEmail.ts):
+// white cards on the page background, KPI tiles, ▲▼ deltas in green/red, tables.
+@use '../../../styles/variables' as *;
+
+// ── Sub-navigation (Dashboard · Digests · Settings) + page actions ──
+.analytics-nav {
+  position: sticky;
+  top: 0;
+  z-index: 31;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $spacing-sm $spacing-md;
+  margin: 0 0 $spacing-lg;
+  padding: $spacing-sm 0;
+  background: var(--admin-page-bg, #{$background-dark});
+  border-bottom: 1px solid var(--admin-border, #{$border-color});
+
+  &__links {
+    display: flex;
+    gap: $spacing-xs;
+    padding: 3px;
+    border-radius: $border-radius-md;
+    background: var(--admin-bg-subtle, #{$bg-muted});
+  }
+
+  &__link {
+    padding: 6px 14px;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: var(--admin-text-muted, #{$text-light});
+    text-decoration: none;
+    transition: background $transition-fast, color $transition-fast;
+
+    &:hover { color: var(--admin-text, #{$text-color}); }
+
+    &.is-active {
+      background: $background;
+      color: var(--admin-text, #{$text-color});
+      box-shadow: $shadow-sm;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-sm;
+    margin-left: auto;
+  }
+}
+
+// ── Status badge ──
+.digest-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: $border-radius-full;
+  font-size: $font-size-xs;
+  font-weight: 700;
+  background: var(--admin-bg-subtle, #{$bg-muted});
+  color: var(--admin-text-muted, #{$text-light});
+
+  &--ready { background: $success-bg; color: $success-fg; }
+  &--failed { background: $error-bg; color: $error-fg; }
+  &--generating { background: $warning-bg; color: $warning-fg; }
+}
+
+// ── Digests list ──
+.digests-page {
+  &__schedule { margin: 0 0 $spacing-md; }
+
+  &__empty {
+    max-width: 40rem;
+    padding: $spacing-xl;
+
+    h3 { margin-top: 0; }
+  }
+
+  &__table-wrap { overflow-x: auto; }
+}
+
+.digests-table {
+  &__period a { font-weight: 600; }
+  &__headline { max-width: 28rem; @include line-clamp(2); }
+
+  &__error {
+    max-width: 16rem;
+    @include truncate;
+  }
+
+  &__actions {
+    display: flex;
+    gap: $spacing-xs;
+    justify-content: flex-end;
+    white-space: nowrap;
+  }
+}
+
+.digests-generate {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+  padding: $spacing-lg;
+
+  &__title { margin: 0; font-size: $font-size-lg; }
+}
+
+// ── Settings ──
+.analytics-settings {
+  &__toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-sm $spacing-lg;
+
+    &--stack {
+      flex-direction: column;
+      gap: $spacing-sm;
+    }
+  }
+}
+
+// ── The digest (in the browser) ──
+.digest-view {
+  &__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-sm;
+  }
+
+  &__email-version {
+    display: inline-flex;
+    gap: $spacing-xs;
+    align-items: center;
+
+    select { padding: 4px 8px; font-size: $font-size-sm; }
+  }
+
+  &__expand {
+    display: flex;
+    justify-content: flex-end;
+    gap: $spacing-xs;
+    margin-bottom: $spacing-sm;
+  }
+}
+
+.digest-doc {
+  max-width: 64rem;
+  margin: 0 auto;
+
+  &__head {
+    margin-bottom: $spacing-lg;
+    padding: $spacing-lg;
+    border-radius: $border-radius-lg;
+    background: $background;
+    border: 1px solid var(--admin-border, #{$border-color});
+    border-top: 4px solid var(--site-primary, #{$primary-color});
+  }
+
+  &__eyebrow {
+    font-size: $font-size-xs;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__title {
+    margin: $spacing-xs 0 $spacing-sm;
+    font-size: $font-size-2xl;
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-xs $spacing-md;
+    font-size: $font-size-sm;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+}
+
+.digest-card {
+  margin-bottom: $spacing-md;
+  border-radius: $border-radius-lg;
+  background: $background;
+  border: 1px solid var(--admin-border, #{$border-color});
+  overflow: hidden;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: $spacing-sm $spacing-md;
+  }
+
+  &__toggle {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: $spacing-xs 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+  }
+
+  &__chevron {
+    display: inline-block;
+    font-size: $font-size-xs;
+    color: var(--admin-text-muted, #{$text-light});
+    transition: transform $transition-fast;
+  }
+
+  &.is-open &__chevron { transform: rotate(90deg); }
+
+  &__title {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-sm;
+    font-size: $font-size-lg;
+    font-weight: 700;
+  }
+
+  &__aside { font-size: $font-size-sm; flex: 0 0 auto; }
+
+  &__body {
+    padding: 0 $spacing-md $spacing-md;
+    border-top: 1px solid var(--admin-border, #{$border-color});
+    padding-top: $spacing-md;
+  }
+
+  &--ai {
+    border-left: 4px solid var(--site-primary, #{$primary-color});
+  }
+}
+
+.digest-platform-state {
+  padding: 1px 8px;
+  border-radius: $border-radius-full;
+  font-size: $font-size-xs;
+  font-weight: 600;
+
+  &--partial { background: $warning-bg; color: $warning-fg; }
+  &--off { background: var(--admin-bg-subtle, #{$bg-muted}); color: var(--admin-text-muted, #{$text-light}); }
+}
+
+.digest-platform__note {
+  margin: 0 0 $spacing-sm;
+  padding: $spacing-sm $spacing-md;
+  border-radius: $border-radius-md;
+  background: var(--admin-bg-subtle, #{$background-dark});
+  font-size: $font-size-sm;
+}
+
+// KPI tiles
+.digest-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: $spacing-sm;
+}
+
+.digest-kpi {
+  padding: $spacing-md;
+  border-radius: $border-radius-md;
+  background: var(--admin-bg-subtle, #{$background-dark});
+
+  &__label {
+    font-size: $font-size-xs;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__value {
+    margin: 4px 0;
+    font-size: $font-size-2xl;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--admin-text, #{$text-color});
+  }
+
+  &__foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px $spacing-sm;
+    font-size: $font-size-xs;
+  }
+
+  &__prev { color: var(--admin-text-muted, #{$text-light}); }
+}
+
+.digest-delta {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+
+  &--up { color: $success-fg; }
+  &--down { color: $error-fg; }
+  &--flat { color: var(--admin-text-muted, #{$text-light}); font-weight: 500; }
+}
+
+// Tables
+.digest-table-wrap { overflow-x: auto; margin-bottom: $spacing-md; }
+
+.digest-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: $font-size-sm;
+
+  th, td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--admin-border, #{$border-color});
+    text-align: left;
+  }
+
+  th {
+    font-size: $font-size-xs;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  th:not(:first-child) { text-align: right; }
+}
+
+// Trends
+.digest-trends {
+  &__switch {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+    margin-bottom: $spacing-sm;
+  }
+}
+
+.digest-chip {
+  padding: 3px 10px;
+  border-radius: $border-radius-full;
+  border: 1px solid var(--admin-border, #{$border-color});
+  background: $background;
+  font-size: $font-size-xs;
+  cursor: pointer;
+  color: var(--admin-text-muted, #{$text-light});
+
+  &.is-active {
+    border-color: var(--site-primary, #{$primary-color});
+    color: var(--site-primary, #{$primary-color});
+    font-weight: 700;
+  }
+}
+
+// AI
+.digest-ai {
+  &__headline {
+    margin: 0 0 $spacing-md;
+    font-size: $font-size-xl;
+    font-weight: 700;
+    line-height: $line-height-tight;
+  }
+
+  h4 {
+    margin: $spacing-md 0 $spacing-xs;
+    font-size: $font-size-xs;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__list {
+    margin: 0;
+    padding-left: 1.2rem;
+    line-height: 1.55;
+
+    li + li { margin-top: 4px; }
+  }
+
+  &__platforms {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px $spacing-md;
+    margin: 0;
+
+    dt { font-weight: 700; }
+    dd { margin: 0; }
+  }
+
+  &__error { margin: 0; color: $error-fg; }
+}
+
+// Top posts
+.digest-posts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.digest-post {
+  display: grid;
+  grid-template-columns: 1.5rem 96px minmax(0, 1fr) auto;
+  gap: $spacing-md;
+  align-items: start;
+  padding: $spacing-sm 0;
+
+  & + & { border-top: 1px solid var(--admin-border, #{$border-color}); }
+
+  &__rank {
+    font-size: $font-size-lg;
+    font-weight: 700;
+    color: var(--admin-text-muted, #{$text-light});
+    text-align: right;
+  }
+
+  &__thumb {
+    width: 96px;
+    height: 54px;
+    border-radius: $border-radius-sm;
+    object-fit: cover;
+    background: var(--admin-bg-subtle, #{$bg-muted});
+
+    &--empty { display: block; }
+  }
+
+  &__title {
+    font-weight: 600;
+    @include line-clamp(2);
+  }
+
+  &__meta {
+    font-size: $font-size-xs;
+    color: var(--admin-text-muted, #{$text-light});
+  }
+
+  &__why {
+    margin: 4px 0 0;
+    font-size: $font-size-sm;
+    color: var(--admin-text, #{$text-color});
+  }
+
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(3, auto);
+    gap: 2px $spacing-md;
+    margin: 0;
+    font-size: $font-size-xs;
+    text-align: right;
+
+    dt { color: var(--admin-text-muted, #{$text-light}); }
+    dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+  }
+
+  @include mobile-only {
+    grid-template-columns: 1.5rem 72px minmax(0, 1fr);
+
+    &__thumb { width: 72px; height: 40px; }
+
+    &__stats {
+      grid-column: 2 / -1;
+      grid-template-columns: repeat(3, 1fr);
+      text-align: left;
+    }
+  }
+}
+
+.digest-notes {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: $font-size-sm;
+}
+
+// Print: just the digest.
+@media print {
+  .analytics-nav,
+  .digest-view__expand,
+  .social-hub__tabs,
+  .admin-header,
+  .admin-layout__sidebar { display: none; }
+
+  .digest-card { break-inside: avoid; }
+}
+
+.digest-ai__links {
+  display: flex;
+  gap: $spacing-md;
+  margin: $spacing-sm 0 0;
+  font-size: $font-size-sm;
+}
+
+.digest-doc__generating {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: $spacing-lg;
+  border-radius: $border-radius-lg;
+  background: $background;
+  border: 1px dashed var(--admin-border, #{$border-color});
+  color: var(--admin-text-muted, #{$text-light});
+}
+
+.digest-doc__spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--admin-border, #{$border-color});
+  border-top-color: var(--site-primary, #{$primary-color});
+  animation: digest-spin 0.9s linear infinite;
+}
+
+@keyframes digest-spin { to { transform: rotate(360deg); } }

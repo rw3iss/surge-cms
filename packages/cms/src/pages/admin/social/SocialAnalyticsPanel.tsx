@@ -14,6 +14,7 @@ import Toggle from '../../../components/admin/common/Toggle';
 import Markdown from '../../../components/common/Markdown';
 import { useToast, } from '../../../components/common/toast';
 import { cms, } from '../../../services/cmsClient';
+import AnalyticsNav from './analytics/AnalyticsNav';
 
 /**
  * Social → Analytics. Everything shown is read from the CMS's own daily
@@ -239,6 +240,7 @@ const SocialAnalyticsPanel: Component = () => {
 
     return (
         <section class="social-analytics">
+            <AnalyticsNav />
             <div class="social-analytics__toolbar">
                 <label class="social-analytics__filter">
                     <span>Period</span>

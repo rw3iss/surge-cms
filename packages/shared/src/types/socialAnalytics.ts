@@ -155,3 +155,132 @@ export interface SocialPostAnalytics {
     viewsDay7: number | null;
     engagementRate: number | null;
 }
+
+// ─── Digests (scheduled analytics reports) ─────────────────────────────────
+
+export type DigestFrequency = 'daily' | 'weekly' | 'monthly';
+
+/** The parts a digest can include. */
+export type DigestSection = 'totals' | 'platforms' | 'trends' | 'topPosts' | 'ai';
+
+export const DIGEST_SECTIONS: Array<{ key: DigestSection; label: string; description: string; }> = [
+    { key: 'totals', label: 'Totals', description: 'Followers, views and engagement across every platform, with the change against the previous period.', },
+    { key: 'platforms', label: 'Per platform', description: 'Each platform\'s numbers and changes.', },
+    { key: 'trends', label: 'Trends', description: 'Daily followers and views per platform (charts in the browser, bars in email).', },
+    { key: 'topPosts', label: 'Top posts', description: 'The posts that gained the most views in the period.', },
+    { key: 'ai', label: 'AI insights', description: 'A headline, what changed, why the top posts worked and next steps — written by the AI module (claude-broker "analytics" pool).', },
+];
+
+export interface SocialAnalyticsSettings {
+    digest: {
+        enabled: boolean;
+        frequency: DigestFrequency;
+        /** Weekly: 0 = Sunday … 6 = Saturday. */
+        weekday: number;
+        /** Monthly: 1–28. */
+        monthDay: number;
+        /** Local hour (0–23) in `timezone`. */
+        hour: number;
+        timezone: string;
+        /** Platforms to include; empty = every platform with data. */
+        platforms: string[];
+        sections: DigestSection[];
+        /** How many top posts to list. */
+        topPosts: number;
+        /** The claude-broker pool the AI insights run on. */
+        aiPool: string;
+    };
+    email: {
+        enabled: boolean;
+        /** full = the whole digest; summary = headline, totals, top 3 posts + a link. */
+        format: 'full' | 'summary';
+        /** Extra addresses for the digest email. */
+        recipients: string[];
+        /**
+         * augment = these addresses + the email recipients of the "Analytics digest"
+         * notification type (Settings → Notifications); override = only these.
+         */
+        recipientMode: 'augment' | 'override';
+    };
+    /** Keep digests (and their snapshots) this many days; null = forever. */
+    retentionDays: number | null;
+}
+
+export const DEFAULT_SOCIAL_ANALYTICS_SETTINGS: SocialAnalyticsSettings = {
+    digest: {
+        enabled: false,
+        frequency: 'weekly',
+        weekday: 1,
+        monthDay: 1,
+        hour: 9,
+        timezone: 'America/New_York',
+        platforms: [],
+        sections: ['totals', 'platforms', 'trends', 'topPosts', 'ai',],
+        topPosts: 10,
+        aiPool: 'analytics',
+    },
+    email: { enabled: true, format: 'full', recipients: [], recipientMode: 'augment', },
+    retentionDays: 365,
+};
+
+/** One number with its previous-period value. */
+export interface DigestMetric {
+    value: number | null;
+    previous: number | null;
+    /** value − previous (null when either is missing). */
+    change: number | null;
+    /** change ÷ previous (null when previous is 0/missing). */
+    changePct: number | null;
+}
+
+export interface DigestPlatform {
+    platform: string;
+    label: string;
+    since: string | null;
+    metrics: Record<string, DigestMetric>;
+    /** Daily series for the trends section. */
+    series: Record<string, SocialSeriesPoint[]>;
+    status: SocialCollectorStatus['state'];
+    statusMessage: string | null;
+}
+
+export interface DigestAiInsights {
+    headline: string;
+    highlights: string[];
+    platforms: Array<{ platform: string; summary: string; }>;
+    topPosts: Array<{ id: string; why: string; }>;
+    suggestions: string[];
+}
+
+/** The snapshot a digest stores — enough to render it again, in the browser or email, at any time. */
+export interface DigestData {
+    v: 1;
+    from: string;
+    to: string;
+    previousFrom: string;
+    previousTo: string;
+    sections: DigestSection[];
+    totals: Record<string, DigestMetric>;
+    platforms: DigestPlatform[];
+    topPosts: SocialPostAnalytics[];
+    definitionChanges: SocialDefinitionChange[];
+    ai: { status: 'ok' | 'failed' | 'skipped'; insights: DigestAiInsights | null; error: string | null; provider: string | null; pool: string | null; };
+}
+
+export interface SocialAnalyticsDigestSummary {
+    id: string;
+    frequency: DigestFrequency | 'manual';
+    from: string;
+    to: string;
+    status: 'generating' | 'ready' | 'failed';
+    headline: string | null;
+    trigger: 'schedule' | 'manual';
+    createdAt: string;
+    emailedAt: string | null;
+    emailCount: number;
+    error: string | null;
+}
+
+export interface SocialAnalyticsDigest extends SocialAnalyticsDigestSummary {
+    data: DigestData | null;
+}

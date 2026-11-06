@@ -17649,6 +17649,190 @@ export const API_MODULES: ApiModuleDoc[] = [
                     "cms.socialAnalytics.collect"
                 ],
                 "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/settings",
+                "absolutePath": "/api/v1/social-analytics/settings",
+                "auth": "staff",
+                "summary": "Analytics settings: digest schedule, sections, email, retention.",
+                "sdk": [
+                    "cms.socialAnalytics.settings"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "PUT",
+                "path": "/settings",
+                "absolutePath": "/api/v1/social-analytics/settings",
+                "auth": "staff",
+                "summary": "Update the analytics settings (digest / email objects merge field by field).",
+                "input": {
+                    "body": [
+                        {
+                            "name": "digest",
+                            "type": "object",
+                            "required": false
+                        },
+                        {
+                            "name": "email",
+                            "type": "object",
+                            "required": false
+                        },
+                        {
+                            "name": "retentionDays",
+                            "type": "integer | null",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.socialAnalytics.updateSettings"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/digests",
+                "absolutePath": "/api/v1/social-analytics/digests",
+                "auth": "staff",
+                "summary": "Stored digests, newest first (paginated).",
+                "input": {
+                    "query": [
+                        {
+                            "name": "page",
+                            "type": "integer",
+                            "required": false
+                        },
+                        {
+                            "name": "limit",
+                            "type": "integer",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.socialAnalytics.digests"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/digests/:id",
+                "absolutePath": "/api/v1/social-analytics/digests/:id",
+                "auth": "staff",
+                "summary": "One digest with its stored snapshot.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.socialAnalytics.digest"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/digests",
+                "absolutePath": "/api/v1/social-analytics/digests",
+                "auth": "staff",
+                "summary": "Generate a digest now (default: the last configured period). Returns at once with status \"generating\" — poll it.",
+                "input": {
+                    "body": [
+                        {
+                            "name": "from",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "to",
+                            "type": "string",
+                            "required": false
+                        },
+                        {
+                            "name": "email",
+                            "type": "boolean",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.socialAnalytics.generateDigest"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "POST",
+                "path": "/digests/:id/send",
+                "absolutePath": "/api/v1/social-analytics/digests/:id/send",
+                "auth": "staff",
+                "summary": "Email a stored digest to the configured recipients.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.socialAnalytics.sendDigest"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "DELETE",
+                "path": "/digests/:id",
+                "absolutePath": "/api/v1/social-analytics/digests/:id",
+                "auth": "staff",
+                "summary": "Delete a stored digest.",
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.socialAnalytics.deleteDigest"
+                ],
+                "sdkStatus": "method"
+            },
+            {
+                "method": "GET",
+                "path": "/digests/:id/email",
+                "absolutePath": "/api/v1/social-analytics/digests/:id/email",
+                "auth": "staff",
+                "summary": "The digest rendered as its email (HTML page) — `format` full|summary (default: the settings format).",
+                "raw": true,
+                "input": {
+                    "params": [
+                        {
+                            "name": "id",
+                            "type": "string<uuid>",
+                            "required": true
+                        }
+                    ],
+                    "query": [
+                        {
+                            "name": "format",
+                            "type": "'full' | 'summary'",
+                            "required": false
+                        }
+                    ]
+                },
+                "sdk": [
+                    "cms.socialAnalytics.digestEmailUrl"
+                ],
+                "sdkStatus": "method"
             }
         ]
     },
@@ -19503,4 +19687,4 @@ export const API_MODULES: ApiModuleDoc[] = [
 ];
 
 export const API_MODULE_COUNT = 63;
-export const API_ROUTE_COUNT = 674;
+export const API_ROUTE_COUNT = 682;

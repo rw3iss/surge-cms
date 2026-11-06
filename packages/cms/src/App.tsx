@@ -61,6 +61,9 @@ const AdminSocialPosts = lazy(() => import('./pages/admin/social/SocialPostsPane
 const AdminSocialCompose = lazy(() => import('./pages/admin/social/SocialComposePanel'));
 const AdminSocialConfiguration = lazy(() => import('./pages/admin/social/SocialConfigurationPanel'));
 const AdminSocialAnalytics = lazy(() => import('./pages/admin/social/SocialAnalyticsPanel'));
+const AdminSocialDigests = lazy(() => import('./pages/admin/social/analytics/DigestsPage'));
+const AdminSocialDigestView = lazy(() => import('./pages/admin/social/analytics/DigestView'));
+const AdminSocialAnalyticsSettings = lazy(() => import('./pages/admin/social/analytics/AnalyticsSettingsPage'));
 const AdminMailingLists = lazy(() => import('./pages/admin/MailingLists'));
 const AdminMailingListEdit = lazy(() => import('./pages/admin/MailingListEdit'));
 const AdminMailingListsSettings = lazy(() => import('./pages/admin/MailingListsSettings'));
@@ -279,6 +282,9 @@ const App: Component = () => {
 										<Route path="/social" component={AdminSocialHub}>
 											<Route path="/" component={AdminSocialPosts} />
 											<Route path="/analytics" component={AdminSocialAnalytics} />
+											<Route path="/analytics/digests" component={AdminSocialDigests} />
+											<Route path="/analytics/digests/:id" component={AdminSocialDigestView} />
+											<Route path="/analytics/settings" component={AdminSocialAnalyticsSettings} />
 											<Route path="/compose" component={AdminSocialCompose} />
 											<Route path="/configuration" component={AdminSocialConfiguration} />
 										</Route>

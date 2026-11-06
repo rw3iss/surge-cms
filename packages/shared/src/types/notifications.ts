@@ -121,6 +121,12 @@ export const NOTIFICATION_TYPES: NotificationTypeMeta[] = [
         feature: 'shop',
     },
     {
+        key: 'social_analytics_digest',
+        label: 'Social analytics digest',
+        description: 'When a scheduled analytics digest is ready (Social → Analytics → Settings). Email recipients here get the digest itself.',
+        feature: 'social',
+    },
+    {
         key: 'contribution_published',
         label: 'Contribution published',
         description: "When a contributor's post is approved and published (with the payout credited).",

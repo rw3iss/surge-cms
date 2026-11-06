@@ -10,7 +10,7 @@
  * `notify()` NEVER throws — it's an additive side-channel, so a failure
  * to notify must never break the originating request.
  */
-import type { NotificationSettings, } from '@sitesurge/types';
+import type { NotificationChannelId, NotificationSettings, } from '@sitesurge/types';
 import { query, } from '../../db';
 import { logger, } from '../../utils/logger';
 import { CHANNELS, shortForm, type NotificationMessage, } from './channels';
@@ -67,14 +67,16 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
  * No-op when the type has no config or every channel is disabled/empty.
  * NEVER throws.
  */
-export async function notify(typeKey: string, msg: NotificationMessage,): Promise<void> {
+export async function notify(typeKey: string, msg: NotificationMessage, opts: { skipChannels?: NotificationChannelId[]; } = {},): Promise<void> {
     try {
         const settings = await getNotificationSettings();
         const typeConfig = settings[typeKey];
         if (!typeConfig) return;
+        const skip = new Set(opts.skipChannels ?? [],);
 
         // Address channels: email, SMS.
         for (const channel of ['email', 'sms',] as const) {
+            if (skip.has(channel,)) continue;
             const channelConfig = typeConfig[channel];
             if (!channelConfig?.enabled) continue;
             const addresses = (channelConfig.addresses ?? []).map((a,) => a.trim()).filter(Boolean,);
@@ -87,12 +89,12 @@ export async function notify(typeKey: string, msg: NotificationMessage,): Promis
         }
 
         // User channels: in-app (+ desktop push to the same users).
-        if (typeConfig.inApp?.enabled && (await getNotificationOptions()).inAppEnabled) {
+        if (!skip.has('inApp',) && typeConfig.inApp?.enabled && (await getNotificationOptions()).inAppEnabled) {
             try {
                 const userIds = await inApp.recipientsFor(typeConfig.inApp,);
                 const f = shortForm(msg,);
                 await inApp.createFor(userIds, { type: typeKey, ...f, },);
-                if (typeConfig.push?.enabled) await push.sendTo(userIds, { ...f, tag: typeKey, },);
+                if (typeConfig.push?.enabled && !skip.has('push',)) await push.sendTo(userIds, { ...f, tag: typeKey, },);
             } catch (err) {
                 logger.error('In-app notification failed', { error: err, type: typeKey, },);
             }

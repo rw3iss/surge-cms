@@ -1,5 +1,12 @@
 import type {
     AiResult,
+    SocialAnalyticsDigestCreateBody,
+    SocialAnalyticsDigestResponse,
+    SocialAnalyticsDigestSendResponse,
+    SocialAnalyticsDigestsQuery,
+    SocialAnalyticsDigestSummary,
+    SocialAnalyticsSettingsBody,
+    SocialAnalyticsSettingsResponse,
     Paginated,
     SocialAnalyticsCollectorsResponse,
     SocialAnalyticsCollectResponse,
@@ -62,5 +69,44 @@ export class SocialAnalyticsModule extends ModuleBase {
     /** Run the collectors now (all ready ones, or the named platforms). */
     collect(platforms?: string[],): Promise<SocialAnalyticsCollectResponse> {
         return this.mutate('POST', '/social-analytics/collect', { body: platforms ? { platforms, } : {}, invalidates: ['social-analytics',], },);
+    }
+
+    /** Analytics settings: digest schedule, sections, email, retention. */
+    settings(): Promise<SocialAnalyticsSettingsResponse> {
+        return this.get('/social-analytics/settings',);
+    }
+
+    updateSettings(body: SocialAnalyticsSettingsBody,): Promise<SocialAnalyticsSettingsResponse> {
+        return this.mutate('PUT', '/social-analytics/settings', { body, invalidates: ['social-analytics',], },);
+    }
+
+    /** Stored digests, newest first (paginated). */
+    digests(query: SocialAnalyticsDigestsQuery = {},): Promise<Paginated<SocialAnalyticsDigestSummary>> {
+        return this.getPaged('/social-analytics/digests', { query: { ...query, }, },);
+    }
+
+    /** One digest with its full snapshot. */
+    digest(id: string,): Promise<SocialAnalyticsDigestResponse> {
+        return this.get('/social-analytics/digests/:id', { params: { id, }, },);
+    }
+
+    /** Generate a digest now (default: the last configured period); optionally email it. */
+    generateDigest(body: SocialAnalyticsDigestCreateBody = {},): Promise<SocialAnalyticsDigestResponse> {
+        return this.mutate('POST', '/social-analytics/digests', { body, invalidates: ['social-analytics',], },);
+    }
+
+    /** Email a stored digest to the configured recipients again. */
+    sendDigest(id: string,): Promise<SocialAnalyticsDigestSendResponse> {
+        return this.mutate('POST', '/social-analytics/digests/:id/send', { params: { id, }, invalidates: ['social-analytics',], },);
+    }
+
+    deleteDigest(id: string,): Promise<{ deleted: true; }> {
+        return this.mutate('DELETE', '/social-analytics/digests/:id', { params: { id, }, invalidates: ['social-analytics',], },);
+    }
+
+    /** URL of a digest's email rendering (HTML page; staff session). */
+    digestEmailUrl(id: string, format?: 'full' | 'summary',): string {
+        const qs = format ? `?format=${format}` : '';
+        return `${this.core.config.apiBase}/social-analytics/digests/${encodeURIComponent(id,)}/email` + qs;
     }
 }

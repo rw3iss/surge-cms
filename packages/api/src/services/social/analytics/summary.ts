@@ -76,7 +76,7 @@ export const ANALYTICS_POOL = 'analytics';
 export const NO_SESSION_MESSAGE = 'No AI session is available for the summary. Start the "analytics" pool (or the default pool) in '
     + 'Plugins → Claude Broker → Setup → Start sessions — or add an Anthropic API key in Settings → AI.';
 
-type Target = { ok: true; opts: { provider: 'broker' | 'anthropic'; pool?: string; }; } | { ok: false; error: string; };
+export type Target = { ok: true; opts: { provider: 'broker' | 'anthropic'; pool?: string; }; } | { ok: false; error: string; };
 
 /**
  * Where the summary runs: the broker's `analytics` pool when it has an attached
@@ -84,19 +84,20 @@ type Target = { ok: true; opts: { provider: 'broker' | 'anthropic'; pool?: strin
  * set up — else a clear "start a session" error instead of a job that would sit
  * in a queue nobody reads.
  */
-export function pickSummaryTarget(st: AiStatusResponse,): Target {
+export function pickSummaryTarget(st: AiStatusResponse, preferredPool: string = ANALYTICS_POOL,): Target {
     const pools = st.broker.reachable ? st.pools : [];
     const live = (name: string | null | undefined,) => Boolean(name) && pools.some((p,) => p.name === name && p.attached > 0);
-    if (live(ANALYTICS_POOL,)) return { ok: true, opts: { provider: 'broker', pool: ANALYTICS_POOL, }, };
+    if (live(preferredPool,)) return { ok: true, opts: { provider: 'broker', pool: preferredPool, }, };
+    if (preferredPool !== ANALYTICS_POOL && live(ANALYTICS_POOL,)) return { ok: true, opts: { provider: 'broker', pool: ANALYTICS_POOL, }, };
     if (live(st.broker.defaultPool,)) return { ok: true, opts: { provider: 'broker', pool: st.broker.defaultPool!, }, };
     const anthropic = st.providers.find((p,) => p.key === 'anthropic');
     if (anthropic?.available) return { ok: true, opts: { provider: 'anthropic', }, };
     return { ok: false, error: NO_SESSION_MESSAGE, };
 }
 
-async function summaryTarget(): Promise<Target> {
+export async function summaryTarget(preferredPool?: string,): Promise<Target> {
     try {
-        return pickSummaryTarget(await ai.status(),);
+        return pickSummaryTarget(await ai.status(), preferredPool,);
     } catch (e) {
         return { ok: false, error: `${NO_SESSION_MESSAGE} (${(e as Error).message})`, };
     }

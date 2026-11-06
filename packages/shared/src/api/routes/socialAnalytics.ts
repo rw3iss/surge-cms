@@ -2,6 +2,9 @@
  * /social-analytics — collected social account + post analytics (staff).
  */
 import type {
+    SocialAnalyticsDigest,
+    SocialAnalyticsDigestSummary,
+    SocialAnalyticsSettings,
     SocialAnalyticsOverview,
     SocialAnalyticsRun,
     SocialCollectorStatus,
@@ -62,3 +65,33 @@ export type SocialAnalyticsRunsResponse = SocialAnalyticsRun[];
 
 /** AI summary of a period — answered by the AI module (an `AiResult`). */
 export type SocialAnalyticsSummaryBody = SocialAnalyticsRangeQuery;
+
+// ─── Settings + digests ─────────────────────────────────────────────────────
+
+export type SocialAnalyticsSettingsResponse = SocialAnalyticsSettings;
+/** Partial update: `digest` / `email` objects are merged field by field. */
+export interface SocialAnalyticsSettingsBody {
+    digest?: Partial<SocialAnalyticsSettings['digest']>;
+    email?: Partial<SocialAnalyticsSettings['email']>;
+    retentionDays?: number | null;
+}
+
+export interface SocialAnalyticsDigestsQuery {
+    page?: number;
+    limit?: number;
+}
+export type SocialAnalyticsDigestsResponse = SocialAnalyticsDigestSummary[];
+export type SocialAnalyticsDigestResponse = SocialAnalyticsDigest;
+
+export interface SocialAnalyticsDigestCreateBody {
+    /** Period (default: the last period of the configured frequency, ending yesterday). */
+    from?: string;
+    to?: string;
+    /** Also email it to the configured recipients. */
+    email?: boolean;
+}
+
+export interface SocialAnalyticsDigestSendResponse {
+    sent: number;
+    recipients: string[];
+}

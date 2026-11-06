@@ -10551,6 +10551,93 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 ]
             },
             {
+                "name": "deleteDigest",
+                "signature": "deleteDigest(id: string): Promise<{ deleted: true; }>",
+                "summary": "",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<{ deleted: true; }>",
+                "routes": [
+                    "DELETE /api/v1/social-analytics/digests/:id"
+                ]
+            },
+            {
+                "name": "digest",
+                "signature": "digest(id: string): Promise<SocialAnalyticsDigestResponse>",
+                "summary": "One digest with its full snapshot.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<SocialAnalyticsDigestResponse>",
+                "routes": [
+                    "GET /api/v1/social-analytics/digests/:id"
+                ]
+            },
+            {
+                "name": "digestEmailUrl",
+                "signature": "digestEmailUrl(id: string, format?: 'full' | 'summary'): string",
+                "summary": "URL of a digest's email rendering (HTML page; staff session).",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    },
+                    {
+                        "name": "format",
+                        "type": "'full' | 'summary'",
+                        "optional": true
+                    }
+                ],
+                "returns": "string",
+                "routes": [
+                    "GET /api/v1/social-analytics/digests/:id/email"
+                ]
+            },
+            {
+                "name": "digests",
+                "signature": "digests(query: SocialAnalyticsDigestsQuery = {}): Promise<Paginated<SocialAnalyticsDigestSummary>>",
+                "summary": "Stored digests, newest first (paginated).",
+                "params": [
+                    {
+                        "name": "query",
+                        "type": "SocialAnalyticsDigestsQuery",
+                        "optional": true,
+                        "default": "{}"
+                    }
+                ],
+                "returns": "Promise<Paginated<SocialAnalyticsDigestSummary>>",
+                "routes": [
+                    "GET /api/v1/social-analytics/digests"
+                ]
+            },
+            {
+                "name": "generateDigest",
+                "signature": "generateDigest(body: SocialAnalyticsDigestCreateBody = {}): Promise<SocialAnalyticsDigestResponse>",
+                "summary": "Generate a digest now (default: the last configured period); optionally email it.",
+                "params": [
+                    {
+                        "name": "body",
+                        "type": "SocialAnalyticsDigestCreateBody",
+                        "optional": true,
+                        "default": "{}"
+                    }
+                ],
+                "returns": "Promise<SocialAnalyticsDigestResponse>",
+                "routes": [
+                    "POST /api/v1/social-analytics/digests"
+                ]
+            },
+            {
                 "name": "overview",
                 "signature": "overview(query: SocialAnalyticsOverviewQuery = {}): Promise<SocialAnalyticsOverviewResponse>",
                 "summary": "Per-platform totals for a period (default: the last 28 days).",
@@ -10624,6 +10711,22 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 ]
             },
             {
+                "name": "sendDigest",
+                "signature": "sendDigest(id: string): Promise<SocialAnalyticsDigestSendResponse>",
+                "summary": "Email a stored digest to the configured recipients again.",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<SocialAnalyticsDigestSendResponse>",
+                "routes": [
+                    "POST /api/v1/social-analytics/digests/:id/send"
+                ]
+            },
+            {
                 "name": "series",
                 "signature": "series(query: SocialAnalyticsSeriesQuery): Promise<SocialAnalyticsSeriesResponse>",
                 "summary": "One daily series of a platform (followers, views, watchTimeMinutes, likes, …).",
@@ -10637,6 +10740,16 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "returns": "Promise<SocialAnalyticsSeriesResponse>",
                 "routes": [
                     "GET /api/v1/social-analytics/series"
+                ]
+            },
+            {
+                "name": "settings",
+                "signature": "settings(): Promise<SocialAnalyticsSettingsResponse>",
+                "summary": "Analytics settings: digest schedule, sections, email, retention.",
+                "params": [],
+                "returns": "Promise<SocialAnalyticsSettingsResponse>",
+                "routes": [
+                    "GET /api/v1/social-analytics/settings"
                 ]
             },
             {
@@ -10654,6 +10767,22 @@ export const SDK_MODULES: SdkModuleDoc[] = [
                 "returns": "Promise<AiResult>",
                 "routes": [
                     "POST /api/v1/social-analytics/summary"
+                ]
+            },
+            {
+                "name": "updateSettings",
+                "signature": "updateSettings(body: SocialAnalyticsSettingsBody): Promise<SocialAnalyticsSettingsResponse>",
+                "summary": "",
+                "params": [
+                    {
+                        "name": "body",
+                        "type": "SocialAnalyticsSettingsBody",
+                        "optional": false
+                    }
+                ],
+                "returns": "Promise<SocialAnalyticsSettingsResponse>",
+                "routes": [
+                    "PUT /api/v1/social-analytics/settings"
                 ]
             }
         ]
@@ -11384,4 +11513,4 @@ export const SDK_MODULES: SdkModuleDoc[] = [
 ];
 
 export const SDK_MODULE_COUNT = 58;
-export const SDK_METHOD_COUNT = 670;
+export const SDK_METHOD_COUNT = 678;

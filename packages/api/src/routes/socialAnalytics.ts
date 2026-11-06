@@ -4,8 +4,12 @@
  * collectors are run by the daily `social-analytics` cron or "Collect now".
  */
 import { z, } from 'zod';
+import type { Request, Response, } from 'express';
 import type {
     AssertCompatible,
+    SocialAnalyticsDigestCreateBody,
+    SocialAnalyticsDigestsQuery,
+    SocialAnalyticsSettingsBody,
     SocialAnalyticsCollectBody,
     SocialAnalyticsOverviewQuery,
     SocialAnalyticsPostsQuery,
@@ -44,6 +48,37 @@ const runsQuery = z.object({
     limit: z.coerce.number().int().min(1,).max(200,).optional(),
 },);
 type _AssertRuns = AssertCompatible<z.infer<typeof runsQuery>, SocialAnalyticsRunsQuery>;
+
+const settingsBody = z.object({
+    digest: z.object({
+        enabled: z.boolean(),
+        frequency: z.enum(['daily', 'weekly', 'monthly',],),
+        weekday: z.number().int(),
+        monthDay: z.number().int(),
+        hour: z.number().int(),
+        timezone: z.string().max(64,),
+        platforms: z.array(z.string().max(32,),).max(20,),
+        sections: z.array(z.enum(['totals', 'platforms', 'trends', 'topPosts', 'ai',],),).max(5,),
+        topPosts: z.number().int(),
+        aiPool: z.string().max(64,),
+    },).partial().optional(),
+    email: z.object({
+        enabled: z.boolean(),
+        format: z.enum(['full', 'summary',],),
+        recipients: z.array(z.string().max(254,),).max(100,),
+        recipientMode: z.enum(['augment', 'override',],),
+    },).partial().optional(),
+    retentionDays: z.number().int().min(1,).nullable().optional(),
+},) satisfies z.ZodType<SocialAnalyticsSettingsBody>;
+
+const digestsQuery = z.object({
+    page: z.coerce.number().int().min(1,).optional(),
+    limit: z.coerce.number().int().min(1,).max(100,).optional(),
+},);
+type _AssertDigests = AssertCompatible<z.infer<typeof digestsQuery>, SocialAnalyticsDigestsQuery>;
+
+const digestCreateBody = z.object({ from: day.optional(), to: day.optional(), email: z.boolean().optional(), },) satisfies z.ZodType<SocialAnalyticsDigestCreateBody>;
+const idParams = z.object({ id: z.string().uuid(), },);
 
 const VIEW = 'social.analytics:view';
 const MANAGE = 'social.analytics:manage';
@@ -120,6 +155,86 @@ export const socialAnalyticsRoutes = [
         handler: async ({ body, user, },) => {
             await permissions.requirePermission(viewerOf(user,), MANAGE,);
             return analytics.runCollection({ platforms: body.platforms, trigger: 'manual', },);
+        },
+    },),
+
+    // ─── Settings + digests ───
+    defineRoute({
+        method: 'get', path: '/settings', auth: 'staff',
+        summary: 'Analytics settings: digest schedule, sections, email, retention.',
+        handler: async ({ user, },) => {
+            await permissions.requirePermission(viewerOf(user,), VIEW,);
+            return analytics.getSettings();
+        },
+    },),
+    defineRoute({
+        method: 'put', path: '/settings', auth: 'staff',
+        summary: 'Update the analytics settings (digest / email objects merge field by field).',
+        input: { body: settingsBody, },
+        handler: async ({ body, user, audit, },) => {
+            await permissions.requirePermission(viewerOf(user,), MANAGE,);
+            return analytics.updateSettings(body, audit(),);
+        },
+    },),
+    defineRoute({
+        method: 'get', path: '/digests', auth: 'staff',
+        summary: 'Stored digests, newest first (paginated).',
+        input: { query: digestsQuery, },
+        handler: async ({ query, user, },) => {
+            await permissions.requirePermission(viewerOf(user,), VIEW,);
+            const r = await analytics.listDigests(query.page, query.limit,);
+            return reply(r.data, { meta: { page: r.page, limit: r.limit, total: r.total, totalPages: Math.max(1, Math.ceil(r.total / r.limit,),), }, },);
+        },
+    },),
+    defineRoute({
+        method: 'get', path: '/digests/:id', auth: 'staff',
+        summary: 'One digest with its stored snapshot.',
+        input: { params: idParams, },
+        handler: async ({ params, user, },) => {
+            await permissions.requirePermission(viewerOf(user,), VIEW,);
+            return analytics.getDigest(params.id,);
+        },
+    },),
+    defineRoute({
+        method: 'post', path: '/digests', auth: 'staff',
+        summary: 'Generate a digest now (default: the last configured period). Returns at once with status "generating" — poll it.',
+        input: { body: digestCreateBody, },
+        handler: async ({ body, user, },) => {
+            await permissions.requirePermission(viewerOf(user,), MANAGE,);
+            return analytics.generateDigest({ from: body.from, to: body.to, email: body.email, trigger: 'manual', createdBy: user?.id ?? null, wait: false, },);
+        },
+    },),
+    defineRoute({
+        method: 'post', path: '/digests/:id/send', auth: 'staff',
+        summary: 'Email a stored digest to the configured recipients.',
+        input: { params: idParams, },
+        handler: async ({ params, user, },) => {
+            await permissions.requirePermission(viewerOf(user,), MANAGE,);
+            return analytics.sendDigestEmail(await analytics.getDigest(params.id,),);
+        },
+    },),
+    defineRoute({
+        method: 'delete', path: '/digests/:id', auth: 'staff',
+        summary: 'Delete a stored digest.',
+        input: { params: idParams, },
+        handler: async ({ params, user, },) => {
+            await permissions.requirePermission(viewerOf(user,), MANAGE,);
+            return analytics.deleteDigest(params.id,);
+        },
+    },),
+    defineRoute({
+        method: 'get', path: '/digests/:id/email', auth: 'staff', raw: true,
+        summary: 'The digest rendered as its email (HTML page) — `format` full|summary (default: the settings format).',
+        input: { params: idParams, query: z.object({ format: z.enum(['full', 'summary',],).optional(), },), },
+        handler: async ({ params, query, user, res, }: { params: { id: string; }; query: { format?: 'full' | 'summary'; }; user?: { id?: string; role?: string; }; res: Response; req: Request; },) => {
+            await permissions.requirePermission(viewerOf(user as never,), VIEW,);
+            const digest = await analytics.getDigest(params.id,);
+            const format = query.format ?? (await analytics.getSettings()).email.format;
+            const html = await analytics.renderEmailFor(digest, format,);
+            res.setHeader('Content-Type', 'text/html; charset=utf-8',);
+            res.setHeader('Cache-Control', 'no-store',);
+            res.setHeader('X-Robots-Tag', 'noindex',);
+            res.send(html,);
         },
     },),
 ];

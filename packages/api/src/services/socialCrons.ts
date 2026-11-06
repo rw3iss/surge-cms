@@ -113,7 +113,8 @@ export const SOCIAL_CRONS = (): ProviderCronDef[] => [SOCIAL_SYNC_CRON, ...Objec
 export async function initSocialCrons(): Promise<void> {
     for (const def of SOCIAL_CRONS()) cronRegistry.register(def,);
     // Analytics: the daily collection + any collector's own jobs (token refresh, Stories sweep).
-    const { SOCIAL_ANALYTICS_CRON, listCollectors, } = await import('./socialAnalytics.js');
+    const { SOCIAL_ANALYTICS_CRON, SOCIAL_ANALYTICS_DIGEST_CRON, listCollectors, } = await import('./socialAnalytics.js');
     cronRegistry.register(SOCIAL_ANALYTICS_CRON,);
+    cronRegistry.register(SOCIAL_ANALYTICS_DIGEST_CRON,);
     for (const c of listCollectors()) for (const def of c.crons ?? []) cronRegistry.register(def,);
 }
