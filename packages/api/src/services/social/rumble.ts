@@ -45,10 +45,18 @@ export class RumbleFetchError extends Error {
     }
 }
 
+/**
+ * Rumble's own mirror host. rumble.com sits behind a Cloudflare challenge that
+ * answers datacenter IPs (our servers) with a 403 "Just a moment…" page; the
+ * same pages on wn0.rumble.com are served without it (checked 2026-11-07).
+ */
+const MIRROR_HOST = 'wn0.rumble.com';
+const FETCH_HOSTS = new Set([...RUMBLE_HOSTS, MIRROR_HOST,],);
+
 function onRumble(url: string,): boolean {
     try {
         const u = new URL(url,);
-        return u.protocol === 'https:' && RUMBLE_HOSTS.has(u.hostname.toLowerCase(),);
+        return u.protocol === 'https:' && FETCH_HOSTS.has(u.hostname.toLowerCase(),);
     } catch {
         return false;
     }
@@ -62,8 +70,30 @@ async function readCapped(res: Response,): Promise<string> {
     return text;
 }
 
-/** GET a rumble.com page; returns the final URL + body. Every redirect hop must stay on rumble.com. */
+/** A Cloudflare challenge page (403 "Just a moment…"), not a real refusal. */
+const isChallenge = (e: unknown,) => e instanceof RumbleFetchError && (e.status === 403 || e.status === 503);
+
+/**
+ * GET a rumble.com page; returns the final URL + body. A Cloudflare challenge on
+ * rumble.com is retried once on the mirror host (same path). The returned URL
+ * is always on rumble.com, so canonical channel URLs never point at the mirror.
+ */
 async function getPage(url: string,): Promise<{ url: string; html: string; }> {
+    try {
+        return await fetchPage(url,);
+    } catch (e) {
+        const u = new URL(url,);
+        if (!isChallenge(e,) || u.hostname === MIRROR_HOST) throw e;
+        u.hostname = MIRROR_HOST;
+        const page = await fetchPage(u.toString(),);
+        const back = new URL(page.url,);
+        if (back.hostname === MIRROR_HOST) back.hostname = 'rumble.com';
+        return { url: back.toString(), html: page.html, };
+    }
+}
+
+/** One fetch with hand-followed redirects; every hop must stay on a Rumble host. */
+async function fetchPage(url: string,): Promise<{ url: string; html: string; }> {
     let current = url;
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
         if (!onRumble(current,)) throw new RumbleFetchError('Rumble redirected off rumble.com', 0,);

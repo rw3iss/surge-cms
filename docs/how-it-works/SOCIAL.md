@@ -94,6 +94,8 @@ greys them out with a reason.
 
 ## Rumble (no official API)
 
+> **Cloudflare:** rumble.com answers datacenter IPs (our servers) with a 403 "Just a moment…" challenge. Page reads that hit it are retried once on Rumble's own mirror host `wn0.rumble.com` (same path, served without the challenge — checked 2026-11-07); saved URLs always stay on rumble.com. The Live Stream API is not challenged. If Rumble ever challenges the mirror too, the basic tier stops with a clear run warning.
+
 Rumble has **no** OAuth, developer or analytics API. The Rumble card (Social → Configuration)
 takes two things, neither of them a sign-in:
 
