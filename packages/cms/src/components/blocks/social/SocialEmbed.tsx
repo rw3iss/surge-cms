@@ -8,6 +8,7 @@ import {
 } from '@sitesurge/types';
 import { Component, createSignal, Match, onCleanup, Show, Switch, } from 'solid-js';
 import { attachYouTubePlayer, } from './playbackCoordinator';
+import { rumbleEmbedId, rumbleEmbedSrc, rumbleFacadeLabel, } from './rumbleFacade';
 import { needsThumbFallback, youtubeEmbedSrc, youtubeFacadeLabel, youtubeFallbackThumb, } from './youtubeFacade';
 import './SocialEmbed.scss';
 
@@ -42,6 +43,8 @@ interface SocialEmbedProps {
     showDate?: boolean;
     /** Publish date, when known (ISO string on the wire; a Date is accepted). */
     publishedAt?: string | Date;
+    /** Stored provider data (Rumble: `embedId`). */
+    rawData?: Record<string, unknown> | null;
 }
 
 const PLATFORM_COLORS: Record<SocialPlatform, string> = {
@@ -51,6 +54,7 @@ const PLATFORM_COLORS: Record<SocialPlatform, string> = {
     twitter: '#1da1f2',
     tiktok: '#000000',
     patreon: '#f96854',
+    rumble: '#85c742',
 };
 
 const PLATFORM_LABELS: Record<SocialPlatform, string> = {
@@ -60,6 +64,7 @@ const PLATFORM_LABELS: Record<SocialPlatform, string> = {
     twitter: 'X / Twitter',
     tiktok: 'TikTok',
     patreon: 'Patreon',
+    rumble: 'Rumble',
 };
 
 const SocialEmbed: Component<SocialEmbedProps> = (props,) => {
@@ -94,6 +99,13 @@ const SocialEmbed: Component<SocialEmbedProps> = (props,) => {
         queueMicrotask(() => el.isConnected && el.focus({ preventScroll: true, },),);
     };
 
+    // Rumble: the same facade, then rumble.com/embed/<v…>/ on tap.
+    const rbEmbedId = () => (props.platform === 'rumble' ? rumbleEmbedId(props.externalId, props.rawData?.embedId,) : null);
+    const rbLabel = () => rumbleFacadeLabel(props.content,);
+    const focusPlayer = (el: HTMLIFrameElement,) => {
+        queueMicrotask(() => el.isConnected && el.focus({ preventScroll: true, },),);
+    };
+
     const platformUrl = () => {
         switch (props.platform) {
             case 'youtube':
@@ -108,6 +120,8 @@ const SocialEmbed: Component<SocialEmbedProps> = (props,) => {
                 return props.mediaUrl || '#';
             case 'patreon':
                 return props.mediaUrl || '#';
+            case 'rumble':
+                return props.mediaUrl || (rbEmbedId() ? `https://rumble.com/embed/${rbEmbedId()}/` : '#');
             default:
                 return props.mediaUrl || '#';
         }
@@ -187,6 +201,44 @@ const SocialEmbed: Component<SocialEmbedProps> = (props,) => {
                                 referrerpolicy="strict-origin-when-cross-origin"
                                 title={ytLabel()}
                             />
+                            </Show>
+                        </div>
+                        <SocialMeta {...props} url={platformUrl()} display={display()} />
+                    </Match>
+
+                    {/* Rumble at full size: facade → player, like YouTube. */}
+                    <Match when={props.platform === 'rumble' && rbEmbedId()}>
+                        <div
+                            class={`social-embed__iframe-wrapper social-embed__iframe-wrapper--${
+                                props.mediaKind === 'short' ? '9x16' : '16x9'
+                            }`}
+                        >
+                            <Show
+                                when={playing()}
+                                fallback={
+                                    <button
+                                        type="button"
+                                        class="social-embed__yt-facade"
+                                        aria-label={`Play video: ${rbLabel()}`}
+                                        onClick={() => setPlaying(true,)}
+                                    >
+                                        <Show when={props.thumbnailUrl}>
+                                            <img class="social-embed__yt-thumb" src={props.thumbnailUrl} alt="" loading="lazy" decoding="async" />
+                                        </Show>
+                                        <span class="social-embed__yt-play social-embed__yt-play--rumble" aria-hidden="true" />
+                                    </button>
+                                }
+                            >
+                                <iframe
+                                    src={rumbleEmbedSrc(rbEmbedId()!,)}
+                                    ref={focusPlayer}
+                                    width="100%"
+                                    frameborder="0"
+                                    allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+                                    allowfullscreen
+                                    referrerpolicy="strict-origin-when-cross-origin"
+                                    title={rbLabel()}
+                                />
                             </Show>
                         </div>
                         <SocialMeta {...props} url={platformUrl()} display={display()} />

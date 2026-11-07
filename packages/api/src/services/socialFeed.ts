@@ -33,7 +33,7 @@ import { resolveEmbed, type ResolvedEmbed, } from './social/embed';
 import { publishPost, type PublishResult, } from './social/publish';
 
 export const VALID_PLATFORMS: SocialPlatform[] = [
-    'patreon', 'youtube', 'instagram', 'facebook', 'twitter', 'tiktok',
+    'patreon', 'youtube', 'instagram', 'facebook', 'twitter', 'tiktok', 'rumble',
 ];
 
 export interface SocialListResult {

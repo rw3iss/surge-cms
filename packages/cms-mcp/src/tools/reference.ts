@@ -52,7 +52,7 @@ const tools = [
         description:
             'List stored (synced) social posts to reference in a `social` block (see describe_block_types). Filter by `platform`. Returns { data, meta }; each row is { id, platform, externalId, content?, mediaUrl?, publishedAt }. NOTE: the SDK\'s SocialPost has no single canonical permalink field — the source URL, when present, lives in `rawData`; this tool surfaces the stable id + platform + externalId (what the social block wires against) plus content/media for identification.',
         inputSchema: {
-            platform: z.string().optional().describe('Platform filter, e.g. "youtube", "instagram", "x", "facebook", "tiktok", "patreon".',),
+            platform: z.string().optional().describe('Platform filter, e.g. "youtube", "instagram", "x", "facebook", "tiktok", "patreon", "rumble".',),
             page: z.number().optional().describe('Page number (1-based).',),
             limit: z.number().optional().describe('Page size.',),
         },

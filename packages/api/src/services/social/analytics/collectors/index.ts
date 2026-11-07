@@ -6,3 +6,4 @@ import './twitter';
 import './tiktok';
 import './patreon';
 import './threads';
+import './rumble';

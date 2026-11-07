@@ -29,7 +29,8 @@ marks that day.
   the one-running-run index), so the cron, **Collect now** and other processes never collect the same
   platform at once. `collectNow()` (the HTTP "Collect now") answers after ≤ 50 s; collectors still
   working keep going in the background and come back as `running` runs (the admin says so and refreshes
-  a minute later).
+  a minute later). `storeDailySamples` is the one other write: sampled daily values that combine with
+  the stored one (`max` / `add` / `set`) — Rumble's 10-minute live samples.
 - `read.ts` — overview / series / posts / post history, all derived in SQL. `series` also returns
   `available`: the account metrics the platform has data for in the range — the Trend chart's metric
   list (labels, units and how each combines over a period come from `SOCIAL_METRICS` /
@@ -199,6 +200,23 @@ Two tiers. Status: **off** only with no X connection AND no X posts; free = **pa
 - Account: followers. Daily: views, likes, replies, reposts, quotes, clicks. Posts (last 90 days,
   stored in `social_posts` with `is_hidden = true` so they never reach a public feed): views,
   likes, replies, reposts + quotes.
+
+### Rumble (`collectors/rumble.ts` + `rumbleMapping.ts` pure; I/O `services/social/rumble.ts`, parser `rumbleParse.ts`, migration 216)
+
+No official API — both tiers read unofficial / owner sources (setup in SOCIAL.md → Rumble).
+Status: **off** with no channel and no Live Stream API URL; channel only = **partial** (says how to add
+the owner URL); both = **ready**. The two tiers are independent: a failing one is a run warning, the run
+fails only when every configured tier failed (`credentials.analyticsCapabilities`: `publicPage`,
+`liveApi`, `liveApiError`).
+
+| Tier | Needs | Collects |
+|---|---|---|
+| Basic | Channel URL / `@name` | Account: `followers` (the channel's count on its videos page). Videos: the newest ≤ 100 (≤ 4 pages; stops at 90 days once 25 are in) upserted into `social_posts` with views, likes (votes up), comments, shares (reposts); `raw`: dislikes, vote score, duration, Rumble plays (revenue only if Rumble ever shows it — a public page shows 0). |
+| Owner | + Live Stream API URL | Account `raw`: followers on all channels, paid subscribers, gifted subs. **Daily:** `paidSubscribers`, `giftedSubs` (levels), `newFollowers`, `newSubscribers` (counted per day from the **50 most recent** — complete days only, so a day with more than 50 is left out / undercounted). **Live** (`rumble-live` cron, every 10 min, does nothing without the URL or a live stream): `liveWatchingPeak` (max), `liveChatMessages`, `liveRants`, `liveRantsCents` (added per sample — only messages newer than the previous sample's newest; the API returns the latest 50, so a faster chat is undercounted), `liveLikes`, `liveDislikes` (last). Written as the day total (`dimension ''`) and per stream `live:<video id>` (matched by base-36 id, else same title within a day) or `live:<stream id>`. Sample state: `social_connections.settings.rumbleLive`. |
+
+- Older videos (past the ≤ 100 read) get no new rows: a public page offers no per-video lookup we may use.
+- The livestream `stream_key` is dropped when the answer is mapped and never stored.
+- Live values only exist while live, so a stream between two samples is missed.
 
 ## AI summary + export
 

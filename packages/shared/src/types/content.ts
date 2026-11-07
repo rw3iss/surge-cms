@@ -241,7 +241,8 @@ export type SocialPlatform =
     | 'instagram'
     | 'facebook'
     | 'twitter'
-    | 'tiktok';
+    | 'tiktok'
+    | 'rumble';
 
 export interface SocialPost {
     id: string;
@@ -266,7 +267,7 @@ export interface SocialPost {
     isHidden?: boolean;
     /** Manual ordering within a platform's feed (lower = earlier). */
     sortOrder?: number;
-    /** Content kind for providers that classify (YouTube: short | live | video). */
+    /** Content kind for providers that classify (YouTube, Rumble: short | live | video). */
     mediaKind?: 'short' | 'live' | 'video' | null;
     /**
      * Runtime in seconds, for providers that report one (YouTube).

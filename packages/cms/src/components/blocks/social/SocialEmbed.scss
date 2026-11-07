@@ -26,6 +26,7 @@
   &--twitter { border-top: 3px solid #1da1f2; }
   &--tiktok { border-top: 3px solid #000000; }
   &--patreon { border-top: 3px solid #f96854; }
+  &--rumble { border-top: 3px solid #85c742; }
 
   // Platform badge overlay
   &__badge {
@@ -778,4 +779,11 @@
   }
 
   .social-embed__yt-facade:hover & { background: #f00; transform: translate(-50%, -50%) scale(1.06); }
+}
+
+// Rumble reuses the YouTube facade (same sizing rules); only the button colour differs.
+.social-embed__yt-play--rumble {
+  background: rgba(133, 199, 66, 0.92);
+
+  .social-embed__yt-facade:hover & { background: #85c742; }
 }

@@ -10,6 +10,7 @@ const PLATFORMS = [
     { value: 'facebook', label: 'Facebook', },
     { value: 'tiktok', label: 'TikTok', },
     { value: 'patreon', label: 'Patreon', },
+    { value: 'rumble', label: 'Rumble', },
 ];
 /** Platforms that support free add-by-URL (oEmbed capture) today. */
 const MANUAL_ADD = new Set(['twitter',],);

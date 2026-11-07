@@ -8,7 +8,7 @@
 
 /** Platforms that can have an analytics collector (Threads is not a feed provider). */
 export type SocialAnalyticsPlatform =
-    | 'youtube' | 'instagram' | 'facebook' | 'tiktok' | 'twitter' | 'patreon' | 'threads';
+    | 'youtube' | 'instagram' | 'facebook' | 'tiktok' | 'twitter' | 'patreon' | 'threads' | 'rumble';
 
 /** Normalised per-post metric keys (columns of social_post_metrics). */
 export type SocialPostMetricKey =
@@ -64,7 +64,7 @@ export const SOCIAL_METRICS: Record<string, SocialMetricDefinition> = {
     followersGained: { key: 'followersGained', label: 'Followers gained', description: 'New followers on the day (Facebook: unique new follows).', unit: 'count', },
     followersLost: { key: 'followersLost', label: 'Followers lost', description: 'Unfollows on the day.', unit: 'count', },
     follows: { key: 'follows', label: 'Follows', description: 'Follow actions on the day (Facebook; a person who follows twice counts twice).', unit: 'count', },
-    newFollowers: { key: 'newFollowers', label: 'New followers', description: 'New followers on the day (Instagram, TikTok Business).', unit: 'count', },
+    newFollowers: { key: 'newFollowers', label: 'New followers', description: 'New followers on the day (Instagram, TikTok Business; Rumble counts them from its 50 most recent followers).', unit: 'count', },
     lostFollowers: { key: 'lostFollowers', label: 'Lost followers', description: 'Followers lost on the day (TikTok Business).', unit: 'count', },
     followersNet: { key: 'followersNet', label: 'Net followers', description: 'New minus lost followers on the day (TikTok Business).', unit: 'count', },
     followersTotal: { key: 'followersTotal', label: 'Followers (daily total)', description: 'The follower total the platform reports for that day (TikTok Business).', unit: 'count', aggregate: 'last', },
@@ -82,6 +82,16 @@ export const SOCIAL_METRICS: Record<string, SocialMetricDefinition> = {
     declinedPatrons: { key: 'declinedPatrons', label: 'Declined patrons', description: 'Members whose last payment was declined, on the day (Patreon).', unit: 'count', aggregate: 'last', },
     monthlyIncomeCents: { key: 'monthlyIncomeCents', label: 'Monthly income', description: 'Monthly amount pledged by active members, on the day (Patreon).', unit: 'cents', aggregate: 'last', },
     newPatrons: { key: 'newPatrons', label: 'New patrons', description: 'Members who joined on the day (Patreon).', unit: 'count', },
+    // ── Rumble (owner Live Stream API key) ──
+    paidSubscribers: { key: 'paidSubscribers', label: 'Paid subscribers', description: 'Paid channel subscribers on the day (Rumble, owner Live Stream API key).', unit: 'count', aggregate: 'last', },
+    newSubscribers: { key: 'newSubscribers', label: 'New subscribers', description: 'Paid subscribers who joined on the day (Rumble; counted from the 50 most recent, so a very busy day may undercount).', unit: 'count', },
+    giftedSubs: { key: 'giftedSubs', label: 'Gifted subs', description: 'Gifted subscriptions reported on the day (Rumble).', unit: 'count', aggregate: 'last', },
+    liveWatchingPeak: { key: 'liveWatchingPeak', label: 'Peak live viewers', description: 'Highest "watching now" seen during a live stream on the day (Rumble, sampled every 10 minutes).', unit: 'count', aggregate: 'last', },
+    liveChatMessages: { key: 'liveChatMessages', label: 'Live chat messages', description: 'Chat messages seen during live streams on the day (Rumble; sampled — the API returns the latest 50 per check).', unit: 'count', },
+    liveRants: { key: 'liveRants', label: 'Rants', description: 'Paid chat messages (Rants) during live streams on the day (Rumble).', unit: 'count', },
+    liveRantsCents: { key: 'liveRantsCents', label: 'Rants amount', description: 'Amount paid in Rants during live streams on the day (Rumble).', unit: 'cents', },
+    liveLikes: { key: 'liveLikes', label: 'Live likes', description: 'Likes on the live stream at its last check of the day (Rumble).', unit: 'count', aggregate: 'last', },
+    liveDislikes: { key: 'liveDislikes', label: 'Live dislikes', description: 'Dislikes on the live stream at its last check of the day (Rumble).', unit: 'count', aggregate: 'last', },
 };
 
 /** How a metric combines over a period (`sum` unless SOCIAL_METRICS says otherwise). */

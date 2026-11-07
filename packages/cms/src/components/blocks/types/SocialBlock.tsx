@@ -342,6 +342,7 @@ export const SocialBlock: Component<{ block: Block; }> = (props,) => {
                                     showAuthor={display().showAuthor}
                                     showDate={display().showDate}
                                     publishedAt={post.publishedAt}
+                                    rawData={post.rawData}
                                 />
                             )}
                         </For>

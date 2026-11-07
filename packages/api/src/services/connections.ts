@@ -23,7 +23,8 @@ import { mapRow, mapRows, } from '../utils/mapRow';
 import { uuidOrNull, } from '../utils/uuid';
 
 // 'threads' is an analytics-only connection (no feed sync / public rendering).
-export const VALID_PROVIDERS = ['instagram', 'facebook', 'tiktok', 'patreon', 'youtube', 'twitter', 'threads',];
+// 'rumble' has no OAuth: a public channel URL + an optional owner Live Stream API URL.
+export const VALID_PROVIDERS = ['instagram', 'facebook', 'tiktok', 'patreon', 'youtube', 'twitter', 'threads', 'rumble',];
 
 export interface UpsertConnectionInput {
     provider: string;
@@ -87,6 +88,11 @@ export function sanitizeCredentials(
     if (sanitized.businessRefreshToken) {
         sanitized.businessRefreshToken = '••••••••';
         sanitized.hasBusinessRefreshToken = true;
+    }
+    // Rumble: the owner's Live Stream API URL carries its key — the whole URL is the secret.
+    if (sanitized.liveApiUrl) {
+        sanitized.liveApiUrl = '••••••••';
+        sanitized.hasLiveApiUrl = true;
     }
     return sanitized;
 }
@@ -172,6 +178,8 @@ function hasUsableCredentials(provider: string, creds: Record<string, unknown>,)
         const hasChannel = Boolean(creds.channelId) || Boolean(config.social.youtube.channelId,);
         return hasCredential && hasChannel;
     }
+    // Rumble: the public channel (basic) or the owner Live Stream API URL.
+    if (provider === 'rumble') return Boolean(creds.channelUrl || creds.liveApiUrl,);
     // facebook / tiktok / patreon: an access token is enough.
     return Boolean(creds.accessToken,);
 }
@@ -226,6 +234,53 @@ async function resolveYouTubeChannel(
     };
 }
 
+/**
+ * Rumble on save: the channel field takes a URL, `@name` or `name`; it is
+ * resolved to the canonical `https://rumble.com/c/<name>` (written back) and
+ * the shown name refreshed — like YouTube's channel id. A lookup failure
+ * (network, Rumble down) never blocks the save; an unreadable INPUT does.
+ * The Live Stream API URL is checked to be a rumble.com /-livestream-api/ URL
+ * (SSRF guard) before it is stored.
+ */
+async function resolveRumbleOnSave(
+    creds: Record<string, unknown>,
+    incoming: Record<string, unknown>,
+): Promise<{ displayName?: string; accountId?: string; }> {
+    const { parseChannelInput, validateLiveApiUrl, } = await import('./social/rumbleParse.js');
+    if (typeof incoming.liveApiUrl === 'string') {
+        if (!incoming.liveApiUrl.trim()) {
+            delete creds.liveApiUrl;
+        } else {
+            const v = validateLiveApiUrl(incoming.liveApiUrl,);
+            if (!v.ok) throw new AppError(400, 'BAD_REQUEST', v.error,);
+            creds.liveApiUrl = v.url;
+            delete creds.analyticsCapabilities;
+        }
+    }
+    const typed = String(creds.channelUrl ?? '',).trim();
+    if (!typed) {
+        delete creds.channelUrl;
+        return {};
+    }
+    if (!parseChannelInput(typed,)) {
+        throw new AppError(400, 'BAD_REQUEST', 'Enter a Rumble channel URL (https://rumble.com/c/name), @name or name.',);
+    }
+    // Already canonical and unchanged: no lookup on every save.
+    if (typeof incoming.channelUrl !== 'string' && /^https:\/\/rumble\.com\/(?:c|user)\//.test(typed,)) return {};
+    const { resolveRumbleChannel, } = await import('./social/rumble.js');
+    const resolved = await resolveRumbleChannel(typed,).catch(() => null);
+    if (!resolved) {
+        logger.warn('rumble: could not resolve channel on save; leaving it as typed', { configured: typed, },);
+        return {};
+    }
+    creds.channelUrl = resolved.channelUrl;
+    // The card shows `@<name>`: the channel's URL name, not its title (which has spaces).
+    return {
+        displayName: decodeURIComponent(resolved.channelUrl.split('/',).pop() ?? '',) || undefined,
+        accountId: resolved.info?.id || undefined,
+    };
+}
+
 /** Create or update a connection's app credentials + publish settings.
  *  Merges new credentials over existing so saving app creds doesn't wipe
  *  issued tokens. */
@@ -254,6 +309,11 @@ export async function upsert(data: UpsertConnectionInput, userId: string,): Prom
     if (data.provider === 'youtube') {
         const resolved = await resolveYouTubeChannel(mergedCreds,);
         if (resolved.channelId) mergedCreds.channelId = resolved.channelId;
+        displayName = resolved.displayName;
+        accountId = resolved.accountId;
+    }
+    if (data.provider === 'rumble') {
+        const resolved = await resolveRumbleOnSave(mergedCreds, withoutMaskedValues(data.credentials,),);
         displayName = resolved.displayName;
         accountId = resolved.accountId;
     }
@@ -331,7 +391,7 @@ export async function disconnect(provider: string,): Promise<void> {
          SET is_connected = false,
              display_name = NULL,
              account_id = NULL,
-             credentials = credentials - 'accessToken' - 'tokenExpiresAt' - 'refreshToken' - 'pageAccessToken',
+             credentials = credentials - 'accessToken' - 'tokenExpiresAt' - 'refreshToken' - 'pageAccessToken' - 'liveApiUrl',
              last_synced_at = NULL,
              updated_at = NOW()
          WHERE provider = $1

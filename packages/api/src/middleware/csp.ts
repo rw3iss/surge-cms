@@ -28,13 +28,15 @@ export interface PluginCspOrigins {
 const EMPTY: PluginCspOrigins = { connectSrc: [], scriptSrc: [], styleSrc: [], imgSrc: [], frameSrc: [] };
 
 // Video / social embeds the CMS renders as <iframe>: the social block embeds
-// YouTube (`www.youtube.com/embed/…`), and the video block embeds arbitrary
+// YouTube (`www.youtube.com/embed/…`) and Rumble (`rumble.com/embed/v…/`, created
+// on tap from the facade), and the video block embeds arbitrary
 // YouTube/Vimeo URLs. Without these in frame-src the browser shows the embed as
 // "This content is blocked. Contact the site owner to fix the issue."
 const EMBED_FRAME_SRC = [
     'https://www.youtube.com',
     'https://www.youtube-nocookie.com',
     'https://player.vimeo.com',
+    'https://rumble.com',
 ];
 
 let pluginOrigins: PluginCspOrigins = EMPTY;

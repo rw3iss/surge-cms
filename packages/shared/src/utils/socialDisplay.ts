@@ -96,7 +96,7 @@ export function usesPlayer(
 ): boolean {
     if (opts.email) return false;
     if (mediaDisplay !== 'full') return false;
-    return platform === 'youtube';
+    return platform === 'youtube' || platform === 'rumble';
 }
 
 /**

@@ -2703,7 +2703,7 @@ export const API_MODULES: ApiModuleDoc[] = [
                     "body": [
                         {
                             "name": "provider",
-                            "type": "'instagram' | 'facebook' | 'tiktok' | 'patreon' | 'youtube' | 'twitter' | 'threads'",
+                            "type": "'instagram' | 'facebook' | 'tiktok' | 'patreon' | 'youtube' | 'twitter' | 'threads' | 'rumble'",
                             "required": true
                         },
                         {
@@ -2838,7 +2838,7 @@ export const API_MODULES: ApiModuleDoc[] = [
                     "params": [
                         {
                             "name": "provider",
-                            "type": "'instagram' | 'facebook' | 'tiktok' | 'patreon' | 'youtube' | 'twitter' | 'threads'",
+                            "type": "'instagram' | 'facebook' | 'tiktok' | 'patreon' | 'youtube' | 'twitter' | 'threads' | 'rumble'",
                             "required": true
                         }
                     ],
@@ -2885,14 +2885,14 @@ export const API_MODULES: ApiModuleDoc[] = [
                     "params": [
                         {
                             "name": "provider",
-                            "type": "'instagram' | 'facebook' | 'tiktok' | 'patreon' | 'youtube' | 'twitter' | 'threads'",
+                            "type": "'instagram' | 'facebook' | 'tiktok' | 'patreon' | 'youtube' | 'twitter' | 'threads' | 'rumble'",
                             "required": true
                         }
                     ],
                     "body": [
                         {
                             "name": "provider",
-                            "type": "'instagram' | 'facebook' | 'tiktok' | 'patreon' | 'youtube' | 'twitter' | 'threads'",
+                            "type": "'instagram' | 'facebook' | 'tiktok' | 'patreon' | 'youtube' | 'twitter' | 'threads' | 'rumble'",
                             "required": false
                         },
                         {

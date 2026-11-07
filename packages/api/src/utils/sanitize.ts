@@ -88,6 +88,7 @@ const ALLOWED_IFRAME_DOMAINS = [
     'www.tiktok.com',
     'tiktok.com',
     'player.vimeo.com',
+    'rumble.com',
 ];
 
 export function sanitize(html: string,): string {

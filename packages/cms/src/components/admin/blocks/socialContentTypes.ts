@@ -21,12 +21,12 @@ export const CONTENT_TYPE_OPTIONS: ReadonlyArray<{ value: string; label: string;
 /**
  * Does this provider classify its items?
  *
- * Only YouTube populates `media_kind`; every other provider stores NULL. So a
+ * Only YouTube and Rumble populate `media_kind`; every other provider stores NULL. So a
  * content-type filter shown for Instagram would not narrow a list, it would
  * empty it — `media_kind = 'video'` matches no row. The control is therefore
  * hidden rather than disabled: an operator cannot misread a control that is not
  * there, and there is nothing useful it could do.
  */
 export function providerClassifiesContent(provider: string | undefined,): boolean {
-    return provider === 'youtube';
+    return provider === 'youtube' || provider === 'rumble';
 }

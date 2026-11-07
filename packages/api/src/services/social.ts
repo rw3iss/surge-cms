@@ -20,6 +20,7 @@ const FEED_CACHE_TTL = 900; // 15 minutes
 // raw URL means a synced post's image dies once the signature expires. We instead
 // MIRROR the bytes into our own storage at sync time and persist that permanent URL.
 // TikTok covers (tiktokcdn.com / tiktokcdn-us.com) are signed too and expire within hours.
+// Rumble thumbnails (*.rumble.cloud) are plain, unsigned CDN paths — stable, so NOT mirrored.
 const EPHEMERAL_MEDIA_HOSTS = /(?:^|\.)(?:cdninstagram\.com|fbcdn\.net|tiktokcdn(?:-[a-z]+)?\.com)(?::|\/|$)|scontent/i;
 
 function mediaExtFromContentType(ct: string | null,): string {
@@ -82,6 +83,7 @@ export type { FetchedPost, } from './social/types';
 // shorts/live/full, and reads its credentials from the saved connection.
 // Imported (not just re-exported) because the provider registry below uses it.
 import { fetchYouTubeVideos, } from './social/youtube';
+import { fetchRumbleVideos, } from './social/rumble';
 
 export { fetchYouTubeVideos, };
 
@@ -289,6 +291,8 @@ const PROVIDERS: Partial<Record<SocialPlatform, SocialProvider>> = {
     },
     instagram: { fetch: fetchInstagramPosts, },
     facebook: { fetch: fetchFacebookPosts, },
+    // Public channel pages (no API) — see social/rumble.ts.
+    rumble: { fetch: fetchRumbleVideos, },
 };
 
 interface ConnectionSettings {
@@ -508,7 +512,7 @@ export async function syncSocialPosts(platform: SocialPlatform, force = false,):
 export async function syncAllPlatforms(force = false,): Promise<Record<SocialPlatform, number>> {
     const results: Partial<Record<SocialPlatform, number>> = {};
 
-    const platforms: SocialPlatform[] = ['youtube', 'twitter', 'instagram', 'facebook',];
+    const platforms: SocialPlatform[] = ['youtube', 'twitter', 'instagram', 'facebook', 'rumble',];
 
     for (const platform of platforms) {
         results[platform] = await syncSocialPosts(platform, force,);

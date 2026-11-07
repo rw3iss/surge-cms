@@ -158,6 +158,34 @@ export async function storeResult(
     return counts;
 }
 
+/**
+ * Write SAMPLED daily values that combine with what is already stored for the
+ * day (Rumble live stats, sampled every 10 minutes): `max` keeps the highest,
+ * `add` adds, `set` replaces. Outside the daily run, so no run row.
+ */
+export async function storeDailySamples(
+    platform: string,
+    points: Array<{ date: string; metric: string; value: number; dimension?: string; mode: 'max' | 'add' | 'set'; }>,
+): Promise<number> {
+    let n = 0;
+    await transaction(async (client,) => {
+        for (const p of points) {
+            if (!Number.isFinite(p.value,)) continue;
+            const combine = p.mode === 'max' ? 'GREATEST(social_account_daily.value, EXCLUDED.value)'
+                : p.mode === 'add' ? 'social_account_daily.value + EXCLUDED.value'
+                : 'EXCLUDED.value';
+            await client.query(
+                `INSERT INTO social_account_daily (platform, date, metric, dimension, value, collected_at)
+                 VALUES ($1, $2, $3, $4, $5, NOW())
+                 ON CONFLICT (platform, date, metric, dimension) DO UPDATE SET value = ${combine}, collected_at = NOW()`,
+                [platform, p.date, p.metric, p.dimension ?? '', p.value,],
+            );
+            n++;
+        }
+    },);
+    return n;
+}
+
 function mapRun(r: Record<string, any>,): SocialAnalyticsRun {
     return {
         id: r.id,

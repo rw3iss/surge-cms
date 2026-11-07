@@ -222,7 +222,7 @@ export const BLOCK_TYPE_CATALOG: BlockTypeSpec[] = [
         description: 'A social feed or hand-picked social posts for a provider.',
         container: 'settings',
         fields: [
-            { name: 'provider', type: 'enum', enum: ['instagram', 'facebook', 'tiktok', 'youtube', 'twitter',], required: true, description: 'Social provider.', },
+            { name: 'provider', type: 'enum', enum: ['instagram', 'facebook', 'tiktok', 'youtube', 'twitter', 'rumble',], required: true, description: 'Social provider.', },
             { name: 'items', type: 'array<SocialItem>', description: 'Pinned slots. Each: { id, postId?, postUrl?, thumbnailUrl?, content?, authorName? }. Empty = auto-feed.', },
             { name: 'count', type: 'number', default: 6, description: 'Number of slots (1-50).', },
             { name: 'layout', type: 'string', description: 'grid | 2-col | 1-col | row.', },

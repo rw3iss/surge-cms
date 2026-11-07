@@ -72,6 +72,8 @@ const PROVIDERS = [
     { id: 'patreon', name: 'Patreon', icon: 'PA', oauth: false, },
     { id: 'youtube', name: 'YouTube', icon: 'YT', oauth: false, },
     { id: 'twitter', name: 'Twitter/X', icon: 'TW', oauth: false, },
+    // No API sign-in: a public channel URL + an optional owner Live Stream API URL.
+    { id: 'rumble', name: 'Rumble', icon: 'RB', oauth: false, },
     // Analytics only: no feed sync, so no Sync now / auto-sync controls.
     { id: 'threads', name: 'Threads', icon: 'TH', oauth: true, analyticsOnly: true, },
 ];
@@ -97,6 +99,10 @@ const ConnectionsPanel: Component = () => {
     const [apiKey, setApiKey,] = createSignal('',);
     /** YouTube channel id — public, so a plain input rather than a SecretField. */
     const [channelId, setChannelId,] = createSignal('',);
+    /** Rumble channel (URL, @name or name — resolved on save) + the owner's secret Live Stream API URL. */
+    const [rumbleChannel, setRumbleChannel,] = createSignal('',);
+    const [rumbleLiveUrl, setRumbleLiveUrl,] = createSignal('',);
+    const [changingRumbleLive, setChangingRumbleLive,] = createSignal(false,);
     const [apiSecret, setApiSecret,] = createSignal('',);
     const [appId, setAppId,] = createSignal('',);
     const [appSecret, setAppSecret,] = createSignal('',);
@@ -159,6 +165,9 @@ const ConnectionsPanel: Component = () => {
         setChangingApiSecret(false,);
         setChangingAccessToken(false,);
         setChangingAccessSecret(false,);
+        setRumbleChannel('',);
+        setRumbleLiveUrl('',);
+        setChangingRumbleLive(false,);
         setConnError('',);
         setConnSuccess('',);
         setEditingProvider(providerId,);
@@ -266,6 +275,12 @@ const ConnectionsPanel: Component = () => {
                 if (appSecret().trim()) credentials.appSecret = appSecret().trim();
             }
             if (apiSecret()) credentials.apiSecret = apiSecret();
+            if (provider === 'rumble') {
+                if (rumbleChannel().trim()) credentials.channelUrl = rumbleChannel().trim();
+                // Typed → replace; "Change" then left empty → remove.
+                if (rumbleLiveUrl().trim()) credentials.liveApiUrl = rumbleLiveUrl().trim();
+                else if (changingRumbleLive()) credentials.liveApiUrl = '';
+            }
         }
 
         const data: Record<string, unknown> = {
@@ -299,6 +314,7 @@ const ConnectionsPanel: Component = () => {
             // server saves the resolved UC… id — keeping the draft would show
             // the handle and hide the resolution that just happened.
             setChannelId('',);
+            setRumbleChannel('',);
             refetch();
         } catch (e) {
             setConnError(e instanceof Error ? e.message : 'Failed to save',);
@@ -560,10 +576,52 @@ const ConnectionsPanel: Component = () => {
                                                     </Show>
                                                 </div>
                                             </Show>
+                                            <Show when={provider.id === 'rumble'}>
+                                                <p class="form-help">
+                                                    Rumble has no official API. With the channel alone, its public channel pages are read
+                                                    (no sign-in): followers and every recent video with views, likes, comments and reposts.
+                                                    Add your <strong>Live Stream API URL</strong> for paid subscribers, follower history and
+                                                    live-stream stats (viewers, chat, Rants).
+                                                </p>
+                                                <FormField
+                                                    label="Channel"
+                                                    hint="Channel URL (https://rumble.com/c/name), @name or name. It is looked up and saved as the channel URL."
+                                                >
+                                                    <input
+                                                        type="text"
+                                                        value={rumbleChannel() || String(conn()?.credentials?.channelUrl ?? '',)}
+                                                        onInput={(e,) => setRumbleChannel(e.currentTarget.value,)}
+                                                        placeholder="https://rumble.com/c/yourchannel"
+                                                    />
+                                                </FormField>
+                                                <SecretField
+                                                    label="Live Stream API URL (optional)"
+                                                    tooltip={
+                                                        <span>
+                                                            Signed in to Rumble as the channel owner, open{' '}
+                                                            <a href="https://rumble.com/account/livestream-api" target="_blank" rel="noopener noreferrer">
+                                                                rumble.com/account/livestream-api
+                                                            </a>
+                                                            , create a key and copy the whole URL. It works like a password: anyone with it can read your
+                                                            follower and subscriber lists, so it is stored as a secret and never shown again.
+                                                        </span>
+                                                    }
+                                                    value={rumbleLiveUrl}
+                                                    setValue={setRumbleLiveUrl}
+                                                    hasSaved={Boolean(conn()?.credentials?.hasLiveApiUrl,)}
+                                                    masked="https://rumble.com/-livestream-api/••••••••"
+                                                    changing={changingRumbleLive}
+                                                    setChanging={setChangingRumbleLive}
+                                                    placeholder="https://rumble.com/-livestream-api/get-data?key=…"
+                                                    help={changingRumbleLive() && conn()?.credentials?.hasLiveApiUrl
+                                                        ? 'Paste a new URL, or leave empty and Save to remove it.'
+                                                        : undefined}
+                                                />
+                                            </Show>
                                             <Show
                                                 when={provider.id === 'twitter'}
                                                 fallback={
-                                                    <Show when={!(provider.id === 'youtube' && googleSignedIn(conn(),))}>
+                                                    <Show when={provider.id !== 'rumble' && !(provider.id === 'youtube' && googleSignedIn(conn(),))}>
                                                     <>
                                                         <Show when={provider.id === 'youtube'}>
                                                             <h4 class="connection-card__subhead">Or use an API key (public videos only)</h4>

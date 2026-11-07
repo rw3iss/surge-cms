@@ -36,7 +36,7 @@ interface SocialItem {
     authorName?: string;
 }
 
-const PROVIDERS = ['instagram', 'facebook', 'tiktok', 'youtube', 'twitter',];
+const PROVIDERS = ['instagram', 'facebook', 'tiktok', 'youtube', 'twitter', 'rumble',];
 const LAYOUT_OPTIONS = [
     { value: 'grid', label: 'Grid (auto-fill)', },
     { value: '2-col', label: '2 Columns', },
@@ -128,7 +128,7 @@ const SocialBlock: Component<SocialBlockProps> = (props,) => {
                 </FormField>
 
                 {
-                    /* YouTube classifies its items, so an operator can pin the
+                    /* YouTube and Rumble classify their items, so an operator can pin the
                     block to Shorts / live / full videos. Other providers don't
                     report a kind, so the control would be a no-op there. */
                 }

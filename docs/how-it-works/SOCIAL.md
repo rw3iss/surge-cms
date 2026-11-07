@@ -86,10 +86,39 @@ test post, since X's access gates shift.
 
 ## Other providers
 
-Instagram / Facebook / YouTube use their existing OAuth/API connections and the
+Instagram / Facebook / YouTube use their existing OAuth/API connections (Rumble: public channel
+pages, see below) and the
 read-sync path (with media mirrored into local storage for IG/FB, whose CDN URLs
 expire). Compose/cross-post to these is not implemented yet — the Compose tab
 greys them out with a reason.
+
+## Rumble (no official API)
+
+Rumble has **no** OAuth, developer or analytics API. The Rumble card (Social → Configuration)
+takes two things, neither of them a sign-in:
+
+| Field | Required | What it does |
+|---|---|---|
+| **Channel** | yes (for videos) | Channel URL (`https://rumble.com/c/name`), `@name` or `name`. Looked up on save (`/c/<name>` then `/user/<name>`) and saved as the canonical URL; the card shows the channel title. |
+| **Live Stream API URL** | no | The owner's private URL from `rumble.com/account/livestream-api` (the key is in the URL). A **secret**: masked in `GET /connections`, never sent to the client, redacted from errors/logs. Must be `https://rumble.com/-livestream-api/…` (SSRF guard, 400 otherwise). Leave it empty after **Change** + Save to remove it. |
+
+- **Feed sync** (`services/social/rumble.ts` `fetchRumbleVideos`, the normal `social-sync` cron when
+  "Sync posts automatically" is on, or **Sync now**) reads the public page
+  `https://rumble.com/c/<name>/videos?page=N`: its `<rum-videos-grid>` JSON lists 25 videos per page
+  (title, thumbnail, date, duration, short / live, views, votes, comments, reposts). Each becomes a
+  `social_posts` row, platform `rumble`, `media_kind` video / short / live (so the Social block's
+  Content type filter works for Rumble too).
+- **Unofficial:** the page format can change. The parser (`rumbleParse.ts`) never throws — a missing
+  grid or bad JSON becomes a run warning / an empty sync, with "Rumble may have changed its page format".
+  robots.txt allows these pages; we never call `/api/` or `/l/` (oEmbed included).
+- **Polite:** one request at a time, 1.5 s between pages, 20 s timeout, ≤ 4 pages per read, redirects
+  followed by hand and only on rumble.com, a normal browser User-Agent.
+- **Thumbnails** are on `*.rumble.cloud` — plain, unsigned paths, so they are **not** mirrored
+  (unlike Instagram / Facebook / TikTok).
+- **Rendering:** a facade like YouTube (thumbnail + play button); the player iframe
+  `https://rumble.com/embed/v<base36 id>/` is created on tap. `rumble.com` is in the CSP `frame-src`
+  and the sanitizer's iframe hosts. Shorts use the 9:16 box.
+- Compose / publish to Rumble is not possible (no API).
 
 ## YouTube: API key vs "Sign in with Google"
 
