@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="md-to-html (pandoc)">
+<title>Social analytics — research: what each platform lets us pull</title>
+<style>
+/*
+ * md-to-html — default style. Every visual decision is a TOKEN (a CSS custom
+ * property on :root); the rules below only consume tokens. A project theme
+ * (.claude/md-to-html/theme.json) overrides tokens — see STYLE-SCHEMA.md.
+ * Dark mode: the --md-dark-* tokens apply under prefers-color-scheme: dark
+ * (or html[data-theme="dark"]); html[data-theme="light"] forces light.
+ */
+:root {
+  /* Typography */
+  --md-font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --md-font-heading: var(--md-font-body);
+  --md-font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+  --md-font-size: 16px;
+  --md-line-height: 1.65;
+  --md-heading-weight: 700;
+  --md-h1-size: 2.1rem;
+  --md-h2-size: 1.5rem;
+  --md-h3-size: 1.2rem;
+  --md-h4-size: 1.05rem;
+
+  /* Layout */
+  --md-max-width: 920px;
+  --md-space: 1rem;
+  --md-radius: 8px;
+  --md-toc-width: 260px;
+
+  /* Colors (light) */
+  --md-color-bg: #ffffff;
+  --md-color-text: #1f2328;
+  --md-color-muted: #59636e;
+  --md-color-heading: #0f1419;
+  --md-color-accent: #2f6feb;
+  --md-color-border: #d8dee4;
+  --md-color-surface: #f6f8fa;
+  --md-color-code-bg: #f3f4f6;
+  --md-color-code-text: #c2255c;
+  --md-color-quote-border: #c9d1d9;
+  --md-color-table-head: #f3f5f7;
+  --md-color-table-stripe: #fafbfc;
+  --md-color-mark: #fff3bf;
+
+  /* Colors (dark) */
+  --md-dark-color-bg: #0e1116;
+  --md-dark-color-text: #d6dde6;
+  --md-dark-color-muted: #8b96a5;
+  --md-dark-color-heading: #f0f3f6;
+  --md-dark-color-accent: #6ea8ff;
+  --md-dark-color-border: #2b323c;
+  --md-dark-color-surface: #161b22;
+  --md-dark-color-code-bg: #1b222c;
+  --md-dark-color-code-text: #ff8fb3;
+  --md-dark-color-quote-border: #3a4350;
+  --md-dark-color-table-head: #1a2029;
+  --md-dark-color-table-stripe: #12171e;
+  --md-dark-color-mark: #5c4b00;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) {
+    --md-color-bg: var(--md-dark-color-bg);
+    --md-color-text: var(--md-dark-color-text);
+    --md-color-muted: var(--md-dark-color-muted);
+    --md-color-heading: var(--md-dark-color-heading);
+    --md-color-accent: var(--md-dark-color-accent);
+    --md-color-border: var(--md-dark-color-border);
+    --md-color-surface: var(--md-dark-color-surface);
+    --md-color-code-bg: var(--md-dark-color-code-bg);
+    --md-color-code-text: var(--md-dark-color-code-text);
+    --md-color-quote-border: var(--md-dark-color-quote-border);
+    --md-color-table-head: var(--md-dark-color-table-head);
+    --md-color-table-stripe: var(--md-dark-color-table-stripe);
+    --md-color-mark: var(--md-dark-color-mark);
+  }
+}
+html[data-theme="dark"] {
+  --md-color-bg: var(--md-dark-color-bg);
+  --md-color-text: var(--md-dark-color-text);
+  --md-color-muted: var(--md-dark-color-muted);
+  --md-color-heading: var(--md-dark-color-heading);
+  --md-color-accent: var(--md-dark-color-accent);
+  --md-color-border: var(--md-dark-color-border);
+  --md-color-surface: var(--md-dark-color-surface);
+  --md-color-code-bg: var(--md-dark-color-code-bg);
+  --md-color-code-text: var(--md-dark-color-code-text);
+  --md-color-quote-border: var(--md-dark-color-quote-border);
+  --md-color-table-head: var(--md-dark-color-table-head);
+  --md-color-table-stripe: var(--md-dark-color-table-stripe);
+  --md-color-mark: var(--md-dark-color-mark);
+}
+
+/* ─── Page ─── */
+*, *::before, *::after { box-sizing: border-box; }
+html { font-size: var(--md-font-size); -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--md-color-bg);
+  color: var(--md-color-text);
+  font-family: var(--md-font-body);
+  line-height: var(--md-line-height);
+}
+.md-page {
+  display: flex;
+  gap: calc(var(--md-space) * 2.5);
+  justify-content: center;
+  padding: calc(var(--md-space) * 2.5) calc(var(--md-space) * 1.5) calc(var(--md-space) * 5);
+}
+.md-body { width: 100%; max-width: var(--md-max-width); min-width: 0; }
+
+/* ─── Table of contents (sidebar on wide screens, block on narrow) ─── */
+.md-toc {
+  flex: 0 0 var(--md-toc-width);
+  position: sticky;
+  top: var(--md-space);
+  align-self: flex-start;
+  max-height: calc(100vh - var(--md-space) * 2);
+  overflow-y: auto;
+  font-size: 0.85rem;
+  border-right: 1px solid var(--md-color-border);
+  padding-right: var(--md-space);
+}
+.md-toc__title {
+  margin: 0 0 calc(var(--md-space) * 0.5);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--md-color-muted);
+}
+.md-toc ul { list-style: none; margin: 0; padding: 0; }
+.md-toc li { margin: 0.15rem 0; }
+.md-toc li.md-toc--h3 { padding-left: 0.9rem; }
+.md-toc a { color: var(--md-color-muted); text-decoration: none; display: block; padding: 0.1rem 0; }
+.md-toc a:hover { color: var(--md-color-accent); }
+@media (max-width: 1100px) {
+  .md-page { flex-direction: column; align-items: center; }
+  .md-toc {
+    position: static; max-height: none; width: 100%; max-width: var(--md-max-width); flex-basis: auto;
+    border-right: 0; border: 1px solid var(--md-color-border); border-radius: var(--md-radius);
+    padding: var(--md-space); background: var(--md-color-surface);
+  }
+}
+
+/* ─── Headings ─── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--md-font-heading);
+  font-weight: var(--md-heading-weight);
+  color: var(--md-color-heading);
+  line-height: 1.25;
+  margin: calc(var(--md-space) * 2) 0 calc(var(--md-space) * 0.75);
+  scroll-margin-top: var(--md-space);
+}
+h1 { font-size: var(--md-h1-size); margin-top: 0; padding-bottom: calc(var(--md-space) * 0.5); border-bottom: 3px solid var(--md-color-accent); }
+h2 { font-size: var(--md-h2-size); padding-bottom: calc(var(--md-space) * 0.3); border-bottom: 1px solid var(--md-color-border); }
+h3 { font-size: var(--md-h3-size); }
+h4 { font-size: var(--md-h4-size); }
+h5, h6 { font-size: 0.95rem; color: var(--md-color-muted); }
+.md-anchor { margin-left: 0.4rem; color: var(--md-color-border); text-decoration: none; font-weight: 400; opacity: 0; }
+h1:hover .md-anchor, h2:hover .md-anchor, h3:hover .md-anchor, h4:hover .md-anchor { opacity: 1; }
+
+/* ─── Text ─── */
+p, ul, ol, dl, blockquote, pre, table, figure { margin: 0 0 var(--md-space); }
+a { color: var(--md-color-accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+strong { font-weight: 700; color: var(--md-color-heading); }
+mark { background: var(--md-color-mark); padding: 0 0.15em; border-radius: 3px; }
+hr { border: 0; border-top: 1px solid var(--md-color-border); margin: calc(var(--md-space) * 2) 0; }
+ul, ol { padding-left: 1.6rem; }
+li { margin: 0.25rem 0; }
+li > ul, li > ol { margin: 0.25rem 0 0; }
+li > p { margin: 0 0 0.4rem; }
+ul.contains-task-list, ul:has(> li > input[type="checkbox"]) { list-style: none; padding-left: 0.4rem; }
+li input[type="checkbox"] { margin-right: 0.45rem; }
+dt { font-weight: 700; }
+dd { margin: 0 0 0.5rem 1.2rem; }
+img { max-width: 100%; height: auto; border-radius: var(--md-radius); }
+sup, sub { line-height: 0; }
+
+/* ─── Quotes + callouts ─── */
+blockquote {
+  margin-left: 0;
+  padding: calc(var(--md-space) * 0.6) var(--md-space);
+  border-left: 4px solid var(--md-color-quote-border);
+  background: var(--md-color-surface);
+  border-radius: 0 var(--md-radius) var(--md-radius) 0;
+  color: var(--md-color-muted);
+}
+blockquote > :last-child { margin-bottom: 0; }
+
+/* ─── Code ─── */
+code, kbd, samp { font-family: var(--md-font-mono); font-size: 0.88em; }
+:not(pre) > code {
+  background: var(--md-color-code-bg);
+  color: var(--md-color-code-text);
+  padding: 0.12em 0.35em;
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+pre {
+  background: var(--md-color-code-bg);
+  border: 1px solid var(--md-color-border);
+  border-radius: var(--md-radius);
+  padding: var(--md-space);
+  overflow-x: auto;
+  line-height: 1.5;
+}
+pre code { background: none; color: inherit; padding: 0; font-size: 0.86rem; }
+kbd { border: 1px solid var(--md-color-border); border-bottom-width: 2px; border-radius: 4px; padding: 0.05em 0.35em; background: var(--md-color-surface); }
+
+/* ─── Tables ─── */
+.md-table-wrap { overflow-x: auto; margin: 0 0 var(--md-space); border: 1px solid var(--md-color-border); border-radius: var(--md-radius); }
+.md-table-wrap > table { margin: 0; }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+th, td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--md-color-border); text-align: left; vertical-align: top; }
+th { background: var(--md-color-table-head); font-weight: 700; color: var(--md-color-heading); white-space: nowrap; }
+tbody tr:nth-child(even) td { background: var(--md-color-table-stripe); }
+tbody tr:last-child td { border-bottom: 0; }
+td code, th code { white-space: normal; overflow-wrap: anywhere; }
+
+/* ─── Footnotes + footer ─── */
+.footnotes, section.footnotes { font-size: 0.88rem; color: var(--md-color-muted); border-top: 1px solid var(--md-color-border); margin-top: calc(var(--md-space) * 2); padding-top: var(--md-space); }
+.md-footer { margin-top: calc(var(--md-space) * 3); font-size: 0.78rem; color: var(--md-color-muted); }
+
+/* ─── Print ─── */
+@media print {
+  .md-toc { display: none; }
+  .md-page { padding: 0; }
+  .md-body { max-width: none; }
+  a { color: inherit; text-decoration: underline; }
+  pre, table, blockquote { break-inside: avoid; }
+  h1, h2, h3 { break-after: avoid; }
+}
+
+</style>
+</head>
+<body>
+<div class="md-page">
+<nav class="md-toc" aria-label="Contents"><p class="md-toc__title">Contents</p><ul><li class="md-toc--h2"><a href="#1-summary">1. Summary</a></li><li class="md-toc--h2"><a href="#2-your-example-stats--who-gives-what">2. Your example stats — who gives what</a></li><li class="md-toc--h2"><a href="#3-per-platform">3. Per platform</a></li><li class="md-toc--h3"><a href="#31-youtube--the-best-api">3.1 YouTube — the best API</a></li><li class="md-toc--h3"><a href="#32-instagram-business--creator-accounts">3.2 Instagram (Business / Creator accounts)</a></li><li class="md-toc--h3"><a href="#33-facebook-pages">3.3 Facebook Pages</a></li><li class="md-toc--h3"><a href="#34-threads-not-a-provider-yet--cheap-to-add">3.4 Threads (not a provider yet — cheap to add)</a></li><li class="md-toc--h3"><a href="#35-tiktok">3.5 TikTok</a></li><li class="md-toc--h3"><a href="#36-x-twitter">3.6 X (Twitter)</a></li><li class="md-toc--h3"><a href="#37-patreon">3.7 Patreon</a></li><li class="md-toc--h2"><a href="#4-data-we-cant-get--why-and-the-options">4. Data we can&#x27;t get — why, and the options</a></li><li class="md-toc--h2"><a href="#5-lessons-from-hootsuite-sprout-social-buffer-metricool-agorapulse-later">5. Lessons from Hootsuite, Sprout Social, Buffer, Metricool, Agorapulse, Later</a></li><li class="md-toc--h2"><a href="#6-recommended-design-for-our-build-to-turn-into-a-plan">6. Recommended design for our build (to turn into a plan)</a></li><li class="md-toc--h2"><a href="#7-account-setup-checklist-what-youll-need-to-do">7. Account setup checklist (what you&#x27;ll need to do)</a></li><li class="md-toc--h2"><a href="#8-sources">8. Sources</a></li></ul></nav>
+<main class="md-body">
+<h1 id="social-analytics--research-what-each-platform-lets-us-pull">Social analytics — research: what each platform lets us pull<a class="md-anchor" href="#social-analytics--research-what-each-platform-lets-us-pull" aria-label="Link to this section">#</a></h1>
+<p>Date: 2026-11-04 · Status: RESEARCH (no code yet) · Next step: a design/plan doc for the build.</p>
+<p>Goal: pull view + engagement analytics from every connected social account into the CMS, store them, show a cross-platform dashboard, and later let AI summarise and analyse them — our own build, informed by what Hootsuite / Sprout Social &amp; co. do.</p>
+<p>Sources are official developer docs unless noted; items the research could not confirm are marked <strong>(unverified)</strong> — check them against a live account before building on them.</p>
+<hr />
+<h2 id="1-summary">1. Summary<a class="md-anchor" href="#1-summary" aria-label="Link to this section">#</a></h2>
+<div class="md-table-wrap"><table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Can we get our own analytics?</th>
+<th>What it takes</th>
+<th>Cost</th>
+<th>Biggest gaps</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>YouTube</strong></td>
+<td><strong>Yes — the richest of all</strong> (views, watch time, avg view duration/%, subs gained/lost, likes, comments, shares, traffic sources, demographics, impressions + CTR)</td>
+<td>Add OAuth scope <code>yt-analytics.readonly</code> to our existing Google sign-in (owner re-consents); Google Cloud app "In production"</td>
+<td>Free</td>
+<td>~2-day data lag; no real-time; impressions/CTR only via the Reporting API (bulk CSV)</td>
+</tr>
+<tr>
+<td><strong>Instagram</strong></td>
+<td><strong>Yes</strong> (followers, reach, views, likes, comments, shares, saves, Reels avg/total watch time, profile visits, follows, demographics)</td>
+<td>Business or Creator account; "Instagram API with Instagram Login" + <code>instagram_business_manage_insights</code>; long-lived token refreshed every ~50 days</td>
+<td>Free</td>
+<td>Personal accounts: nothing. Follower history ≤ 30 days. Stories expire in 24 h. Demographics need ≥ 100 followers. No watch time on non-Reels.</td>
+</tr>
+<tr>
+<td><strong>Facebook Page</strong></td>
+<td><strong>Yes, shrinking</strong> (follows, unfollows, views, unique viewers, engagements, video views + view time, page views)</td>
+<td>Page token + <code>read_insights</code>, <code>pages_read_engagement</code></td>
+<td>Free</td>
+<td>Meta removed impressions, fan adds/removes etc. (Nov 2025, Jun 2026) — metric names churn yearly</td>
+</tr>
+<tr>
+<td><strong>Threads</strong> (not yet a provider)</td>
+<td><strong>Yes</strong> (views, likes, replies, reposts, quotes, clicks, followers, demographics)</td>
+<td><code>threads_basic</code> + <code>threads_manage_insights</code></td>
+<td>Free</td>
+<td>No watch time; data from mid-2024 on</td>
+</tr>
+<tr>
+<td><strong>TikTok</strong></td>
+<td><strong>Basic: yes. Deep: Business accounts only.</strong> Display API → followers, total likes, per-video views/likes/comments/shares. Business API → plus profile views, follower history (60 d), watch time, avg watch time, completion rate, reach, demographics</td>
+<td>Display API: app review of Login Kit scopes. Business API: TikTok for Business developer app approval + the creator switches to a (free) Business Account</td>
+<td>Free</td>
+<td>Saves (unverified); profile-level history only 60 days; app review gate</td>
+</tr>
+<tr>
+<td><strong>X (Twitter)</strong></td>
+<td><strong>Yes, paid</strong> (impressions, likes, reposts, replies, quotes, bookmarks, video views + playback quartiles, link/profile clicks, followers)</td>
+<td>Pay-per-use API credits (since Feb 2026); our existing OAuth 1.0a user-context signer</td>
+<td>**~<span class="math inline">$5/month** for our own account at "owned read" rates (≤ ~$</span>25 at standard rates)</td>
+<td>Non-public metrics only for posts &lt; 30 days old; no follower history, profile views or demographics</td>
+</tr>
+<tr>
+<td><strong>Patreon</strong></td>
+<td><strong>Partly</strong> (patrons, pledges/income per member, gained/lost via webhooks)</td>
+<td>OAuth v2 scopes <code>campaigns</code>, <code>campaigns.members</code>, <code>campaigns.posts</code>, <code>w:campaigns.webhook</code></td>
+<td>Free</td>
+<td><strong>No post views/likes/comments, no earnings history endpoint</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Three facts shape the whole design:</strong></p>
+<ol type="1">
+<li><strong>No platform keeps long history for us.</strong> Follower counts are "now" values almost everywhere (IG ≤ 30 days of deltas, TikTok 60 days, X none, Patreon none). Every competitor's #1 documented limitation is "data starts the day you connected". → <strong>Snapshot every account and every post DAILY from day one, into our own tables.</strong> Start this before building any UI.</li>
+<li><strong>Some data is only catchable while it's fresh</strong>: Instagram Stories (24 h), X non-public metrics (posts &lt; 30 days), YouTube Reporting API files (downloadable 60 days), TikTok profile metrics (60 days). The collectors must run on schedule, not on demand.</li>
+<li><strong>"Views" is not one unit.</strong> Meta replaced impressions/plays with <code>views</code> (2025), YouTube changed how a view counts twice (Shorts 2025, all formats Aug 2026), X counts impressions, TikTok counts plays. Store raw platform metrics; derive one normalised "Views" figure with a per-platform mapping and mark the dates where a platform changed its definition.</li>
+</ol>
+<hr />
+<h2 id="2-your-example-stats--who-gives-what">2. Your example stats — who gives what<a class="md-anchor" href="#2-your-example-stats--who-gives-what" aria-label="Link to this section">#</a></h2>
+<p>✅ via API · 🟡 partial / derived by us · ❌ not via API · $ paid API</p>
+<div class="md-table-wrap"><table>
+<thead>
+<tr>
+<th>Stat</th>
+<th>YouTube</th>
+<th>Instagram</th>
+<th>Facebook Page</th>
+<th>TikTok (Display / Business)</th>
+<th>X</th>
+<th>Patreon</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Follower count (now)</td>
+<td>✅ (rounded to 3 sig. figs)</td>
+<td>✅</td>
+<td>✅ <code>page_follows</code></td>
+<td>✅ / ✅</td>
+<td>$✅</td>
+<td>✅ <code>patron_count</code></td>
+</tr>
+<tr>
+<td>Followers gained / lost</td>
+<td>✅ per day <code>subscribersGained/Lost</code></td>
+<td>✅ <code>follows_and_unfollows</code> (≥100 followers)</td>
+<td>🟡 unfollows ✅, gains <code>page_daily_follows</code> (unverified)</td>
+<td>🟡 snapshot diff / ✅ (60 d)</td>
+<td>🟡 snapshot diff</td>
+<td>✅ via <code>members:*</code> webhooks or daily diff</td>
+</tr>
+<tr>
+<td>Views per post / video</td>
+<td>✅</td>
+<td>✅ <code>views</code></td>
+<td>✅ <code>post_media_view</code></td>
+<td>✅ / ✅</td>
+<td>$✅ <code>impression_count</code>, video <code>view_count</code></td>
+<td>❌</td>
+</tr>
+<tr>
+<td>Total views on platform</td>
+<td>✅</td>
+<td>🟡 sum of posts + account <code>views</code> per day</td>
+<td>✅ <code>page_media_view</code></td>
+<td>🟡 sum / ✅</td>
+<td>$🟡 sum</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>Avg views per video</td>
+<td>🟡 derived</td>
+<td>🟡 derived</td>
+<td>🟡 derived</td>
+<td>🟡 derived</td>
+<td>$🟡 derived</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>Likes per post</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ reactions</td>
+<td>✅ / ✅</td>
+<td>$✅</td>
+<td>❌ (v2 API has no post likes)</td>
+</tr>
+<tr>
+<td>Total likes on platform</td>
+<td>🟡 sum</td>
+<td>🟡 sum (account <code>likes</code> per day ✅)</td>
+<td>🟡 sum</td>
+<td>✅ <code>likes_count</code> / ✅</td>
+<td>$🟡 sum</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>Comments (counts)</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ / ✅</td>
+<td>$✅ replies</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>Shares / reposts</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ / ✅</td>
+<td>$✅ reposts + quotes</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>Saves / bookmarks</td>
+<td>❌ (playlist adds ✅)</td>
+<td>✅ <code>saved</code></td>
+<td>❌</td>
+<td>❌ / unverified</td>
+<td>$✅ bookmarks</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>Watch time (total)</td>
+<td>✅ <code>estimatedMinutesWatched</code></td>
+<td>✅ Reels only <code>ig_reels_video_view_total_time</code></td>
+<td>✅ <code>page_video_view_time</code></td>
+<td>❌ / ✅ <code>total_time_watched</code></td>
+<td>❌ (quartiles only)</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>Avg watch time / avg view %</td>
+<td>✅ <code>averageViewDuration</code>, <code>averageViewPercentage</code></td>
+<td>✅ Reels only <code>ig_reels_avg_watch_time</code></td>
+<td>🟡 post-level metric unverified</td>
+<td>❌ / ✅ <code>average_time_watched</code>, <code>full_video_watched_rate</code></td>
+<td>🟡 playback quartiles (25/50/75/100%)</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>Reach (unique viewers)</td>
+<td>🟡 <code>uniques</code></td>
+<td>✅ <code>reach</code></td>
+<td>✅ <code>*_total_media_view_unique</code></td>
+<td>❌ / ✅</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>Impressions + click-through</td>
+<td>✅ thumbnail impressions + CTR (Reporting API, since Jan 2026)</td>
+<td>🟡 <code>views</code> replaced impressions</td>
+<td>🟡 <code>media_view</code></td>
+<td>❌ / ✅ impression sources</td>
+<td>$✅ + link/profile clicks (&lt; 30 d)</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>Profile visits</td>
+<td>❌</td>
+<td>✅ per post <code>profile_visits</code> (account-level unverified)</td>
+<td>✅ <code>page_views_total</code></td>
+<td>❌ / ✅</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>Demographics (age/gender/country)</td>
+<td>✅</td>
+<td>✅ (≥ 100 followers)</td>
+<td>🟡 country/city (metric names in flux)</td>
+<td>❌ / ✅ countries, genders (age unverified)</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>Traffic sources / where views came from</td>
+<td>✅</td>
+<td>🟡 breakdown by follower / non-follower</td>
+<td>🟡 from ads / from followers</td>
+<td>❌ / ✅ impression sources</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>Best time to post (audience online)</td>
+<td>❌</td>
+<td>✅ <code>online_followers</code> (≥ 100 followers)</td>
+<td>❌</td>
+<td>❌ / ✅ <code>audience_activity</code></td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>Income</td>
+<td>✅ with monetary scope + Partner Program</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+<td>🟡 per-member amounts; no history endpoint</td>
+</tr>
+</tbody>
+</table></div>
+<p>Anything "🟡 derived" we compute from our own daily snapshots — so it only exists from the day collection starts.</p>
+<hr />
+<h2 id="3-per-platform">3. Per platform<a class="md-anchor" href="#3-per-platform" aria-label="Link to this section">#</a></h2>
+<h3 id="31-youtube--the-best-api">3.1 YouTube — the best API<a class="md-anchor" href="#31-youtube--the-best-api" aria-label="Link to this section">#</a></h3>
+<p><strong>What we have today:</strong> Data API v3 (API key, public data) + "Sign in with Google" with <code>youtube.readonly</code> and a refresh token (<code>services/oauth/google.ts</code>, <code>social/youtubeAuth.ts</code>).</p>
+<p><strong>Three APIs, use all three:</strong></p>
+<div class="md-table-wrap"><table>
+<thead>
+<tr>
+<th>API</th>
+<th>Gives</th>
+<th>Shape</th>
+<th>Latency / history</th>
+<th>Quota</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Data API v3</strong> (<code>channels.list</code>, <code>videos.list</code> <code>part=statistics</code>)</td>
+<td>subscriberCount (rounded), channel viewCount, videoCount; per video views, likes, comments (dislikes owner-only)</td>
+<td>current values only</td>
+<td>near real-time; no history</td>
+<td>10,000 units/day, 1 unit per call (50 videos per call)</td>
+</tr>
+<tr>
+<td><strong>Analytics API v2</strong> (<code>reports.query</code>, <code>ids=channel==MINE</code>)</td>
+<td><code>views</code>, <code>engagedViews</code>, <code>estimatedMinutesWatched</code>, <code>averageViewDuration</code>, <code>averageViewPercentage</code>, <code>likes</code>, <code>dislikes</code>, <code>comments</code>, <code>shares</code>, <code>subscribersGained/Lost</code>, playlist adds, card clicks, retention curves, live concurrents; dimensions day / video / country / traffic source / device / age / gender / content type (VIDEO / SHORTS / LIVE)</td>
+<td>per day, per video</td>
+<td>~48–72 h lag; history back to channel start</td>
+<td>per-query cost (numbers unverified) — a daily pull is small</td>
+</tr>
+<tr>
+<td><strong>Reporting API v1</strong> (bulk jobs)</td>
+<td>daily CSV files for every report type, incl. the <strong>reach reports</strong> (Jan 2026): <code>video_thumbnail_impressions</code>, <code>video_thumbnail_impressions_ctr</code></td>
+<td>one file per day</td>
+<td>~2 days; backfills 30 days before the job; files kept <strong>60 days</strong> — download them</td>
+<td>negligible</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Requirements</strong></p>
+<ul>
+<li>Add scope <strong><code>yt-analytics.readonly</code></strong> (keep <code>youtube.readonly</code>; Google now lists it as required for <code>reports.query</code> too). The channel owner re-consents once (incremental authorization). Revenue needs <code>yt-analytics-monetary.readonly</code> <strong>and</strong> a YouTube Partner Program channel — skip unless wanted.</li>
+<li>The signer must be the channel <strong>owner</strong> (for a Brand Account, pick the brand channel at consent). Managers without owner rights get nothing.</li>
+<li>Google Cloud OAuth consent screen must be <strong>"In production"</strong> — in "Testing" refresh tokens die after <strong>7 days</strong>. For our single-owner use the app can stay unverified (an "unverified app" warning at consent, ≤ 100 users); sensitive-scope verification is only needed for wider use.</li>
+</ul>
+<p><strong>Not available / caveats</strong></p>
+<ul>
+<li>No real-time analytics (use Data API snapshots for "live" counters).</li>
+<li>Subscriber count is rounded (3 significant figures) and hidden if the owner hides it.</li>
+<li>View definitions changed: Shorts views count every start/replay since 2025-03-31, and from 2026-08-24 views count from the first frame for all formats — <code>engagedViews</code> keeps the old meaning. Show both, and annotate the change dates on charts.</li>
+<li>Community posts: no analytics found. Traffic-detail rows capped at top 25.</li>
+<li>Workarounds: YouTube Studio CSV export (manual upload) for anything missing; scraping Studio is against the ToS — don't.</li>
+</ul>
+<h3 id="32-instagram-business--creator-accounts">3.2 Instagram (Business / Creator accounts)<a class="md-anchor" href="#32-instagram-business--creator-accounts" aria-label="Link to this section">#</a></h3>
+<p><strong>What we have today:</strong> <code>graph.facebook.com/v21.0/{ig-user-id}/media</code> with <code>like_count</code>, <code>comments_count</code> and a long-lived token. <strong>Move to a current Graph version</strong> — <code>views</code> doesn't exist in older ones.</p>
+<p><strong>Endpoints</strong></p>
+<ul>
+<li>Account: <code>GET /{ig-user-id}/insights</code> — <code>reach</code>, <code>views</code> (replaced <code>impressions</code>, removed 2025-04-21), <code>likes</code>, <code>comments</code>, <code>shares</code>, <code>saves</code>, <code>reposts</code>, <code>total_interactions</code>, <code>accounts_engaged</code>, <code>follows_and_unfollows</code>, <code>follower_count</code> (daily delta), <code>profile_links_taps</code>, <code>follower_demographics</code>, <code>engaged_audience_demographics</code>, <code>online_followers</code>. Plus <code>followers_count</code> on the user node (snapshot).</li>
+<li>Per media <code>GET /{ig-media-id}/insights</code>:
+<ul>
+<li>Feed: <code>views</code>, <code>reach</code>, <code>likes</code>, <code>comments</code>, <code>shares</code>, <code>saved</code>, <code>total_interactions</code>, <code>follows</code>, <code>profile_visits</code>, <code>profile_activity</code>, <code>reposts</code>.</li>
+<li><strong>Reels</strong>: the above + <strong><code>ig_reels_avg_watch_time</code></strong>, <strong><code>ig_reels_video_view_total_time</code></strong>, <code>reels_skip_rate</code>, <code>crossposted_views</code>, <code>facebook_views</code>.</li>
+<li>Stories: <code>views</code>, <code>reach</code>, <code>replies</code>, <code>shares</code>, <code>follows</code>, <code>profile_visits</code>, <code>link_clicks</code>, <code>navigation</code> — <strong>only for 24 hours</strong>.</li>
+</ul></li>
+</ul>
+<p><strong>Requirements</strong></p>
+<ul>
+<li>The account must be <strong>Business or Creator</strong> (a free switch in the app). Personal accounts get nothing.</li>
+<li>Use <strong>"Instagram API with Instagram Login"</strong> (no Facebook Page needed; <code>graph.instagram.com</code>): permissions <code>instagram_business_basic</code> + <code>instagram_business_manage_insights</code>. (The Facebook Login path needs the account linked to a Page + <code>instagram_manage_insights</code>, <code>pages_read_engagement</code>.)</li>
+<li><strong>Standard Access is enough</strong> for accounts we own and add to our own Meta app (app role / Instagram Tester) — no App Review or Business Verification needed for that. Advanced Access and review only matter if other people's accounts connect.</li>
+<li>Long-lived token = 60 days; refresh with <code>refresh_access_token</code> once it is ≥ 24 h old and before it lapses (a lapsed token can't be refreshed) → schedule at ~day 50.</li>
+<li>Rate limits: Business Use Case limits, far above a daily batch. Free.</li>
+</ul>
+<p><strong>Not available / caveats</strong></p>
+<ul>
+<li>Follower history: at most ~30 days of daily deltas (unverified exact window) → snapshot daily.</li>
+<li>Under 100 followers: no demographics, follower deltas or online-followers.</li>
+<li>Stories: capture within 24 h — subscribe to the <code>story_insights</code> webhook or poll every few hours while a story is live. Story metrics under 5 return an error.</li>
+<li>Watch time exists for <strong>Reels only</strong>. Carousel children have no insights.</li>
+<li>Data can lag up to 48 h. Metric names change (impressions → views); handle "invalid metric" per metric, never fail the whole pull.</li>
+<li>Backfill: Meta Business Suite CSV export (manual) for history before we started.</li>
+</ul>
+<h3 id="33-facebook-pages">3.3 Facebook Pages<a class="md-anchor" href="#33-facebook-pages" aria-label="Link to this section">#</a></h3>
+<p><strong>What we have today:</strong> <code>/{page-id}/posts</code> with reaction/comment/share summaries (needs no insights permission — keep it).</p>
+<p><strong>Endpoints</strong> (<code>GET /{page-id}/insights</code>, Page token):</p>
+<div class="md-table-wrap"><table>
+<thead>
+<tr>
+<th>Stat</th>
+<th>Metric</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Followers</td>
+<td><code>page_follows</code></td>
+</tr>
+<tr>
+<td>Unfollows / follows</td>
+<td><code>page_daily_unfollows_unique</code> / <code>page_daily_follows</code> (unverified)</td>
+</tr>
+<tr>
+<td>Views (was impressions)</td>
+<td><code>page_media_view</code> (breakdowns from ads / from followers)</td>
+</tr>
+<tr>
+<td>Unique viewers (was reach)</td>
+<td><code>page_total_media_view_unique</code></td>
+</tr>
+<tr>
+<td>Engagement</td>
+<td><code>page_post_engagements</code></td>
+</tr>
+<tr>
+<td>Video views / watch time</td>
+<td><code>page_video_views</code>, <code>page_video_view_time</code> (ms)</td>
+</tr>
+<tr>
+<td>Page visits</td>
+<td><code>page_views_total</code></td>
+</tr>
+<tr>
+<td>Per post</td>
+<td><code>post_media_view</code>, <code>post_total_media_view_unique</code> (+ the existing reactions/comments/shares)</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Requirements:</strong> <code>pages_read_engagement</code>, <code>read_insights</code>, <code>pages_show_list</code>; the token's user needs the ANALYZE task on the Page. Standard Access for our own Page. Free. Max 90 days per query.</p>
+<p><strong>Not available / caveats:</strong> Meta <strong>removed</strong> <code>page_fans</code>, <code>page_fan_adds/removes</code>, <code>page_impressions*</code>, <code>post_impressions*</code> (2025-11-15) and the <code>*_unique</code> impression variants (2026-06-15) — expect another purge every 6–12 months. Gross follower gains may be gone (only unfollows confirmed). Post-level watch-time metric names unverified — test on a live post. Demographic metric names are in flux (<code>page_follows_country/city</code>).</p>
+<h3 id="34-threads-not-a-provider-yet--cheap-to-add">3.4 Threads (not a provider yet — cheap to add)<a class="md-anchor" href="#34-threads-not-a-provider-yet--cheap-to-add" aria-label="Link to this section">#</a></h3>
+<p><code>/{threads-media-id}/insights</code>: <code>views</code>, <code>likes</code>, <code>replies</code>, <code>reposts</code>, <code>quotes</code>, <code>shares</code>; <code>/{threads-user-id}/threads_insights</code>: <code>views</code> (time series), <code>likes</code>, <code>replies</code>, <code>reposts</code>, <code>quotes</code>, <code>clicks</code>, <code>followers_count</code>, <code>follower_demographics</code> (≥ 100 followers). Scopes <code>threads_basic</code> + <code>threads_manage_insights</code>. Data from mid-2024 on. Same Meta app as Instagram.</p>
+<h3 id="35-tiktok">3.5 TikTok<a class="md-anchor" href="#35-tiktok" aria-label="Link to this section">#</a></h3>
+<p><strong>What we have today:</strong> listed as a provider, <strong>no fetcher</strong>.</p>
+<p><strong>Two products</strong></p>
+<div class="md-table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Display API (Login Kit)</th>
+<th>Business API ("Accounts" insights)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Account</td>
+<td>any TikTok account that authorizes us</td>
+<td><strong>TikTok Business Account</strong> (free switch in the app)</td>
+</tr>
+<tr>
+<td>Profile</td>
+<td><code>follower_count</code>, <code>following_count</code>, <code>likes_count</code>, <code>video_count</code> (scope <code>user.info.stats</code>)</td>
+<td>+ <code>profile_views</code>, follower count <strong>over time</strong> (≈ 60 days), audience countries / genders / activity by hour</td>
+</tr>
+<tr>
+<td>Per video</td>
+<td><code>view_count</code>, <code>like_count</code>, <code>comment_count</code>, <code>share_count</code>, duration, cover, link (<code>video.list</code>, 20 per page)</td>
+<td>+ <code>total_time_watched</code>, <strong><code>average_time_watched</code></strong>, <strong><code>full_video_watched_rate</code></strong>, reach, impression sources, per-video audience countries</td>
+</tr>
+<tr>
+<td>Approval</td>
+<td>app review of the scopes (sandbox with named test users until then)</td>
+<td>TikTok for Business developer app approved for Account Insights scopes (process / timing unverified)</td>
+</tr>
+<tr>
+<td>Latency</td>
+<td>current</td>
+<td>24–48 h</td>
+</tr>
+<tr>
+<td>Cost</td>
+<td>free</td>
+<td>free (no per-call fees documented)</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Not available / caveats:</strong> saves (unverified on Business); Display API has no watch time, reach, profile views or demographics; profile-level history only ~60 days → snapshot. The <strong>Research API</strong> (academics only) and <strong>Creator Marketplace API</strong> (brand campaigns) are not for us. Cover image URLs expire after 6 h → mirror them (we already mirror IG/FB media).</p>
+<p><strong>Workarounds:</strong> TikTok Studio / in-app analytics CSV export (manual upload). Aggregators (Phyllo, Ayrshare) wrap the same APIs at a cost — no extra data. Scraping public counts is against the ToS and brittle.</p>
+<h3 id="36-x-twitter">3.6 X (Twitter)<a class="md-anchor" href="#36-x-twitter" aria-label="Link to this section">#</a></h3>
+<p><strong>What we have today:</strong> manual paste-by-URL with free syndication hydration (public like/reply counts only); a working OAuth 1.0a user-context signer; paid read-sync opt-in.</p>
+<p><strong>Pricing (since 2026-02-06):</strong> pay-per-use credits, no subscription, spend cap per cycle. Post read $0.005; <strong>"owned reads" $0.001</strong> (reading your own account's data with an app owned by that same account); user read <span class="math inline">0.010; <em>s</em><em>a</em><em>m</em><em>e</em> − <em>d</em><em>a</em><em>y</em><em>r</em><em>e</em> − <em>r</em><em>e</em><em>a</em><em>d</em><em>s</em><em>b</em><em>i</em><em>l</em><em>l</em><em>e</em><em>d</em><em>o</em><em>n</em><em>c</em><em>e</em>; <em>c</em><em>a</em><em>p</em>3<em>M</em><em>p</em><em>o</em><em>s</em><em>t</em><em>r</em><em>e</em><em>a</em><em>d</em><em>s</em>/<em>m</em><em>o</em><em>n</em><em>t</em><em>h</em>. * *<em>O</em><em>u</em><em>r</em><em>c</em><em>o</em><em>s</em><em>t</em>: </span>5/month** reading our own ~150 recent posts daily at owned-read rates (~$25 at standard rates). The old Free/Basic/Pro tiers are gone or migrating.</p>
+<div class="md-table-wrap"><table>
+<thead>
+<tr>
+<th>Stat</th>
+<th>Field</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Likes, reposts, replies, quotes, bookmarks, impressions</td>
+<td><code>public_metrics</code> (<code>like_count</code>, <code>retweet_count</code>, <code>reply_count</code>, <code>quote_count</code>, <code>bookmark_count</code>, <code>impression_count</code>)</td>
+</tr>
+<tr>
+<td>Video views</td>
+<td>media <code>public_metrics.view_count</code></td>
+</tr>
+<tr>
+<td>Link clicks, profile clicks, engagements, video playback quartiles (0/25/50/75/100 %), organic vs promoted</td>
+<td><code>non_public_metrics</code> / <code>organic_metrics</code> — user-context auth, <strong>posts &lt; 30 days old only</strong></td>
+</tr>
+<tr>
+<td>Followers / following / posts / listed</td>
+<td><code>GET /2/users/:id</code> <code>public_metrics</code> — current only</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Not available:</strong> follower history (snapshot), profile views, demographics, average watch time (only quartiles). Workaround: analytics.x.com CSV export (manual; Premium gets more). Scraping is against the ToS and actively blocked.</p>
+<h3 id="37-patreon">3.7 Patreon<a class="md-anchor" href="#37-patreon" aria-label="Link to this section">#</a></h3>
+<p><strong>API v2</strong> (OAuth, creator token): campaign <code>patron_count</code>; members with <code>patron_status</code>, <code>currently_entitled_amount_cents</code>, <code>campaign_lifetime_support_cents</code>, pledge history; posts (<code>title</code>, <code>is_paid</code>, <code>published_at</code>, tiers) — <strong>no views, likes or comments on posts</strong>. Webhooks: <code>members:create|update|delete</code>, <code>members:pledge:*</code>, <code>posts:publish|update|delete</code> (HMAC-MD5 signature). Rate limits 100 req / 2 s per client and 100 / min per token; send a User-Agent. Free.</p>
+<p><strong>Not available:</strong> post engagement, an earnings-over-time endpoint, patron-count history, the dashboard's "followers". → Snapshot <code>patron_count</code> + summed entitled amounts daily; count gained/lost from <code>members:*</code> webhooks; monthly income = sum of entitled amounts (an approximation — declines and refunds show only through <code>last_charge_status</code>). Creator dashboard CSV exports for history (columns unverified). The unofficial v1 internal API exposes post like/comment counts but is undocumented and against the spirit of the ToS — not recommended.</p>
+<hr />
+<h2 id="4-data-we-cant-get--why-and-the-options">4. Data we can't get — why, and the options<a class="md-anchor" href="#4-data-we-cant-get--why-and-the-options" aria-label="Link to this section">#</a></h2>
+<div class="md-table-wrap"><table>
+<thead>
+<tr>
+<th>Gap</th>
+<th>Why</th>
+<th>Recommended</th>
+<th>"Hackish" option (not recommended)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>History before we connect (all)</td>
+<td>Platforms only expose recent windows or current counts</td>
+<td><strong>Start daily snapshots now</strong>; one-time manual CSV import per platform (YouTube Studio, Meta Business Suite, TikTok Studio, X analytics, Patreon) into the same tables</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Instagram Stories after 24 h</td>
+<td>Insights vanish with the story</td>
+<td><code>story_insights</code> webhook + poll every 2–4 h while live</td>
+<td>—</td>
+</tr>
+<tr>
+<td>X non-public metrics after 30 days</td>
+<td>API restriction</td>
+<td>daily pull keeps the last value before day 30</td>
+<td>—</td>
+</tr>
+<tr>
+<td>TikTok watch time on a personal account</td>
+<td>Display API doesn't have it</td>
+<td>switch the account to Business (free) and use the Business API</td>
+<td>scraping — ToS violation</td>
+</tr>
+<tr>
+<td>Patreon post views / likes</td>
+<td>not in API v2</td>
+<td>treat Patreon as revenue + members, not reach</td>
+<td>internal v1 API / Apify scrapers — ToS risk, breaks without notice</td>
+</tr>
+<tr>
+<td>X / IG profile views, X demographics</td>
+<td>not exposed</td>
+<td>manual CSV upload</td>
+<td>browser automation of the analytics UI — ToS risk, account-ban risk</td>
+</tr>
+<tr>
+<td>Meta metric churn</td>
+<td>Meta deprecates metrics yearly</td>
+<td>per-metric adapter; store raw JSON; tolerate "invalid metric"</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div>
+<p>A <strong>manual CSV import</strong> screen (per platform, mapped to our metric names) is the honest, low-risk answer for every hole — the competitors' "since connected" problem with an escape hatch. Scraping/browser-automating the official dashboards is technically possible (a headless browser logged in as the owner, reading Studio pages) but violates every platform's terms, breaks on UI changes, and risks the account itself — not worth it for an account we depend on.</p>
+<hr />
+<h2 id="5-lessons-from-hootsuite-sprout-social-buffer-metricool-agorapulse-later">5. Lessons from Hootsuite, Sprout Social, Buffer, Metricool, Agorapulse, Later<a class="md-anchor" href="#5-lessons-from-hootsuite-sprout-social-buffer-metricool-agorapulse-later" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Everyone's #1 documented limitation is "data starts when you connected"</strong> (Hootsuite, Sprout, Buffer, Metricool). Sprout backfills ~2 years of Instagram post metrics but <em>not</em> follower counts; X: 1 year of posts, no audience backfill; Stories: never. → Confirms §1 fact 1.</li>
+<li><strong>Shared structure:</strong> a cross-network overview (audience, views, engagements, net growth) → per-profile report → per-post performance table → exports. Copy it.</li>
+<li><strong>Engagement rate has no standard.</strong> Hootsuite offers three denominators (reach / followers / impressions-views); its own example shows 5.21 % vs 1.25 % for the same post. Sprout defaults to per-impression. → Let the user pick the basis; always show the formula in a tooltip.</li>
+<li><strong>Net follower growth</strong> = gained − lost. Where a platform only gives a count (TikTok, Facebook, Threads), Sprout labels it "change in followers" — do the same.</li>
+<li><strong>Meta's views change:</strong> Sprout folded IG <code>views</code> into its cross-network "impressions" slot and kept old impressions only for pre-2025 periods. We'll name the unit "Views" and annotate the switch date instead of pretending they're the same.</li>
+<li><strong>AI summaries</strong> exist everywhere now (Sprout Trellis, Buffer AI Takeaways, Agorapulse, Hootsuite insight cards) — short narrative per report. Cheap for us to add on top of stored data.</li>
+<li><strong>Best time to post</strong> should come from <em>our own</em> post history (Later's approach); vendors' generic "best times" contradict each other.</li>
+<li><strong>Exports</strong>: CSV (summary + posts + timeseries, Buffer-style), PDF, scheduled email report.</li>
+<li><strong>Competitor tracking</strong> (public stats of other accounts, from the day added) is a common paid feature — possible later via public endpoints (YouTube Data API on any channel; others limited).</li>
+<li><strong>Pitfalls they document:</strong> mixing denominators silently; summing "impressions" across networks as one unit; treating Stories/TikTok as backfillable; hard-coding one Meta metric name; relying on X (Metricool even caps X retention at 30 days).</li>
+<li>Pricing context (unverified, per seat/month): Hootsuite $99–399, Sprout <span class="math inline">79–399 + <em>q</em><em>u</em><em>o</em><em>t</em><em>e</em> − <em>o</em><em>n</em><em>l</em><em>y</em><em>P</em><em>r</em><em>e</em><em>m</em><em>i</em><em>u</em><em>m</em><em>A</em><em>n</em><em>a</em><em>l</em><em>y</em><em>t</em><em>i</em><em>c</em><em>s</em>; <em>B</em><em>u</em><em>f</em><em>f</em><em>e</em><em>r</em><em>p</em><em>e</em><em>r</em><em>c</em><em>h</em><em>a</em><em>n</em><em>n</em><em>e</em><em>l</em>; <em>M</em><em>e</em><em>t</em><em>r</em><em>i</em><em>c</em><em>o</em><em>o</em><em>l</em> </span>20+/5 brands. Their paywalls sit on custom reports, competitor tracking and scheduled exports — the parts worth building well.</li>
+</ul>
+<hr />
+<h2 id="6-recommended-design-for-our-build-to-turn-into-a-plan">6. Recommended design for our build (to turn into a plan)<a class="md-anchor" href="#6-recommended-design-for-our-build-to-turn-into-a-plan" aria-label="Link to this section">#</a></h2>
+<p><strong>Principle:</strong> collectors write raw daily snapshots; everything you see is derived from our own tables. Platform APIs are only a source, never the store.</p>
+<ol type="1">
+<li><strong>Storage (new tables)</strong>
+<ul>
+<li><code>social_account_snapshots</code> — (connection, date, followers, following, posts count, total likes/views when the platform gives them, raw JSON). One row per account per day.</li>
+<li><code>social_account_daily</code> — (connection, date, metric, value, dimension?) for platform daily series (YouTube views/watch time/subs gained, IG reach/views, FB page metrics, TikTok Business profile metrics). Re-written for the last N days each run (YouTube revises ~3 days).</li>
+<li><code>social_post_metrics</code> — (social_post_id, date, views, likes, comments, shares, saves, watch_time_s, avg_watch_s, completion_rate, reach, impressions, clicks, raw JSON) — a daily snapshot per post for its first ~90 days, then weekly (cheap, and gives "views at day 7" comparisons).</li>
+<li><code>social_metric_definitions</code> — our normalised metric keys ↔︎ each platform's raw name + the date ranges where a definition changed (Meta views 2025-04-21, YouTube views 2025-03-31 / 2026-08-24) → chart annotations.</li>
+<li>Reuse <code>social_posts</code> (we already capture posts) and <code>social_connections</code> (tokens).</li>
+</ul></li>
+<li><strong>Collectors</strong> — one per provider behind ONE interface (<code>collectAccount</code>, <code>collectPosts</code>, <code>collectDaily</code>, optional <code>onWebhook</code>), registered like the shop providers; a daily <code>social-analytics</code> cron (primary only) + a 3-hourly Instagram Stories sweep; per-metric error tolerance; token refresh jobs (IG ~day 50, Google refresh token, TikTok refresh).
+<ul>
+<li>YouTube: Data API snapshot + Analytics API (last 5 days, day×video) + Reporting API reach jobs.</li>
+<li>Instagram: account insights + media insights (Feed/Reels/Stories) via Instagram Login.</li>
+<li>Facebook: page insights + post insights.</li>
+<li>TikTok: Display API now; Business API when approved.</li>
+<li>X: owned reads (opt-in, spend-capped setting) — keep paste-by-URL as the free mode.</li>
+<li>Patreon: daily campaign/member snapshot + <code>members:*</code> webhooks.</li>
+</ul></li>
+<li><strong>Derived metrics</strong> (computed in SQL from the snapshots): net follower change, avg views/likes per post, engagement rate (user-selected basis), watch-time averages, growth over period, top posts, per-platform and all-platform totals — each with a definition tooltip.</li>
+<li><strong>Dashboard</strong> (admin → Social → Analytics): cross-network overview → per-account tab → per-post table (sortable, filter by type: video / short / reel / story / post) → charts with "since connected" markers and definition-change annotations → CSV/PDF export → optional weekly email report (existing mail + notifications plumbing).</li>
+<li><strong>AI layer</strong> (later): a weekly/monthly summary built from the derived tables (top posts, what changed, anomalies, best times from our own history), stored per period and shown on the dashboard; ad-hoc "ask about my analytics" over the same tables.</li>
+<li><strong>Manual import</strong>: per-platform CSV upload mapped into the same tables, for history and gaps.</li>
+<li><strong>Permissions</strong>: <code>social.analytics:view</code> (staff) / <code>social.analytics:manage</code> (admin: collectors, X spend cap, imports).</li>
+</ol>
+<p><strong>Phasing suggestion:</strong> (1) snapshot tables + YouTube + Instagram + Facebook collectors (all free, largest value) → (2) dashboard + derived metrics → (3) TikTok Display + Patreon → (4) X owned reads, TikTok Business, Threads → (5) AI summaries, exports, email report, CSV import.</p>
+<hr />
+<h2 id="7-account-setup-checklist-what-youll-need-to-do">7. Account setup checklist (what you'll need to do)<a class="md-anchor" href="#7-account-setup-checklist-what-youll-need-to-do" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>YouTube:</strong> re-connect "Sign in with Google" once we add <code>yt-analytics.readonly</code>; make sure the Google Cloud OAuth consent screen is <strong>In production</strong> (else tokens die in 7 days); sign in with the account that <strong>owns</strong> the channel.</li>
+<li><strong>Instagram:</strong> confirm the account is <strong>Business or Creator</strong>; in our Meta app add the Instagram product with <strong>Instagram Login</strong>, add the account as a tester/app role, grant <code>instagram_business_basic</code> + <code>instagram_business_manage_insights</code>.</li>
+<li><strong>Facebook Page:</strong> Page token with <code>read_insights</code>, <code>pages_read_engagement</code>, <code>pages_show_list</code>; you need the Page's ANALYZE (or admin) role.</li>
+<li><strong>TikTok:</strong> create a TikTok developer app (Login Kit + Display API scopes <code>user.info.basic</code>, <code>user.info.stats</code>, <code>video.list</code>) and submit it for review; for watch time/demographics, switch the TikTok account to a <strong>Business Account</strong> and apply for TikTok for Business API access.</li>
+<li><strong>X:</strong> only if wanted — buy API credits in the X Developer Console with a monthly spend cap, from the <strong>same X account</strong> that will be read (owned-read pricing).</li>
+<li><strong>Patreon:</strong> register a v2 client with <code>campaigns</code>, <code>campaigns.members</code>, <code>campaigns.posts</code>, <code>w:campaigns.webhook</code>.</li>
+</ul>
+<hr />
+<h2 id="8-sources">8. Sources<a class="md-anchor" href="#8-sources" aria-label="Link to this section">#</a></h2>
+<p>YouTube — <a href="https://developers.google.com/youtube/analytics/metrics">Analytics metrics</a> · <a href="https://developers.google.com/youtube/analytics/dimensions">dimensions</a> · <a href="https://developers.google.com/youtube/analytics/channel_reports">channel reports</a> · <a href="https://developers.google.com/youtube/analytics/revision_history">revision history</a> · <a href="https://developers.google.com/youtube/reporting/v1/reports">Reporting API reports</a> · <a href="https://developers.google.com/youtube/reporting/v1/reports/channel_reports">channel report types</a> · <a href="https://developers.google.com/youtube/reporting/guides/authorization">authorization</a> · <a href="https://developers.google.com/youtube/v3/docs/channels">Data API channels</a> / <a href="https://developers.google.com/youtube/v3/docs/videos">videos</a> · <a href="https://developers.google.com/youtube/v3/determine_quota_cost">quota costs</a> · <a href="https://developers.google.com/identity/protocols/oauth2#expiration">OAuth token expiration</a></p>
+<p>Meta — <a href="https://developers.facebook.com/docs/instagram-platform/api-reference/instagram-user/insights">IG user insights</a> · <a href="https://developers.facebook.com/docs/instagram-platform/reference/instagram-media/insights">IG media insights</a> · <a href="https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-instagram-login/business-login">Business Login for Instagram</a> · <a href="https://developers.facebook.com/docs/instagram-platform/reference/refresh_access_token/">refresh token</a> · <a href="https://developers.facebook.com/docs/graph-api/reference/page/insights/">Page insights</a> · <a href="https://developers.facebook.com/docs/pages-api/changelog/">Pages changelog</a> · <a href="https://developers.facebook.com/blog/post/2025/08/15/page-insights-api-updates/">Page Insights updates 2025-08-15</a> · <a href="https://developers.facebook.com/documentation/pages-api/platforminsights/page/deprecated-metrics">deprecated Page metrics</a> · <a href="https://developers.facebook.com/docs/threads/insights">Threads insights</a> · <a href="https://developers.facebook.com/docs/graph-api/overview/rate-limiting/">rate limiting</a></p>
+<p>TikTok — <a href="https://developers.tiktok.com/doc/tiktok-api-v2-get-user-info">user info</a> · <a href="https://developers.tiktok.com/doc/tiktok-api-v2-video-list">video list</a> · <a href="https://developers.tiktok.com/doc/tiktok-api-v2-video-object">video object</a> · <a href="https://business-api.tiktok.com/portal/docs/get-post-data-of-a-tiktok-account/v1.3">Business: post data</a> · <a href="https://business-api.tiktok.com/portal/docs/accounts-insights-data-latency/v1.3">Business: data latency</a> · <a href="https://business-api.tiktok.com/portal/docs/audience-insights/v1.3">Business: audience insights</a></p>
+<p>X — <a href="https://docs.x.com/x-api/getting-started/pricing">pricing</a> · <a href="https://docs.x.com/x-api/fundamentals/metrics">metrics</a></p>
+<p>Patreon — <a href="https://docs.patreon.com/">API docs</a></p>
+<p>Competitors — <a href="https://support.sproutsocial.com/hc/en-us/articles/213223226-How-do-I-use-the-Profile-Performance-Report">Sprout Profile Performance Report</a> · <a href="https://support.sproutsocial.com/hc/en-us/articles/360052331251-How-do-I-use-the-Post-Performance-Report">Sprout Post Performance Report</a> · <a href="https://support.sproutsocial.com/hc/en-us/articles/38269086191757-Troubleshooting-Metric-Discrepancies-Between-Sprout-Social-and-Native-Network-Reports">Sprout metric discrepancies</a> · <a href="https://blog.hootsuite.com/social-media-definitions/engagement-rate/">Hootsuite engagement rate</a> · <a href="https://help.hootsuite.com/hc/en-us/articles/4402023617563-Data-discrepancies-in-Analytics">Hootsuite data discrepancies</a> · <a href="https://www.hootsuite.com/platform/competitive-analysis">Hootsuite competitive analysis</a> · <a href="https://support.buffer.com/articles/getting-started-with-buffers-analytics-features-UVAe3hwLD8">Buffer analytics</a> · <a href="https://www.agorapulse.com/features/social-media-reporting/">Agorapulse reporting</a> · <a href="https://bloggingwizard.com/metricool-review/">Metricool review</a></p>
+
+<footer class="md-footer">Generated from 2026-11-04-social-analytics-research.md · 2026-11-04 18:01</footer>
+</main>
+</div>
+</body>
+</html>

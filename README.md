@@ -668,3 +668,14 @@ Set `CMS_MCP_READONLY=true` for a safe read-only server.
 ## Support
 
 For technical issues, open an issue or contact your maintainer. For content questions, refer to the Administrator Guide above.
+
+---
+
+## License
+
+1. Grant of License: The Author grants you a non-exclusive, non-transferable, personal license to view, download, and modify the source code solely for your own private, non-commercial use.
+2. Restrictions:
+   - You may not use this software, or any portion of it, for commercial purposes.
+   - You may not distribute, sublicense, rent, or lease the software or any modified versions (forks) thereof to any third party.
+   - Public hosting of modified versions (including public forks on GitHub) is strictly prohibited.
+3. No Warranty: The software is provided "as is", without warranty of any kind.
